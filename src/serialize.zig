@@ -31,6 +31,18 @@ pub const FlatMessage = struct {
     }
 };
 
+pub const FlatMessageView = struct {
+    /// Segment slices point into caller-owned serialized bytes. The caller must
+    /// keep those bytes alive while this view is used.
+    segments: []ConstSegment,
+    consumed_len: usize,
+
+    pub fn deinit(self: *FlatMessageView, allocator: std.mem.Allocator) void {
+        allocator.free(self.segments);
+        self.* = undefined;
+    }
+};
+
 pub fn computeSerializedSize(segments: []const ConstSegment) Error!usize {
     if (segments.len == 0) return error.EmptyMessage;
     if (segments.len > @as(usize, std.math.maxInt(u32)) + 1) return error.TooManySegments;
@@ -118,6 +130,27 @@ pub fn readFlatMessage(allocator: std.mem.Allocator, bytes: []const u8) Error!Fl
     return readOwnedFlatMessage(allocator, owned);
 }
 
+/// Parse a flat serialized message without copying message bytes. Segment
+/// slices point directly into `bytes`; only the segment slice table is
+/// allocated. Extra trailing data is allowed and reported via `consumed_len`.
+pub fn readFlatMessageView(allocator: std.mem.Allocator, bytes: []const u8) Error!FlatMessageView {
+    const expected_len = try expectedSize(bytes);
+    if (bytes.len < expected_len) return error.MessageTruncated;
+    const table = try parseSegmentTable(bytes[0..expected_len]);
+    const segments = try allocator.alloc(ConstSegment, table.segment_count);
+    errdefer allocator.free(segments);
+
+    var off = table.table_len;
+    for (0..table.segment_count) |idx| {
+        const words = readU32(bytes[4 + idx * 4 ..][0..4]);
+        const len = @as(usize, words) * wire.bytes_per_word;
+        segments[idx] = bytes[off .. off + len];
+        off += len;
+    }
+
+    return .{ .segments = segments, .consumed_len = expected_len };
+}
+
 /// Parse a packed Cap'n Proto stream message. The returned FlatMessage owns
 /// the unpacked flat bytes and its segment slices point into that allocation.
 pub fn readPackedMessage(allocator: std.mem.Allocator, packed_bytes: []const u8) Error!FlatMessage {
@@ -201,6 +234,26 @@ test "standard stream framing serializes single segment" {
     try testing.expectEqual(@as(usize, bytes.len), flat.consumed_len);
     try testing.expectEqual(@as(usize, 1), flat.segments.len);
     try testing.expectEqualSlices(u8, &segment, flat.segments[0]);
+}
+
+test "flat message view parses without copying segment bytes" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const segment = [_]u8{0x42} ** 16;
+    const trailer = [_]u8{ 0xde, 0xad, 0xbe, 0xef };
+    const segments = [_]ConstSegment{&segment};
+    const bytes = try messageToFlatBytes(allocator, &segments);
+    defer allocator.free(bytes);
+    const combined = try std.mem.concat(allocator, u8, &.{ bytes, &trailer });
+    defer allocator.free(combined);
+
+    var view = try readFlatMessageView(allocator, combined);
+    defer view.deinit(allocator);
+    try testing.expectEqual(bytes.len, view.consumed_len);
+    try testing.expectEqual(@as(usize, 1), view.segments.len);
+    try testing.expectEqualSlices(u8, &segment, view.segments[0]);
+    try testing.expectEqual(@intFromPtr(combined.ptr) + 8, @intFromPtr(view.segments[0].ptr));
 }
 
 test "standard stream framing serializes even segment count with padding" {

@@ -11,7 +11,7 @@ The implementation follows Cap'n Proto's published encoding and the C++ runtime 
 
 ## Performance direction
 
-- All readers are zero-copy over caller-provided byte slices.
+- Readers are zero-copy over caller-provided byte slices; `readFlatMessageView()` also parses the standard stream framing without copying segment bytes.
 - Validation is lazy and charged against traversal/nesting limits to preserve O(1) initial parse.
 - Builders allocate append-only word arenas and write wire-format words directly.
 - APIs keep schemas out of the hot path; generated accessors can become thin wrappers around offset-based primitives.
