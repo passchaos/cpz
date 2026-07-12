@@ -347,6 +347,30 @@ test "generated builders can copy whole list fields from readers" {
     try std.testing.expectEqual(@as(u32, 777), (try target_groups.get(0)).getUInt32(0));
 }
 
+test "generated builders can use typed list field orphans" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    try person_builder.set_scores(&[_]u32{ 1, 2 });
+    var scores_orphan = try person_builder.disown_scores_typed();
+    try std.testing.expectEqual(false, try person_builder.has_scores());
+    const orphan_scores = try scores_orphan.get();
+    try std.testing.expectEqual(@as(u32, 2), try orphan_scores.get(1));
+    try orphan_scores.set(1, 42);
+    var orphan_reader = try builder.asReader(.{});
+    const orphan_scores_reader = try scores_orphan.getReader(&orphan_reader);
+    try std.testing.expectEqual(@as(u32, 42), orphan_scores_reader.get(1));
+    try person_builder.adopt_scores_typed(&scores_orphan);
+    try std.testing.expect(scores_orphan.isNull());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    const scores = try person.scores();
+    try std.testing.expectEqual(@as(u32, 1), scores.get(0));
+    try std.testing.expectEqual(@as(u32, 42), scores.get(1));
+}
+
 test "generated builders can set whole list fields from slices" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();

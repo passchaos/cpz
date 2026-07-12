@@ -2452,6 +2452,42 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
 
     try appendFmt(allocator, out,
         \\
+        \\    pub const {s}_{s}_Orphan = struct {{
+        \\        orphan: cpz.Orphan,
+        \\
+        \\        pub fn fromOrphan(orphan: cpz.Orphan) @This() {{
+        \\            return .{{ .orphan = orphan }};
+        \\        }}
+        \\
+        \\        pub fn raw(self: @This()) cpz.Word {{
+        \\            return self.orphan.raw;
+        \\        }}
+        \\
+        \\        pub fn isNull(self: @This()) bool {{
+        \\            return self.orphan.isNull();
+        \\        }}
+        \\
+        \\        pub fn pointerType(self: @This()) ?cpz.wire.PointerType {{
+        \\            return self.orphan.pointerType();
+        \\        }}
+        \\
+        \\        pub fn get(self: @This()) !{s}_{s}_BuilderList {{
+        \\            return .{{ .list = try self.orphan.getList({s}) }};
+        \\        }}
+        \\
+        \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s}_{s}_List {{
+        \\            return .{{ .list = try self.orphan.asReader(message_reader).getList({s}) }};
+        \\        }}
+        \\
+        \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
+        \\            return self.orphan.totalSize();
+        \\        }}
+        \\    }};
+        \\
+    , .{ owner_name, field_name, owner_name, field_name, try listElementSizeLiteral(file, child), owner_name, field_name, try listElementSizeLiteral(file, child) });
+
+    try appendFmt(allocator, out,
+        \\
         \\    pub const {s}_{s}_BuilderList = struct {{
         \\        list: cpz.ListBuilder,
         \\
@@ -3121,6 +3157,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyListFrom(new_value.list);
+                \\        }}
+                \\
+                \\        pub fn disown_{s}_typed(self: Builder) !{s}_{s}_Orphan {{
+            , .{ index, field_name, owner_name, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return {s}_{s}_Orphan.fromOrphan((try self.builder.getPointerField({})).disown());
+                \\        }}
+                \\
+                \\        pub fn adopt_{s}_typed(self: Builder, orphan: *{s}_{s}_Orphan) !void {{
+            , .{ owner_name, field_name, index, field_name, owner_name, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).adopt(&orphan.orphan);
                 \\        }}
                 \\
             , .{index});
