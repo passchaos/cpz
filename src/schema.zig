@@ -1873,6 +1873,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try appendFmt(allocator, out,
         \\pub const {s} = struct {{
         \\    pub const size: cpz.StructSize = .{{ .data_words = {}, .pointer_count = {} }};
+        \\    pub const Orphan = cpz.Orphan;
         \\
         \\    reader: cpz.StructReader,
         \\
@@ -3241,6 +3242,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value.reader);
+                \\        }}
+                \\
+                \\        pub fn disown_{s}_typed(self: Builder) !{s}.Orphan {{
+            , .{ index, field_name, zig_type });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).disown();
+                \\        }}
+                \\
+                \\        pub fn adopt_{s}_typed(self: Builder, orphan: *{s}.Orphan) !void {{
+            , .{ index, field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).adopt(orphan);
                 \\        }}
                 \\
             , .{index});

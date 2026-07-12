@@ -207,14 +207,24 @@ test "generated builders can disown and adopt pointer fields" {
     try std.testing.expectEqual(@as(u32, 2024), try maybe_friend.get_id());
     try std.testing.expectEqualSlices(u8, "Orphaned friend", try maybe_friend.get_name());
 
+    const typed_friend = try person_builder.init_friend();
+    try typed_friend.set_id(3030);
+    try typed_friend.set_name("Typed orphan");
+    var typed_orphan: generated.Person.Orphan = try person_builder.disown_friend_typed();
+    try person_builder.adopt_maybeFriend_typed(&typed_orphan);
+    try std.testing.expectEqual(@as(u64, 0), typed_orphan.raw);
+    const typed_maybe_friend = try person_builder.get_maybeFriend();
+    try std.testing.expectEqual(@as(u32, 3030), try typed_maybe_friend.get_id());
+    try std.testing.expectEqualSlices(u8, "Typed orphan", try typed_maybe_friend.get_name());
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     try std.testing.expect(!person.has_name());
     try std.testing.expectEqualSlices(u8, "Orphaned name", try person.nickname());
     try std.testing.expect(!person.has_friend());
     const read_maybe_friend = try person.maybeFriend();
-    try std.testing.expectEqual(@as(u32, 2024), read_maybe_friend.id());
-    try std.testing.expectEqualSlices(u8, "Orphaned friend", try read_maybe_friend.name());
+    try std.testing.expectEqual(@as(u32, 3030), read_maybe_friend.id());
+    try std.testing.expectEqualSlices(u8, "Typed orphan", try read_maybe_friend.name());
 }
 
 test "generated builders can copy nested struct fields from readers" {
