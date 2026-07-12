@@ -57,3 +57,19 @@ test "generated accessors honor scalar defaults" {
     try std.testing.expectEqual(true, person.active());
     try std.testing.expectEqual(generated.Color.green, person.favorite());
 }
+
+test "generated builders can clear pointer fields" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    try person_builder.set_name("Temporary");
+    _ = try person_builder.init_friend();
+    try person_builder.clear_name();
+    try person_builder.clear_friend();
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    try std.testing.expectError(error.NullPointer, person.name());
+    try std.testing.expectError(error.NullPointer, person.friend());
+}

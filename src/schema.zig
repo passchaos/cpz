@@ -1248,6 +1248,13 @@ fn scalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
 }
 
 fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn clear_{s}(self: Builder) !void {{
+        \\            return self.builder.clearPointer({});
+        \\        }}
+        \\
+    , .{ field_name, index });
+
     switch (field.ty) {
         .text => try appendFmt(allocator, out,
             \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
@@ -1429,7 +1436,10 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, value: u32) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setUInt32(0, value, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setBool(32, value, true);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_name(self: Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_friend(self: Builder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
 }
 
 test "schema code generator supports custom runtime import names" {
