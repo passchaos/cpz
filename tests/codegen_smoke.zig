@@ -1010,6 +1010,10 @@ test "generated builtin any and capability accessors round-trip" {
     const read_any_struct_item = try any_struct_items.get(0);
     try std.testing.expectEqual(@as(u32, 0xdecafbad), try read_any_struct_item.getUInt32(0, 0));
     try std.testing.expectEqualSlices(u8, "dynamic", try (try read_any_struct_item.getPointerField(0)).getText());
+    var any_struct_items_reader = try builder.asReader(.{});
+    const read_any_struct_items = (try generated.DynamicBox.fromReader(try any_struct_items_reader.getRoot()).anyStructItems());
+    try std.testing.expectEqual(@as(u8, 0xad), (try read_any_struct_items.dataSection(0))[0]);
+    try std.testing.expectEqualSlices(u8, "dynamic", try (try (try read_any_struct_items.pointerSection(0)).getPointerElement(0)).getText());
 
     var list_copy_source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer list_copy_source_builder.deinit();

@@ -3037,6 +3037,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getStruct(null);
             \\        }}
             \\
+            \\        pub fn pointerSection(self: @This(), index: usize) !cpz.ListReader {{
+            \\            return (try (try self.list.getPointerElement(index)).getStruct(null)).pointerSectionAsList();
+            \\        }}
+            \\
+            \\        pub fn dataSection(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try (try self.list.getPointerElement(index)).getStruct(null)).dataSectionBytes();
+            \\        }}
+            \\
         , .{}),
         .any_list => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !cpz.ListReader {{
