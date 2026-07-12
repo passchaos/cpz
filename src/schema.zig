@@ -2304,7 +2304,11 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.totalSize();
         \\        }}
         \\
-    , .{ owner_name, field_name });
+        \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_List {{
+        \\            return .{{ .list = try self.list.slice(start, count) }};
+        \\        }}
+        \\
+    , .{ owner_name, field_name, owner_name, field_name });
 
     switch (resolved_child) {
         .void => try appendFmt(allocator, out,
@@ -2427,7 +2431,11 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.totalSize();
         \\        }}
         \\
-    , .{ owner_name, field_name, owner_name, field_name });
+        \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_BuilderList {{
+        \\            return .{{ .list = try self.list.slice(start, count) }};
+        \\        }}
+        \\
+    , .{ owner_name, field_name, owner_name, field_name, owner_name, field_name });
 
     switch (resolved_child) {
         .void => try appendFmt(allocator, out,

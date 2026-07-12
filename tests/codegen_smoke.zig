@@ -32,6 +32,10 @@ test "generated reader and builder accessors compile and round-trip" {
     try scores.set(0, 10);
     try scores.set(1, 20);
     try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
+    const scores_prefix = try scores.slice(0, 1);
+    try std.testing.expectEqual(@as(usize, 1), scores_prefix.len());
+    try std.testing.expectEqual(@as(u32, 10), try scores_prefix.get(0));
+    try std.testing.expectError(error.UnsupportedElementSize, scores.slice(1, 1));
     var scores_reader = try builder.asReader(.{});
     const scores_view = scores.asReader(&scores_reader);
     try std.testing.expectEqual(@as(u32, 10), scores_view.get(0));
@@ -41,6 +45,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const child = try children.get(0);
     try child.set_id(99);
     try child.set_name("Grace");
+    const children_slice = try children.slice(0, 1);
+    try std.testing.expectEqual(@as(u32, 99), try (try children_slice.get(0)).get_id());
     const same_children = try person_builder.get_children();
     const same_child = try same_children.get(0);
     try std.testing.expectEqual(@as(u32, 99), try same_child.get_id());
@@ -95,10 +101,16 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u16, 2), person.favorite_raw());
     const read_scores = try person.scores();
     try std.testing.expectEqual(@as(u32, 20), read_scores.get(1));
+    const read_scores_prefix = try read_scores.slice(0, 1);
+    try std.testing.expectEqual(@as(usize, 1), read_scores_prefix.len());
+    try std.testing.expectEqual(@as(u32, 10), read_scores_prefix.get(0));
+    try std.testing.expectError(error.UnsupportedElementSize, read_scores.slice(1, 1));
     const read_children = try person.children();
     const read_child = try read_children.get(0);
     try std.testing.expectEqual(@as(u32, 99), read_child.id());
     try std.testing.expectEqualSlices(u8, "Grace", try read_child.name());
+    const read_child_slice = try read_children.slice(0, 1);
+    try std.testing.expectEqual(@as(u32, 99), (try read_child_slice.get(0)).id());
     const children_size = try read_children.totalSize();
     try std.testing.expect(children_size.word_count > 0);
     try std.testing.expectEqual(@as(usize, 0), children_size.cap_count);
