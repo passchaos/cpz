@@ -12,6 +12,13 @@ using Shade = Color;
 using DynamicAlias = AnyPointer;
 using CapAlias = Capability;
 
+const globalId :UInt32 = 12345;
+const globalActive :Bool = true;
+const globalName :Text = "const text";
+const globalPayload :Data = 0x"de ad be ef";
+const globalShade :Color = blue;
+const globalRatio :Float64 = +1.25e2;
+
 struct Person {
   id @0 :UInt32 = 42;
   active @1 :Bool = true;

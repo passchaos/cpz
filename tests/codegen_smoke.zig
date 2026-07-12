@@ -2,6 +2,15 @@ const std = @import("std");
 const cpz = @import("cpz");
 const generated = @import("generated_schema");
 
+test "generated simple constants compile" {
+    try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
+    try std.testing.expectEqual(true, generated.globalActive);
+    try std.testing.expectEqualSlices(u8, "const text", generated.globalName);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xde, 0xad, 0xbe, 0xef }, generated.globalPayload);
+    try std.testing.expectEqual(generated.Color.blue, generated.globalShade);
+    try std.testing.expectEqual(@as(f64, 125.0), generated.globalRatio);
+}
+
 test "generated reader and builder accessors compile and round-trip" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();

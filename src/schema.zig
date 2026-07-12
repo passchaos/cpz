@@ -69,6 +69,18 @@ pub const AliasDecl = struct {
     }
 };
 
+pub const ConstDecl = struct {
+    name: []const u8,
+    ty: Type,
+    literal: []const u8,
+    is_hex_data: bool = false,
+
+    pub fn deinit(self: *ConstDecl, allocator: std.mem.Allocator) void {
+        self.ty.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
 pub const ImportDecl = struct {
     name: []const u8,
     path: []const u8,
@@ -126,6 +138,7 @@ pub const File = struct {
     structs: []Struct,
     enums: []EnumDecl,
     aliases: []AliasDecl,
+    consts: []ConstDecl,
     imports: []ImportDecl,
     interfaces: []InterfaceDecl,
 
@@ -136,6 +149,8 @@ pub const File = struct {
         allocator.free(self.enums);
         for (self.aliases) |*a| a.deinit(allocator);
         allocator.free(self.aliases);
+        for (self.consts) |*c| c.deinit(allocator);
+        allocator.free(self.consts);
         allocator.free(self.imports);
         allocator.free(self.interfaces);
         self.* = undefined;
@@ -353,6 +368,11 @@ pub const Parser = struct {
             for (aliases.items) |*a| a.deinit(self.allocator);
             aliases.deinit(self.allocator);
         }
+        var consts = std.ArrayList(ConstDecl).empty;
+        errdefer {
+            for (consts.items) |*c| c.deinit(self.allocator);
+            consts.deinit(self.allocator);
+        }
         var imports = std.ArrayList(ImportDecl).empty;
         errdefer imports.deinit(self.allocator);
         var interfaces = std.ArrayList(InterfaceDecl).empty;
@@ -385,7 +405,9 @@ pub const Parser = struct {
                 try interfaces.append(self.allocator, .{ .name = name });
             } else if (self.eatKeyword("using")) {
                 try self.parseUsingOrSkip(&aliases, &imports, &decl_names);
-            } else if (self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            } else if (self.eatKeyword("const")) {
+                try self.parseConstOrSkip(&consts, &decl_names);
+            } else if (self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
@@ -399,6 +421,7 @@ pub const Parser = struct {
             .structs = try structs.toOwnedSlice(self.allocator),
             .enums = try enums.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
+            .consts = try consts.toOwnedSlice(self.allocator),
             .imports = try imports.toOwnedSlice(self.allocator),
             .interfaces = try interfaces.toOwnedSlice(self.allocator),
         };
@@ -408,6 +431,110 @@ pub const Parser = struct {
         const name = try self.expectIdentifier();
         try self.skipBracedDeclaration();
         return name;
+    }
+
+    fn parseConstOrSkip(self: *Parser, consts: *std.ArrayList(ConstDecl), decl_names: *std.StringHashMap(void)) Error!void {
+        if (self.lookahead.tag != .identifier) {
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        const name = try self.expectIdentifier();
+        if (self.lookahead.tag != .colon) {
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        try self.expect(.colon);
+        var ty = self.parseType() catch {
+            try self.skipRawUntilSemicolon();
+            return;
+        };
+        errdefer ty.deinit(self.allocator);
+
+        if (self.lookahead.tag != .equal) {
+            ty.deinit(self.allocator);
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        if (self.constLiteralStartsUnsupported()) {
+            ty.deinit(self.allocator);
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        try self.expect(.equal);
+
+        var is_hex_data = false;
+        const literal = if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
+            try self.expect(.integer);
+            if (self.lookahead.tag != .string) {
+                ty.deinit(self.allocator);
+                try self.skipRawUntilSemicolon();
+                return;
+            }
+            const value = self.lookahead.lexeme;
+            try self.advance();
+            is_hex_data = true;
+            break :blk value;
+        } else blk: {
+            const value = (self.expectDefaultLiteral() catch {
+                ty.deinit(self.allocator);
+                try self.skipRawUntilSemicolon();
+                return;
+            }) orelse {
+                ty.deinit(self.allocator);
+                try self.skipRawUntilSemicolon();
+                return;
+            };
+            break :blk value;
+        };
+
+        if (self.lookahead.tag != .semicolon) {
+            ty.deinit(self.allocator);
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        if (!isSimpleConstType(ty)) {
+            ty.deinit(self.allocator);
+            try self.expect(.semicolon);
+            return;
+        }
+        try self.expect(.semicolon);
+
+        const entry = try decl_names.getOrPut(name);
+        if (entry.found_existing) {
+            ty.deinit(self.allocator);
+            return error.NameCollision;
+        }
+        try consts.append(self.allocator, .{
+            .name = name,
+            .ty = ty,
+            .literal = literal,
+            .is_hex_data = is_hex_data,
+        });
+    }
+
+    fn constLiteralStartsUnsupported(self: *const Parser) bool {
+        const source = self.lexer.source;
+        var index = self.lexer.index;
+        while (index < source.len) : (index += 1) {
+            switch (source[index]) {
+                ' ', '\t', '\r', '\n' => continue,
+                '#' => {
+                    while (index < source.len and source[index] != '\n') index += 1;
+                    continue;
+                },
+                '/' => {
+                    if (index + 1 < source.len and source[index + 1] == '/') {
+                        index += 2;
+                        while (index < source.len and source[index] != '\n') index += 1;
+                        continue;
+                    }
+                    return false;
+                },
+                '(', '[', '`' => return true,
+                else => return false,
+            }
+        }
+        return true;
     }
 
     fn parseUsingOrSkip(self: *Parser, aliases: *std.ArrayList(AliasDecl), imports: *std.ArrayList(ImportDecl), decl_names: *std.StringHashMap(void)) Error!void {
@@ -1279,6 +1406,13 @@ fn resolveNamedAlias(file: *const File, name: []const u8, depth: usize) ?Type {
     return null;
 }
 
+fn isSimpleConstType(ty: Type) bool {
+    return switch (ty) {
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data, .named => true,
+        else => false,
+    };
+}
+
 fn isGroupType(ty: Type) bool {
     return switch (ty) {
         .named => |name| std.mem.eql(u8, name, "group"),
@@ -1802,6 +1936,9 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
             \\
         , .{namespace});
     }
+    for (file.consts) |*decl| {
+        try emitConst(allocator, &out, file, decl);
+    }
     for (file.enums) |*decl| {
         try emitEnum(allocator, &out, decl);
     }
@@ -1836,13 +1973,24 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.enums) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.consts) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
         try validateFieldZigNames(allocator, &lhs);
     }
     for (file.enums, 0..) |lhs, i| {
         for (file.enums[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.consts) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
         try validateEnumValueZigNames(allocator, &lhs);
+    }
+    for (file.consts, 0..) |lhs, i| {
+        for (file.consts[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
 }
 
@@ -1890,6 +2038,70 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\
         \\
     , .{});
+}
+
+fn emitConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const ConstDecl) LayoutError!void {
+    const const_name = try zigIdentAlloc(allocator, decl.name);
+    defer allocator.free(const_name);
+    switch (resolveType(file, decl.ty)) {
+        .void => try appendFmt(allocator, out,
+            \\pub const {s}: void = {{}};
+            \\
+            \\
+        , .{const_name}),
+        .bool => try appendFmt(allocator, out,
+            \\pub const {s}: bool = {s};
+            \\
+            \\
+        , .{ const_name, try boolConstLiteral(decl.literal) }),
+        .int8 => try emitNumericConst(allocator, out, const_name, "i8", decl.literal),
+        .int16 => try emitNumericConst(allocator, out, const_name, "i16", decl.literal),
+        .int32 => try emitNumericConst(allocator, out, const_name, "i32", decl.literal),
+        .int64 => try emitNumericConst(allocator, out, const_name, "i64", decl.literal),
+        .uint8 => try emitNumericConst(allocator, out, const_name, "u8", decl.literal),
+        .uint16 => try emitNumericConst(allocator, out, const_name, "u16", decl.literal),
+        .uint32 => try emitNumericConst(allocator, out, const_name, "u32", decl.literal),
+        .uint64 => try emitNumericConst(allocator, out, const_name, "u64", decl.literal),
+        .float32 => try emitNumericConst(allocator, out, const_name, "f32", floatConstLiteral(decl.literal, "f32")),
+        .float64 => try emitNumericConst(allocator, out, const_name, "f64", floatConstLiteral(decl.literal, "f64")),
+        .text => {
+            const literal = try zigStringLiteralAlloc(allocator, decl.literal);
+            defer allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\pub const {s}: []const u8 = {s};
+                \\
+                \\
+            , .{ const_name, literal });
+        },
+        .data => {
+            const literal = try zigDataLiteralAlloc(allocator, decl.literal, decl.is_hex_data);
+            defer allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\pub const {s}: []const u8 = {s};
+                \\
+                \\
+            , .{ const_name, literal });
+        },
+        .named => |type_name| {
+            const enum_decl = findEnum(file, type_name) orelse return;
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\pub const {s}: {s} = @enumFromInt({});
+                \\
+                \\
+            , .{ const_name, zig_type, try enumDefaultOrdinal(enum_decl, decl.literal) });
+        },
+        else => return,
+    }
+}
+
+fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {
+    try appendFmt(allocator, out,
+        \\pub const {s}: {s} = {s};
+        \\
+        \\
+    , .{ name, zig_type, if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal });
 }
 
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
@@ -4180,6 +4392,10 @@ fn defaultScalarLiteral(field: *const Field) []const u8 {
 
 fn defaultFloatLiteral(field: *const Field, comptime zig_type: []const u8) []const u8 {
     const literal = field.default_literal orelse return "0";
+    return floatConstLiteral(literal, zig_type);
+}
+
+fn floatConstLiteral(literal: []const u8, comptime zig_type: []const u8) []const u8 {
     const unsigned = if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal;
     if (std.mem.eql(u8, unsigned, "inf")) return if (std.mem.eql(u8, zig_type, "f32")) "std.math.inf(f32)" else "std.math.inf(f64)";
     if (std.mem.eql(u8, unsigned, "-inf")) return if (std.mem.eql(u8, zig_type, "f32")) "-std.math.inf(f32)" else "-std.math.inf(f64)";
@@ -4187,10 +4403,14 @@ fn defaultFloatLiteral(field: *const Field, comptime zig_type: []const u8) []con
     return unsigned;
 }
 
-fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
-    const literal = field.default_literal orelse return "false";
+fn boolConstLiteral(literal: []const u8) LayoutError![]const u8 {
     if (std.mem.eql(u8, literal, "true") or std.mem.eql(u8, literal, "false")) return literal;
     return error.InvalidToken;
+}
+
+fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
+    const literal = field.default_literal orelse return "false";
+    return boolConstLiteral(literal);
 }
 
 fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u16 {
