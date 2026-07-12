@@ -17,6 +17,7 @@ The long-term target is to grow into a full schema/compiler/RPC stack while keep
 ```sh
 zig build test
 zig build run
+zig build cpzc -- schema.capnp generated.zig
 ```
 
 This repository targets Zig 0.16.0.

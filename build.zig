@@ -40,9 +40,26 @@ pub fn build(b: *std.Build) void {
     });
     b.installArtifact(bench);
 
+    const cpzc_mod = b.createModule(.{
+        .root_source_file = b.path("src/cpzc.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const cpzc = b.addExecutable(.{
+        .name = "cpzc",
+        .root_module = cpzc_mod,
+    });
+    b.installArtifact(cpzc);
+
     const run_bench = b.addRunArtifact(bench);
     const bench_step = b.step("bench", "Run a microbenchmark over dynamic readers");
     bench_step.dependOn(&run_bench.step);
+
+    const run_cpzc = b.addRunArtifact(cpzc);
+    if (b.args) |args| run_cpzc.addArgs(args);
+    const cpzc_step = b.step("cpzc", "Run the Cap'n Proto schema-to-Zig skeleton generator");
+    cpzc_step.dependOn(&run_cpzc.step);
 
     const run_example = b.addRunArtifact(example);
     if (b.args) |args| run_example.addArgs(args);
