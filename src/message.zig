@@ -533,6 +533,14 @@ pub const PointerBuilder = struct {
         }
     }
 
+    pub fn copyListFrom(self: PointerBuilder, source: ListReader) Error!void {
+        try self.copyListFromMode(source, false);
+    }
+
+    pub fn copyListFromCanonical(self: PointerBuilder, source: ListReader) Error!void {
+        try self.copyListFromMode(source, true);
+    }
+
     fn copyFromMode(self: PointerBuilder, source: PointerReader, canonical: bool) Error!void {
         const resolved = try source.resolve();
         if (resolved.raw == 0) {
@@ -563,47 +571,52 @@ pub const PointerBuilder = struct {
             },
             .list => {
                 const src = try source.getList(null);
-                if (src.element_size == .composite) {
-                    const dst_size = if (canonical) try canonicalStructListSize(src) else wire.StructSize{
-                        .data_words = src.data_words,
-                        .pointer_count = src.pointer_count,
-                    };
-                    const dst = try self.initStructList(src.element_count, dst_size);
-                    for (0..src.element_count) |i| {
-                        const src_element = try src.getStructElement(i);
-                        const dst_element = try dst.getStructElement(i);
-                        @memcpy(dst_element.dataBytes(), src_element.dataBytes()[0..dst_element.dataBytes().len]);
-                        for (0..dst_size.pointer_count) |j| {
-                            const dst_ptr = try dst_element.getPointerField(j);
-                            if (canonical) {
-                                try dst_ptr.copyFromCanonical(src_element.getPointerField(j));
-                            } else {
-                                try dst_ptr.copyFrom(src_element.getPointerField(j));
-                            }
-                        }
-                    }
-                } else {
-                    const dst = try self.initList(src.element_size, src.element_count);
-                    if (src.element_size == .pointer) {
-                        for (0..src.element_count) |i| {
-                            const dst_ptr = try dst.getPointerElement(i);
-                            const src_ptr = try src.getPointerElement(i);
-                            if (canonical) {
-                                try dst_ptr.copyFromCanonical(src_ptr);
-                            } else {
-                                try dst_ptr.copyFrom(src_ptr);
-                            }
-                        }
-                    } else {
-                        @memcpy(dst.bytes(), src.bytes());
-                    }
-                }
+                try self.copyListFromMode(src, canonical);
             },
             .far => return error.InvalidFarPointer,
             .other => {
                 _ = try wire.decodeOther(resolved.raw);
                 self.message.writePtr(self.segment_id, self.word_index, resolved.raw);
             },
+        }
+    }
+
+    fn copyListFromMode(self: PointerBuilder, source: ListReader, canonical: bool) Error!void {
+        if (source.element_size == .composite) {
+            const dst_size = if (canonical) try canonicalStructListSize(source) else wire.StructSize{
+                .data_words = source.data_words,
+                .pointer_count = source.pointer_count,
+            };
+            const dst = try self.initStructList(source.element_count, dst_size);
+            for (0..source.element_count) |i| {
+                const src_element = try source.getStructElement(i);
+                const dst_element = try dst.getStructElement(i);
+                @memcpy(dst_element.dataBytes(), src_element.dataBytes()[0..dst_element.dataBytes().len]);
+                for (0..dst_size.pointer_count) |j| {
+                    const dst_ptr = try dst_element.getPointerField(j);
+                    if (canonical) {
+                        try dst_ptr.copyFromCanonical(src_element.getPointerField(j));
+                    } else {
+                        try dst_ptr.copyFrom(src_element.getPointerField(j));
+                    }
+                }
+            }
+            return;
+        }
+
+        const dst = try self.initList(source.element_size, source.element_count);
+        if (source.element_size == .pointer) {
+            for (0..source.element_count) |i| {
+                const dst_ptr = try dst.getPointerElement(i);
+                const src_ptr = try source.getPointerElement(i);
+                if (canonical) {
+                    try dst_ptr.copyFromCanonical(src_ptr);
+                } else {
+                    try dst_ptr.copyFrom(src_ptr);
+                }
+            }
+        } else {
+            @memcpy(dst.bytes(), source.bytes());
         }
     }
 };

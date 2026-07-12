@@ -2748,6 +2748,16 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\
             , .{ index, try listElementSizeLiteral(file, child.*) });
 
+            try appendFmt(allocator, out,
+                \\        pub fn set_{s}_from(self: Builder, new_value: {s}_{s}_List) !void {{
+            , .{ field_name, owner_name, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyListFrom(new_value.list);
+                \\        }}
+                \\
+            , .{index});
+
             if (isStructListElement(file, child.*)) |type_name| {
                 const zig_type = try zigTypeRefAlloc(allocator, type_name);
                 defer allocator.free(zig_type);

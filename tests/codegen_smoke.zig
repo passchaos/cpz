@@ -199,6 +199,48 @@ test "generated struct list builders can copy elements from readers" {
     try std.testing.expectEqualSlices(u8, "ListCopy", try child.name());
 }
 
+test "generated builders can copy whole list fields from readers" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer source_builder.deinit();
+    const source_person_builder = try generated.Person.initRootTyped(&source_builder);
+    const source_scores = try source_person_builder.init_scores(2);
+    try source_scores.set(0, 12);
+    try source_scores.set(1, 34);
+    const source_children = try source_person_builder.init_children(1);
+    const source_child = try source_children.get(0);
+    try source_child.set_id(901);
+    try source_child.set_name("WholeListCopy");
+    const source_aliases = try source_person_builder.init_aliases(1);
+    try source_aliases.set(0, "CopiedAlias");
+    const source_groups = try source_person_builder.init_scoreGroups(1);
+    const source_group = try source_groups.init(0, .four_bytes, 1);
+    try source_group.setUInt32(0, 777);
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_person = generated.Person.fromReader(try source_reader.getRoot());
+
+    var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer target_builder.deinit();
+    const target_person_builder = try generated.Person.initRootTyped(&target_builder);
+    try target_person_builder.set_scores_from(try source_person.scores());
+    try target_person_builder.set_children_from(try source_person.children());
+    try target_person_builder.set_aliases_from(try source_person.aliases());
+    try target_person_builder.set_scoreGroups_from(try source_person.scoreGroups());
+
+    var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
+    const target_person = generated.Person.fromReader(try target_reader.getRoot());
+    const target_scores = try target_person.scores();
+    try std.testing.expectEqual(@as(u32, 12), target_scores.get(0));
+    try std.testing.expectEqual(@as(u32, 34), target_scores.get(1));
+    const target_children = try target_person.children();
+    const target_child = try target_children.get(0);
+    try std.testing.expectEqual(@as(u32, 901), target_child.id());
+    try std.testing.expectEqualSlices(u8, "WholeListCopy", try target_child.name());
+    const target_aliases = try target_person.aliases();
+    try std.testing.expectEqualSlices(u8, "CopiedAlias", try target_aliases.get(0));
+    const target_groups = try target_person.scoreGroups();
+    try std.testing.expectEqual(@as(u32, 777), (try target_groups.get(0)).getUInt32(0));
+}
+
 test "generated list builders can clear pointer-backed and struct elements" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
