@@ -204,6 +204,18 @@ pub const MessageBuilder = struct {
         return slot.disown();
     }
 
+    pub fn newOrphanCopyStruct(self: *MessageBuilder, source: StructReader) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyStructFrom(source);
+        return slot.disown();
+    }
+
+    pub fn newOrphanCopyList(self: *MessageBuilder, source: ListReader) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyListFrom(source);
+        return slot.disown();
+    }
+
     pub fn copyRootFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
         const dst_root = try self.getRootPointer();
         const src_root = try source.getRootPointer();
@@ -2247,6 +2259,44 @@ test "message builder allocates new orphan structs and lists" {
     const root_list = try (try list_reader.getRootPointer()).getList(.two_bytes);
     try testing.expectEqual(@as(u16, 77), root_list.getUInt16(0));
     try testing.expectEqual(@as(u16, 88), root_list.getUInt16(1));
+}
+
+test "message builder allocates orphan copies from readers" {
+    const testing = std.testing;
+
+    var source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer source.deinit();
+    const source_root = try source.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try source_root.setUInt32(0, 707, 0);
+    try source_root.setText(0, "copy orphan");
+    var source_reader = MessageReader.init(try source.segmentsConst(), .{});
+    const source_struct = try source_reader.getRoot();
+
+    var target = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer target.deinit();
+    var struct_orphan = try target.newOrphanCopyStruct(source_struct);
+    try (try target.getRootPointer()).adopt(&struct_orphan);
+    var target_reader = MessageReader.init(try target.segmentsConst(), .{});
+    const target_root = try target_reader.getRoot();
+    try testing.expectEqual(@as(u32, 707), target_root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "copy orphan", try target_root.getPointerField(0).getText());
+
+    var source_list_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer source_list_builder.deinit();
+    const source_list = try source_list_builder.initRootList(.four_bytes, 2);
+    try source_list.setUInt32(0, 11);
+    try source_list.setUInt32(1, 22);
+    var source_list_reader = MessageReader.init(try source_list_builder.segmentsConst(), .{});
+    const source_list_view = try (try source_list_reader.getRootPointer()).getList(.four_bytes);
+
+    var target_list_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer target_list_builder.deinit();
+    var list_orphan = try target_list_builder.newOrphanCopyList(source_list_view);
+    try (try target_list_builder.getRootPointer()).adopt(&list_orphan);
+    var target_list_reader = MessageReader.init(try target_list_builder.segmentsConst(), .{});
+    const target_list = try (try target_list_reader.getRootPointer()).getList(.four_bytes);
+    try testing.expectEqual(@as(u32, 11), target_list.getUInt32(0));
+    try testing.expectEqual(@as(u32, 22), target_list.getUInt32(1));
 }
 
 test "schema-agnostic validation returns reachable layout stats" {
