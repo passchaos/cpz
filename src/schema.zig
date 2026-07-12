@@ -1054,12 +1054,12 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             \\        }}
             \\
         , .{ field.name, owner_name, field.name, index, try listElementSizeLiteral(file, child.*) }),
-        .named => try appendFmt(allocator, out,
-            \\        pub fn init_{s}(self: Builder, size: cpz.StructSize) !cpz.StructBuilder {{
-            \\            return (try self.builder.getPointerField({})).initStruct(size);
+        .named => |type_name| try appendFmt(allocator, out,
+            \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
+            \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
             \\        }}
             \\
-        , .{ field.name, index }),
+        , .{ field.name, type_name, type_name, index, type_name }),
         else => return error.UnsupportedType,
     }
 }
@@ -1138,6 +1138,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_children_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return Person.fromReader(try self.list.getStructElement(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !Person.Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_scores_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, value);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);

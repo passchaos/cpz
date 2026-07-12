@@ -13,4 +13,5 @@ struct Person {
   favorite @3 :Color = green;
   scores @4 :List(UInt32);
   children @5 :List(Person);
+  friend @6 :Person;
 }
