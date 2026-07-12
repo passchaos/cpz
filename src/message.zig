@@ -109,20 +109,27 @@ pub const MessageBuilder = struct {
     }
 
     pub fn initRoot(self: *MessageBuilder, size: wire.StructSize) Error!StructBuilder {
-        const root = PointerBuilder{ .message = self, .segment_id = 0, .word_index = 0 };
-        return root.initStruct(size);
+        return (try self.getRootPointer()).initStruct(size);
+    }
+
+    pub fn initRootList(self: *MessageBuilder, element_size: wire.ElementSize, element_count: usize) Error!ListBuilder {
+        return (try self.getRootPointer()).initList(element_size, element_count);
+    }
+
+    pub fn initRootStructList(self: *MessageBuilder, element_count: usize, size: wire.StructSize) Error!ListBuilder {
+        return (try self.getRootPointer()).initStructList(element_count, size);
     }
 
     pub fn copyRootFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
-        const dst_root = PointerBuilder{ .message = self, .segment_id = 0, .word_index = 0 };
-        const src_root = PointerReader{ .message = source, .segment_id = 0, .word_index = 0, .nesting_left = source.options.nesting_limit };
+        const dst_root = try self.getRootPointer();
+        const src_root = try source.getRootPointer();
         try dst_root.copyFrom(src_root);
         return self.getRoot();
     }
 
     pub fn copyRootCanonicalFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
-        const dst_root = PointerBuilder{ .message = self, .segment_id = 0, .word_index = 0 };
-        const src_root = PointerReader{ .message = source, .segment_id = 0, .word_index = 0, .nesting_left = source.options.nesting_limit };
+        const dst_root = try self.getRootPointer();
+        const src_root = try source.getRootPointer();
         try dst_root.copyFromCanonical(src_root);
         return self.getRoot();
     }
@@ -138,6 +145,11 @@ pub const MessageBuilder = struct {
             .data_words = root.data_words,
             .pointer_count = root.pointer_count,
         };
+    }
+
+    pub fn getRootPointer(self: *MessageBuilder) Error!PointerBuilder {
+        if (self.segments.items.len == 0) return error.SegmentOutOfBounds;
+        return .{ .message = self, .segment_id = 0, .word_index = 0 };
     }
 
     pub fn asReader(self: *MessageBuilder, options: ReaderOptions) !MessageReader {
@@ -251,9 +263,12 @@ pub const MessageReader = struct {
     }
 
     pub fn getRoot(self: *MessageReader) Error!StructReader {
+        return (try self.getRootPointer()).getStruct(null);
+    }
+
+    pub fn getRootPointer(self: *MessageReader) Error!PointerReader {
         if (self.segments.len == 0) return error.SegmentOutOfBounds;
-        const ptr = PointerReader{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
-        return ptr.getStruct(null);
+        return .{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
     }
 
     /// Lazily traverses every reachable pointer without schema knowledge.
@@ -1814,6 +1829,32 @@ test "pointer lists hold nested text values" {
     try testing.expectEqualSlices(u8, "alice", try (try read_names.getPointerElement(0)).getText());
     try testing.expectEqualSlices(u8, "bob", try (try read_names.getPointerElement(1)).getText());
     try testing.expectEqualSlices(u8, "carol", try (try read_names.getPointerElement(2)).getText());
+}
+
+test "root pointer APIs support non-struct roots" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const nums = try builder.initRootList(.two_bytes, 2);
+    try nums.setUInt16(0, 111);
+    try nums.setUInt16(1, 222);
+    const root_ptr_builder = try builder.getRootPointer();
+    try testing.expect(!root_ptr_builder.isNull());
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const root_ptr = try reader.getRootPointer();
+    const read_nums = try root_ptr.getList(.two_bytes);
+    try testing.expectEqual(@as(u16, 111), read_nums.getUInt16(0));
+    try testing.expectEqual(@as(u16, 222), read_nums.getUInt16(1));
+    try testing.expectError(error.InvalidPointerKind, reader.getRoot());
+
+    var copied = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer copied.deinit();
+    try (try copied.getRootPointer()).copyFrom(root_ptr);
+    var copied_reader = MessageReader.init(try copied.segmentsConst(), .{});
+    const copied_nums = try (try copied_reader.getRootPointer()).getList(.two_bytes);
+    try testing.expectEqual(@as(u16, 222), copied_nums.getUInt16(1));
 }
 
 test "builders can clear pointer fields and elements" {
