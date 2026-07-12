@@ -69,6 +69,12 @@ pub const AliasDecl = struct {
     }
 };
 
+pub const ImportDecl = struct {
+    name: []const u8,
+    path: []const u8,
+    member: ?[]const u8 = null,
+};
+
 const UnionBuilder = struct {
     fields: std.ArrayList(Field) = .empty,
     field_names: std.StringHashMap(void),
@@ -120,6 +126,7 @@ pub const File = struct {
     structs: []Struct,
     enums: []EnumDecl,
     aliases: []AliasDecl,
+    imports: []ImportDecl,
     interfaces: []InterfaceDecl,
 
     pub fn deinit(self: *File, allocator: std.mem.Allocator) void {
@@ -129,6 +136,7 @@ pub const File = struct {
         allocator.free(self.enums);
         for (self.aliases) |*a| a.deinit(allocator);
         allocator.free(self.aliases);
+        allocator.free(self.imports);
         allocator.free(self.interfaces);
         self.* = undefined;
     }
@@ -345,6 +353,8 @@ pub const Parser = struct {
             for (aliases.items) |*a| a.deinit(self.allocator);
             aliases.deinit(self.allocator);
         }
+        var imports = std.ArrayList(ImportDecl).empty;
+        errdefer imports.deinit(self.allocator);
         var interfaces = std.ArrayList(InterfaceDecl).empty;
         errdefer interfaces.deinit(self.allocator);
         var decl_names = std.StringHashMap(void).init(self.allocator);
@@ -374,7 +384,7 @@ pub const Parser = struct {
                 if (entry.found_existing) return error.NameCollision;
                 try interfaces.append(self.allocator, .{ .name = name });
             } else if (self.eatKeyword("using")) {
-                try self.parseUsingOrSkip(&aliases, &decl_names);
+                try self.parseUsingOrSkip(&aliases, &imports, &decl_names);
             } else if (self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
             } else if (self.lookahead.tag == .at) {
@@ -389,6 +399,7 @@ pub const Parser = struct {
             .structs = try structs.toOwnedSlice(self.allocator),
             .enums = try enums.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
+            .imports = try imports.toOwnedSlice(self.allocator),
             .interfaces = try interfaces.toOwnedSlice(self.allocator),
         };
     }
@@ -399,7 +410,11 @@ pub const Parser = struct {
         return name;
     }
 
-    fn parseUsingOrSkip(self: *Parser, aliases: *std.ArrayList(AliasDecl), decl_names: *std.StringHashMap(void)) Error!void {
+    fn parseUsingOrSkip(self: *Parser, aliases: *std.ArrayList(AliasDecl), imports: *std.ArrayList(ImportDecl), decl_names: *std.StringHashMap(void)) Error!void {
+        if (self.isKeyword("import")) {
+            try self.parseAnonymousImport(imports, decl_names);
+            return;
+        }
         if (self.lookahead.tag != .identifier or (try self.peekNext()).tag != .equal) {
             try self.skipRawUntilSemicolon();
             return;
@@ -408,7 +423,36 @@ pub const Parser = struct {
         const name = try self.expectIdentifier();
         try self.expect(.equal);
         if (self.isKeyword("import")) {
-            try self.skipRawUntilSemicolon();
+            try self.advance();
+            if (self.lookahead.tag != .string) {
+                try self.skipRawUntilSemicolon();
+                return;
+            }
+            const path = self.lookahead.lexeme;
+            try self.advance();
+            var member: ?[]const u8 = null;
+            if (self.lookahead.tag == .dot) {
+                try self.expect(.dot);
+                const first = self.lookahead;
+                _ = try self.expectIdentifier();
+                var end = first.end;
+                while (self.lookahead.tag == .dot) {
+                    try self.expect(.dot);
+                    const part = self.lookahead;
+                    _ = try self.expectIdentifier();
+                    end = part.end;
+                }
+                member = self.lexer.source[first.start..end];
+            }
+            if (self.lookahead.tag != .semicolon) {
+                try self.skipRawUntilSemicolon();
+                return;
+            }
+            try self.expect(.semicolon);
+
+            const entry = try decl_names.getOrPut(name);
+            if (entry.found_existing) return error.NameCollision;
+            try imports.append(self.allocator, .{ .name = name, .path = path, .member = member });
             return;
         }
 
@@ -427,6 +471,41 @@ pub const Parser = struct {
         const entry = try decl_names.getOrPut(name);
         if (entry.found_existing) return error.NameCollision;
         try aliases.append(self.allocator, .{ .name = name, .target = target });
+    }
+
+    fn parseAnonymousImport(self: *Parser, imports: *std.ArrayList(ImportDecl), decl_names: *std.StringHashMap(void)) Error!void {
+        try self.advance();
+        if (self.lookahead.tag != .string) {
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        const path = self.lookahead.lexeme;
+        try self.advance();
+        if (self.lookahead.tag != .dot) {
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        try self.expect(.dot);
+        const first = self.lookahead;
+        _ = try self.expectIdentifier();
+        var end = first.end;
+        while (self.lookahead.tag == .dot) {
+            try self.expect(.dot);
+            const part = self.lookahead;
+            _ = try self.expectIdentifier();
+            end = part.end;
+        }
+        if (self.lookahead.tag != .semicolon) {
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        try self.expect(.semicolon);
+
+        const member = self.lexer.source[first.start..end];
+        const name = if (std.mem.lastIndexOfScalar(u8, member, '.')) |dot| member[dot + 1 ..] else member;
+        const entry = try decl_names.getOrPut(name);
+        if (entry.found_existing) return error.NameCollision;
+        try imports.append(self.allocator, .{ .name = name, .path = path, .member = member });
     }
 
     fn parseFileId(self: *Parser) Error!u64 {
@@ -1327,6 +1406,28 @@ test "schema parser tolerates imports and annotations" {
     try std.testing.expectEqualStrings("ok", file.structs[0].fields[1].default_literal.?);
 }
 
+test "schema parser records imported type aliases" {
+    const source =
+        \\using Other = import "other.capnp";
+        \\using import "common.capnp".Shared;
+        \\struct Holder {
+        \\  external @0 :Other.External;
+        \\  shared @1 :Shared;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 2), file.imports.len);
+    try std.testing.expectEqualStrings("Other", file.imports[0].name);
+    try std.testing.expectEqualStrings("other.capnp", file.imports[0].path);
+    try std.testing.expect(file.imports[0].member == null);
+    try std.testing.expectEqualStrings("Shared", file.imports[1].name);
+    try std.testing.expectEqualStrings("common.capnp", file.imports[1].path);
+    try std.testing.expectEqualStrings("Shared", file.imports[1].member.?);
+    try std.testing.expectEqualStrings("Other.External", file.structs[0].fields[0].ty.named);
+    try std.testing.expectEqualStrings("Shared", file.structs[0].fields[1].ty.named);
+}
+
 test "schema parser skips top-level annotations and interfaces" {
     const source =
         \\annotation deprecated @0xaaaa (field) :Text;
@@ -1965,7 +2066,7 @@ fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, defaultFloatLiteral(field, "f64"), union_layout, field.union_discriminant),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !{s} {{
@@ -2143,7 +2244,7 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\
             , .{index});
         } else {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !{s} {{
@@ -2260,7 +2361,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{}),
         .named => |type_name| if (findEnumDirect(file, type_name) != null) {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s} {{
@@ -2280,7 +2381,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{});
         } else {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s} {{
@@ -2440,7 +2541,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{});
             if (isStructListElement(file, nested_child.*)) |type_name| {
-                const zig_type = try zigTypeRefAlloc(allocator, type_name);
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
                 try appendFmt(allocator, out,
                     \\        pub fn initStructList(self: @This(), index: usize, count: usize) !cpz.ListBuilder {{
@@ -2461,7 +2562,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             , .{});
         },
         .named => |type_name| if (findEnumDirect(file, type_name) != null) {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s} {{
@@ -2497,7 +2598,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{});
         } else {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s}.Builder {{
@@ -2553,7 +2654,7 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         .any_struct => try emitListPointerSliceSetter(allocator, out, field_name, field, index, "cpz.StructReader", "copyStructFrom"),
         .capability => try emitCapabilitySliceSetter(allocator, out, field_name, field, index),
         .named => |type_name| if (findEnumDirect(file, type_name) != null) {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}(self: Builder, @"cpz.values": []const {s}) !void {{
@@ -2576,7 +2677,7 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         } else if (findInterface(file, type_name) != null) {
             try emitCapabilitySliceSetter(allocator, out, field_name, field, index);
         } else {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}(self: Builder, @"cpz.values": []const {s}) !void {{
@@ -2709,7 +2810,7 @@ fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
         .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, defaultFloatLiteral(field, "f64"), union_layout, field),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !{s} {{
@@ -2886,7 +2987,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             try emitListSliceSetter(allocator, out, file, field_name, field, index, child.*);
 
             if (isStructListElement(file, child.*)) |type_name| {
-                const zig_type = try zigTypeRefAlloc(allocator, type_name);
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
                 try appendFmt(allocator, out,
                     \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
@@ -3013,7 +3114,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\
             , .{index});
         } else {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !{s}.Builder {{
@@ -3088,10 +3189,38 @@ fn appendFmt(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt
     try out.appendSlice(allocator, text);
 }
 
-fn zigTypeRefAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
+fn zigTypeRefAlloc(allocator: std.mem.Allocator, file: *const File, raw: []const u8) std.mem.Allocator.Error![]u8 {
+    if (try importedTypeRefAlloc(allocator, file, raw)) |imported| return imported;
     const ident = try zigIdentAlloc(allocator, raw);
     defer allocator.free(ident);
     return std.fmt.allocPrint(allocator, "@\"cpz.schema\".{s}", .{ident});
+}
+
+fn importedTypeRefAlloc(allocator: std.mem.Allocator, file: *const File, raw: []const u8) std.mem.Allocator.Error!?[]u8 {
+    const dot = std.mem.indexOfScalar(u8, raw, '.');
+    const head = if (dot) |index| raw[0..index] else raw;
+    const tail = if (dot) |index| raw[index + 1 ..] else null;
+    for (file.imports) |import_decl| {
+        if (!std.mem.eql(u8, import_decl.name, head)) continue;
+
+        const imported_raw = if (import_decl.member) |member| blk: {
+            if (tail) |suffix| {
+                break :blk try std.fmt.allocPrint(allocator, "{s}.{s}", .{ member, suffix });
+            }
+            break :blk try allocator.dupe(u8, member);
+        } else blk: {
+            const suffix = tail orelse return null;
+            break :blk try allocator.dupe(u8, suffix);
+        };
+        defer allocator.free(imported_raw);
+
+        const module_literal = try zigStringLiteralAlloc(allocator, import_decl.name);
+        defer allocator.free(module_literal);
+        const imported_ident = try zigIdentAlloc(allocator, imported_raw);
+        defer allocator.free(imported_ident);
+        return try std.fmt.allocPrint(allocator, "@import({s}).{s}", .{ module_literal, imported_ident });
+    }
+    return null;
 }
 
 fn zigIdentAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
@@ -3344,6 +3473,31 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, new_value: @\"cpz.schema\".Person) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
+}
+
+test "schema code generator emits external import type references" {
+    const source =
+        \\using Other = import "other.capnp";
+        \\using import "common.capnp".Shared;
+        \\struct Holder {
+        \\  external @0 :Other.External;
+        \\  shared @1 :Shared;
+        \\  externalList @2 :List(Other.External);
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "@import(\"Other\").External.fromReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "@import(\"Shared\").Shared.fromReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"Other\").External.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"Shared\").Shared.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return @import(\"Other\").External.fromReader(try self.list.getStructElement(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @import(\"Other\").External.size)") != null);
 }
 
 test "schema code generator can wrap declarations in a namespace" {

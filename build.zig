@@ -109,6 +109,39 @@ pub fn build(b: *std.Build) void {
     const codegen_keyword_smoke_tests = b.addTest(.{ .root_module = codegen_keyword_smoke_mod });
     test_step.dependOn(&b.addRunArtifact(codegen_keyword_smoke_tests).step);
 
+    const run_import_base_codegen = b.addRunArtifact(cpzc);
+    run_import_base_codegen.addFileArg(b.path("tests/schema_import_base.capnp"));
+    const generated_import_base = b.createModule(.{
+        .root_source_file = run_import_base_codegen.captureStdOut(.{ .basename = "schema_import_base.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const run_import_use_codegen = b.addRunArtifact(cpzc);
+    run_import_use_codegen.addFileArg(b.path("tests/schema_import_use.capnp"));
+    const generated_import_use = b.createModule(.{
+        .root_source_file = run_import_use_codegen.captureStdOut(.{ .basename = "schema_import_use.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "Base", .module = generated_import_base },
+            .{ .name = "Child", .module = generated_import_base },
+        },
+    });
+    const codegen_import_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_import_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "Base", .module = generated_import_base },
+            .{ .name = "generated_import_use", .module = generated_import_use },
+        },
+    });
+    const codegen_import_smoke_tests = b.addTest(.{ .root_module = codegen_import_smoke_mod });
+    test_step.dependOn(&b.addRunArtifact(codegen_import_smoke_tests).step);
+
     const fmt_step = b.step("fmt", "Format Zig sources");
     const fmt = b.addFmt(.{
         .paths = &.{ "build.zig", "src", "examples", "tests" },
