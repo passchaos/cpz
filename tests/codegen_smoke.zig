@@ -2,6 +2,10 @@ const std = @import("std");
 const cpz = @import("cpz");
 const generated = @import("generated_schema");
 
+test "generated schema exposes file id" {
+    try std.testing.expectEqual(@as(u64, 0xc0ffee), generated.@"cpz.file_id");
+}
+
 test "generated simple constants compile" {
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);

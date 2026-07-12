@@ -2429,6 +2429,14 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
             \\
         , .{namespace});
     }
+    if (file.id) |id| {
+        const indent = if (options.namespace != null) "    " else "";
+        try appendFmt(allocator, &out,
+            \\{s}pub const @"cpz.file_id": u64 = 0x{x};
+            \\
+            \\
+        , .{ indent, id });
+    }
     for (file.consts) |*decl| {
         try emitConst(allocator, &out, file, decl);
     }
@@ -5335,6 +5343,22 @@ fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u
         if (std.mem.eql(u8, value.name, name)) return value.ordinal;
     }
     return error.InvalidToken;
+}
+
+test "schema code generator emits file id constant" {
+    const source =
+        \\@0xabcdef;
+        \\struct Sample {
+        \\  id @0 :UInt32;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.file_id\": u64 = 0xabcdef;") != null);
 }
 
 test "schema code generator emits Zig accessor skeletons" {
