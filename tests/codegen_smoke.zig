@@ -995,11 +995,11 @@ test "generated builtin any and capability accessors round-trip" {
     try any_items.adopt(4, &any_item_list_orphan);
     var any_item_copy_orphan = try any_items.newCopyOrphan(source_struct.getPointerField(0));
     try any_items.adopt(1, &any_item_copy_orphan);
-    try std.testing.expectEqualSlices(u8, "list any text", try (try any_items.get(0)).getText());
-    try std.testing.expectEqualSlices(u8, "dynamic", try (try any_items.get(1)).getText());
-    try std.testing.expectEqual(@as(u32, 6060), try (try any_items.get(2)).getCapabilityIndex());
-    try std.testing.expectEqual(@as(u32, 0x7777), try (try (try any_items.get(3)).getStruct()).getUInt32(0, 0));
-    try std.testing.expectEqual(@as(u32, 5151), try (try (try any_items.get(4)).getList(.four_bytes)).getUInt32(0));
+    try std.testing.expectEqualSlices(u8, "list any text", try any_items.getAsText(0));
+    try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(1));
+    try std.testing.expectEqual(@as(u32, 6060), try any_items.getAsCapability(2));
+    try std.testing.expectEqual(@as(u32, 0x7777), (try any_items.getAsStruct(3)).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u32, 5151), (try any_items.getAsList(4, .four_bytes)).getUInt32(0));
 
     const any_struct_items = try box_builder.init_anyStructItems(1);
     const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });

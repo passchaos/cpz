@@ -3011,6 +3011,26 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.list.getPointerElement(index);
             \\        }}
             \\
+            \\        pub fn getAsStruct(self: @This(), index: usize) !cpz.StructReader {{
+            \\            return (try self.list.getPointerElement(index)).getStruct(null);
+            \\        }}
+            \\
+            \\        pub fn getAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
+            \\            return (try self.list.getPointerElement(index)).getList(expected);
+            \\        }}
+            \\
+            \\        pub fn getAsText(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getText();
+            \\        }}
+            \\
+            \\        pub fn getAsData(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+            \\        pub fn getAsCapability(self: @This(), index: usize) !u32 {{
+            \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
+            \\        }}
+            \\
         , .{}),
         .any_struct => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !cpz.StructReader {{
@@ -3309,6 +3329,26 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         .any_pointer => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !cpz.PointerBuilder {{
             \\            return self.list.getPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn getAsStruct(self: @This(), index: usize) !cpz.StructBuilder {{
+            \\            return (try self.list.getPointerElement(index)).getStruct();
+            \\        }}
+            \\
+            \\        pub fn getAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).getList(expected);
+            \\        }}
+            \\
+            \\        pub fn getAsText(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getText();
+            \\        }}
+            \\
+            \\        pub fn getAsData(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+            \\        pub fn getAsCapability(self: @This(), index: usize) !u32 {{
+            \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
             \\        }}
             \\
             \\        pub fn set(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
