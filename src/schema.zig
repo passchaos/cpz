@@ -950,6 +950,7 @@ test "schema layout planner reuses alignment padding holes" {
 
 pub const CodegenOptions = struct {
     runtime_import_name: []const u8 = "cpz",
+    raw_schema_comment: ?[]const u8 = null,
 };
 
 pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
@@ -959,6 +960,9 @@ pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *co
 pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile, options: CodegenOptions) LayoutError![]u8 {
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
+    if (options.raw_schema_comment) |source| {
+        try appendRawSchemaComment(allocator, &out, source);
+    }
     try appendFmt(allocator, &out,
         \\const std = @import("std");
         \\const cpz = @import("{s}");
@@ -972,6 +976,20 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
         try emitStruct(allocator, &out, file, layout);
     }
     return out.toOwnedSlice(allocator);
+}
+
+fn appendRawSchemaComment(allocator: std.mem.Allocator, out: *std.ArrayList(u8), source: []const u8) std.mem.Allocator.Error!void {
+    try out.appendSlice(allocator, "// cpz source schema begin\n");
+    var start: usize = 0;
+    while (start <= source.len) {
+        const end = std.mem.indexOfScalarPos(u8, source, start, '\n') orelse source.len;
+        try out.appendSlice(allocator, "// ");
+        try out.appendSlice(allocator, source[start..end]);
+        try out.append(allocator, '\n');
+        if (end == source.len) break;
+        start = end + 1;
+    }
+    try out.appendSlice(allocator, "// cpz source schema end\n\n");
 }
 
 fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const EnumDecl) LayoutError!void {
@@ -1705,6 +1723,23 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, value: Person) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
+}
+
+test "schema code generator can include raw schema comments" {
+    const source =
+        \\struct Demo {
+        \\  id @0 :UInt32;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{ .raw_schema_comment = source });
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.startsWith(u8, code, "// cpz source schema begin\n"));
+    try std.testing.expect(std.mem.indexOf(u8, code, "// struct Demo {") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "// cpz source schema end") != null);
 }
 
 test "schema code generator supports custom runtime import names" {

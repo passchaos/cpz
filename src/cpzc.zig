@@ -2,7 +2,7 @@ const std = @import("std");
 const cpz = @import("cpz");
 
 const usage =
-    \\usage: cpzc [--runtime-import name] <schema.capnp> [output.zig]
+    \\usage: cpzc [--runtime-import name] [--emit-raw-schema-comments] <schema.capnp> [output.zig]
     \\
     \\Parses a supported subset of Cap'n Proto schemas and emits Zig accessor skeletons.
     \\
@@ -16,6 +16,7 @@ pub fn main(init: std.process.Init) !u8 {
 
     _ = args.skip(); // executable name
     var runtime_import_name: []const u8 = "cpz";
+    var emit_raw_schema_comments = false;
     var input_path: ?[]const u8 = null;
     var output_path: ?[]const u8 = null;
     while (args.next()) |arg| {
@@ -24,6 +25,8 @@ pub fn main(init: std.process.Init) !u8 {
                 std.debug.print("{s}", .{usage});
                 return 2;
             };
+        } else if (std.mem.eql(u8, arg, "--emit-raw-schema-comments")) {
+            emit_raw_schema_comments = true;
         } else if (input_path == null) {
             input_path = arg;
         } else if (output_path == null) {
@@ -47,6 +50,7 @@ pub fn main(init: std.process.Init) !u8 {
     defer layouts.deinit(allocator);
     const code = try cpz.schema.generateZigWithOptions(allocator, &file, &layouts, .{
         .runtime_import_name = runtime_import_name,
+        .raw_schema_comment = if (emit_raw_schema_comments) source else null,
     });
     defer allocator.free(code);
 
