@@ -1114,6 +1114,19 @@ pub const StructBuilder = struct {
         return Orphanage.init(self.message);
     }
 
+    pub fn pointerSectionAsList(self: StructBuilder) ListBuilder {
+        return .{
+            .message = self.message,
+            .segment_id = self.segment_id,
+            .start = self.pointer_start,
+            .element_count = self.pointer_count,
+            .element_size = .pointer,
+            .data_words = 0,
+            .pointer_count = 1,
+            .step_bits = wire.bits_per_word,
+        };
+    }
+
     pub fn getPointerField(self: StructBuilder, index: usize) Error!PointerBuilder {
         if (index >= self.pointer_count) return error.PointerOutOfBounds;
         return .{ .message = self.message, .segment_id = self.segment_id, .word_index = self.pointer_start + index };
@@ -1335,6 +1348,20 @@ pub const StructReader = struct {
             return .{ .message = self.message, .segment_id = self.segment_id, .word_index = 0, .nesting_left = self.nesting_left, .null_override = true };
         }
         return .{ .message = self.message, .segment_id = self.segment_id, .word_index = self.pointer_start + index, .nesting_left = self.nesting_left };
+    }
+
+    pub fn pointerSectionAsList(self: StructReader) ListReader {
+        return .{
+            .message = self.message,
+            .segment_id = self.segment_id,
+            .start = self.pointer_start,
+            .element_count = self.pointer_count,
+            .element_size = .pointer,
+            .data_words = 0,
+            .pointer_count = 1,
+            .step_bits = wire.bits_per_word,
+            .nesting_left = self.nesting_left,
+        };
     }
 
     pub fn getBool(self: StructReader, bit_offset: usize, default_value: bool) bool {
@@ -2392,9 +2419,21 @@ test "schema-agnostic validation returns reachable layout stats" {
     const names = try (try root.getPointerField(0)).initList(.pointer, 2);
     try (try names.getPointerElement(0)).setText("a");
     try (try names.getPointerElement(1)).setText("bb");
+    const pointer_section = root.pointerSectionAsList();
+    try testing.expectEqual(@as(usize, 1), pointer_section.len());
+    const names_from_builder_section = try (try pointer_section.getPointerElement(0)).getList(.pointer);
+    const first_name_from_section = try names_from_builder_section.getPointerElement(0);
+    try testing.expectEqualSlices(u8, "a", try first_name_from_section.getText());
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
-    const stats = try reader.validate();
+    const read_root = try reader.getRoot();
+    const read_pointer_section = read_root.pointerSectionAsList();
+    try testing.expectEqual(@as(usize, 1), read_pointer_section.len());
+    const read_names_from_section = try (try read_pointer_section.getPointerElement(0)).getList(.pointer);
+    try testing.expectEqualSlices(u8, "bb", try (try read_names_from_section.getPointerElement(1)).getText());
+
+    var stats_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const stats = try stats_reader.validate();
     try testing.expectEqual(@as(usize, 4), stats.pointer_slots); // root, root field, two list elements.
     try testing.expectEqual(@as(usize, 4), stats.non_null_pointers);
     try testing.expectEqual(@as(usize, 1), stats.structs);
