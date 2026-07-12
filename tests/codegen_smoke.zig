@@ -12,12 +12,12 @@ test "generated reader and builder accessors compile and round-trip" {
     try person_builder.set_name("Ada");
     try person_builder.set_favorite(.blue);
     const scores = try person_builder.init_scores(2);
-    try scores.setUInt32(0, 10);
-    try scores.setUInt32(1, 20);
+    try scores.set(0, 10);
+    try scores.set(1, 20);
     const children = try person_builder.init_children(1);
-    const child = try children.getStructElement(0);
-    try child.setUInt32(0, 99, 42);
-    try child.setText(0, "Grace");
+    const child = try children.get(0);
+    try child.set_id(99);
+    try child.set_name("Grace");
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try reader.getRoot();
