@@ -1952,6 +1952,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return self.reader.totalSize();
         \\    }}
         \\
+        \\    pub fn actualSize(self: @This()) cpz.StructSize {{
+        \\        return self.reader.size();
+        \\    }}
+        \\
     , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name, struct_name, struct_name });
 
     try emitUnionDeclarations(allocator, out, layout);
@@ -1984,6 +1988,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\        pub fn totalSize(self: Builder) !cpz.MessageSize {{
         \\            return self.builder.totalSize();
+        \\        }}
+        \\
+        \\        pub fn actualSize(self: Builder) cpz.StructSize {{
+        \\            return self.builder.size();
         \\        }}
         \\
         \\        pub fn orphanage(self: Builder) cpz.Orphanage {{
@@ -2437,6 +2445,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.totalSize();
         \\        }}
         \\
+        \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
+        \\            return self.list.elementSize();
+        \\        }}
+        \\
+        \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
+        \\            return self.list.structElementSize();
+        \\        }}
+        \\
         \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_List {{
         \\            return .{{ .list = try self.list.slice(start, count) }};
         \\        }}
@@ -2648,6 +2664,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.list.totalSize();
+        \\        }}
+        \\
+        \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
+        \\            return self.list.elementSize();
+        \\        }}
+        \\
+        \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
+        \\            return self.list.structElementSize();
         \\        }}
         \\
         \\        pub fn orphanage(self: @This()) cpz.Orphanage {{

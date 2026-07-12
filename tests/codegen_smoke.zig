@@ -9,6 +9,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const person_builder = try generated.Person.initRootTyped(&builder);
     try person_builder.set_id(7);
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
+    try std.testing.expectEqual(generated.Person.size, person_builder.actualSize());
     const root_builder = try generated.Person.getRootTyped(&builder);
     try std.testing.expectEqual(@as(u32, 7), try root_builder.get_id());
     var builder_reader = try builder.asReader(.{});
@@ -35,6 +36,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
     const scores = try person_builder.init_scores(2);
+    try std.testing.expectEqual(cpz.ElementSize.four_bytes, scores.elementSize());
     try scores.set(0, 10);
     try scores.set(1, 20);
     try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
@@ -51,6 +53,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const same_scores = try person_builder.get_scores();
     try std.testing.expectEqual(@as(u32, 10), try same_scores.get(0));
     const children = try person_builder.init_children(1);
+    try std.testing.expectEqual(generated.Person.size, children.structElementSize());
     const child = try children.get(0);
     try child.set_id(99);
     try child.set_name("Grace");
@@ -102,6 +105,7 @@ test "generated reader and builder accessors compile and round-trip" {
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = try generated.Person.getRoot(&reader);
+    try std.testing.expectEqual(generated.Person.size, person.actualSize());
     try std.testing.expectEqual(@as(u32, 7), person.id());
     try std.testing.expectEqual(false, person.active());
     try std.testing.expect(person.has_name());
@@ -112,12 +116,14 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(generated.Color.blue == try person.favorite());
     try std.testing.expectEqual(@as(u16, 2), person.favorite_raw());
     const read_scores = try person.scores();
+    try std.testing.expectEqual(cpz.ElementSize.four_bytes, read_scores.elementSize());
     try std.testing.expectEqual(@as(u32, 20), read_scores.get(1));
     const read_scores_prefix = try read_scores.slice(0, 1);
     try std.testing.expectEqual(@as(usize, 1), read_scores_prefix.len());
     try std.testing.expectEqual(@as(u32, 10), read_scores_prefix.get(0));
     try std.testing.expectError(error.UnsupportedElementSize, read_scores.slice(1, 1));
     const read_children = try person.children();
+    try std.testing.expectEqual(generated.Person.size, read_children.structElementSize());
     const read_child = try read_children.get(0);
     try std.testing.expectEqual(@as(u32, 99), read_child.id());
     try std.testing.expectEqualSlices(u8, "Grace", try read_child.name());
