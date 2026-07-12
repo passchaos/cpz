@@ -349,6 +349,7 @@ pub const PointerBuilder = struct {
     }
 
     pub fn setText(self: PointerBuilder, text: []const u8) Error!void {
+        if (!std.unicode.utf8ValidateSlice(text)) return error.Utf8Invalid;
         const list = try self.initList(.byte, text.len + 1);
         const bytes = list.bytes();
         @memcpy(bytes[0..text.len], text);
@@ -1118,6 +1119,15 @@ test "builder and reader round-trip struct with text" {
     try testing.expectEqual(@as(u32, 0x1234_5678), read_root.getUInt32(0, 0));
     try testing.expect(read_root.getBool(32, false));
     try testing.expectEqualSlices(u8, "hello", try read_root.getPointerField(0).getText());
+}
+
+test "builder rejects invalid UTF-8 text" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 4 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    try testing.expectError(error.Utf8Invalid, root.setText(0, &[_]u8{ 0xff, 0xfe }));
 }
 
 test "builder creates multiple segments and reader follows far pointers" {
