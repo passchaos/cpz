@@ -836,6 +836,19 @@ test "generated builtin any and capability accessors round-trip" {
     const copy_orphan_box = generated.DynamicBox.fromReader(try copy_orphan_reader.getRoot());
     try std.testing.expectEqualSlices(u8, "dynamic", try (try copy_orphan_box.any()).getText());
     try std.testing.expectEqualSlices(u8, "dynamic", try copy_orphan_box.anyAsText());
+
+    var scalar_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer scalar_builder_message.deinit();
+    const scalar_box_builder = try generated.DynamicBox.initRootTyped(&scalar_builder_message);
+    try scalar_box_builder.set_any_text("any text");
+    try std.testing.expectEqualSlices(u8, "any text", try scalar_box_builder.get_anyAsText());
+    try scalar_box_builder.set_any_data(&[_]u8{ 1, 2, 3 });
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2, 3 }, try scalar_box_builder.get_anyAsData());
+    try scalar_box_builder.set_any_capability(12345);
+    try std.testing.expectEqual(@as(u32, 12345), try scalar_box_builder.get_anyAsCapability());
+    var scalar_reader = cpz.MessageReader.init(try scalar_builder_message.segmentsConst(), .{});
+    const scalar_box = generated.DynamicBox.fromReader(try scalar_reader.getRoot());
+    try std.testing.expectEqual(@as(u32, 12345), try scalar_box.anyAsCapability());
 }
 
 test "generated using aliases resolve for layout and accessors" {

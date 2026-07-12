@@ -2290,6 +2290,13 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return self.reader.getPointerField({}).getData();
                 \\    }}
                 \\
+                \\    pub fn {s}AsCapability(self: @This()) !u32 {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getCapabilityIndex();
+                \\    }}
+                \\
             , .{index});
         },
         .any_struct => {
@@ -3357,11 +3364,36 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).getData();
                 \\        }}
                 \\
+                \\        pub fn get_{s}AsCapability(self: Builder) !u32 {{
+                \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
+                \\        }}
+                \\
                 \\        pub fn set_{s}(self: Builder, new_value: cpz.PointerReader) !void {{
-            , .{ index, field_name, index, field_name, index, field_name, index, field_name, index, field_name, index, field_name });
+            , .{ index, field_name, index, field_name, index, field_name, index, field_name, index, field_name, index, field_name, index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_text(self: Builder, new_value: []const u8) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).setText(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_data(self: Builder, new_value: []const u8) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).setData(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_capability(self: Builder, new_value: u32) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            (try self.builder.getPointerField({})).setCapability(new_value);
                 \\        }}
                 \\
                 \\        pub fn init_{s}_struct(self: Builder, struct_size: cpz.StructSize) !cpz.StructBuilder {{
