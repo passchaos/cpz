@@ -959,6 +959,19 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 0xfeedface), orphan_any.getUInt32(0, 0));
     try std.testing.expectEqualSlices(u8, "orphan any", try orphan_any.getPointerField(0).getText());
 
+    var text_orphan = try orphan_box_builder.new_any_textOrphan("orphan text any");
+    try std.testing.expectEqualSlices(u8, "orphan text any", try text_orphan.getText());
+    try orphan_box_builder.adopt_any(&text_orphan);
+    try std.testing.expectEqualSlices(u8, "orphan text any", try orphan_box_builder.get_anyAsText());
+    var data_orphan = try orphan_box_builder.new_any_dataOrphan(&[_]u8{ 7, 8, 9 });
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 7, 8, 9 }, try data_orphan.getData());
+    try orphan_box_builder.adopt_any(&data_orphan);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 7, 8, 9 }, try orphan_box_builder.get_anyAsData());
+    var cap_orphan = try orphan_box_builder.new_any_capabilityOrphan(2468);
+    try std.testing.expectEqual(@as(u32, 2468), try cap_orphan.getCapabilityIndex());
+    try orphan_box_builder.adopt_any(&cap_orphan);
+    try std.testing.expectEqual(@as(u32, 2468), try orphan_box_builder.get_anyAsCapability());
+
     var copy_orphan_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer copy_orphan_builder_message.deinit();
     const copy_orphan_box_builder = try generated.DynamicBox.initRootTyped(&copy_orphan_builder_message);

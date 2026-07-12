@@ -4177,11 +4177,23 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.orphanage().newStructList(count, struct_size);
                 \\        }}
                 \\
+                \\        pub fn new_{s}_textOrphan(self: Builder, new_value: []const u8) !cpz.Orphan {{
+                \\            return self.orphanage().newText(new_value);
+                \\        }}
+                \\
+                \\        pub fn new_{s}_dataOrphan(self: Builder, new_value: []const u8) !cpz.Orphan {{
+                \\            return self.orphanage().newData(new_value);
+                \\        }}
+                \\
+                \\        pub fn new_{s}_capabilityOrphan(self: Builder, new_value: u32) !cpz.Orphan {{
+                \\            return self.orphanage().newCapability(new_value);
+                \\        }}
+                \\
                 \\        pub fn new_{s}_copyOrphan(self: Builder, new_value: cpz.PointerReader) !cpz.Orphan {{
                 \\            return self.orphanage().newCopyPointer(new_value);
                 \\        }}
                 \\
-            , .{ index, field_name, field_name, field_name, field_name });
+            , .{ index, field_name, field_name, field_name, field_name, field_name, field_name, field_name });
         },
         .any_struct => {
             try appendFmt(allocator, out,
