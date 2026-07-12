@@ -2441,6 +2441,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.len();
         \\        }}
         \\
+        \\        pub fn rawBytes(self: @This()) []const u8 {{
+        \\            return self.list.bytes();
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.list.totalSize();
         \\        }}
@@ -2656,6 +2660,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn len(self: @This()) usize {{
         \\            return self.list.len();
+        \\        }}
+        \\
+        \\        pub fn rawBytes(self: @This()) []u8 {{
+        \\            return self.list.bytes();
         \\        }}
         \\
         \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) {s}_{s}_List {{
