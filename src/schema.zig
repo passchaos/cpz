@@ -3441,6 +3441,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getStruct();
             \\        }}
             \\
+            \\        pub fn pointerSection(self: @This(), index: usize) !cpz.ListBuilder {{
+            \\            return (try (try self.list.getPointerElement(index)).getStruct()).pointerSectionAsList();
+            \\        }}
+            \\
+            \\        pub fn dataSection(self: @This(), index: usize) ![]u8 {{
+            \\            return (try (try self.list.getPointerElement(index)).getStruct()).dataSectionBytes();
+            \\        }}
+            \\
             \\        pub fn init(self: @This(), index: usize, struct_size: cpz.StructSize) !cpz.StructBuilder {{
             \\            return (try self.list.getPointerElement(index)).initStruct(struct_size);
             \\        }}
