@@ -30,6 +30,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const builder_pointer_section = person_builder.pointerSection();
     try std.testing.expectEqual(@as(usize, generated.Person.size.pointer_count), builder_pointer_section.len());
     try std.testing.expectEqualSlices(u8, "Ada", try (try builder_pointer_section.getPointerElement(0)).getText());
+    const name_builder_pointer = try person_builder.get_nameAsPointer();
+    try std.testing.expectEqualSlices(u8, "Ada", try name_builder_pointer.getText());
     var name_view_reader = try builder.asReader(.{});
     const name_pointer_view = try person_builder.get_nameAsReader(&name_view_reader);
     try std.testing.expectEqualSlices(u8, "Ada", try name_pointer_view.getText());
@@ -137,6 +139,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(false, person.active());
     try std.testing.expect(person.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person.name());
+    const read_name_pointer = try person.nameAsPointer();
+    try std.testing.expectEqualSlices(u8, "Ada", try read_name_pointer.getText());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person.namePointerKind()).?);
     const read_name_raw_pointer = try person.nameRawPointer();
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_name_raw_pointer));

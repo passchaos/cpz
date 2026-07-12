@@ -2273,8 +2273,15 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
     }
 
     try appendFmt(allocator, out,
-        \\    pub fn {s}PointerKind(self: @This()) !?cpz.wire.PointerType {{
+        \\    pub fn {s}AsPointer(self: @This()) !cpz.PointerReader {{
     , .{field_name});
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({});
+        \\    }}
+        \\
+        \\    pub fn {s}PointerKind(self: @This()) !?cpz.wire.PointerType {{
+    , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\        return self.reader.getPointerField({}).pointerType();
@@ -3497,6 +3504,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     try emitBuilderUnionActivation(allocator, out, field);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).adopt(orphan);
+        \\        }}
+        \\
+        \\        pub fn get_{s}AsPointer(self: Builder) !cpz.PointerBuilder {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return self.builder.getPointerField({});
         \\        }}
         \\
         \\        pub fn get_{s}AsReader(self: Builder, message_reader: *cpz.MessageReader) !cpz.PointerReader {{
