@@ -371,6 +371,16 @@ pub const PointerBuilder = struct {
         return wire.pointerType(raw_value);
     }
 
+    pub fn totalSize(self: PointerBuilder) Error!MessageSize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).totalSize();
+    }
+
     pub fn clear(self: PointerBuilder) void {
         self.message.writePtr(self.segment_id, self.word_index, 0);
     }
@@ -677,6 +687,12 @@ pub const PointerReader = struct {
         const resolved = try self.resolve();
         if (resolved.raw == 0) return null;
         return wire.pointerType(resolved.raw);
+    }
+
+    pub fn totalSize(self: PointerReader) Error!MessageSize {
+        var stats: MessageStats = .{};
+        try validatePointer(self, &stats);
+        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
     }
 
     pub fn getStruct(self: PointerReader, default_value: ?StructReader) Error!StructReader {
@@ -1905,10 +1921,16 @@ test "root pointer APIs support non-struct roots" {
     try nums.setUInt16(1, 222);
     const root_ptr_builder = try builder.getRootPointer();
     try testing.expect(!root_ptr_builder.isNull());
+    const root_ptr_builder_size = try root_ptr_builder.totalSize();
+    try testing.expectEqual(@as(usize, 1), root_ptr_builder_size.word_count);
+    try testing.expectEqual(@as(usize, 0), root_ptr_builder_size.cap_count);
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const root_ptr = try reader.getRootPointer();
     try testing.expectEqual(wire.PointerType.list, (try root_ptr.pointerType()).?);
+    const root_ptr_size = try root_ptr.totalSize();
+    try testing.expectEqual(@as(usize, 1), root_ptr_size.word_count);
+    try testing.expectEqual(@as(usize, 0), root_ptr_size.cap_count);
     try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointer()).pointerType().?);
     const read_nums = try root_ptr.getList(.two_bytes);
     try testing.expectEqual(@as(u16, 111), read_nums.getUInt16(0));
