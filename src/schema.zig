@@ -443,7 +443,21 @@ pub const Parser = struct {
 
     fn expectDefaultLiteral(self: *Parser) Error![]const u8 {
         switch (self.lookahead.tag) {
-            .identifier, .integer, .string => {
+            .identifier => {
+                const first = self.lookahead;
+                const value = self.lookahead.lexeme;
+                try self.advance();
+                var end = first.end;
+                while (self.lookahead.tag == .dot) {
+                    try self.expect(.dot);
+                    const part = self.lookahead;
+                    _ = try self.expectIdentifier();
+                    end = part.end;
+                }
+                if (end != first.end) return self.lexer.source[first.start..end];
+                return value;
+            },
+            .integer, .string => {
                 const value = self.lookahead.lexeme;
                 try self.advance();
                 return value;
@@ -1460,7 +1474,8 @@ fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
 }
 
 fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u16 {
-    const name = literal orelse return 0;
+    const raw_name = literal orelse return 0;
+    const name = if (std.mem.lastIndexOfScalar(u8, raw_name, '.')) |dot| raw_name[dot + 1 ..] else raw_name;
     for (decl.values) |value| {
         if (std.mem.eql(u8, value.name, name)) return value.ordinal;
     }
@@ -1476,11 +1491,12 @@ test "schema code generator emits Zig accessor skeletons" {
         \\struct Person {
         \\  id @0 :UInt32 = 42;
         \\  active @1 :Bool = true;
-        \\  name @2 :Text;
-        \\  friend @3 :Person;
-        \\  scores @4 :List(UInt32);
-        \\  children @5 :List(Person);
-        \\  palette @6 :List(Color);
+        \\  favorite @2 :Color = Color.green;
+        \\  name @3 :Text;
+        \\  friend @4 :Person;
+        \\  scores @5 :List(UInt32);
+        \\  children @6 :List(Person);
+        \\  palette @7 :List(Color);
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
@@ -1496,6 +1512,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getUInt16(6, 1)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getText()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_scores_List") != null);
