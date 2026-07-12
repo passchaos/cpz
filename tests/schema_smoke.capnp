@@ -29,6 +29,8 @@ struct Person {
   weights @13 :Float64List;
   maybeName @14 :?Text;
   maybeFriend @15 :?Person;
+  scoreGroups @16 :List(List(UInt32));
+  aliasGroups @17 :List(TextList);
 }
 
 struct Choice {

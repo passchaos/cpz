@@ -213,6 +213,42 @@ test "generated list builders can clear pointer-backed and struct elements" {
     try std.testing.expectError(error.NullPointer, read_child.name());
 }
 
+test "generated nested list wrappers round-trip" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    const score_groups = try person_builder.init_scoreGroups(2);
+    const first_scores = try score_groups.init(0, .four_bytes, 2);
+    try first_scores.setUInt32(0, 100);
+    try first_scores.setUInt32(1, 200);
+    const second_scores = try score_groups.init(1, .four_bytes, 1);
+    try second_scores.setUInt32(0, 300);
+    try std.testing.expectEqual(@as(u32, 200), try (try score_groups.get(0)).getUInt32(1));
+
+    const alias_groups = try person_builder.init_aliasGroups(1);
+    const aliases = try alias_groups.init(0, .pointer, 2);
+    try (try aliases.getPointerElement(0)).setText("nested");
+    try (try aliases.getPointerElement(1)).setText("text");
+    try std.testing.expectEqualSlices(u8, "nested", try (try (try alias_groups.get(0)).getPointerElement(0)).getText());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    const read_score_groups = try person.scoreGroups();
+    try std.testing.expectEqual(@as(usize, 2), read_score_groups.len());
+    const read_first_scores = try read_score_groups.get(0);
+    try std.testing.expectEqual(@as(u32, 100), read_first_scores.getUInt32(0));
+    try std.testing.expectEqual(@as(u32, 200), read_first_scores.getUInt32(1));
+    const read_second_scores = try read_score_groups.get(1);
+    try std.testing.expectEqual(@as(u32, 300), read_second_scores.getUInt32(0));
+
+    const read_alias_groups = try person.aliasGroups();
+    try std.testing.expectEqual(@as(usize, 1), read_alias_groups.len());
+    const read_aliases = try read_alias_groups.get(0);
+    try std.testing.expectEqualSlices(u8, "nested", try (try read_aliases.getPointerElement(0)).getText());
+    try std.testing.expectEqualSlices(u8, "text", try (try read_aliases.getPointerElement(1)).getText());
+}
+
 test "generated enum raw setters preserve unknown ordinals" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
