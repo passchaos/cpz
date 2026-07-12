@@ -1459,18 +1459,51 @@ fn zigStringLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
     try out.append(allocator, '"');
-    for (raw) |c| {
-        switch (c) {
-            '\\' => try out.appendSlice(allocator, "\\\\"),
-            '"' => try out.appendSlice(allocator, "\\\""),
-            '\n' => try out.appendSlice(allocator, "\\n"),
-            '\r' => try out.appendSlice(allocator, "\\r"),
-            '\t' => try out.appendSlice(allocator, "\\t"),
-            else => try out.append(allocator, c),
+
+    var i: usize = 0;
+    while (i < raw.len) {
+        const c = raw[i];
+        i += 1;
+        if (c == '\\' and i < raw.len) {
+            const escaped = raw[i];
+            i += 1;
+            switch (escaped) {
+                'n' => try appendZigStringChar(allocator, &out, '\n'),
+                'r' => try appendZigStringChar(allocator, &out, '\r'),
+                't' => try appendZigStringChar(allocator, &out, '\t'),
+                '"' => try appendZigStringChar(allocator, &out, '"'),
+                '\\' => try appendZigStringChar(allocator, &out, '\\'),
+                'x' => {
+                    if (i + 2 <= raw.len) {
+                        if (std.fmt.parseInt(u8, raw[i .. i + 2], 16)) |value| {
+                            i += 2;
+                            try appendZigStringChar(allocator, &out, value);
+                        } else |_| {
+                            try appendZigStringChar(allocator, &out, escaped);
+                        }
+                    } else {
+                        try appendZigStringChar(allocator, &out, escaped);
+                    }
+                },
+                else => try appendZigStringChar(allocator, &out, escaped),
+            }
+        } else {
+            try appendZigStringChar(allocator, &out, c);
         }
     }
     try out.append(allocator, '"');
     return out.toOwnedSlice(allocator);
+}
+
+fn appendZigStringChar(allocator: std.mem.Allocator, out: *std.ArrayList(u8), c: u8) std.mem.Allocator.Error!void {
+    switch (c) {
+        '\\' => try out.appendSlice(allocator, "\\\\"),
+        '"' => try out.appendSlice(allocator, "\\\""),
+        '\n' => try out.appendSlice(allocator, "\\n"),
+        '\r' => try out.appendSlice(allocator, "\\r"),
+        '\t' => try out.appendSlice(allocator, "\\t"),
+        else => try out.append(allocator, c),
+    }
 }
 
 fn isZigIdentStart(c: u8) bool {
@@ -1597,6 +1630,12 @@ test "schema code generator supports custom runtime import names" {
     });
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
+}
+
+test "schema code generator converts escaped string defaults to Zig literals" {
+    const literal = try zigStringLiteralAlloc(std.testing.allocator, "line\\n\\\"tab\\t\\x21");
+    defer std.testing.allocator.free(literal);
+    try std.testing.expectEqualStrings("\"line\\n\\\"tab\\t!\"", literal);
 }
 
 test "schema code generator sanitizes dotted named type references" {
