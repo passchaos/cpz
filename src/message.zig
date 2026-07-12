@@ -1037,10 +1037,23 @@ pub const PointerBuilder = struct {
                 }
             }
         } else {
-            @memcpy(dst.bytes(), source.bytes());
+            try copyPrimitiveList(dst, source);
         }
     }
 };
+
+fn copyPrimitiveList(dst: ListBuilder, source: ListReader) Error!void {
+    if (dst.element_size != source.element_size or dst.element_count != source.element_count) return error.IncompatibleListShape;
+    switch (source.element_size) {
+        .void => {},
+        .bit => for (0..source.element_count) |i| try dst.setBool(i, source.getBool(i)),
+        .byte => for (0..source.element_count) |i| try dst.setUInt8(i, source.getUInt8(i)),
+        .two_bytes => for (0..source.element_count) |i| try dst.setUInt16(i, source.getUInt16(i)),
+        .four_bytes => for (0..source.element_count) |i| try dst.setUInt32(i, source.getUInt32(i)),
+        .eight_bytes => for (0..source.element_count) |i| try dst.setUInt64(i, source.getUInt64(i)),
+        .pointer, .composite => return error.IncompatibleListShape,
+    }
+}
 
 pub const PointerReader = struct {
     message: *MessageReader,
@@ -2630,6 +2643,28 @@ test "message builder allocates orphan copies from readers" {
     const target_list = try (try target_list_reader.getRootPointer()).getList(.four_bytes);
     try testing.expectEqual(@as(u32, 11), target_list.getUInt32(0));
     try testing.expectEqual(@as(u32, 22), target_list.getUInt32(1));
+
+    var bool_source_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer bool_source_builder.deinit();
+    const bool_source_list = try bool_source_builder.initRootList(.bit, 5);
+    try bool_source_list.setBool(0, true);
+    try bool_source_list.setBool(1, false);
+    try bool_source_list.setBool(2, true);
+    try bool_source_list.setBool(3, true);
+    try bool_source_list.setBool(4, false);
+    var bool_source_reader = MessageReader.init(try bool_source_builder.segmentsConst(), .{});
+    const bool_source_view = try (try bool_source_reader.getRootPointer()).getList(.bit);
+    var bool_target_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer bool_target_builder.deinit();
+    var bool_orphan = try bool_target_builder.newOrphanCopyList(bool_source_view);
+    try (try bool_target_builder.getRootPointer()).adopt(&bool_orphan);
+    var bool_target_reader = MessageReader.init(try bool_target_builder.segmentsConst(), .{});
+    const bool_target_list = try (try bool_target_reader.getRootPointer()).getList(.bit);
+    try testing.expectEqual(true, bool_target_list.getBool(0));
+    try testing.expectEqual(false, bool_target_list.getBool(1));
+    try testing.expectEqual(true, bool_target_list.getBool(2));
+    try testing.expectEqual(true, bool_target_list.getBool(3));
+    try testing.expectEqual(false, bool_target_list.getBool(4));
 
     var pointer_copy_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
     defer pointer_copy_builder.deinit();
