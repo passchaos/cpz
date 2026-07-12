@@ -89,6 +89,26 @@ pub fn build(b: *std.Build) void {
     const codegen_smoke_tests = b.addTest(.{ .root_module = codegen_smoke_mod });
     test_step.dependOn(&b.addRunArtifact(codegen_smoke_tests).step);
 
+    const run_keyword_schema_codegen = b.addRunArtifact(cpzc);
+    run_keyword_schema_codegen.addFileArg(b.path("tests/schema_keywords.capnp"));
+    const generated_keyword_schema = b.createModule(.{
+        .root_source_file = run_keyword_schema_codegen.captureStdOut(.{ .basename = "schema_keywords.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const codegen_keyword_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_keyword_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "generated_keyword_schema", .module = generated_keyword_schema },
+        },
+    });
+    const codegen_keyword_smoke_tests = b.addTest(.{ .root_module = codegen_keyword_smoke_mod });
+    test_step.dependOn(&b.addRunArtifact(codegen_keyword_smoke_tests).step);
+
     const fmt_step = b.step("fmt", "Format Zig sources");
     const fmt = b.addFmt(.{
         .paths = &.{ "build.zig", "src", "examples", "tests" },
