@@ -139,6 +139,7 @@ const TokenTag = enum {
     r_paren,
     equal,
     integer,
+    string,
     eof,
 };
 
@@ -166,6 +167,26 @@ const Lexer = struct {
             '(' => .{ .tag = .l_paren, .lexeme = self.source[start..self.index] },
             ')' => .{ .tag = .r_paren, .lexeme = self.source[start..self.index] },
             '=' => .{ .tag = .equal, .lexeme = self.source[start..self.index] },
+            '"' => blk: {
+                const content_start = self.index;
+                while (self.index < self.source.len) {
+                    switch (self.source[self.index]) {
+                        '"' => {
+                            const content = self.source[content_start..self.index];
+                            self.index += 1;
+                            break :blk .{ .tag = .string, .lexeme = content };
+                        },
+                        '\\' => {
+                            self.index += 1;
+                            if (self.index >= self.source.len) return error.InvalidToken;
+                            self.index += 1;
+                        },
+                        '\n', '\r' => return error.InvalidToken,
+                        else => self.index += 1,
+                    }
+                }
+                return error.InvalidToken;
+            },
             '0'...'9' => blk: {
                 while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
                 break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
@@ -231,6 +252,8 @@ pub const Parser = struct {
                 try structs.append(self.allocator, try self.parseStruct());
             } else if (self.eatKeyword("enum")) {
                 try enums.append(self.allocator, try self.parseEnum());
+            } else if (self.eatKeyword("using") or self.eatKeyword("const")) {
+                try self.skipUntilSemicolon();
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
             } else {
@@ -360,13 +383,21 @@ pub const Parser = struct {
 
     fn expectDefaultLiteral(self: *Parser) Error![]const u8 {
         switch (self.lookahead.tag) {
-            .identifier, .integer => {
+            .identifier, .integer, .string => {
                 const value = self.lookahead.lexeme;
                 try self.advance();
                 return value;
             },
             else => return error.UnexpectedToken,
         }
+    }
+
+    fn skipUntilSemicolon(self: *Parser) Error!void {
+        while (self.lookahead.tag != .semicolon) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            try self.advance();
+        }
+        try self.expect(.semicolon);
     }
 
     fn expect(self: *Parser, tag: TokenTag) Error!void {
@@ -524,6 +555,21 @@ test "schema parser handles structs, file ids, lists, comments" {
 test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 UInt32; }"));
     try std.testing.expectError(error.InvalidToken, parse(std.testing.allocator, "@!;"));
+}
+
+test "schema parser skips common top-level using and const declarations" {
+    const source =
+        \\using Go = import "go.capnp";
+        \\const defaultName :Text = "Ada";
+        \\struct Person {
+        \\  name @0 :Text = "Ada";
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.structs.len);
+    try std.testing.expectEqualStrings("Person", file.structs[0].name);
+    try std.testing.expectEqualStrings("Ada", file.structs[0].fields[0].default_literal.?);
 }
 
 test "schema layout planner assigns data and pointer slots" {
