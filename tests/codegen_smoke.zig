@@ -864,6 +864,21 @@ test "generated builtin any and capability accessors round-trip" {
     var scalar_reader = cpz.MessageReader.init(try scalar_builder_message.segmentsConst(), .{});
     const scalar_box = generated.DynamicBox.fromReader(try scalar_reader.getRoot());
     try std.testing.expectEqual(@as(u32, 12345), try scalar_box.anyAsCapability());
+
+    var composite_list_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer composite_list_message.deinit();
+    const composite_box_builder = try generated.DynamicBox.initRootTyped(&composite_list_message);
+    const composite_any_list = try composite_box_builder.init_anyList_structList(1, .{ .data_words = 1, .pointer_count = 1 });
+    const composite_item = try composite_any_list.getStructElement(0);
+    try composite_item.setUInt32(0, 3210, 0);
+    try composite_item.setText(0, "any list struct");
+    var composite_reader = cpz.MessageReader.init(try composite_list_message.segmentsConst(), .{});
+    const composite_box = generated.DynamicBox.fromReader(try composite_reader.getRoot());
+    const read_composite_list = try composite_box.anyList();
+    try std.testing.expectEqual(cpz.ElementSize.composite, read_composite_list.elementSize());
+    const read_composite_item = try read_composite_list.getStructElement(0);
+    try std.testing.expectEqual(@as(u32, 3210), read_composite_item.getUInt32(0, 0));
+    try std.testing.expectEqualSlices(u8, "any list struct", try read_composite_item.getPointerField(0).getText());
 }
 
 test "generated using aliases resolve for layout and accessors" {

@@ -3552,6 +3552,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initList(element_size, count);
                 \\        }}
                 \\
+                \\        pub fn init_{s}_structList(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).initStructList(count, struct_size);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_from(self: Builder, new_value: cpz.PointerReader) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
