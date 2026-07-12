@@ -182,6 +182,24 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).initStructList(element_count, size);
     }
 
+    pub fn newOrphanStruct(self: *MessageBuilder, size: wire.StructSize) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        _ = try slot.initStruct(size);
+        return slot.disown();
+    }
+
+    pub fn newOrphanList(self: *MessageBuilder, element_size: wire.ElementSize, element_count: usize) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        _ = try slot.initList(element_size, element_count);
+        return slot.disown();
+    }
+
+    pub fn newOrphanStructList(self: *MessageBuilder, element_count: usize, size: wire.StructSize) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        _ = try slot.initStructList(element_count, size);
+        return slot.disown();
+    }
+
     pub fn copyRootFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
         const dst_root = try self.getRootPointer();
         const src_root = try source.getRootPointer();
@@ -212,6 +230,11 @@ pub const MessageBuilder = struct {
     pub fn getRootPointer(self: *MessageBuilder) Error!PointerBuilder {
         if (self.segments.items.len == 0) return error.SegmentOutOfBounds;
         return .{ .message = self, .segment_id = 0, .word_index = 0 };
+    }
+
+    fn newOrphanPointer(self: *MessageBuilder) Error!PointerBuilder {
+        const slot = try self.allocObject(0, 1);
+        return .{ .message = self, .segment_id = slot.id, .word_index = slot.start };
     }
 
     pub fn asReader(self: *MessageBuilder, options: ReaderOptions) !MessageReader {
@@ -2167,6 +2190,38 @@ test "pointer list elements can disown and adopt within a message" {
     const read_list = try (try reader.getRoot()).getPointerField(0).getList(.pointer);
     try testing.expect((try read_list.getPointerElement(0)).isNull());
     try testing.expectEqualSlices(u8, "first", try (try read_list.getPointerElement(1)).getText());
+}
+
+test "message builder allocates new orphan structs and lists" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    var struct_orphan = try builder.newOrphanStruct(.{ .data_words = 1, .pointer_count = 1 });
+    const orphan_struct = try struct_orphan.getStruct();
+    try orphan_struct.setUInt32(0, 4242, 0);
+    try orphan_struct.setText(0, "new orphan");
+    const struct_size = try struct_orphan.totalSize();
+    try testing.expectEqual(@as(usize, 4), struct_size.word_count);
+
+    try (try builder.getRootPointer()).adopt(&struct_orphan);
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try reader.getRoot();
+    try testing.expectEqual(@as(u32, 4242), root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "new orphan", try root.getPointerField(0).getText());
+
+    var list_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer list_builder.deinit();
+    var list_orphan = try list_builder.newOrphanList(.two_bytes, 2);
+    const orphan_list = try list_orphan.getList(.two_bytes);
+    try orphan_list.setUInt16(0, 77);
+    try orphan_list.setUInt16(1, 88);
+
+    try (try list_builder.getRootPointer()).adopt(&list_orphan);
+    var list_reader = MessageReader.init(try list_builder.segmentsConst(), .{});
+    const root_list = try (try list_reader.getRootPointer()).getList(.two_bytes);
+    try testing.expectEqual(@as(u16, 77), root_list.getUInt16(0));
+    try testing.expectEqual(@as(u16, 88), root_list.getUInt16(1));
 }
 
 test "schema-agnostic validation returns reachable layout stats" {
