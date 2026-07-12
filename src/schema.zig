@@ -1985,6 +1985,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return self.reader.size();
         \\    }}
         \\
+        \\    pub fn dataSection(self: @This()) []const u8 {{
+        \\        return self.reader.dataSectionBytes();
+        \\    }}
+        \\
     , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name, struct_name, struct_name, struct_name });
 
     try emitUnionDeclarations(allocator, out, layout);
@@ -2021,6 +2025,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\        pub fn actualSize(self: Builder) cpz.StructSize {{
         \\            return self.builder.size();
+        \\        }}
+        \\
+        \\        pub fn dataSection(self: Builder) []u8 {{
+        \\            return self.builder.dataSectionBytes();
         \\        }}
         \\
         \\        pub fn clear(self: Builder) !void {{
