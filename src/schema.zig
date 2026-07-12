@@ -1216,6 +1216,13 @@ fn findEnumDirect(file: *const File, name: []const u8) ?*const EnumDecl {
     return null;
 }
 
+fn findStructDirect(file: *const File, name: []const u8) ?*const Struct {
+    for (file.structs) |*decl| {
+        if (std.mem.eql(u8, decl.name, name)) return decl;
+    }
+    return null;
+}
+
 fn findInterface(file: *const File, name: []const u8) ?*const InterfaceDecl {
     if (findInterfaceDirect(file, name)) |decl| return decl;
     const resolved = resolveNamedAlias(file, name, 0) orelse return null;
@@ -1233,6 +1240,24 @@ fn findInterfaceDirect(file: *const File, name: []const u8) ?*const InterfaceDec
         if (std.mem.eql(u8, decl.name, name)) return decl;
     }
     return null;
+}
+
+fn isImportedTypeName(file: *const File, name: []const u8) bool {
+    const dot = std.mem.indexOfScalar(u8, name, '.');
+    const head = if (dot) |index| name[0..index] else name;
+    const has_tail = dot != null;
+    for (file.imports) |import_decl| {
+        if (!std.mem.eql(u8, import_decl.name, head)) continue;
+        if (import_decl.member != null) return true;
+        return has_tail;
+    }
+    return false;
+}
+
+fn isStructLikeName(file: *const File, name: []const u8) bool {
+    return findStructDirect(file, name) != null or
+        isImportedTypeName(file, name) or
+        std.mem.indexOfScalar(u8, name, '.') != null;
 }
 
 fn resolveType(file: *const File, ty: Type) Type {
@@ -2392,6 +2417,16 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\    }}
                 \\
             , .{index});
+        } else if (!isStructLikeName(file, type_name)) {
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !cpz.PointerReader {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({});
+                \\    }}
+                \\
+            , .{index});
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
@@ -2546,6 +2581,13 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !u32 {{
                 \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
+                \\        }}
+                \\
+            , .{});
+        } else if (!isStructLikeName(file, type_name)) {
+            try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) !cpz.PointerReader {{
+                \\            return self.list.getPointerElement(index);
                 \\        }}
                 \\
             , .{});
@@ -2940,6 +2982,29 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{});
+        } else if (!isStructLikeName(file, type_name)) {
+            try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) !cpz.PointerBuilder {{
+                \\            return self.list.getPointerElement(index);
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
+                \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), index: usize) !void {{
+                \\            return self.list.clearPointerElement(index);
+                \\        }}
+                \\
+                \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+                \\            return self.list.disownPointerElement(index);
+                \\        }}
+                \\
+                \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+                \\            return self.list.adoptPointerElement(index, orphan);
+                \\        }}
+                \\
+            , .{});
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
@@ -3019,6 +3084,8 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             , .{index});
         } else if (findInterface(file, type_name) != null) {
             try emitCapabilitySliceSetter(allocator, out, field_name, field, index);
+        } else if (!isStructLikeName(file, type_name)) {
+            try emitListPointerSliceSetter(allocator, out, field_name, field, index, "cpz.PointerReader", "copyFrom");
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
@@ -3611,6 +3678,23 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\        }}
                 \\
             , .{index});
+        } else if (!isStructLikeName(file, type_name)) {
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) !cpz.PointerBuilder {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return self.builder.getPointerField({});
+                \\        }}
+                \\
+                \\        pub fn set_{s}_from(self: Builder, new_value: cpz.PointerReader) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
+                \\        }}
+                \\
+            , .{index});
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
@@ -3684,13 +3768,13 @@ fn listElementSizeLiteral(file: *const File, ty: Type) LayoutError![]const u8 {
         .int64, .uint64, .float64 => ".eight_bytes",
         .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => ".pointer",
         .optional => ".pointer",
-        .named => |name| if (findEnum(file, name) != null) ".two_bytes" else if (findInterface(file, name) != null) ".pointer" else ".composite",
+        .named => |name| if (findEnum(file, name) != null) ".two_bytes" else if (findInterface(file, name) != null or !isStructLikeName(file, name)) ".pointer" else ".composite",
     };
 }
 
 fn isStructListElement(file: *const File, ty: Type) ?[]const u8 {
     return switch (resolveType(file, ty)) {
-        .named => |name| if (findEnumDirect(file, name) == null and findInterfaceDirect(file, name) == null) name else null,
+        .named => |name| if (findEnumDirect(file, name) == null and findInterfaceDirect(file, name) == null and isStructLikeName(file, name)) name else null,
         else => null,
     };
 }
@@ -4010,6 +4094,27 @@ test "schema code generator emits external import type references" {
     try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"Shared\").Shared.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @import(\"Other\").External.fromReader(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @import(\"Other\").External.size)") != null);
+}
+
+test "schema code generator lowers generic type parameters to pointer accessors" {
+    const source =
+        \\struct Box(T) {
+        \\  item @0 :T;
+        \\  items @1 :List(T);
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn item(self: @This()) !cpz.PointerReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_item(self: Builder) !cpz.PointerBuilder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getPointerField(1).getList(.pointer)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get(self: @This(), index: usize) !cpz.PointerReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_items(self: Builder, @\"cpz.values\": []const cpz.PointerReader)") != null);
 }
 
 test "schema code generator can wrap declarations in a namespace" {
