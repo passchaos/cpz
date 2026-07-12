@@ -8,6 +8,7 @@
 - arena-backed builders for structs, scalar fields/lists, pointer lists, text/data blobs, composite struct lists, and deep-copying from readers;
 - packed stream codec compatible with Cap'n Proto packing.
 - one-call packed stream framing helpers (`messageToPackedBytes` / `readPackedMessage`).
+- initial `.capnp` schema parser for structs, scalar fields, lists, named types, and file IDs.
 
 The long-term target is to grow into a full schema/compiler/RPC stack while keeping Zig-friendly APIs and predictable performance.
 

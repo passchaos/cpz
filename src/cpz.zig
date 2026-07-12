@@ -9,6 +9,7 @@ pub const wire = @import("wire.zig");
 pub const serialize = @import("serialize.zig");
 pub const packing = @import("packing.zig");
 pub const message = @import("message.zig");
+pub const schema = @import("schema.zig");
 
 pub const Word = wire.Word;
 pub const ElementSize = wire.ElementSize;
@@ -31,4 +32,5 @@ test {
     _ = serialize;
     _ = packing;
     _ = message;
+    _ = schema;
 }
