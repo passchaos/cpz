@@ -777,6 +777,9 @@ test "generated builtin any and capability accessors round-trip" {
     const any_struct_pointer_section = try box_builder.get_anyStructPointerSection();
     try std.testing.expectEqual(@as(usize, 1), any_struct_pointer_section.len());
     try std.testing.expectEqualSlices(u8, "dynamic", try (try any_struct_pointer_section.getPointerElement(0)).getText());
+    const any_struct_data_section = try box_builder.get_anyStructDataSection();
+    try std.testing.expectEqual(@as(usize, 8), any_struct_data_section.len);
+    try std.testing.expectEqual(@as(u8, 0xad), any_struct_data_section[0]);
     try box_builder.set_cap(77);
     const caps = try box_builder.init_capList(2);
     try caps.set(0, 88);
@@ -795,6 +798,8 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, "dynamic", try any_struct.getPointerField(0).getText());
     const read_any_struct_pointer_section = try dynamic_box.anyStructPointerSection();
     try std.testing.expectEqualSlices(u8, "dynamic", try (try read_any_struct_pointer_section.getPointerElement(0)).getText());
+    const read_any_struct_data_section = try dynamic_box.anyStructDataSection();
+    try std.testing.expectEqual(@as(u8, 0xad), read_any_struct_data_section[0]);
     const read_list = try dynamic_box.anyList();
     try std.testing.expectEqual(@as(u16, 222), read_list.getUInt16(1));
     try std.testing.expectEqual(@as(u32, 77), try dynamic_box.cap());

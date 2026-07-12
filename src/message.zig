@@ -1127,6 +1127,10 @@ pub const StructBuilder = struct {
         };
     }
 
+    pub fn dataSectionBytes(self: StructBuilder) []u8 {
+        return self.dataBytes();
+    }
+
     pub fn getPointerField(self: StructBuilder, index: usize) Error!PointerBuilder {
         if (index >= self.pointer_count) return error.PointerOutOfBounds;
         return .{ .message = self.message, .segment_id = self.segment_id, .word_index = self.pointer_start + index };
@@ -1362,6 +1366,10 @@ pub const StructReader = struct {
             .step_bits = wire.bits_per_word,
             .nesting_left = self.nesting_left,
         };
+    }
+
+    pub fn dataSectionBytes(self: StructReader) []const u8 {
+        return self.dataBytes();
     }
 
     pub fn getBool(self: StructReader, bit_offset: usize, default_value: bool) bool {
@@ -2441,6 +2449,24 @@ test "schema-agnostic validation returns reachable layout stats" {
     try testing.expectEqual(@as(usize, 2), stats.data_words);
     try testing.expectEqual(@as(usize, 3), stats.pointer_words);
     try testing.expectEqual(@as(usize, 5), stats.total_words);
+}
+
+test "struct data sections expose raw bytes" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 0 });
+    try root.setUInt32(0, 0x12345678, 0);
+    const data = root.dataSectionBytes();
+    try testing.expectEqual(@as(usize, 8), data.len);
+    try testing.expectEqual(@as(u8, 0x78), data[0]);
+    data[4] = 0xaa;
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_data = (try reader.getRoot()).dataSectionBytes();
+    try testing.expectEqual(@as(u8, 0x78), read_data[0]);
+    try testing.expectEqual(@as(u8, 0xaa), read_data[4]);
 }
 
 test "validation reports traversal budget and bounds failures" {
