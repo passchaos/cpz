@@ -973,12 +973,16 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
             \\    }}
             \\
         , .{ field.name, owner_name, field.name, index, try listElementSizeLiteral(file, child.*) }),
-        .named => |type_name| try appendFmt(allocator, out,
-            \\    pub fn {s}(self: @This()) !{s} {{
-            \\        return {s}.fromReader(try self.reader.getPointerField({}).getStruct(null));
-            \\    }}
-            \\
-        , .{ field.name, type_name, type_name, index }),
+        .named => |type_name| {
+            const zig_type = try zigIdentAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !{s} {{
+                \\        return {s}.fromReader(try self.reader.getPointerField({}).getStruct(null));
+                \\    }}
+                \\
+            , .{ field.name, zig_type, zig_type, index });
+        },
         else => return error.UnsupportedType,
     }
 }
@@ -1026,19 +1030,23 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{}),
         .named => |type_name| if (findEnum(file, type_name) != null) {
+            const zig_type = try zigIdentAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) {s} {{
                 \\            return @enumFromInt(self.list.getUInt16(index));
                 \\        }}
                 \\
-            , .{type_name});
+            , .{zig_type});
         } else {
+            const zig_type = try zigIdentAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s} {{
                 \\            return {s}.fromReader(try self.list.getStructElement(index));
                 \\        }}
                 \\
-            , .{ type_name, type_name });
+            , .{ zig_type, zig_type });
         },
         .void, .list => {},
     }
@@ -1089,19 +1097,23 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{}),
         .named => |type_name| if (findEnum(file, type_name) != null) {
+            const zig_type = try zigIdentAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
                 \\            return self.list.setUInt16(index, @intFromEnum(value));
                 \\        }}
                 \\
-            , .{type_name});
+            , .{zig_type});
         } else {
+            const zig_type = try zigIdentAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s}.Builder {{
                 \\            return {s}.Builder.fromBuilder(try self.list.getStructElement(index));
                 \\        }}
                 \\
-            , .{ type_name, type_name });
+            , .{ zig_type, zig_type });
         },
         .void, .list => {},
     }
@@ -1199,24 +1211,30 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             \\
         , .{ field.name, index }),
         .list => |child| if (isStructListElement(file, child.*)) |type_name| {
+            const zig_type = try zigIdentAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
                 \\            return .{{ .list = try (try self.builder.getPointerField({})).initStructList(count, {s}.size) }};
                 \\        }}
                 \\
-            , .{ field.name, owner_name, field.name, index, type_name });
+            , .{ field.name, owner_name, field.name, index, zig_type });
         } else try appendFmt(allocator, out,
             \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
             \\            return .{{ .list = try (try self.builder.getPointerField({})).initList({s}, count) }};
             \\        }}
             \\
         , .{ field.name, owner_name, field.name, index, try listElementSizeLiteral(file, child.*) }),
-        .named => |type_name| try appendFmt(allocator, out,
-            \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
-            \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
-            \\        }}
-            \\
-        , .{ field.name, type_name, type_name, index, type_name }),
+        .named => |type_name| {
+            const zig_type = try zigIdentAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
+                \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
+                \\        }}
+                \\
+            , .{ field.name, zig_type, zig_type, index, zig_type });
+        },
         else => return error.UnsupportedType,
     }
 }
@@ -1245,6 +1263,51 @@ fn appendFmt(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt
     const text = try std.fmt.allocPrint(allocator, fmt, args);
     defer allocator.free(text);
     try out.appendSlice(allocator, text);
+}
+
+fn zigIdentAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+    if (raw.len == 0 or !isZigIdentStart(raw[0])) {
+        try out.append(allocator, '_');
+    }
+    for (raw) |c| {
+        try out.append(allocator, if (isZigIdentContinue(c)) c else '_');
+    }
+    if (isZigKeyword(out.items)) {
+        try out.append(allocator, '_');
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+fn isZigIdentStart(c: u8) bool {
+    return switch (c) {
+        'A'...'Z', 'a'...'z', '_' => true,
+        else => false,
+    };
+}
+
+fn isZigIdentContinue(c: u8) bool {
+    return switch (c) {
+        'A'...'Z', 'a'...'z', '0'...'9', '_' => true,
+        else => false,
+    };
+}
+
+fn isZigKeyword(name: []const u8) bool {
+    const keywords = [_][]const u8{
+        "addrspace", "align",     "allowzero",   "and",            "anyframe", "anytype",     "asm",
+        "async",     "await",     "break",       "callconv",       "catch",    "comptime",    "const",
+        "continue",  "defer",     "else",        "enum",           "errdefer", "error",       "export",
+        "extern",    "fn",        "for",         "if",             "inline",   "linksection", "noalias",
+        "noinline",  "nosuspend", "opaque",      "or",             "orelse",   "packed",      "pub",
+        "resume",    "return",    "struct",      "suspend",        "switch",   "test",        "threadlocal",
+        "try",       "union",     "unreachable", "usingnamespace", "var",      "volatile",    "while",
+    };
+    for (keywords) |keyword| {
+        if (std.mem.eql(u8, name, keyword)) return true;
+    }
+    return false;
 }
 
 fn defaultScalarLiteral(field: *const Field) []const u8 {
@@ -1332,6 +1395,24 @@ test "schema code generator supports custom runtime import names" {
     });
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
+}
+
+test "schema code generator sanitizes dotted named type references" {
+    var file = try parse(std.testing.allocator,
+        \\struct Ref {
+        \\  child @0 :Outer.Inner;
+        \\  children @1 :List(Outer.Inner);
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "!Outer_Inner") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "Outer_Inner.fromReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "Outer_Inner.Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "Outer_Inner.size") != null);
 }
 
 test "schema parser, layout, and codegen handle enums" {
