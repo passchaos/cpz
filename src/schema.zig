@@ -3211,6 +3211,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.builder.getPointerField({})).adopt(orphan);
         \\        }}
         \\
+        \\        pub fn get_{s}AsReader(self: Builder, message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).asReader(message_reader);
+        \\        }}
+        \\
     , .{index});
 
     switch (resolveType(file, field.ty)) {

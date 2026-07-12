@@ -25,6 +25,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try person_builder.set_name("Ada");
     try std.testing.expectEqual(true, try person_builder.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person_builder.get_name());
+    var name_view_reader = try builder.asReader(.{});
+    const name_pointer_view = try person_builder.get_nameAsReader(&name_view_reader);
+    try std.testing.expectEqualSlices(u8, "Ada", try name_pointer_view.getText());
     try person_builder.set_favorite(.blue);
     try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
