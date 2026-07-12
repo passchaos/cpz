@@ -17,6 +17,7 @@ pub const Error = wire.Error || std.mem.Allocator.Error || error{
 pub const ReaderOptions = struct {
     traversal_limit_words: usize = 8 * 1024 * 1024, // 64 MiB like C++ default.
     nesting_limit: u16 = 64,
+    capability_count_limit: ?usize = null,
 };
 
 pub const MessageStats = struct {
@@ -26,6 +27,7 @@ pub const MessageStats = struct {
     structs: usize = 0,
     lists: usize = 0,
     capabilities: usize = 0,
+    max_capability_index: ?u32 = null,
     data_words: usize = 0,
     pointer_words: usize = 0,
     total_words: usize = 0,
@@ -1246,8 +1248,14 @@ fn validatePointer(ptr: PointerReader, stats: *MessageStats) Error!void {
         },
         .far => return error.InvalidFarPointer,
         .other => {
-            _ = try wire.decodeOther(resolved.raw);
+            const cap = try wire.decodeOther(resolved.raw);
+            if (ptr.message.options.capability_count_limit) |limit| {
+                if (@as(usize, cap.index) >= limit) return error.InvalidCapabilityPointer;
+            }
             try addStat(&stats.capabilities, 1);
+            if (stats.max_capability_index == null or cap.index > stats.max_capability_index.?) {
+                stats.max_capability_index = cap.index;
+            }
         },
     }
 }
@@ -1761,6 +1769,10 @@ test "capability pointers round-trip and validate" {
     var validating = MessageReader.init(try builder.segmentsConst(), .{});
     const stats = try validating.validate();
     try testing.expectEqual(@as(usize, 2), stats.capabilities);
+    try testing.expectEqual(@as(?u32, 456), stats.max_capability_index);
+
+    var limited = MessageReader.init(try builder.segmentsConst(), .{ .capability_count_limit = 200 });
+    try testing.expectError(error.InvalidCapabilityPointer, limited.validate());
 }
 
 test "non-bit pointer and eight-byte lists can be read as struct lists" {
