@@ -182,6 +182,18 @@ pub const Orphanage = struct {
         return self.message.newOrphanStructList(element_count, size);
     }
 
+    pub fn newText(self: Orphanage, text: []const u8) Error!Orphan {
+        return self.message.newOrphanText(text);
+    }
+
+    pub fn newData(self: Orphanage, data: []const u8) Error!Orphan {
+        return self.message.newOrphanData(data);
+    }
+
+    pub fn newCapability(self: Orphanage, index: u32) Error!Orphan {
+        return self.message.newOrphanCapability(index);
+    }
+
     pub fn newCopyStruct(self: Orphanage, source: StructReader) Error!Orphan {
         return self.message.newOrphanCopyStruct(source);
     }
@@ -268,6 +280,24 @@ pub const MessageBuilder = struct {
     pub fn newOrphanStructList(self: *MessageBuilder, element_count: usize, size: wire.StructSize) Error!Orphan {
         const slot = try self.newOrphanPointer();
         _ = try slot.initStructList(element_count, size);
+        return slot.disown();
+    }
+
+    pub fn newOrphanText(self: *MessageBuilder, text: []const u8) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.setText(text);
+        return slot.disown();
+    }
+
+    pub fn newOrphanData(self: *MessageBuilder, data: []const u8) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.setData(data);
+        return slot.disown();
+    }
+
+    pub fn newOrphanCapability(self: *MessageBuilder, index: u32) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        slot.setCapability(index);
         return slot.disown();
     }
 
@@ -2532,6 +2562,34 @@ test "message builder allocates new orphan structs and lists" {
     dropped.release();
     try testing.expect(dropped.isNull());
     try testing.expectError(error.NullPointer, dropped.totalSize());
+}
+
+test "message builder allocates scalar orphans" {
+    const testing = std.testing;
+
+    var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer text_builder.deinit();
+    var text_orphan = try text_builder.newOrphanText("allocated text");
+    try testing.expectEqualSlices(u8, "allocated text", try text_orphan.getText());
+    try (try text_builder.getRootPointer()).adopt(&text_orphan);
+    var text_reader = MessageReader.init(try text_builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, "allocated text", try text_reader.getRootText());
+
+    var data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer data_builder.deinit();
+    var data_orphan = try data_builder.newOrphanData(&[_]u8{ 1, 3, 3, 7 });
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 3, 3, 7 }, try data_orphan.getData());
+    try (try data_builder.getRootPointer()).adopt(&data_orphan);
+    var data_reader = MessageReader.init(try data_builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 3, 3, 7 }, try data_reader.getRootData());
+
+    var cap_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer cap_builder.deinit();
+    var cap_orphan = try cap_builder.newOrphanCapability(9001);
+    try testing.expectEqual(@as(u32, 9001), try cap_orphan.getCapabilityIndex());
+    try (try cap_builder.getRootPointer()).adopt(&cap_orphan);
+    var cap_reader = MessageReader.init(try cap_builder.segmentsConst(), .{});
+    try testing.expectEqual(@as(u32, 9001), try cap_reader.getRootCapability());
 }
 
 test "message builder allocates orphan copies from readers" {
