@@ -36,6 +36,11 @@ pub fn main(init: std.process.Init) !u8 {
     defer allocator.free(code);
 
     if (output_path) |path| {
+        if (std.fs.path.dirname(path)) |parent| {
+            if (parent.len != 0 and !std.mem.eql(u8, parent, ".")) {
+                try std.Io.Dir.cwd().createDirPath(io, parent);
+            }
+        }
         try std.Io.Dir.cwd().writeFile(io, .{ .sub_path = path, .data = code });
     } else {
         try std.Io.File.stdout().writeStreamingAll(io, code);
