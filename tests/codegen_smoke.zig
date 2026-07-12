@@ -297,3 +297,36 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));
     try std.testing.expectEqual(@as(u32, 99), try read_caps.get(1));
 }
+
+test "generated using aliases resolve for layout and accessors" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer source_builder.deinit();
+    const source_root = try source_builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    try source_root.setText(0, "aliased pointer");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_struct = try source_reader.getRoot();
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const box_builder = try generated.AliasBox.initRootTyped(&builder);
+    try box_builder.set_id(123);
+    try box_builder.set_shade(.green);
+    const names = try box_builder.init_names(2);
+    try names.set(0, "Ada");
+    try names.set(1, "Grace");
+    try box_builder.set_dynamic(source_struct.getPointerField(0));
+    const caps = try box_builder.init_caps(2);
+    try caps.set(0, 700);
+    try caps.set(1, 701);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const box = generated.AliasBox.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(@as(u32, 123), box.id());
+    try std.testing.expectEqual(generated.Color.green, try box.shade());
+    const read_names = try box.names();
+    try std.testing.expectEqualSlices(u8, "Grace", try read_names.get(1));
+    try std.testing.expectEqualSlices(u8, "aliased pointer", try (try box.dynamic()).getText());
+    const read_caps = try box.caps();
+    try std.testing.expectEqual(@as(u32, 700), try read_caps.get(0));
+    try std.testing.expectEqual(@as(u32, 701), try read_caps.get(1));
+}

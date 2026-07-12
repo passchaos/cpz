@@ -6,6 +6,12 @@ enum Color {
   blue @2;
 }
 
+using Id = UInt32;
+using Name = Text;
+using Shade = Color;
+using DynamicAlias = AnyPointer;
+using CapAlias = Capability;
+
 struct Person {
   id @0 :UInt32 = 42;
   active @1 :Bool = true;
@@ -40,4 +46,12 @@ struct DynamicBox {
   anyList @2 :AnyList;
   cap @3 :Capability;
   capList @4 :List(Capability);
+}
+
+struct AliasBox {
+  id @0 :Id = 11;
+  shade @1 :Shade = blue;
+  names @2 :List(Name);
+  dynamic @3 :DynamicAlias;
+  caps @4 :List(CapAlias);
 }

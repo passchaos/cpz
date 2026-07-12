@@ -59,6 +59,16 @@ pub const Field = struct {
     }
 };
 
+pub const AliasDecl = struct {
+    name: []const u8,
+    target: Type,
+
+    pub fn deinit(self: *AliasDecl, allocator: std.mem.Allocator) void {
+        self.target.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
 const UnionBuilder = struct {
     fields: std.ArrayList(Field) = .empty,
     field_names: std.StringHashMap(void),
@@ -105,12 +115,15 @@ pub const File = struct {
     id: ?u64,
     structs: []Struct,
     enums: []EnumDecl,
+    aliases: []AliasDecl,
 
     pub fn deinit(self: *File, allocator: std.mem.Allocator) void {
         for (self.structs) |*s| s.deinit(allocator);
         allocator.free(self.structs);
         for (self.enums) |*e| e.deinit(allocator);
         allocator.free(self.enums);
+        for (self.aliases) |*a| a.deinit(allocator);
+        allocator.free(self.aliases);
         self.* = undefined;
     }
 };
@@ -321,6 +334,11 @@ pub const Parser = struct {
             for (enums.items) |*e| e.deinit(self.allocator);
             enums.deinit(self.allocator);
         }
+        var aliases = std.ArrayList(AliasDecl).empty;
+        errdefer {
+            for (aliases.items) |*a| a.deinit(self.allocator);
+            aliases.deinit(self.allocator);
+        }
         var decl_names = std.StringHashMap(void).init(self.allocator);
         defer decl_names.deinit();
         var file_id: ?u64 = null;
@@ -344,7 +362,9 @@ pub const Parser = struct {
                 try enums.append(self.allocator, decl);
             } else if (self.eatKeyword("interface")) {
                 try self.skipBracedDeclaration();
-            } else if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            } else if (self.eatKeyword("using")) {
+                try self.parseUsingOrSkip(&aliases, &decl_names);
+            } else if (self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
@@ -357,7 +377,38 @@ pub const Parser = struct {
             .id = file_id,
             .structs = try structs.toOwnedSlice(self.allocator),
             .enums = try enums.toOwnedSlice(self.allocator),
+            .aliases = try aliases.toOwnedSlice(self.allocator),
         };
+    }
+
+    fn parseUsingOrSkip(self: *Parser, aliases: *std.ArrayList(AliasDecl), decl_names: *std.StringHashMap(void)) Error!void {
+        if (self.lookahead.tag != .identifier or (try self.peekNext()).tag != .equal) {
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+
+        const name = try self.expectIdentifier();
+        try self.expect(.equal);
+        if (self.isKeyword("import")) {
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+
+        var target = self.parseType() catch {
+            try self.skipRawUntilSemicolon();
+            return;
+        };
+        errdefer target.deinit(self.allocator);
+        if (self.lookahead.tag != .semicolon) {
+            target.deinit(self.allocator);
+            try self.skipRawUntilSemicolon();
+            return;
+        }
+        try self.expect(.semicolon);
+
+        const entry = try decl_names.getOrPut(name);
+        if (entry.found_existing) return error.NameCollision;
+        try aliases.append(self.allocator, .{ .name = name, .target = target });
     }
 
     fn parseFileId(self: *Parser) Error!u64 {
@@ -1039,7 +1090,7 @@ const TypeClass = union(enum) {
 };
 
 fn classify(file: *const File, ty: Type) LayoutError!TypeClass {
-    return switch (ty) {
+    return switch (resolveType(file, ty)) {
         .void => .void,
         .bool => .{ .data = 1 },
         .int8, .uint8 => .{ .data = 8 },
@@ -1053,8 +1104,36 @@ fn classify(file: *const File, ty: Type) LayoutError!TypeClass {
 }
 
 fn findEnum(file: *const File, name: []const u8) ?*const EnumDecl {
+    if (findEnumDirect(file, name)) |decl| return decl;
+    const resolved = resolveNamedAlias(file, name, 0) orelse return null;
+    return switch (resolved) {
+        .named => |resolved_name| findEnumDirect(file, resolved_name),
+        else => null,
+    };
+}
+
+fn findEnumDirect(file: *const File, name: []const u8) ?*const EnumDecl {
     for (file.enums) |*decl| {
         if (std.mem.eql(u8, decl.name, name)) return decl;
+    }
+    return null;
+}
+
+fn resolveType(file: *const File, ty: Type) Type {
+    return switch (ty) {
+        .named => |name| resolveNamedAlias(file, name, 0) orelse ty,
+        else => ty,
+    };
+}
+
+fn resolveNamedAlias(file: *const File, name: []const u8, depth: usize) ?Type {
+    if (depth >= 32) return null;
+    for (file.aliases) |alias| {
+        if (!std.mem.eql(u8, alias.name, name)) continue;
+        return switch (alias.target) {
+            .named => |target_name| resolveNamedAlias(file, target_name, depth + 1) orelse alias.target,
+            else => alias.target,
+        };
     }
     return null;
 }
@@ -1675,7 +1754,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         try emitFieldGetter(allocator, out, file, layout, struct_name, field_layout);
     }
     for (layout.fields) |field_layout| {
-        if (field_layout.field.ty == .list) {
+        if (resolveType(file, field_layout.field.ty) == .list) {
             try emitListWrapper(allocator, out, file, struct_name, field_layout.field);
         }
     }
@@ -1824,7 +1903,7 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
 
 fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
     const union_layout = unionLayoutForField(layout, field);
-    switch (field.ty) {
+    switch (resolveType(file, field.ty)) {
         .int8 => try scalarGetter(allocator, out, field_name, "i8", "getInt8", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
         .int16 => try scalarGetter(allocator, out, field_name, "i16", "getInt16", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
         .int32 => try scalarGetter(allocator, out, field_name, "i32", "getInt32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
@@ -1906,7 +1985,7 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         , .{ field_name, index });
     }
 
-    switch (field.ty) {
+    switch (resolveType(file, field.ty)) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
             defer if (default_literal) |literal| allocator.free(literal);
@@ -2036,7 +2115,12 @@ fn unionLayoutForField(layout: *const StructLayout, field: *const Field) ?UnionL
 }
 
 fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field: *const Field) LayoutError!void {
-    const child = field.ty.list.*;
+    const list_type = switch (resolveType(file, field.ty)) {
+        .list => |child| child,
+        else => return error.UnsupportedType,
+    };
+    const child = list_type.*;
+    const resolved_child = resolveType(file, child);
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
     try appendFmt(allocator, out,
@@ -2050,7 +2134,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
     , .{ owner_name, field_name });
 
-    switch (child) {
+    switch (resolved_child) {
         .bool => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) bool {{
             \\            return self.list.getBool(index);
@@ -2103,7 +2187,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\        }}
             \\
         , .{}),
-        .named => |type_name| if (findEnum(file, type_name) != null) {
+        .named => |type_name| if (findEnumDirect(file, type_name) != null) {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
@@ -2145,7 +2229,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
     , .{ owner_name, field_name });
 
-    switch (child) {
+    switch (resolved_child) {
         .bool => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !bool {{
             \\            return self.list.getBool(index);
@@ -2250,7 +2334,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\        }}
             \\
         , .{}),
-        .named => |type_name| if (findEnum(file, type_name) != null) {
+        .named => |type_name| if (findEnumDirect(file, type_name) != null) {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
@@ -2362,7 +2446,7 @@ fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 
 fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
     const union_layout = unionLayoutForField(layout, field);
-    switch (field.ty) {
+    switch (resolveType(file, field.ty)) {
         .int8 => try scalarSetter(allocator, out, field_name, "i8", "getInt8", "setInt8", byte, defaultScalarLiteral(field), union_layout, field),
         .int16 => try scalarSetter(allocator, out, field_name, "i16", "getInt16", "setInt16", byte, defaultScalarLiteral(field), union_layout, field),
         .int32 => try scalarSetter(allocator, out, field_name, "i32", "getInt32", "setInt32", byte, defaultScalarLiteral(field), union_layout, field),
@@ -2467,7 +2551,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         , .{ field_name, index, field_name, index });
     }
 
-    switch (field.ty) {
+    switch (resolveType(file, field.ty)) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
             defer if (default_literal) |literal| allocator.free(literal);
@@ -2687,7 +2771,7 @@ fn emitBuilderUnionActivation(allocator: std.mem.Allocator, out: *std.ArrayList(
 }
 
 fn listElementSizeLiteral(file: *const File, ty: Type) LayoutError![]const u8 {
-    return switch (ty) {
+    return switch (resolveType(file, ty)) {
         .void => ".void",
         .bool => ".bit",
         .int8, .uint8 => ".byte",
@@ -2701,8 +2785,8 @@ fn listElementSizeLiteral(file: *const File, ty: Type) LayoutError![]const u8 {
 }
 
 fn isStructListElement(file: *const File, ty: Type) ?[]const u8 {
-    return switch (ty) {
-        .named => |name| if (findEnum(file, name) == null) name else null,
+    return switch (resolveType(file, ty)) {
+        .named => |name| if (findEnumDirect(file, name) == null) name else null,
         else => null,
     };
 }
