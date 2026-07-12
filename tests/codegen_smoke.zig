@@ -353,6 +353,26 @@ test "generated builders can copy nested struct fields from readers" {
     try std.testing.expectEqualSlices(u8, "Copied", try friend.name());
 }
 
+test "generated builders can copy and clear whole structs" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer source_builder.deinit();
+    const source_person_builder = try generated.Person.initRootTyped(&source_builder);
+    try source_person_builder.set_id(909);
+    try source_person_builder.set_name("WholeCopy");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_person = generated.Person.fromReader(try source_reader.getRoot());
+
+    var target_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer target_builder_message.deinit();
+    const target_person_builder = try generated.Person.initRootTyped(&target_builder_message);
+    try target_person_builder.copyFrom(source_person);
+    try std.testing.expectEqual(@as(u32, 909), try target_person_builder.get_id());
+    try std.testing.expectEqualSlices(u8, "WholeCopy", try target_person_builder.get_name());
+    try target_person_builder.clear();
+    try std.testing.expectEqual(@as(u32, 42), try target_person_builder.get_id());
+    try std.testing.expectEqual(false, try target_person_builder.has_name());
+}
+
 test "generated struct list builders can copy elements from readers" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();

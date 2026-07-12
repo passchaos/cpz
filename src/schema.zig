@@ -2019,11 +2019,19 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.builder.size();
         \\        }}
         \\
+        \\        pub fn clear(self: Builder) !void {{
+        \\            return self.builder.clear();
+        \\        }}
+        \\
+        \\        pub fn copyFrom(self: Builder, @"cpz.value": {s}) !void {{
+        \\            return self.builder.copyFromReader(@"cpz.value".reader);
+        \\        }}
+        \\
         \\        pub fn orphanage(self: Builder) cpz.Orphanage {{
         \\            return self.builder.orphanage();
         \\        }}
         \\
-    , .{ struct_name, struct_name });
+    , .{ struct_name, struct_name, struct_name });
 
     try emitBuilderUnionHelpers(allocator, out, struct_name, layout);
 
