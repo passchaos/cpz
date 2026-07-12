@@ -2719,28 +2719,40 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\
             , .{index});
         },
-        .list => |child| if (isStructListElement(file, child.*)) |type_name| {
-            const zig_type = try zigTypeRefAlloc(allocator, type_name);
-            defer allocator.free(zig_type);
+        .list => |child| {
             try appendFmt(allocator, out,
-                \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
+                \\        pub fn get_{s}(self: Builder) !{s}_{s}_BuilderList {{
             , .{ field_name, owner_name, field_name });
-            try emitBuilderUnionActivation(allocator, out, field);
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
-                \\            return .{{ .list = try (try self.builder.getPointerField({})).initStructList(count, {s}.size) }};
-                \\        }}
-                \\
-            , .{ index, zig_type });
-        } else {
-            try appendFmt(allocator, out,
-                \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
-            , .{ field_name, owner_name, field_name });
-            try emitBuilderUnionActivation(allocator, out, field);
-            try appendFmt(allocator, out,
-                \\            return .{{ .list = try (try self.builder.getPointerField({})).initList({s}, count) }};
+                \\            return .{{ .list = try (try self.builder.getPointerField({})).getList({s}) }};
                 \\        }}
                 \\
             , .{ index, try listElementSizeLiteral(file, child.*) });
+
+            if (isStructListElement(file, child.*)) |type_name| {
+                const zig_type = try zigTypeRefAlloc(allocator, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
+                , .{ field_name, owner_name, field_name });
+                try emitBuilderUnionActivation(allocator, out, field);
+                try appendFmt(allocator, out,
+                    \\            return .{{ .list = try (try self.builder.getPointerField({})).initStructList(count, {s}.size) }};
+                    \\        }}
+                    \\
+                , .{ index, zig_type });
+            } else {
+                try appendFmt(allocator, out,
+                    \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
+                , .{ field_name, owner_name, field_name });
+                try emitBuilderUnionActivation(allocator, out, field);
+                try appendFmt(allocator, out,
+                    \\            return .{{ .list = try (try self.builder.getPointerField({})).initList({s}, count) }};
+                    \\        }}
+                    \\
+                , .{ index, try listElementSizeLiteral(file, child.*) });
+            }
         },
         .any_pointer => {
             try appendFmt(allocator, out,

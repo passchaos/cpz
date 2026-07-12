@@ -23,10 +23,15 @@ test "generated reader and builder accessors compile and round-trip" {
     try scores.set(0, 10);
     try scores.set(1, 20);
     try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
+    const same_scores = try person_builder.get_scores();
+    try std.testing.expectEqual(@as(u32, 10), try same_scores.get(0));
     const children = try person_builder.init_children(1);
     const child = try children.get(0);
     try child.set_id(99);
     try child.set_name("Grace");
+    const same_children = try person_builder.get_children();
+    const same_child = try same_children.get(0);
+    try std.testing.expectEqual(@as(u32, 99), try same_child.get_id());
     const friend = try person_builder.init_friend();
     try friend.set_id(1234);
     try friend.set_name("Lin");
@@ -41,6 +46,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try aliases.set(0, "A");
     try aliases.set(1, "Lovelace");
     try std.testing.expectEqualSlices(u8, "Lovelace", try aliases.get(1));
+    const same_aliases = try person_builder.get_aliases();
+    try std.testing.expectEqualSlices(u8, "A", try same_aliases.get(0));
     const payloads = try person_builder.init_payloads(1);
     try payloads.set(0, &[_]u8{ 4, 5, 6 });
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try payloads.get(0));
@@ -225,12 +232,16 @@ test "generated nested list wrappers round-trip" {
     const second_scores = try score_groups.init(1, .four_bytes, 1);
     try second_scores.setUInt32(0, 300);
     try std.testing.expectEqual(@as(u32, 200), try (try score_groups.get(0)).getUInt32(1));
+    const same_score_groups = try person_builder.get_scoreGroups();
+    try std.testing.expectEqual(@as(u32, 300), try (try same_score_groups.get(1)).getUInt32(0));
 
     const alias_groups = try person_builder.init_aliasGroups(1);
     const aliases = try alias_groups.init(0, .pointer, 2);
     try (try aliases.getPointerElement(0)).setText("nested");
     try (try aliases.getPointerElement(1)).setText("text");
     try std.testing.expectEqualSlices(u8, "nested", try (try (try alias_groups.get(0)).getPointerElement(0)).getText());
+    const same_alias_groups = try person_builder.get_aliasGroups();
+    try std.testing.expectEqualSlices(u8, "text", try (try (try same_alias_groups.get(0)).getPointerElement(1)).getText());
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
@@ -263,6 +274,8 @@ test "generated nested struct-list wrappers can initialize composite children" {
     try second.set_id(502);
     try second.set_name("Nested Bob");
     try std.testing.expectEqual(@as(u32, 502), try generated.Person.Builder.fromBuilder(try (try struct_groups.get(0)).getStructElement(1)).get_id());
+    const same_struct_groups = try person_builder.get_structGroups();
+    try std.testing.expectEqual(@as(u32, 501), try generated.Person.Builder.fromBuilder(try (try same_struct_groups.get(0)).getStructElement(0)).get_id());
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
