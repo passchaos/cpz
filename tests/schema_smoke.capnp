@@ -1,6 +1,6 @@
 @0xc0ffee;
 
-enum Color {
+enum Color @0xc010 {
   red @0;
   green @1;
   blue @2;
