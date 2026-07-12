@@ -477,12 +477,7 @@ pub const Parser = struct {
         var list_items: ?[]ConstListItem = null;
         errdefer if (list_items) |items| self.allocator.free(items);
         const literal: []const u8 = if (list_literal) blk: {
-            if (ty != .list) {
-                ty.deinit(self.allocator);
-                try self.skipRawUntilSemicolon();
-                return;
-            }
-            list_items = self.parseConstListItems(ty.list.*) catch {
+            list_items = self.parseConstListItems() catch {
                 ty.deinit(self.allocator);
                 try self.skipRawUntilSemicolon();
                 return;
@@ -538,7 +533,7 @@ pub const Parser = struct {
         });
     }
 
-    fn parseConstListItems(self: *Parser, child_ty: Type) Error![]ConstListItem {
+    fn parseConstListItems(self: *Parser) Error![]ConstListItem {
         var items = std.ArrayList(ConstListItem).empty;
         errdefer items.deinit(self.allocator);
 
@@ -547,7 +542,7 @@ pub const Parser = struct {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
 
             var is_hex_data = false;
-            const literal = if (child_ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
+            const literal = if (self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
                 try self.expect(.integer);
                 if (self.lookahead.tag != .string) return error.UnexpectedToken;
                 const value = self.lookahead.lexeme;
@@ -1495,7 +1490,7 @@ fn resolveNamedAlias(file: *const File, name: []const u8, depth: usize) ?Type {
 
 fn isSimpleConstType(ty: Type) bool {
     return switch (ty) {
-        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data, .named => true,
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data, .list, .named => true,
         else => false,
     };
 }
@@ -2186,14 +2181,20 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             , .{ indent, const_name, literal });
         },
         .named => |type_name| {
-            const enum_decl = findEnum(file, type_name) orelse return;
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-            defer allocator.free(zig_type);
-            try appendFmt(allocator, out,
-                \\{s}pub const {s}: {s} = @enumFromInt({});
-                \\
-                \\
-            , .{ indent, const_name, zig_type, try enumDefaultOrdinal(enum_decl, decl.literal) });
+            if (decl.list_items) |items| {
+                const resolved = resolveNamedAlias(file, type_name, 0) orelse return;
+                if (resolved != .list) return;
+                try emitListConst(allocator, out, file, indent, const_name, resolved.list.*, items);
+            } else {
+                const enum_decl = findEnum(file, type_name) orelse return;
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}pub const {s}: {s} = @enumFromInt({});
+                    \\
+                    \\
+                , .{ indent, const_name, zig_type, try enumDefaultOrdinal(enum_decl, decl.literal) });
+            }
         },
         .list => |child| {
             const items = decl.list_items orelse return;

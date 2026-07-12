@@ -8,6 +8,7 @@ enum Color {
 
 using Id = UInt32;
 using Name = Text;
+using Names = TextList;
 using Shade = Color;
 using DynamicAlias = AnyPointer;
 using CapAlias = Capability;
@@ -20,6 +21,7 @@ const globalShade :Color = blue;
 const globalRatio :Float64 = +1.25e2;
 const globalScores :List(UInt32) = [10, 20, 30];
 const globalNames :TextList = ["alpha", "beta"];
+const globalNamesAlias :Names = ["gamma", "delta"];
 const globalShades :List(Color) = [red, blue];
 
 struct Person {

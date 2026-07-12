@@ -11,6 +11,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(f64, 125.0), generated.globalRatio);
     try std.testing.expectEqualSlices(u32, &[_]u32{ 10, 20, 30 }, generated.globalScores);
     try std.testing.expectEqualSlices(u8, "beta", generated.globalNames[1]);
+    try std.testing.expectEqualSlices(u8, "delta", generated.globalNamesAlias[1]);
     try std.testing.expectEqual(generated.Color.blue, generated.globalShades[1]);
     try std.testing.expectEqual(@as(u16, 99), generated.Person.defaultAge);
     try std.testing.expectEqualSlices(u8, "nested const", generated.Person.defaultAlias);
