@@ -422,6 +422,26 @@ pub const PointerBuilder = struct {
         @memcpy(list.bytes(), data);
     }
 
+    pub fn getText(self: PointerBuilder) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getText();
+    }
+
+    pub fn getData(self: PointerBuilder) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getData();
+    }
+
     pub fn setCapability(self: PointerBuilder, index: u32) void {
         self.message.writePtr(self.segment_id, self.word_index, wire.encodeCapability(index));
     }

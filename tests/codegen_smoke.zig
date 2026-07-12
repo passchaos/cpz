@@ -36,8 +36,10 @@ test "generated reader and builder accessors compile and round-trip" {
     const aliases = try person_builder.init_aliases(2);
     try aliases.set(0, "A");
     try aliases.set(1, "Lovelace");
+    try std.testing.expectEqualSlices(u8, "Lovelace", try aliases.get(1));
     const payloads = try person_builder.init_payloads(1);
     try payloads.set(0, &[_]u8{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try payloads.get(0));
     const flags = try person_builder.init_flags(3);
     try flags.set(0, true);
     try flags.set(1, false);

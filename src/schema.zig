@@ -1344,6 +1344,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         .float32 => try listScalarSetter(allocator, out, "f32", "setFloat32"),
         .float64 => try listScalarSetter(allocator, out, "f64", "setFloat64"),
         .text => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getText();
+            \\        }}
+            \\
             \\        pub fn set(self: @This(), index: usize, value: []const u8) !void {{
             \\            return (try self.list.getPointerElement(index)).setText(value);
             \\        }}
@@ -1354,6 +1358,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{}),
         .data => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
             \\        pub fn set(self: @This(), index: usize, value: []const u8) !void {{
             \\            return (try self.list.getPointerElement(index)).setData(value);
             \\        }}
@@ -1768,6 +1776,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(value.reader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getPointerElement(index)).getText();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearPointerElement(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getStructElement(index)).clear();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
