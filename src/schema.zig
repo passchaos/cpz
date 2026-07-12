@@ -2306,7 +2306,11 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.len();
         \\        }}
         \\
-    , .{ owner_name, field_name });
+        \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) {s}_{s}_List {{
+        \\            return .{{ .list = self.list.asReader(message_reader) }};
+        \\        }}
+        \\
+    , .{ owner_name, field_name, owner_name, field_name });
 
     switch (resolved_child) {
         .void => try appendFmt(allocator, out,

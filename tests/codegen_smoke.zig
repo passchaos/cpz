@@ -28,6 +28,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try scores.set(0, 10);
     try scores.set(1, 20);
     try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
+    var scores_reader = try builder.asReader(.{});
+    const scores_view = scores.asReader(&scores_reader);
+    try std.testing.expectEqual(@as(u32, 10), scores_view.get(0));
     const same_scores = try person_builder.get_scores();
     try std.testing.expectEqual(@as(u32, 10), try same_scores.get(0));
     const children = try person_builder.init_children(1);

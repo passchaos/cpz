@@ -1137,6 +1137,23 @@ pub const ListBuilder = struct {
         return self.element_count;
     }
 
+    /// Create a read-only view using a caller-owned MessageReader over the
+    /// same message segments. The caller must keep `message_reader` alive for
+    /// the returned ListReader.
+    pub fn asReader(self: ListBuilder, message_reader: *MessageReader) ListReader {
+        return .{
+            .message = message_reader,
+            .segment_id = self.segment_id,
+            .start = self.start,
+            .element_count = self.element_count,
+            .element_size = self.element_size,
+            .data_words = self.data_words,
+            .pointer_count = self.pointer_count,
+            .step_bits = self.step_bits,
+            .nesting_left = message_reader.options.nesting_limit,
+        };
+    }
+
     pub fn bytes(self: ListBuilder) []u8 {
         const word_count = wire.wordsForBits(self.element_count * self.step_bits);
         return std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items[self.start .. self.start + word_count])[0..listByteLen(self.element_count, self.step_bits)];
