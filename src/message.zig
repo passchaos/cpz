@@ -328,6 +328,22 @@ pub const MessageBuilder = struct {
         return .{ .message = self, .segment_id = 0, .word_index = 0 };
     }
 
+    pub fn getRootPointerKind(self: *MessageBuilder) Error!?wire.PointerType {
+        return (try self.getRootPointer()).pointerType();
+    }
+
+    pub fn getRootRawPointer(self: *MessageBuilder) Error!wire.Word {
+        return (try self.getRootPointer()).raw();
+    }
+
+    pub fn getRootDecodedPointer(self: *MessageBuilder) Error!?wire.DecodedPointer {
+        return (try self.getRootPointer()).decode();
+    }
+
+    pub fn getRootPointerTotalSize(self: *MessageBuilder) Error!MessageSize {
+        return (try self.getRootPointer()).totalSize();
+    }
+
     pub fn getRootText(self: *MessageBuilder) Error![]const u8 {
         return (try self.getRootPointer()).getText();
     }
@@ -462,6 +478,22 @@ pub const MessageReader = struct {
     pub fn getRootPointer(self: *MessageReader) Error!PointerReader {
         if (self.segments.len == 0) return error.SegmentOutOfBounds;
         return .{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
+    }
+
+    pub fn getRootPointerKind(self: *MessageReader) Error!?wire.PointerType {
+        return (try self.getRootPointer()).pointerType();
+    }
+
+    pub fn getRootRawPointer(self: *MessageReader) Error!wire.Word {
+        return (try self.getRootPointer()).raw();
+    }
+
+    pub fn getRootDecodedPointer(self: *MessageReader) Error!?wire.DecodedPointer {
+        return (try self.getRootPointer()).decode();
+    }
+
+    pub fn getRootPointerTotalSize(self: *MessageReader) Error!MessageSize {
+        return (try self.getRootPointer()).totalSize();
     }
 
     pub fn getRootList(self: *MessageReader, expected: ?wire.ElementSize) Error!ListReader {
@@ -2306,9 +2338,14 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(@as(u16, 222), try builder_root_list.getUInt16(1));
     const root_ptr_builder = try builder.getRootPointer();
     try testing.expect(!root_ptr_builder.isNull());
+    try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointerKind()).?);
+    try testing.expectEqual(wire.PointerType.list, wire.pointerType(try builder.getRootRawPointer()));
+    try testing.expectEqual(wire.ElementSize.two_bytes, (try builder.getRootDecodedPointer()).?.list.element_size);
     const root_ptr_builder_size = try root_ptr_builder.totalSize();
     try testing.expectEqual(@as(usize, 1), root_ptr_builder_size.word_count);
     try testing.expectEqual(@as(usize, 0), root_ptr_builder_size.cap_count);
+    const root_ptr_builder_size_direct = try builder.getRootPointerTotalSize();
+    try testing.expectEqual(@as(usize, 1), root_ptr_builder_size_direct.word_count);
     var builder_view_reader = MessageReader.init(try builder.segmentsConst(), .{});
     const root_ptr_builder_view = root_ptr_builder.asReader(&builder_view_reader);
     try testing.expectEqual(wire.PointerType.list, (try root_ptr_builder_view.pointerType()).?);
@@ -2318,14 +2355,19 @@ test "root pointer APIs support non-struct roots" {
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const root_ptr = try reader.getRootPointer();
     try testing.expectEqual(wire.PointerType.list, (try root_ptr.pointerType()).?);
+    try testing.expectEqual(wire.PointerType.list, (try reader.getRootPointerKind()).?);
+    try testing.expectEqual(wire.PointerType.list, wire.pointerType(try reader.getRootRawPointer()));
     const decoded_root = (try root_ptr.decode()).?.list;
     try testing.expectEqual(wire.ElementSize.two_bytes, decoded_root.element_size);
     try testing.expectEqual(@as(u29, 2), decoded_root.element_count_or_words);
+    try testing.expectEqual(wire.ElementSize.two_bytes, (try reader.getRootDecodedPointer()).?.list.element_size);
     const decoded_builder_root = (try (try builder.getRootPointer()).decode()).?.list;
     try testing.expectEqual(@as(u29, 2), decoded_builder_root.element_count_or_words);
     const root_ptr_size = try root_ptr.totalSize();
     try testing.expectEqual(@as(usize, 1), root_ptr_size.word_count);
     try testing.expectEqual(@as(usize, 0), root_ptr_size.cap_count);
+    const root_ptr_size_direct = try reader.getRootPointerTotalSize();
+    try testing.expectEqual(@as(usize, 1), root_ptr_size_direct.word_count);
     try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointer()).pointerType().?);
     const direct_read_nums = try reader.getRootList(.two_bytes);
     try testing.expectEqual(@as(u16, 222), direct_read_nums.getUInt16(1));
