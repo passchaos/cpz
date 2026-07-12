@@ -2182,6 +2182,13 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     , .{ owner_name, field_name });
 
     switch (resolved_child) {
+        .void => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) void {{
+            \\            _ = self;
+            \\            _ = index;
+            \\        }}
+            \\
+        , .{}),
         .bool => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) bool {{
             \\            return self.list.getBool(index);
@@ -2270,7 +2277,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type });
         },
-        .void, .optional => {},
+        .optional => {},
     }
 
     try appendFmt(allocator, out,
@@ -2290,6 +2297,17 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     , .{ owner_name, field_name });
 
     switch (resolved_child) {
+        .void => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !void {{
+            \\            if (index >= self.list.len()) return error.PointerOutOfBounds;
+            \\        }}
+            \\
+            \\        pub fn set(self: @This(), index: usize, new_value: void) !void {{
+            \\            _ = new_value;
+            \\            if (index >= self.list.len()) return error.PointerOutOfBounds;
+            \\        }}
+            \\
+        , .{}),
         .bool => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !bool {{
             \\            return self.list.getBool(index);
@@ -2480,7 +2498,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type, zig_type });
         },
-        .void, .optional => {},
+        .optional => {},
     }
 
     try appendFmt(allocator, out,

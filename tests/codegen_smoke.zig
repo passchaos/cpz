@@ -64,6 +64,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try weights.set(0, 10.125);
     try weights.set(1, -20.5);
     try std.testing.expectEqual(@as(f64, 10.125), try weights.get(0));
+    const marks = try person_builder.init_marks(2);
+    try marks.set(0, {});
+    try marks.get(1);
+    const same_marks = try person_builder.get_marks();
+    try same_marks.get(0);
     try person_builder.set_maybeName("Optional Ada");
     const maybe_friend = try person_builder.init_maybeFriend();
     try maybe_friend.set_id(64);
@@ -106,6 +111,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_weights = try person.weights();
     try std.testing.expectEqual(@as(f64, 10.125), read_weights.get(0));
     try std.testing.expectEqual(@as(f64, -20.5), read_weights.get(1));
+    const read_marks = try person.marks();
+    try std.testing.expectEqual(@as(usize, 2), read_marks.len());
+    read_marks.get(1);
     try std.testing.expect(person.has_maybeName());
     try std.testing.expectEqualSlices(u8, "Optional Ada", try person.maybeName());
     const read_maybe_friend = try person.maybeFriend();
