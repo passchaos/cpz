@@ -286,6 +286,10 @@ test "generated builders can disown and adopt pointer fields" {
     try std.testing.expectEqualSlices(u8, "Allocated nickname", try nickname_orphan.getText());
     try person_builder.adopt_nickname(&nickname_orphan);
     try std.testing.expectEqualSlices(u8, "Allocated nickname", try person_builder.get_nickname());
+    var payload_orphan = try person_builder.new_maybeName_orphan("Allocated maybe name");
+    try std.testing.expectEqualSlices(u8, "Allocated maybe name", try payload_orphan.getText());
+    try person_builder.adopt_maybeName(&payload_orphan);
+    try std.testing.expectEqualSlices(u8, "Allocated maybe name", try person_builder.get_maybeName());
 
     var friend_orphan = try person_builder.disown_friend();
     try std.testing.expectEqual(false, try person_builder.has_friend());
@@ -336,6 +340,7 @@ test "generated builders can disown and adopt pointer fields" {
     const person = generated.Person.fromReader(try reader.getRoot());
     try std.testing.expect(!person.has_name());
     try std.testing.expectEqualSlices(u8, "Allocated nickname", try person.nickname());
+    try std.testing.expectEqualSlices(u8, "Allocated maybe name", try person.maybeName());
     try std.testing.expect(!person.has_friend());
     const read_maybe_friend = try person.maybeFriend();
     try std.testing.expectEqual(@as(u32, 4040), read_maybe_friend.id());
@@ -910,6 +915,14 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(usize, 8), any_struct_data_section.len);
     try std.testing.expectEqual(@as(u8, 0xad), any_struct_data_section[0]);
     try box_builder.set_cap(77);
+    var cap_orphan_for_field = try box_builder.new_cap_orphan(7070);
+    try std.testing.expectEqual(@as(u32, 7070), try cap_orphan_for_field.getCapabilityIndex());
+    try box_builder.adopt_cap(&cap_orphan_for_field);
+    try std.testing.expectEqual(@as(u32, 7070), try box_builder.get_cap());
+    var blob_orphan = try box_builder.new_blob_orphan(&[_]u8{ 5, 6, 7 });
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 5, 6, 7 }, try blob_orphan.getData());
+    try box_builder.adopt_blob(&blob_orphan);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 5, 6, 7 }, try box_builder.get_blob());
     const caps = try box_builder.init_capList(2);
     try caps.set(0, 88);
     try caps.set(1, 99);
@@ -918,7 +931,7 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(cap_element_raw));
     try std.testing.expectEqual(@as(u32, 88), (try caps.elementDecodedPointer(0)).?.other.index);
     try std.testing.expectEqual(@as(u32, 99), try caps.elementAsCapability(1));
-    try std.testing.expectEqual(@as(u32, 77), try box_builder.get_cap());
+    try std.testing.expectEqual(@as(u32, 7070), try box_builder.get_cap());
     try std.testing.expectEqual(@as(u32, 99), try caps.get(1));
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
@@ -939,7 +952,8 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u8, 0xad), read_any_struct_data_section[0]);
     const read_list = try dynamic_box.anyList();
     try std.testing.expectEqual(@as(u16, 222), read_list.getUInt16(1));
-    try std.testing.expectEqual(@as(u32, 77), try dynamic_box.cap());
+    try std.testing.expectEqual(@as(u32, 7070), try dynamic_box.cap());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 5, 6, 7 }, try dynamic_box.blob());
     const read_caps = try dynamic_box.capList();
     try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));
     try std.testing.expectEqual(@as(u32, 99), try read_caps.get(1));
