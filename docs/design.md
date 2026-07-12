@@ -9,7 +9,7 @@ The implementation follows Cap'n Proto's published encoding and the C++ runtime 
 - `message.toSingleSegmentFlatBytes()` validates and recursively copies a message into one segment, removing far pointers while preserving data; `toCanonicalSegmentBytes()` additionally omits the stream table and truncates trailing zero struct sections.
 - `packing.zig` implements Cap'n Proto packing/unpacking with the `0x00` zero-run and `0xff` raw-run special cases, including caller-buffer `packInto`/`unpackInto` paths.
 - `message.zig` provides arena-backed builders and lazy-validating readers for structs, scalar fields/lists, pointer lists, composite lists, compatible pointer/eight-byte list-to-struct-list upgrades, UTF-8 text/data, far pointers, and recursive copy-from-reader operations.
-- `schema.zig` and `cpzc` are the start of the compiler layer: they parse a practical subset of `.capnp` declarations (including common using/const top-level declarations and annotations) into a small AST, plan ordinal-aware compact field data/pointer slots with padding-hole reuse, and emit typed Zig reader/builder/nested-struct/list-reader/list-builder accessor skeletons for supported fields, including enums, typed lists, and scalar default values.
+- `schema.zig` and `cpzc` are the start of the compiler layer: they parse a practical subset of `.capnp` declarations (including common using/const top-level declarations, annotations, dotted names, and nested declarations) into a small AST, plan ordinal-aware compact field data/pointer slots with padding-hole reuse, and emit typed Zig reader/builder/nested-struct/list-reader/list-builder accessor skeletons for supported fields, including enums, typed lists, and scalar default values.
 
 ## Performance direction
 

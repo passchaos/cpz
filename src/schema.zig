@@ -151,6 +151,8 @@ const TokenTag = enum {
 const Token = struct {
     tag: TokenTag,
     lexeme: []const u8,
+    start: usize = 0,
+    end: usize = 0,
 };
 
 const Lexer = struct {
@@ -159,7 +161,7 @@ const Lexer = struct {
 
     fn next(self: *Lexer) Error!Token {
         try self.skipSpaceAndComments();
-        if (self.index >= self.source.len) return .{ .tag = .eof, .lexeme = "" };
+        if (self.index >= self.source.len) return .{ .tag = .eof, .lexeme = "", .start = self.index, .end = self.index };
         const start = self.index;
         const c = self.source[self.index];
         self.index += 1;
@@ -208,7 +210,7 @@ const Lexer = struct {
             },
             'A'...'Z', 'a'...'z', '_' => blk: {
                 while (self.index < self.source.len and isIdentContinue(self.source[self.index])) self.index += 1;
-                break :blk .{ .tag = .identifier, .lexeme = self.source[start..self.index] };
+                break :blk .{ .tag = .identifier, .lexeme = self.source[start..self.index], .start = start, .end = self.index };
             },
             else => error.InvalidToken,
         };
@@ -298,6 +300,10 @@ pub const Parser = struct {
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            if (self.eatKeyword("struct") or self.eatKeyword("enum")) {
+                try self.skipBracedDeclaration();
+                continue;
+            }
             try fields.append(self.allocator, try self.parseField());
         }
         try self.expect(.r_brace);
@@ -341,6 +347,7 @@ pub const Parser = struct {
     }
 
     fn parseType(self: *Parser) Error!Type {
+        const first = self.lookahead;
         const name = try self.expectIdentifier();
         if (std.mem.eql(u8, name, "List")) {
             try self.expect(.l_paren);
@@ -350,6 +357,14 @@ pub const Parser = struct {
             try self.expect(.r_paren);
             return .{ .list = child };
         }
+        var end = first.end;
+        while (self.lookahead.tag == .dot) {
+            try self.expect(.dot);
+            const part = self.lookahead;
+            _ = try self.expectIdentifier();
+            end = part.end;
+        }
+        if (end != first.end) return .{ .named = self.lexer.source[first.start..end] };
         return scalarOrNamed(name);
     }
 
@@ -418,6 +433,21 @@ pub const Parser = struct {
                 .r_paren, .r_bracket => {
                     if (depth > 0) depth -= 1;
                 },
+                else => {},
+            }
+            try self.advance();
+        }
+    }
+
+    fn skipBracedDeclaration(self: *Parser) Error!void {
+        try self.skipUntil(.l_brace);
+        try self.expect(.l_brace);
+        var depth: usize = 1;
+        while (depth != 0) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            switch (self.lookahead.tag) {
+                .l_brace => depth += 1,
+                .r_brace => depth -= 1,
                 else => {},
             }
             try self.advance();
@@ -667,6 +697,29 @@ test "schema parser tolerates imports and annotations" {
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Task", file.structs[0].name);
     try std.testing.expectEqualStrings("ok", file.structs[0].fields[1].default_literal.?);
+}
+
+test "schema parser tolerates nested declarations and dotted type names" {
+    const source =
+        \\struct Outer {
+        \\  struct Inner {
+        \\    value @0 :UInt32;
+        \\  }
+        \\  enum State {
+        \\    ready @0;
+        \\  }
+        \\  child @0 :Outer.Inner;
+        \\  state @1 :Outer.State;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.structs.len);
+    try std.testing.expectEqual(@as(usize, 2), file.structs[0].fields.len);
+    try std.testing.expect(file.structs[0].fields[0].ty == .named);
+    try std.testing.expectEqualStrings("Outer.Inner", file.structs[0].fields[0].ty.named);
+    try std.testing.expect(file.structs[0].fields[1].ty == .named);
+    try std.testing.expectEqualStrings("Outer.State", file.structs[0].fields[1].ty.named);
 }
 
 test "schema layout planner assigns data and pointer slots" {
