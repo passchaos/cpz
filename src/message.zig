@@ -794,6 +794,29 @@ pub const StructBuilder = struct {
     }
 
     pub fn copyFromReader(self: StructBuilder, source: StructReader) Error!void {
+        if (self.overlapsSource(source)) {
+            if (self.data_start == source.data_start and
+                self.pointer_start == source.pointer_start and
+                self.data_words == source.data_words and
+                self.pointer_count == source.pointer_count)
+            {
+                return;
+            }
+
+            var temp = try MessageBuilder.init(self.message.allocator, .{
+                .first_segment_words = @max(@as(usize, source.data_words) + @as(usize, source.pointer_count) + 1, 1),
+                .next_segment_min_words = 1,
+            });
+            defer temp.deinit();
+            const temp_root = try temp.initRoot(.{
+                .data_words = source.data_words,
+                .pointer_count = source.pointer_count,
+            });
+            try temp_root.copyFromReader(source);
+            var temp_reader = MessageReader.init(try temp.segmentsConst(), .{});
+            return self.copyFromReader(try temp_reader.getRoot());
+        }
+
         @memset(self.dataBytes(), 0);
         for (0..self.pointer_count) |i| {
             try self.clearPointer(i);
@@ -804,6 +827,20 @@ pub const StructBuilder = struct {
         for (0..pointer_len) |i| {
             try (try self.getPointerField(i)).copyFrom(source.getPointerField(i));
         }
+    }
+
+    fn overlapsSource(self: StructBuilder, source: StructReader) bool {
+        if (self.segment_id != source.segment_id) return false;
+        if (source.segment_id >= source.message.segments.len) return false;
+        const dst_segment = std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items);
+        const src_segment = source.message.segments[source.segment_id];
+        if (dst_segment.ptr != src_segment.ptr) return false;
+
+        const dst_start = self.data_start;
+        const dst_end = dst_start + @as(usize, self.data_words) + @as(usize, self.pointer_count);
+        const src_start = source.data_start;
+        const src_end = src_start + @as(usize, source.data_words) + @as(usize, source.pointer_count);
+        return wordRangesOverlap(dst_start, dst_end, src_start, src_end);
     }
 
     fn setInt(self: StructBuilder, comptime T: type, byte_offset: usize, value: T, default_value: T) Error!void {
@@ -1279,6 +1316,10 @@ fn canonicalStructListSize(list: ListReader) Error!wire.StructSize {
     };
 }
 
+fn wordRangesOverlap(a_start: usize, a_end: usize, b_start: usize, b_end: usize) bool {
+    return a_start < b_end and b_start < a_end;
+}
+
 fn listByteLen(element_count: usize, step_bits: usize) usize {
     const bits = std.math.mul(usize, element_count, step_bits) catch @panic("list byte length overflow");
     return (bits + 7) / 8;
@@ -1525,6 +1566,24 @@ test "message builder deep-copies from a reader" {
 
     var validating = MessageReader.init(try copy.segmentsConst(), .{});
     _ = try validating.validate();
+}
+
+test "struct builder copyFromReader safely handles self-copy" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try root.setUInt32(0, 2026, 0);
+    try root.setText(0, "self");
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    try root.copyFromReader(try reader.getRoot());
+
+    var verify = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try verify.getRoot();
+    try testing.expectEqual(@as(u32, 2026), read_root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "self", try read_root.getPointerField(0).getText());
 }
 
 test "signed integer and floating-point scalar accessors" {
