@@ -2289,8 +2289,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.list.getBool(index);
             \\        }}
             \\
-            \\        pub fn set(self: @This(), index: usize, value: bool) !void {{
-            \\            return self.list.setBool(index, value);
+            \\        pub fn set(self: @This(), index: usize, new_value: bool) !void {{
+            \\            return self.list.setBool(index, new_value);
             \\        }}
             \\
         , .{}),
@@ -2309,8 +2309,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getText();
             \\        }}
             \\
-            \\        pub fn set(self: @This(), index: usize, value: []const u8) !void {{
-            \\            return (try self.list.getPointerElement(index)).setText(value);
+            \\        pub fn set(self: @This(), index: usize, new_value: []const u8) !void {{
+            \\            return (try self.list.getPointerElement(index)).setText(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2323,8 +2323,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getData();
             \\        }}
             \\
-            \\        pub fn set(self: @This(), index: usize, value: []const u8) !void {{
-            \\            return (try self.list.getPointerElement(index)).setData(value);
+            \\        pub fn set(self: @This(), index: usize, new_value: []const u8) !void {{
+            \\            return (try self.list.getPointerElement(index)).setData(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2337,8 +2337,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.list.getPointerElement(index);
             \\        }}
             \\
-            \\        pub fn set(self: @This(), index: usize, value: cpz.PointerReader) !void {{
-            \\            return (try self.list.getPointerElement(index)).copyFrom(value);
+            \\        pub fn set(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
+            \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2351,8 +2351,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getStruct();
             \\        }}
             \\
-            \\        pub fn set(self: @This(), index: usize, value: cpz.StructReader) !void {{
-            \\            return (try self.list.getPointerElement(index)).copyStructFrom(value);
+            \\        pub fn set(self: @This(), index: usize, new_value: cpz.StructReader) !void {{
+            \\            return (try self.list.getPointerElement(index)).copyStructFrom(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2365,8 +2365,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getList(null);
             \\        }}
             \\
-            \\        pub fn set(self: @This(), index: usize, value: cpz.PointerReader) !void {{
-            \\            return (try self.list.getPointerElement(index)).copyFrom(value);
+            \\        pub fn set(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
+            \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2379,8 +2379,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
             \\        }}
             \\
-            \\        pub fn set(self: @This(), index: usize, value: u32) !void {{
-            \\            return (try self.list.getPointerElement(index)).setCapability(value);
+            \\        pub fn set(self: @This(), index: usize, new_value: u32) !void {{
+            \\            return (try self.list.getPointerElement(index)).setCapability(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2400,12 +2400,12 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return self.list.getUInt16(index);
                 \\        }}
                 \\
-                \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
-                \\            return self.list.setUInt16(index, @intFromEnum(value));
+                \\        pub fn set(self: @This(), index: usize, new_value: {s}) !void {{
+                \\            return self.list.setUInt16(index, @intFromEnum(new_value));
                 \\        }}
                 \\
-                \\        pub fn setRaw(self: @This(), index: usize, value: u16) !void {{
-                \\            return self.list.setUInt16(index, value);
+                \\        pub fn setRaw(self: @This(), index: usize, new_value: u16) !void {{
+                \\            return self.list.setUInt16(index, new_value);
                 \\        }}
                 \\
             , .{ zig_type, zig_type, zig_type });
@@ -2415,8 +2415,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
                 \\        }}
                 \\
-                \\        pub fn set(self: @This(), index: usize, value: u32) !void {{
-                \\            return (try self.list.getPointerElement(index)).setCapability(value);
+                \\        pub fn set(self: @This(), index: usize, new_value: u32) !void {{
+                \\            return (try self.list.getPointerElement(index)).setCapability(new_value);
                 \\        }}
                 \\
                 \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2432,8 +2432,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return {s}.Builder.fromBuilder(try self.list.getStructElement(index));
                 \\        }}
                 \\
-                \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
-                \\            return (try self.list.getStructElement(index)).copyFromReader(value.reader);
+                \\        pub fn set(self: @This(), index: usize, new_value: {s}) !void {{
+                \\            return (try self.list.getStructElement(index)).copyFromReader(new_value.reader);
                 \\        }}
                 \\
                 \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2466,8 +2466,8 @@ fn listScalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_t
         \\            return self.list.get{s}(index);
         \\        }}
         \\
-        \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
-        \\            return self.list.{s}(index, value);
+        \\        pub fn set(self: @This(), index: usize, new_value: {s}) !void {{
+        \\            return self.list.{s}(index, new_value);
         \\        }}
         \\
     , .{ zig_type, method["set".len..], zig_type, method });
@@ -2499,11 +2499,11 @@ fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                 \\            return self.builder.getBool({}, {s});
                 \\        }}
                 \\
-                \\        pub fn set_{s}(self: Builder, value: bool) !void {{
+                \\        pub fn set_{s}(self: Builder, new_value: bool) !void {{
             , .{ bit, try defaultBoolLiteral(field), field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return self.builder.setBool({}, value, {s});
+                \\            return self.builder.setBool({}, new_value, {s});
                 \\        }}
                 \\
             , .{ bit, try defaultBoolLiteral(field) });
@@ -2545,18 +2545,18 @@ fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
                 \\            return self.builder.getUInt16({}, {});
                 \\        }}
                 \\
-                \\        pub fn set_{s}(self: Builder, value: {s}) !void {{
+                \\        pub fn set_{s}(self: Builder, new_value: {s}) !void {{
             , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, zig_type });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return self.builder.setUInt16({}, @intFromEnum(value), {});
+                \\            return self.builder.setUInt16({}, @intFromEnum(new_value), {});
                 \\        }}
                 \\
-                \\        pub fn set_{s}_raw(self: Builder, value: u16) !void {{
+                \\        pub fn set_{s}_raw(self: Builder, new_value: u16) !void {{
             , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return self.builder.setUInt16({}, value, {});
+                \\            return self.builder.setUInt16({}, new_value, {});
                 \\        }}
                 \\
             , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
@@ -2574,11 +2574,11 @@ fn scalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
         \\            return self.builder.{s}({}, {s});
         \\        }}
         \\
-        \\        pub fn set_{s}(self: Builder, value: {s}) !void {{
+        \\        pub fn set_{s}(self: Builder, new_value: {s}) !void {{
     , .{ get_method, byte, default, name, zig_type });
     try emitBuilderUnionActivation(allocator, out, field);
     try appendFmt(allocator, out,
-        \\            return self.builder.{s}({}, value, {s});
+        \\            return self.builder.{s}({}, new_value, {s});
         \\        }}
         \\
     , .{ method, byte, default });
@@ -2642,11 +2642,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 , .{index});
             }
             try appendFmt(allocator, out,
-                \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+                \\        pub fn set_{s}(self: Builder, new_value: []const u8) !void {{
             , .{field_name});
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return self.builder.setText({}, value);
+                \\            return self.builder.setText({}, new_value);
                 \\        }}
                 \\
             , .{index});
@@ -2672,11 +2672,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 , .{index});
             }
             try appendFmt(allocator, out,
-                \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+                \\        pub fn set_{s}(self: Builder, new_value: []const u8) !void {{
             , .{field_name});
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return self.builder.setData({}, value);
+                \\            return self.builder.setData({}, new_value);
                 \\        }}
                 \\
             , .{index});
@@ -2713,11 +2713,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.builder.getPointerField({});
                 \\        }}
                 \\
-                \\        pub fn set_{s}(self: Builder, value: cpz.PointerReader) !void {{
+                \\        pub fn set_{s}(self: Builder, new_value: cpz.PointerReader) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).copyFrom(value);
+                \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
                 \\        }}
                 \\
             , .{index});
@@ -2738,11 +2738,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initStruct(struct_size);
                 \\        }}
                 \\
-                \\        pub fn set_{s}_from(self: Builder, value: cpz.StructReader) !void {{
+                \\        pub fn set_{s}_from(self: Builder, new_value: cpz.StructReader) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).copyStructFrom(value);
+                \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value);
                 \\        }}
                 \\
             , .{index});
@@ -2763,11 +2763,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initList(element_size, count);
                 \\        }}
                 \\
-                \\        pub fn set_{s}_from(self: Builder, value: cpz.PointerReader) !void {{
+                \\        pub fn set_{s}_from(self: Builder, new_value: cpz.PointerReader) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).copyFrom(value);
+                \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
                 \\        }}
                 \\
             , .{index});
@@ -2781,11 +2781,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
                 \\        }}
                 \\
-                \\        pub fn set_{s}(self: Builder, value: u32) !void {{
+                \\        pub fn set_{s}(self: Builder, new_value: u32) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            (try self.builder.getPointerField({})).setCapability(value);
+                \\            (try self.builder.getPointerField({})).setCapability(new_value);
                 \\        }}
                 \\
             , .{index});
@@ -2799,11 +2799,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
                 \\        }}
                 \\
-                \\        pub fn set_{s}(self: Builder, value: u32) !void {{
+                \\        pub fn set_{s}(self: Builder, new_value: u32) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            (try self.builder.getPointerField({})).setCapability(value);
+                \\            (try self.builder.getPointerField({})).setCapability(new_value);
                 \\        }}
                 \\
             , .{index});
@@ -2825,11 +2825,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
                 \\        }}
                 \\
-                \\        pub fn set_{s}_from(self: Builder, value: {s}) !void {{
+                \\        pub fn set_{s}_from(self: Builder, new_value: {s}) !void {{
             , .{ zig_type, index, zig_type, field_name, zig_type });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).copyStructFrom(value.reader);
+                \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value.reader);
                 \\        }}
                 \\
             , .{index});
@@ -3099,7 +3099,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn favorite_raw(self: @This()) u16") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_favorite(self: Builder) !@\"cpz.schema\".Color") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_favorite_raw(self: Builder) !u16") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_favorite_raw(self: Builder, value: u16) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_favorite_raw(self: Builder, new_value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getTextDefault(\"Anon\")") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "@\"cpz.schema\".Person.fromReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_scores_List") != null);
@@ -3111,10 +3111,10 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@\"cpz.schema\".Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_scores_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, value);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, new_value);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(value.reader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getPointerElement(index)).getText();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearPointerElement(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getStructElement(index)).clear();") != null);
@@ -3122,22 +3122,22 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return std.enums.fromInt(@\"cpz.schema\".Color, self.list.getUInt16(index)) orelse error.InvalidEnumValue;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) u16") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) !u16") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setRaw(self: @This(), index: usize, value: u16) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setRaw(self: @This(), index: usize, new_value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(value));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(new_value));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @\"cpz.schema\".Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Builder = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_id(self: Builder) !u32") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, value: u32) !void") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setUInt32(0, value, 42);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setBool(32, value, true);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, new_value: u32) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setUInt32(0, new_value, 42);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setBool(32, new_value, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn has_name(self: Builder) !bool") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_name(self: Builder) ![]const u8") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_name(self: Builder) !void") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, new_value: []const u8) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_friend(self: Builder) !void") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, value: @\"cpz.schema\".Person) !void") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(value.reader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, new_value: @\"cpz.schema\".Person) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
 }
 
@@ -3311,5 +3311,5 @@ test "schema parser, layout, and codegen handle enums" {
     try std.testing.expect(std.mem.indexOf(u8, code, "green = 1") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn color(self: @This()) !@\"cpz.schema\".Color") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getUInt16(0, 1)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_color(self: Builder, value: @\"cpz.schema\".Color) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_color(self: Builder, new_value: @\"cpz.schema\".Color) !void") != null);
 }
