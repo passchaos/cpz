@@ -248,6 +248,75 @@ test "generated builders can copy whole list fields from readers" {
     try std.testing.expectEqual(@as(u32, 777), (try target_groups.get(0)).getUInt32(0));
 }
 
+test "generated builders can set whole list fields from slices" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer source_builder.deinit();
+    const source_child_builder = try generated.Person.initRootTyped(&source_builder);
+    try source_child_builder.set_id(444);
+    try source_child_builder.set_name("SliceChild");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_child = generated.Person.fromReader(try source_reader.getRoot());
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    try person_builder.set_scores(&[_]u32{ 5, 8, 13 });
+    try person_builder.set_flags(&[_]bool{ true, false, true });
+    try person_builder.set_ratios(&[_]f32{ 0.5, 1.25 });
+    try person_builder.set_palette(&[_]generated.Color{ .blue, .red });
+    try person_builder.set_palette_raw(&[_]u16{ 2, 0 });
+    const aliases = [_][]const u8{ "slice", "setter" };
+    try person_builder.set_aliases(&aliases);
+    const payload0 = [_]u8{ 9, 8, 7 };
+    const payload1 = [_]u8{6};
+    const payloads = [_][]const u8{ &payload0, &payload1 };
+    try person_builder.set_payloads(&payloads);
+    const children = [_]generated.Person{source_child};
+    try person_builder.set_children(&children);
+    try person_builder.set_marks(&[_]void{ {}, {}, {} });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    const read_scores = try person.scores();
+    try std.testing.expectEqual(@as(u32, 13), read_scores.get(2));
+    const read_flags = try person.flags();
+    try std.testing.expectEqual(true, read_flags.get(0));
+    try std.testing.expectEqual(false, read_flags.get(1));
+    const read_ratios = try person.ratios();
+    try std.testing.expectEqual(@as(f32, 1.25), read_ratios.get(1));
+    const read_palette = try person.palette();
+    try std.testing.expectEqual(generated.Color.blue, try read_palette.get(0));
+    try std.testing.expectEqual(@as(u16, 0), read_palette.getRaw(1));
+    const read_aliases = try person.aliases();
+    try std.testing.expectEqualSlices(u8, "setter", try read_aliases.get(1));
+    const read_payloads = try person.payloads();
+    try std.testing.expectEqualSlices(u8, &payload0, try read_payloads.get(0));
+    const read_children = try person.children();
+    const read_child = try read_children.get(0);
+    try std.testing.expectEqual(@as(u32, 444), read_child.id());
+    try std.testing.expectEqualSlices(u8, "SliceChild", try read_child.name());
+    const read_marks = try person.marks();
+    try std.testing.expectEqual(@as(usize, 3), read_marks.len());
+
+    var cap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer cap_builder.deinit();
+    const dynamic_builder = try generated.DynamicBox.initRootTyped(&cap_builder);
+    try dynamic_builder.set_capList(&[_]u32{ 41, 42 });
+    var cap_reader = cpz.MessageReader.init(try cap_builder.segmentsConst(), .{});
+    const dynamic_box = generated.DynamicBox.fromReader(try cap_reader.getRoot());
+    const read_caps = try dynamic_box.capList();
+    try std.testing.expectEqual(@as(u32, 42), try read_caps.get(1));
+
+    var interface_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer interface_builder_message.deinit();
+    const interface_builder = try generated.InterfaceBox.initRootTyped(&interface_builder_message);
+    try interface_builder.set_services(&[_]u32{ 51, 52 });
+    var interface_reader = cpz.MessageReader.init(try interface_builder_message.segmentsConst(), .{});
+    const interface_box = generated.InterfaceBox.fromReader(try interface_reader.getRoot());
+    const read_services = try interface_box.services();
+    try std.testing.expectEqual(@as(u32, 52), try read_services.get(1));
+}
+
 test "generated list builders can clear pointer-backed and struct elements" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();

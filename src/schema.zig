@@ -2523,6 +2523,115 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     , .{});
 }
 
+fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field_name: []const u8, field: *const Field, index: usize, child: Type) LayoutError!void {
+    switch (resolveType(file, child)) {
+        .void => {
+            try appendFmt(allocator, out,
+                \\        pub fn set_{s}(self: Builder, @"cpz.values": []const void) !void {{
+            , .{field_name});
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            _ = try (try self.builder.getPointerField({})).initList(.void, @"cpz.values".len);
+                \\        }}
+                \\
+            , .{index});
+        },
+        .bool => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "bool", ".bit", "setBool"),
+        .uint8 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "u8", ".byte", "setUInt8"),
+        .uint16 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "u16", ".two_bytes", "setUInt16"),
+        .uint32 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "u32", ".four_bytes", "setUInt32"),
+        .uint64 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "u64", ".eight_bytes", "setUInt64"),
+        .int8 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "i8", ".byte", "setInt8"),
+        .int16 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "i16", ".two_bytes", "setInt16"),
+        .int32 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "i32", ".four_bytes", "setInt32"),
+        .int64 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "i64", ".eight_bytes", "setInt64"),
+        .float32 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "f32", ".four_bytes", "setFloat32"),
+        .float64 => try emitListPrimitiveSliceSetter(allocator, out, field_name, field, index, "f64", ".eight_bytes", "setFloat64"),
+        .text => try emitListPointerSliceSetter(allocator, out, field_name, field, index, "[]const u8", "setText"),
+        .data => try emitListPointerSliceSetter(allocator, out, field_name, field, index, "[]const u8", "setData"),
+        .any_pointer, .any_list, .list => try emitListPointerSliceSetter(allocator, out, field_name, field, index, "cpz.PointerReader", "copyFrom"),
+        .any_struct => try emitListPointerSliceSetter(allocator, out, field_name, field, index, "cpz.StructReader", "copyStructFrom"),
+        .capability => try emitCapabilitySliceSetter(allocator, out, field_name, field, index),
+        .named => |type_name| if (findEnumDirect(file, type_name) != null) {
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\        pub fn set_{s}(self: Builder, @"cpz.values": []const {s}) !void {{
+            , .{ field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.two_bytes, @"cpz.values".len);
+                \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| try @"cpz.list".setUInt16(@"cpz.i", @intFromEnum(@"cpz.item"));
+                \\        }}
+                \\
+                \\        pub fn set_{s}_raw(self: Builder, @"cpz.values": []const u16) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.two_bytes, @"cpz.values".len);
+                \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| try @"cpz.list".setUInt16(@"cpz.i", @"cpz.item");
+                \\        }}
+                \\
+            , .{index});
+        } else if (findInterface(file, type_name) != null) {
+            try emitCapabilitySliceSetter(allocator, out, field_name, field, index);
+        } else {
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\        pub fn set_{s}(self: Builder, @"cpz.values": []const {s}) !void {{
+            , .{ field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initStructList(@"cpz.values".len, {s}.size);
+                \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| try (try @"cpz.list".getStructElement(@"cpz.i")).copyFromReader(@"cpz.item".reader);
+                \\        }}
+                \\
+            , .{ index, zig_type });
+        },
+        .optional => {},
+    }
+}
+
+fn emitListPrimitiveSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize, zig_type: []const u8, element_size: []const u8, method: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const {s}) !void {{
+    , .{ field_name, zig_type });
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList({s}, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| try @"cpz.list".{s}(@"cpz.i", @"cpz.item");
+        \\        }}
+        \\
+    , .{ index, element_size, method });
+}
+
+fn emitListPointerSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize, item_type: []const u8, method: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const {s}) !void {{
+    , .{ field_name, item_type });
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.pointer, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| try (try @"cpz.list".getPointerElement(@"cpz.i")).{s}(@"cpz.item");
+        \\        }}
+        \\
+    , .{ index, method });
+}
+
+fn emitCapabilitySliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const u32) !void {{
+    , .{field_name});
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.pointer, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| (try @"cpz.list".getPointerElement(@"cpz.i")).setCapability(@"cpz.item");
+        \\        }}
+        \\
+    , .{index});
+}
+
 fn listScalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_type: []const u8, method: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\        pub fn get(self: @This(), index: usize) {s} {{
@@ -2773,6 +2882,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\        }}
                 \\
             , .{index});
+
+            try emitListSliceSetter(allocator, out, file, field_name, field, index, child.*);
 
             if (isStructListElement(file, child.*)) |type_name| {
                 const zig_type = try zigTypeRefAlloc(allocator, type_name);
