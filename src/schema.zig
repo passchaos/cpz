@@ -189,6 +189,11 @@ const Lexer = struct {
                 while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
                 break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
             },
+            '+' => blk: {
+                if (self.index >= self.source.len or !std.ascii.isDigit(self.source[self.index])) return error.InvalidToken;
+                while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
+                break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
+            },
             '"' => blk: {
                 const content_start = self.index;
                 while (self.index < self.source.len) {
@@ -794,6 +799,24 @@ test "schema parser accepts TypeList shorthand" {
     try std.testing.expect(file.structs[0].fields[2].ty == .list);
     try std.testing.expect(file.structs[0].fields[2].ty.list.* == .named);
     try std.testing.expectEqualStrings("Child", file.structs[0].fields[2].ty.list.*.named);
+}
+
+test "schema parser and codegen accept plus-prefixed numeric defaults" {
+    var file = try parse(std.testing.allocator,
+        \\struct Numbers {
+        \\  ratio @0 :Float32 = +1.5;
+        \\  count @1 :Int32 = +7;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("+1.5", file.structs[0].fields[0].default_literal.?);
+    try std.testing.expectEqualStrings("+7", file.structs[0].fields[1].default_literal.?);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(0, 1.5)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getInt32(4, 7)") != null);
 }
 
 test "schema parser tolerates union and group blocks inside structs" {
@@ -1593,7 +1616,8 @@ fn isZigKeyword(name: []const u8) bool {
 }
 
 fn defaultScalarLiteral(field: *const Field) []const u8 {
-    return field.default_literal orelse "0";
+    const literal = field.default_literal orelse return "0";
+    return if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal;
 }
 
 fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
