@@ -912,6 +912,38 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(u32, 99), try choice.id());
 }
 
+test "generated generic type applications lower to base accessors" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer source_builder.deinit();
+    const source_person_builder = try generated.Person.initRootTyped(&source_builder);
+    try source_person_builder.set_id(8181);
+    try source_person_builder.set_name("generic person");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_ptr = try source_reader.getRootPointer();
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+
+    const box_builder = try generated.GenericUseBox.initRootTyped(&builder);
+    const direct = try box_builder.init_direct();
+    try direct.set_value_from(source_ptr);
+    const alias = try box_builder.init_alias();
+    try alias.set_value_from(source_ptr);
+    const many = try box_builder.init_many(1);
+    const many_item = try many.get(0);
+    try many_item.set_value_from(source_ptr);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const box = generated.GenericUseBox.fromReader(try reader.getRoot());
+    const direct_person = generated.Person.fromReader(try (try (try box.direct()).value()).getStruct(null));
+    try std.testing.expectEqual(@as(u32, 8181), direct_person.id());
+    try std.testing.expectEqualSlices(u8, "generic person", try direct_person.name());
+    const alias_person = generated.Person.fromReader(try (try (try box.alias()).value()).getStruct(null));
+    try std.testing.expectEqual(@as(u32, 8181), alias_person.id());
+    const many_person = generated.Person.fromReader(try (try (try (try box.many()).get(0)).value()).getStruct(null));
+    try std.testing.expectEqualSlices(u8, "generic person", try many_person.name());
+}
+
 test "generated builtin any and capability accessors round-trip" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();

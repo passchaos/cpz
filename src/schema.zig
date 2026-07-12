@@ -1092,15 +1092,51 @@ pub const Parser = struct {
             child.* = scalarOrNamed(base_name);
             return .{ .list = child };
         }
+        if (try self.skipTypeApplications()) {
+            try self.skipDottedTypeSuffix();
+            return scalarOrNamed(name);
+        }
+
         var end = first.end;
         while (self.lookahead.tag == .dot) {
             try self.expect(.dot);
             const part = self.lookahead;
             _ = try self.expectIdentifier();
             end = part.end;
+            if (try self.skipTypeApplications()) {
+                try self.skipDottedTypeSuffix();
+                break;
+            }
         }
         if (end != first.end) return .{ .named = self.lexer.source[first.start..end] };
         return scalarOrNamed(name);
+    }
+
+    fn skipTypeApplications(self: *Parser) Error!bool {
+        var skipped = false;
+        while (self.lookahead.tag == .l_paren) {
+            skipped = true;
+            try self.expect(.l_paren);
+            var depth: usize = 1;
+            while (depth != 0) {
+                if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+                switch (self.lookahead.tag) {
+                    .l_paren => depth += 1,
+                    .r_paren => depth -= 1,
+                    else => {},
+                }
+                try self.advance();
+            }
+        }
+        return skipped;
+    }
+
+    fn skipDottedTypeSuffix(self: *Parser) Error!void {
+        while (self.lookahead.tag == .dot) {
+            try self.expect(.dot);
+            _ = try self.expectIdentifier();
+            _ = try self.skipTypeApplications();
+        }
     }
 
     fn scalarOrNamed(name: []const u8) Type {

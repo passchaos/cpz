@@ -12,6 +12,7 @@ using Names = TextList;
 using Shade = Color;
 using DynamicAlias = AnyPointer;
 using CapAlias = Capability;
+using GenericPersonAlias = GenericBox(Person);
 
 const globalId :UInt32 = 12345;
 const globalActive :Bool = true;
@@ -127,4 +128,14 @@ struct NestedBox {
   item @0 :Item;
   items @1 :List(Item);
   status @2 :Status = ready;
+}
+
+struct GenericBox(T) {
+  value @0 :T;
+}
+
+struct GenericUseBox {
+  direct @0 :GenericBox(Person);
+  alias @1 :GenericPersonAlias;
+  many @2 :List(GenericBox(Person));
 }
