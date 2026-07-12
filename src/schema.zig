@@ -2266,6 +2266,13 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return self.reader.getPointerField({}).getStruct(null);
                 \\    }}
                 \\
+                \\    pub fn {s}PointerSection(self: @This()) !cpz.ListReader {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return (try self.reader.getPointerField({}).getStruct(null)).pointerSectionAsList();
+                \\    }}
+                \\
             , .{index});
         },
         .any_list => {
@@ -3351,6 +3358,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn get_{s}PointerSection(self: Builder) !cpz.ListBuilder {{
+            , .{ index, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return (try (try self.builder.getPointerField({})).getStruct()).pointerSectionAsList();
                 \\        }}
                 \\
             , .{index});
