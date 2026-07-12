@@ -1245,10 +1245,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).setText(value);
             \\        }}
             \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
         , .{}),
         .data => try appendFmt(allocator, out,
             \\        pub fn set(self: @This(), index: usize, value: []const u8) !void {{
             \\            return (try self.list.getPointerElement(index)).setData(value);
+            \\        }}
+            \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearPointerElement(index);
             \\        }}
             \\
         , .{}),
@@ -1271,6 +1279,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
                 \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
                 \\            return (try self.list.getStructElement(index)).copyFromReader(value.reader);
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), index: usize) !void {{
+                \\            return (try self.list.getStructElement(index)).clear();
                 \\        }}
                 \\
             , .{ zig_type, zig_type, zig_type });
@@ -1570,6 +1582,7 @@ test "schema code generator emits Zig accessor skeletons" {
         \\  scores @5 :List(UInt32);
         \\  children @6 :List(Person);
         \\  palette @7 :List(Color);
+        \\  aliases @8 :TextList;
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
@@ -1581,7 +1594,7 @@ test "schema code generator emits Zig accessor skeletons" {
 
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Person = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "data_words = 1") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pointer_count = 5") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pointer_count = 6") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
@@ -1599,6 +1612,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(value.reader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearPointerElement(index);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getStructElement(index)).clear();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @enumFromInt(self.list.getUInt16(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);

@@ -128,3 +128,32 @@ test "generated struct list builders can copy elements from readers" {
     try std.testing.expectEqual(@as(u32, 321), child.id());
     try std.testing.expectEqualSlices(u8, "ListCopy", try child.name());
 }
+
+test "generated list builders can clear pointer-backed and struct elements" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    const aliases = try person_builder.init_aliases(1);
+    try aliases.set(0, "drop");
+    try aliases.clear(0);
+    const payloads = try person_builder.init_payloads(1);
+    try payloads.set(0, &[_]u8{7});
+    try payloads.clear(0);
+    const children = try person_builder.init_children(1);
+    const child = try children.get(0);
+    try child.set_id(111);
+    try child.set_name("drop child");
+    try children.clear(0);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    const read_aliases = try person.aliases();
+    try std.testing.expectError(error.NullPointer, read_aliases.get(0));
+    const read_payloads = try person.payloads();
+    try std.testing.expectError(error.NullPointer, read_payloads.get(0));
+    const read_children = try person.children();
+    const read_child = try read_children.get(0);
+    try std.testing.expectEqual(@as(u32, 42), read_child.id());
+    try std.testing.expectError(error.NullPointer, read_child.name());
+}

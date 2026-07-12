@@ -809,6 +809,13 @@ pub const StructBuilder = struct {
         (try self.getPointerField(pointer_index)).clear();
     }
 
+    pub fn clear(self: StructBuilder) Error!void {
+        @memset(self.dataBytes(), 0);
+        for (0..self.pointer_count) |i| {
+            try self.clearPointer(i);
+        }
+    }
+
     pub fn copyFromReader(self: StructBuilder, source: StructReader) Error!void {
         if (self.overlapsSource(source)) {
             if (self.data_start == source.data_start and
@@ -833,10 +840,7 @@ pub const StructBuilder = struct {
             return self.copyFromReader(try temp_reader.getRoot());
         }
 
-        @memset(self.dataBytes(), 0);
-        for (0..self.pointer_count) |i| {
-            try self.clearPointer(i);
-        }
+        try self.clear();
         const data_len = @min(self.dataBytes().len, source.dataBytes().len);
         @memcpy(self.dataBytes()[0..data_len], source.dataBytes()[0..data_len]);
         const pointer_len = @min(self.pointer_count, source.pointer_count);
