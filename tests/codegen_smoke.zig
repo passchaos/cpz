@@ -995,6 +995,14 @@ test "generated builtin any and capability accessors round-trip" {
     const scalar_box = generated.DynamicBox.fromReader(try scalar_reader.getRoot());
     try std.testing.expectEqual(@as(u32, 12345), try scalar_box.anyAsCapability());
 
+    var list_orphan = try scalar_box_builder.new_anyList_listOrphan(.two_bytes, 2);
+    const orphan_list_builder = try list_orphan.getList(.two_bytes);
+    try orphan_list_builder.setUInt16(0, 314);
+    try orphan_list_builder.setUInt16(1, 159);
+    try scalar_box_builder.adopt_anyList(&list_orphan);
+    const adopted_any_list = try scalar_box_builder.get_anyList();
+    try std.testing.expectEqual(@as(u16, 159), try adopted_any_list.getUInt16(1));
+
     var composite_list_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer composite_list_message.deinit();
     const composite_box_builder = try generated.DynamicBox.initRootTyped(&composite_list_message);

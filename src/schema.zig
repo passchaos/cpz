@@ -4257,8 +4257,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initStructList(count, struct_size);
                 \\        }}
                 \\
+                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.Orphan {{
+                \\            return self.orphanage().newList(element_size, count);
+                \\        }}
+                \\
+                \\        pub fn new_{s}_structListOrphan(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
+                \\            return self.orphanage().newStructList(count, struct_size);
+                \\        }}
+                \\
+                \\        pub fn new_{s}_copyOrphan(self: Builder, new_value: cpz.ListReader) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyList(new_value);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_from(self: Builder, new_value: cpz.PointerReader) !void {{
-            , .{ index, field_name });
+            , .{ index, field_name, field_name, field_name, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
