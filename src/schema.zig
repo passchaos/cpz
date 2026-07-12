@@ -1086,6 +1086,13 @@ fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
 }
 
 fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\    pub fn has_{s}(self: @This()) bool {{
+        \\        return !self.reader.getPointerField({}).isNull();
+        \\    }}
+        \\
+    , .{ field_name, index });
+
     switch (field.ty) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
