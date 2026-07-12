@@ -770,6 +770,9 @@ test "generated builtin any and capability accessors round-trip" {
     const any_value = try box_builder.init_any_struct(.{ .data_words = 1, .pointer_count = 1 });
     try any_value.setUInt32(0, 0xabcdef01, 0);
     try any_value.setText(0, "any struct");
+    try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try box_builder.get_anyPointerType()).?);
+    const any_builder_struct = try box_builder.get_anyAsStruct();
+    try std.testing.expectEqual(@as(u32, 0xabcdef01), try any_builder_struct.getUInt32(0, 0));
     try box_builder.set_anyStruct_from(source_struct);
     const any_list = try box_builder.init_anyList(.two_bytes, 2);
     try any_list.setUInt16(0, 111);
@@ -790,6 +793,9 @@ test "generated builtin any and capability accessors round-trip" {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const dynamic_box = generated.DynamicBox.fromReader(try reader.getRoot());
     try std.testing.expect(dynamic_box.has_any());
+    try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try dynamic_box.anyPointerType()).?);
+    const read_any_via_helper = try dynamic_box.anyAsStruct();
+    try std.testing.expectEqual(@as(u32, 0xabcdef01), read_any_via_helper.getUInt32(0, 0));
     const read_any = try (try dynamic_box.any()).getStruct(null);
     try std.testing.expectEqual(@as(u32, 0xabcdef01), read_any.getUInt32(0, 0));
     try std.testing.expectEqualSlices(u8, "any struct", try read_any.getPointerField(0).getText());
@@ -829,6 +835,7 @@ test "generated builtin any and capability accessors round-trip" {
     var copy_orphan_reader = cpz.MessageReader.init(try copy_orphan_builder_message.segmentsConst(), .{});
     const copy_orphan_box = generated.DynamicBox.fromReader(try copy_orphan_reader.getRoot());
     try std.testing.expectEqualSlices(u8, "dynamic", try (try copy_orphan_box.any()).getText());
+    try std.testing.expectEqualSlices(u8, "dynamic", try copy_orphan_box.anyAsText());
 }
 
 test "generated using aliases resolve for layout and accessors" {

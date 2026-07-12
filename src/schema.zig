@@ -2255,6 +2255,41 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return self.reader.getPointerField({});
                 \\    }}
                 \\
+                \\    pub fn {s}PointerType(self: @This()) !?cpz.wire.PointerType {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).pointerType();
+                \\    }}
+                \\
+                \\    pub fn {s}AsStruct(self: @This()) !cpz.StructReader {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getStruct(null);
+                \\    }}
+                \\
+                \\    pub fn {s}AsList(self: @This(), expected: ?cpz.ElementSize) !cpz.ListReader {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getList(expected);
+                \\    }}
+                \\
+                \\    pub fn {s}AsText(self: @This()) ![]const u8 {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getText();
+                \\    }}
+                \\
+                \\    pub fn {s}AsData(self: @This()) ![]const u8 {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getData();
+                \\    }}
+                \\
             , .{index});
         },
         .any_struct => {
@@ -3302,8 +3337,28 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.builder.getPointerField({});
                 \\        }}
                 \\
+                \\        pub fn get_{s}PointerType(self: Builder) !?cpz.wire.PointerType {{
+                \\            return (try self.builder.getPointerField({})).pointerType();
+                \\        }}
+                \\
+                \\        pub fn get_{s}AsStruct(self: Builder) !cpz.StructBuilder {{
+                \\            return (try self.builder.getPointerField({})).getStruct();
+                \\        }}
+                \\
+                \\        pub fn get_{s}AsList(self: Builder, expected: ?cpz.ElementSize) !cpz.ListBuilder {{
+                \\            return (try self.builder.getPointerField({})).getList(expected);
+                \\        }}
+                \\
+                \\        pub fn get_{s}AsText(self: Builder) ![]const u8 {{
+                \\            return (try self.builder.getPointerField({})).getText();
+                \\        }}
+                \\
+                \\        pub fn get_{s}AsData(self: Builder) ![]const u8 {{
+                \\            return (try self.builder.getPointerField({})).getData();
+                \\        }}
+                \\
                 \\        pub fn set_{s}(self: Builder, new_value: cpz.PointerReader) !void {{
-            , .{ index, field_name });
+            , .{ index, field_name, index, field_name, index, field_name, index, field_name, index, field_name, index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
