@@ -142,6 +142,18 @@ pub fn messageToPackedBytes(allocator: std.mem.Allocator, segments: []const Cons
     return packing.pack(allocator, flat);
 }
 
+/// Write packed stream framing directly to an Io writer. This allocates only
+/// the bounded segment table, then streams packed table/segment chunks.
+pub fn writePackedMessageToWriter(allocator: std.mem.Allocator, writer: *std.Io.Writer, segments: []const ConstSegment) (Error || std.Io.Writer.Error)!void {
+    _ = try computeSerializedSize(segments);
+    const table = try serializeSegmentTable(allocator, segments);
+    defer allocator.free(table);
+    try packing.packToWriter(writer, table);
+    for (segments) |segment| {
+        try packing.packToWriter(writer, segment);
+    }
+}
+
 /// Parse a flat serialized message and copy exactly the consumed message bytes.
 /// Extra trailing data is allowed and reported via `consumed_len`.
 pub fn readFlatMessage(allocator: std.mem.Allocator, bytes: []const u8) Error!FlatMessage {
@@ -418,6 +430,31 @@ test "packed stream framing round-trips through unpacked parser" {
     defer parsed.deinit(allocator);
     try testing.expectEqual(flat.len, parsed.consumed_len);
     try testing.expectEqual(@as(usize, 2), parsed.segments.len);
+    try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
+    try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
+}
+
+test "packed stream framing writes directly to Io writer" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const s0 = [_]u8{0} ** 24;
+    const s1 = [_]u8{0x8a} ** 32;
+    const segments = [_]ConstSegment{ &s0, &s1 };
+    const flat = try messageToFlatBytes(allocator, &segments);
+    defer allocator.free(flat);
+
+    var buffer: [256]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    try writePackedMessageToWriter(allocator, &writer, &segments);
+    const packed_bytes = std.Io.Writer.buffered(&writer);
+
+    const unpacked = try packing.unpack(allocator, packed_bytes);
+    defer allocator.free(unpacked);
+    try testing.expectEqualSlices(u8, flat, unpacked);
+
+    var parsed = try readPackedMessage(allocator, packed_bytes);
+    defer parsed.deinit(allocator);
     try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
     try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
 }
