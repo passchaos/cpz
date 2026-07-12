@@ -7,6 +7,7 @@
 - word/pointer encoding and lazy pointer validation;
 - arena-backed builders for structs, primitive lists, text/data blobs, and composite struct lists;
 - packed stream codec compatible with Cap'n Proto packing.
+- one-call packed stream framing helpers (`messageToPackedBytes` / `readPackedMessage`).
 
 The long-term target is to grow into a full schema/compiler/RPC stack while keeping Zig-friendly APIs and predictable performance.
 

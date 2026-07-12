@@ -1,4 +1,5 @@
 const std = @import("std");
+const packing = @import("packing.zig");
 const wire = @import("wire.zig");
 
 pub const Segment = []u8;
@@ -14,7 +15,7 @@ pub const Error = error{
     SegmentTableOverflow,
     SerializedSizeOverflow,
     MessageNotWordAligned,
-} || std.mem.Allocator.Error;
+} || packing.Error || std.mem.Allocator.Error;
 
 pub const FlatMessage = struct {
     /// Owned copy of the complete serialized message bytes consumed by this
@@ -99,15 +100,37 @@ pub fn messageToFlatBytes(allocator: std.mem.Allocator, segments: []const ConstS
     return out;
 }
 
+/// Serialize segments using standard stream framing, then apply Cap'n Proto
+/// packing to the framed bytes. This is the format used by C++'s packed
+/// stream helpers.
+pub fn messageToPackedBytes(allocator: std.mem.Allocator, segments: []const ConstSegment) Error![]u8 {
+    const flat = try messageToFlatBytes(allocator, segments);
+    defer allocator.free(flat);
+    return packing.pack(allocator, flat);
+}
+
 /// Parse a flat serialized message and copy exactly the consumed message bytes.
 /// Extra trailing data is allowed and reported via `consumed_len`.
 pub fn readFlatMessage(allocator: std.mem.Allocator, bytes: []const u8) Error!FlatMessage {
     const expected_len = try expectedSize(bytes);
     if (bytes.len < expected_len) return error.MessageTruncated;
     const owned = try allocator.dupe(u8, bytes[0..expected_len]);
+    return readOwnedFlatMessage(allocator, owned);
+}
+
+/// Parse a packed Cap'n Proto stream message. The returned FlatMessage owns
+/// the unpacked flat bytes and its segment slices point into that allocation.
+pub fn readPackedMessage(allocator: std.mem.Allocator, packed_bytes: []const u8) Error!FlatMessage {
+    const flat = try packing.unpack(allocator, packed_bytes);
+    return readOwnedFlatMessage(allocator, flat);
+}
+
+fn readOwnedFlatMessage(allocator: std.mem.Allocator, owned: []u8) Error!FlatMessage {
     errdefer allocator.free(owned);
 
-    const table = try parseSegmentTable(owned);
+    const expected_len = try expectedSize(owned);
+    if (owned.len < expected_len) return error.MessageTruncated;
+    const table = try parseSegmentTable(owned[0..expected_len]);
     const segments = try allocator.alloc(ConstSegment, table.segment_count);
     errdefer allocator.free(segments);
 
@@ -194,4 +217,30 @@ test "standard stream framing serializes even segment count with padding" {
     try testing.expectEqualSlices(u8, &s0, bytes[16..24]);
     try testing.expectEqualSlices(u8, &s1, bytes[24..40]);
     try testing.expectEqual(@as(usize, 40), try expectedSize(bytes[0..16]));
+}
+
+test "packed stream framing round-trips through unpacked parser" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const s0 = [_]u8{
+        0x08, 0x00, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+        0x19, 0x00, 0x00, 0x00, 0xaa, 0x01, 0x00, 0x00,
+        0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    };
+    const s1 = [_]u8{0x8a} ** 16;
+    const segments = [_]ConstSegment{ &s0, &s1 };
+
+    const flat = try messageToFlatBytes(allocator, &segments);
+    defer allocator.free(flat);
+    const packed_bytes = try messageToPackedBytes(allocator, &segments);
+    defer allocator.free(packed_bytes);
+    try testing.expect(packed_bytes.len < flat.len);
+
+    var parsed = try readPackedMessage(allocator, packed_bytes);
+    defer parsed.deinit(allocator);
+    try testing.expectEqual(flat.len, parsed.consumed_len);
+    try testing.expectEqual(@as(usize, 2), parsed.segments.len);
+    try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
+    try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
 }
