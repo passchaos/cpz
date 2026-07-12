@@ -312,6 +312,11 @@ pub const Parser = struct {
                 try self.skipBracedDeclaration();
                 continue;
             }
+            if (self.isKeyword("union") and (try self.peekNext()).tag == .l_brace) {
+                try self.advance();
+                try self.skipBracedDeclaration();
+                continue;
+            }
             try fields.append(self.allocator, try self.parseField());
         }
         try self.expect(.r_brace);
@@ -346,6 +351,10 @@ pub const Parser = struct {
         if (ordinal_u64 > std.math.maxInt(u32)) return error.InvalidOrdinal;
         try self.expect(.colon);
         const ty = try self.parseType();
+        if (isGroupType(ty) and self.lookahead.tag == .l_brace) {
+            try self.skipCurrentBracedBody();
+            return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = .void };
+        }
         const default_literal = if (self.lookahead.tag == .equal) blk: {
             try self.expect(.equal);
             break :blk try self.expectDefaultLiteral();
@@ -458,6 +467,10 @@ pub const Parser = struct {
 
     fn skipBracedDeclaration(self: *Parser) Error!void {
         try self.skipUntil(.l_brace);
+        try self.skipCurrentBracedBody();
+    }
+
+    fn skipCurrentBracedBody(self: *Parser) Error!void {
         try self.expect(.l_brace);
         var depth: usize = 1;
         while (depth != 0) {
@@ -620,6 +633,13 @@ fn findEnum(file: *const File, name: []const u8) ?*const EnumDecl {
     return null;
 }
 
+fn isGroupType(ty: Type) bool {
+    return switch (ty) {
+        .named => |name| std.mem.eql(u8, name, "group"),
+        else => false,
+    };
+}
+
 fn alignForward(comptime T: type, value: T, alignment: T) T {
     if (alignment == 0) return value;
     return ((value + alignment - 1) / alignment) * alignment;
@@ -732,6 +752,31 @@ test "schema parser skips top-level annotations and interfaces" {
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Payload", file.structs[0].name);
     try std.testing.expectEqual(@as(usize, 1), file.structs[0].fields.len);
+}
+
+test "schema parser tolerates union and group blocks inside structs" {
+    const source =
+        \\struct Choice {
+        \\  union {
+        \\    name @0 :Text;
+        \\    id @1 :UInt32;
+        \\  }
+        \\  metadata @2 :group {
+        \\    created @3 :UInt64;
+        \\  }
+        \\  keep @4 :Text;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.structs.len);
+    // The union is skipped for now; the group is represented as a void
+    // placeholder so ordinal accounting can remain deterministic until full
+    // group lowering exists.
+    try std.testing.expectEqual(@as(usize, 2), file.structs[0].fields.len);
+    try std.testing.expectEqualStrings("metadata", file.structs[0].fields[0].name);
+    try std.testing.expectEqual(Type.void, file.structs[0].fields[0].ty);
+    try std.testing.expectEqualStrings("keep", file.structs[0].fields[1].name);
 }
 
 test "schema parser tolerates nested declarations and dotted type names" {
