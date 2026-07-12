@@ -222,6 +222,10 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).initStructList(element_count, size);
     }
 
+    pub fn getRootList(self: *MessageBuilder, expected: ?wire.ElementSize) Error!ListBuilder {
+        return (try self.getRootPointer()).getList(expected);
+    }
+
     pub fn setRootText(self: *MessageBuilder, text: []const u8) Error!void {
         return (try self.getRootPointer()).setText(text);
     }
@@ -448,6 +452,10 @@ pub const MessageReader = struct {
     pub fn getRootPointer(self: *MessageReader) Error!PointerReader {
         if (self.segments.len == 0) return error.SegmentOutOfBounds;
         return .{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
+    }
+
+    pub fn getRootList(self: *MessageReader, expected: ?wire.ElementSize) Error!ListReader {
+        return (try self.getRootPointer()).getList(expected);
     }
 
     pub fn getRootText(self: *MessageReader) Error![]const u8 {
@@ -2284,6 +2292,8 @@ test "root pointer APIs support non-struct roots" {
     const nums = try builder.initRootList(.two_bytes, 2);
     try nums.setUInt16(0, 111);
     try nums.setUInt16(1, 222);
+    const builder_root_list = try builder.getRootList(.two_bytes);
+    try testing.expectEqual(@as(u16, 222), try builder_root_list.getUInt16(1));
     const root_ptr_builder = try builder.getRootPointer();
     try testing.expect(!root_ptr_builder.isNull());
     const root_ptr_builder_size = try root_ptr_builder.totalSize();
@@ -2307,6 +2317,8 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(@as(usize, 1), root_ptr_size.word_count);
     try testing.expectEqual(@as(usize, 0), root_ptr_size.cap_count);
     try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointer()).pointerType().?);
+    const direct_read_nums = try reader.getRootList(.two_bytes);
+    try testing.expectEqual(@as(u16, 222), direct_read_nums.getUInt16(1));
     const read_nums = try root_ptr.getList(.two_bytes);
     try testing.expectEqual(@as(u16, 111), read_nums.getUInt16(0));
     try testing.expectEqual(@as(u16, 222), read_nums.getUInt16(1));
