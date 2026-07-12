@@ -111,11 +111,16 @@ pub const EnumDecl = struct {
     }
 };
 
+pub const InterfaceDecl = struct {
+    name: []const u8,
+};
+
 pub const File = struct {
     id: ?u64,
     structs: []Struct,
     enums: []EnumDecl,
     aliases: []AliasDecl,
+    interfaces: []InterfaceDecl,
 
     pub fn deinit(self: *File, allocator: std.mem.Allocator) void {
         for (self.structs) |*s| s.deinit(allocator);
@@ -124,6 +129,7 @@ pub const File = struct {
         allocator.free(self.enums);
         for (self.aliases) |*a| a.deinit(allocator);
         allocator.free(self.aliases);
+        allocator.free(self.interfaces);
         self.* = undefined;
     }
 };
@@ -339,6 +345,8 @@ pub const Parser = struct {
             for (aliases.items) |*a| a.deinit(self.allocator);
             aliases.deinit(self.allocator);
         }
+        var interfaces = std.ArrayList(InterfaceDecl).empty;
+        errdefer interfaces.deinit(self.allocator);
         var decl_names = std.StringHashMap(void).init(self.allocator);
         defer decl_names.deinit();
         var file_id: ?u64 = null;
@@ -361,7 +369,10 @@ pub const Parser = struct {
                 }
                 try enums.append(self.allocator, decl);
             } else if (self.eatKeyword("interface")) {
-                try self.skipBracedDeclaration();
+                const name = try self.parseInterfaceDeclaration();
+                const entry = try decl_names.getOrPut(name);
+                if (entry.found_existing) return error.NameCollision;
+                try interfaces.append(self.allocator, .{ .name = name });
             } else if (self.eatKeyword("using")) {
                 try self.parseUsingOrSkip(&aliases, &decl_names);
             } else if (self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
@@ -378,7 +389,14 @@ pub const Parser = struct {
             .structs = try structs.toOwnedSlice(self.allocator),
             .enums = try enums.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
+            .interfaces = try interfaces.toOwnedSlice(self.allocator),
         };
+    }
+
+    fn parseInterfaceDeclaration(self: *Parser) Error![]const u8 {
+        const name = try self.expectIdentifier();
+        try self.skipBracedDeclaration();
+        return name;
     }
 
     fn parseUsingOrSkip(self: *Parser, aliases: *std.ArrayList(AliasDecl), decl_names: *std.StringHashMap(void)) Error!void {
@@ -1114,6 +1132,25 @@ fn findEnum(file: *const File, name: []const u8) ?*const EnumDecl {
 
 fn findEnumDirect(file: *const File, name: []const u8) ?*const EnumDecl {
     for (file.enums) |*decl| {
+        if (std.mem.eql(u8, decl.name, name)) return decl;
+    }
+    return null;
+}
+
+fn findInterface(file: *const File, name: []const u8) ?*const InterfaceDecl {
+    if (findInterfaceDirect(file, name)) |decl| return decl;
+    const resolved = resolveNamedAlias(file, name, 0) orelse return null;
+    return switch (resolved) {
+        .named => |resolved_name| findInterfaceDirect(file, resolved_name),
+        .capability => &builtin_capability_interface,
+        else => null,
+    };
+}
+
+const builtin_capability_interface = InterfaceDecl{ .name = "Capability" };
+
+fn findInterfaceDirect(file: *const File, name: []const u8) ?*const InterfaceDecl {
+    for (file.interfaces) |*decl| {
         if (std.mem.eql(u8, decl.name, name)) return decl;
     }
     return null;
@@ -2083,7 +2120,17 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\
             , .{ index, try listElementSizeLiteral(file, child.*) });
         },
-        .named => |type_name| {
+        .named => |type_name| if (findInterface(file, type_name) != null) {
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !u32 {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getCapabilityIndex();
+                \\    }}
+                \\
+            , .{index});
+        } else {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
@@ -2200,6 +2247,13 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{ zig_type, zig_type });
+        } else if (findInterface(file, type_name) != null) {
+            try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) !u32 {{
+                \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
+                \\        }}
+                \\
+            , .{});
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
@@ -2355,6 +2409,21 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{ zig_type, zig_type, zig_type });
+        } else if (findInterface(file, type_name) != null) {
+            try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) !u32 {{
+                \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), index: usize, value: u32) !void {{
+                \\            return (try self.list.getPointerElement(index)).setCapability(value);
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), index: usize) !void {{
+                \\            return self.list.clearPointerElement(index);
+                \\        }}
+                \\
+            , .{});
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
@@ -2721,7 +2790,24 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\
             , .{index});
         },
-        .named => |type_name| {
+        .named => |type_name| if (findInterface(file, type_name) != null) {
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) !u32 {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn set_{s}(self: Builder, value: u32) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            (try self.builder.getPointerField({})).setCapability(value);
+                \\        }}
+                \\
+            , .{index});
+        } else {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
@@ -2780,13 +2866,13 @@ fn listElementSizeLiteral(file: *const File, ty: Type) LayoutError![]const u8 {
         .int64, .uint64, .float64 => ".eight_bytes",
         .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => ".pointer",
         .optional => ".pointer",
-        .named => |name| if (findEnum(file, name) != null) ".two_bytes" else ".composite",
+        .named => |name| if (findEnum(file, name) != null) ".two_bytes" else if (findInterface(file, name) != null) ".pointer" else ".composite",
     };
 }
 
 fn isStructListElement(file: *const File, ty: Type) ?[]const u8 {
     return switch (resolveType(file, ty)) {
-        .named => |name| if (findEnumDirect(file, name) == null) name else null,
+        .named => |name| if (findEnumDirect(file, name) == null and findInterfaceDirect(file, name) == null) name else null,
         else => null,
     };
 }

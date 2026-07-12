@@ -330,3 +330,24 @@ test "generated using aliases resolve for layout and accessors" {
     try std.testing.expectEqual(@as(u32, 700), try read_caps.get(0));
     try std.testing.expectEqual(@as(u32, 701), try read_caps.get(1));
 }
+
+test "generated interface capability accessors round-trip" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const box_builder = try generated.InterfaceBox.initRootTyped(&builder);
+    try box_builder.set_service(1234);
+    const services = try box_builder.init_services(2);
+    try services.set(0, 2345);
+    try services.set(1, 3456);
+    try std.testing.expectEqual(@as(u32, 1234), try box_builder.get_service());
+    try std.testing.expectEqual(@as(u32, 3456), try services.get(1));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const box = generated.InterfaceBox.fromReader(try reader.getRoot());
+    try std.testing.expect(box.has_service());
+    try std.testing.expectEqual(@as(u32, 1234), try box.service());
+    const read_services = try box.services();
+    try std.testing.expectEqual(@as(u32, 2345), try read_services.get(0));
+    try std.testing.expectEqual(@as(u32, 3456), try read_services.get(1));
+}

@@ -55,3 +55,12 @@ struct AliasBox {
   dynamic @3 :DynamicAlias;
   caps @4 :List(CapAlias);
 }
+
+interface Service {
+  call @0 () -> ();
+}
+
+struct InterfaceBox {
+  service @0 :Service;
+  services @1 :List(Service);
+}
