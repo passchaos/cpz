@@ -451,15 +451,16 @@ pub const PointerBuilder = struct {
             .list => {
                 const src = try source.getList(null);
                 if (src.element_size == .composite) {
-                    const dst = try self.initStructList(src.element_count, .{
+                    const dst_size = if (canonical) try canonicalStructListSize(src) else wire.StructSize{
                         .data_words = src.data_words,
                         .pointer_count = src.pointer_count,
-                    });
+                    };
+                    const dst = try self.initStructList(src.element_count, dst_size);
                     for (0..src.element_count) |i| {
                         const src_element = try src.getStructElement(i);
                         const dst_element = try dst.getStructElement(i);
-                        @memcpy(dst_element.dataBytes(), src_element.dataBytes());
-                        for (0..src_element.pointer_count) |j| {
+                        @memcpy(dst_element.dataBytes(), src_element.dataBytes()[0..dst_element.dataBytes().len]);
+                        for (0..dst_size.pointer_count) |j| {
                             const dst_ptr = try dst_element.getPointerField(j);
                             if (canonical) {
                                 try dst_ptr.copyFromCanonical(src_element.getPointerField(j));
@@ -1195,6 +1196,45 @@ fn canonicalStructSize(s: StructReader) Error!wire.StructSize {
     };
 }
 
+fn canonicalStructListSize(list: ListReader) Error!wire.StructSize {
+    var data_words: usize = list.data_words;
+    while (data_words > 0) {
+        const word_index = data_words - 1;
+        var all_zero = true;
+        for (0..list.element_count) |i| {
+            const element = try list.getStructElement(i);
+            const word = try element.message.readWord(element.segment_id, element.data_start + word_index);
+            if (word != 0) {
+                all_zero = false;
+                break;
+            }
+        }
+        if (!all_zero) break;
+        data_words -= 1;
+    }
+
+    var pointer_count: usize = list.pointer_count;
+    while (pointer_count > 0) {
+        const pointer_index = pointer_count - 1;
+        var all_zero = true;
+        for (0..list.element_count) |i| {
+            const element = try list.getStructElement(i);
+            const word = try element.message.readWord(element.segment_id, element.pointer_start + pointer_index);
+            if (word != 0) {
+                all_zero = false;
+                break;
+            }
+        }
+        if (!all_zero) break;
+        pointer_count -= 1;
+    }
+
+    return .{
+        .data_words = @intCast(data_words),
+        .pointer_count = @intCast(pointer_count),
+    };
+}
+
 fn listByteLen(element_count: usize, step_bits: usize) usize {
     const bits = std.math.mul(usize, element_count, step_bits) catch @panic("list byte length overflow");
     return (bits + 7) / 8;
@@ -1510,6 +1550,44 @@ test "canonical segment bytes truncate trailing zero struct sections" {
     try testing.expectEqual(@as(u32, 99), read_root.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "kept", try read_root.getPointerField(0).getText());
     try testing.expect(read_root.getPointerField(1).isNull());
+}
+
+test "canonical segment bytes truncate trailing zero struct-list sections" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    const items = try (try root.getPointerField(0)).initStructList(2, .{ .data_words = 2, .pointer_count = 2 });
+    const item0 = try items.getStructElement(0);
+    try item0.setUInt32(0, 1, 0);
+    try item0.setText(0, "a");
+    const item1 = try items.getStructElement(1);
+    try item1.setUInt32(0, 2, 0);
+    try item1.setText(0, "b");
+
+    var source = MessageReader.init(try builder.segmentsConst(), .{});
+    const canonical = try toCanonicalSegmentBytes(testing.allocator, &source);
+    defer testing.allocator.free(canonical);
+
+    const root_struct = wire.decodeStruct(try wire.readWord(canonical, 0));
+    const root_target = try wire.targetWordIndex(0, root_struct.offset_words);
+    const list_ptr_index = root_target + root_struct.data_words;
+    const list_ptr = try wire.decodeList(try wire.readWord(canonical, list_ptr_index));
+    try testing.expectEqual(wire.ElementSize.composite, list_ptr.element_size);
+    try testing.expectEqual(@as(u29, 4), list_ptr.element_count_or_words);
+    const tag_index = try wire.targetWordIndex(list_ptr_index, list_ptr.offset_words);
+    const tag = try wire.decodeStructListTag(try wire.readWord(canonical, tag_index));
+    try testing.expectEqual(@as(usize, 2), tag.element_count);
+    try testing.expectEqual(@as(u16, 1), tag.size.data_words);
+    try testing.expectEqual(@as(u16, 1), tag.size.pointer_count);
+
+    const segments = [_]serialize.ConstSegment{canonical};
+    var reader = MessageReader.init(&segments, .{});
+    const read_items = try (try reader.getRoot()).getPointerField(0).getList(.composite);
+    const read_item1 = try read_items.getStructElement(1);
+    try testing.expectEqual(@as(u32, 2), read_item1.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "b", try read_item1.getPointerField(0).getText());
 }
 
 test "capability pointers round-trip and validate" {
