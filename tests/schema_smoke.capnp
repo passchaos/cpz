@@ -40,6 +40,10 @@ struct Person {
   aliasGroups @17 :List(TextList);
   structGroups @18 :List(List(Person));
   marks @19 :VoidList;
+
+  const defaultAge :UInt16 = 99;
+  const defaultAlias :Text = "nested const";
+  const defaultColor :Color = red;
 }
 
 struct Choice {

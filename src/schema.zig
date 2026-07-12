@@ -106,10 +106,13 @@ const UnionBuilder = struct {
 pub const Struct = struct {
     name: []const u8,
     fields: []Field,
+    consts: []ConstDecl,
 
     pub fn deinit(self: *Struct, allocator: std.mem.Allocator) void {
         for (self.fields) |*field| field.deinit(allocator);
         allocator.free(self.fields);
+        for (self.consts) |*c| c.deinit(allocator);
+        allocator.free(self.consts);
         self.* = undefined;
     }
 };
@@ -652,8 +655,15 @@ pub const Parser = struct {
             for (fields.items) |*field| field.deinit(self.allocator);
             fields.deinit(self.allocator);
         }
+        var consts = std.ArrayList(ConstDecl).empty;
+        errdefer {
+            for (consts.items) |*c| c.deinit(self.allocator);
+            consts.deinit(self.allocator);
+        }
         var field_names = std.StringHashMap(void).init(self.allocator);
         defer field_names.deinit();
+        var member_names = std.StringHashMap(void).init(self.allocator);
+        defer member_names.deinit();
         var unions = std.ArrayList(UnionBuilder).empty;
         errdefer {
             for (unions.items) |*u| u.deinit(self.allocator);
@@ -678,12 +688,21 @@ pub const Parser = struct {
                 try self.parseAnonymousUnion(&unions.items[union_index], union_index);
                 continue;
             }
-            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            if (self.eatKeyword("const")) {
+                try self.parseConstOrSkip(&consts, &member_names);
+                continue;
+            }
+            if (self.eatKeyword("using") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
             var field = try self.parseField();
             if (try putFieldName(&field_names, field.name)) {
+                field.deinit(self.allocator);
+                return error.NameCollision;
+            }
+            const member_entry = try member_names.getOrPut(field.name);
+            if (member_entry.found_existing) {
                 field.deinit(self.allocator);
                 return error.NameCollision;
             }
@@ -693,7 +712,11 @@ pub const Parser = struct {
         for (unions.items) |*u| try appendUnionFields(self.allocator, &fields, &field_names, u);
         for (unions.items) |*u| u.deinit(self.allocator);
         unions.deinit(self.allocator);
-        return .{ .name = name, .fields = try fields.toOwnedSlice(self.allocator) };
+        return .{
+            .name = name,
+            .fields = try fields.toOwnedSlice(self.allocator),
+            .consts = try consts.toOwnedSlice(self.allocator),
+        };
     }
 
     fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
@@ -1999,6 +2022,14 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, decl: *const Struct) Layo
         for (decl.fields[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (decl.consts) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+    for (decl.consts, 0..) |lhs, i| {
+        for (decl.consts[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
 }
 
@@ -2041,67 +2072,75 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
 }
 
 fn emitConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const ConstDecl) LayoutError!void {
+    return emitConstWithIndent(allocator, out, file, decl, "");
+}
+
+fn emitNestedConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const ConstDecl) LayoutError!void {
+    return emitConstWithIndent(allocator, out, file, decl, "    ");
+}
+
+fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const ConstDecl, indent: []const u8) LayoutError!void {
     const const_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(const_name);
     switch (resolveType(file, decl.ty)) {
         .void => try appendFmt(allocator, out,
-            \\pub const {s}: void = {{}};
+            \\{s}pub const {s}: void = {{}};
             \\
             \\
-        , .{const_name}),
+        , .{ indent, const_name }),
         .bool => try appendFmt(allocator, out,
-            \\pub const {s}: bool = {s};
+            \\{s}pub const {s}: bool = {s};
             \\
             \\
-        , .{ const_name, try boolConstLiteral(decl.literal) }),
-        .int8 => try emitNumericConst(allocator, out, const_name, "i8", decl.literal),
-        .int16 => try emitNumericConst(allocator, out, const_name, "i16", decl.literal),
-        .int32 => try emitNumericConst(allocator, out, const_name, "i32", decl.literal),
-        .int64 => try emitNumericConst(allocator, out, const_name, "i64", decl.literal),
-        .uint8 => try emitNumericConst(allocator, out, const_name, "u8", decl.literal),
-        .uint16 => try emitNumericConst(allocator, out, const_name, "u16", decl.literal),
-        .uint32 => try emitNumericConst(allocator, out, const_name, "u32", decl.literal),
-        .uint64 => try emitNumericConst(allocator, out, const_name, "u64", decl.literal),
-        .float32 => try emitNumericConst(allocator, out, const_name, "f32", floatConstLiteral(decl.literal, "f32")),
-        .float64 => try emitNumericConst(allocator, out, const_name, "f64", floatConstLiteral(decl.literal, "f64")),
+        , .{ indent, const_name, try boolConstLiteral(decl.literal) }),
+        .int8 => try emitNumericConst(allocator, out, indent, const_name, "i8", decl.literal),
+        .int16 => try emitNumericConst(allocator, out, indent, const_name, "i16", decl.literal),
+        .int32 => try emitNumericConst(allocator, out, indent, const_name, "i32", decl.literal),
+        .int64 => try emitNumericConst(allocator, out, indent, const_name, "i64", decl.literal),
+        .uint8 => try emitNumericConst(allocator, out, indent, const_name, "u8", decl.literal),
+        .uint16 => try emitNumericConst(allocator, out, indent, const_name, "u16", decl.literal),
+        .uint32 => try emitNumericConst(allocator, out, indent, const_name, "u32", decl.literal),
+        .uint64 => try emitNumericConst(allocator, out, indent, const_name, "u64", decl.literal),
+        .float32 => try emitNumericConst(allocator, out, indent, const_name, "f32", floatConstLiteral(decl.literal, "f32")),
+        .float64 => try emitNumericConst(allocator, out, indent, const_name, "f64", floatConstLiteral(decl.literal, "f64")),
         .text => {
             const literal = try zigStringLiteralAlloc(allocator, decl.literal);
             defer allocator.free(literal);
             try appendFmt(allocator, out,
-                \\pub const {s}: []const u8 = {s};
+                \\{s}pub const {s}: []const u8 = {s};
                 \\
                 \\
-            , .{ const_name, literal });
+            , .{ indent, const_name, literal });
         },
         .data => {
             const literal = try zigDataLiteralAlloc(allocator, decl.literal, decl.is_hex_data);
             defer allocator.free(literal);
             try appendFmt(allocator, out,
-                \\pub const {s}: []const u8 = {s};
+                \\{s}pub const {s}: []const u8 = {s};
                 \\
                 \\
-            , .{ const_name, literal });
+            , .{ indent, const_name, literal });
         },
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return;
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
-                \\pub const {s}: {s} = @enumFromInt({});
+                \\{s}pub const {s}: {s} = @enumFromInt({});
                 \\
                 \\
-            , .{ const_name, zig_type, try enumDefaultOrdinal(enum_decl, decl.literal) });
+            , .{ indent, const_name, zig_type, try enumDefaultOrdinal(enum_decl, decl.literal) });
         },
         else => return,
     }
 }
 
-fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {
+fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {
     try appendFmt(allocator, out,
-        \\pub const {s}: {s} = {s};
+        \\{s}pub const {s}: {s} = {s};
         \\
         \\
-    , .{ name, zig_type, if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal });
+    , .{ indent, name, zig_type, if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal });
 }
 
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
@@ -2111,6 +2150,13 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\pub const {s} = struct {{
         \\    pub const size: cpz.StructSize = .{{ .data_words = {}, .pointer_count = {} }};
         \\
+    , .{ struct_name, layout.data_words, layout.pointer_count });
+
+    for (layout.decl.consts) |*decl| {
+        try emitNestedConst(allocator, out, file, decl);
+    }
+
+    try appendFmt(allocator, out,
         \\    pub const Orphan = struct {{
         \\        orphan: cpz.Orphan,
         \\
@@ -2213,7 +2259,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return self.reader.pointerSectionAsList();
         \\    }}
         \\
-    , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name, struct_name, struct_name, struct_name });
+    , .{ struct_name, struct_name, struct_name, struct_name, struct_name });
 
     try emitUnionDeclarations(allocator, out, layout);
 
