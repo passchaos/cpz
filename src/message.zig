@@ -504,12 +504,16 @@ pub const PointerBuilder = struct {
     segment_id: u32,
     word_index: usize,
 
+    pub fn raw(self: PointerBuilder) wire.Word {
+        return self.message.readWord(self.segment_id, self.word_index);
+    }
+
     pub fn isNull(self: PointerBuilder) bool {
-        return self.message.readWord(self.segment_id, self.word_index) == 0;
+        return self.raw() == 0;
     }
 
     pub fn pointerType(self: PointerBuilder) ?wire.PointerType {
-        const raw_value = self.message.readWord(self.segment_id, self.word_index);
+        const raw_value = self.raw();
         if (raw_value == 0) return null;
         return wire.pointerType(raw_value);
     }

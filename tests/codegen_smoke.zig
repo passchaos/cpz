@@ -34,6 +34,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const name_pointer_view = try person_builder.get_nameAsReader(&name_view_reader);
     try std.testing.expectEqualSlices(u8, "Ada", try name_pointer_view.getText());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person_builder.get_namePointerKind()).?);
+    const name_raw_pointer = try person_builder.get_nameRawPointer();
+    try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(name_raw_pointer));
     const name_decoded = (try person_builder.get_nameDecodedPointer()).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, name_decoded.element_size);
     try person_builder.set_favorite(.blue);
@@ -131,6 +133,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(person.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person.name());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person.namePointerKind()).?);
+    const read_name_raw_pointer = try person.nameRawPointer();
+    try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_name_raw_pointer));
     const read_name_decoded = (try person.nameDecodedPointer()).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, read_name_decoded.element_size);
     try std.testing.expect(generated.Color.blue == try person.favorite());

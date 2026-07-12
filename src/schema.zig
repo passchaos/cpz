@@ -2276,6 +2276,13 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).pointerType();
         \\    }}
         \\
+        \\    pub fn {s}RawPointer(self: @This()) !cpz.Word {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).raw();
+        \\    }}
+        \\
         \\    pub fn {s}DecodedPointer(self: @This()) !?cpz.wire.DecodedPointer {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
@@ -3473,6 +3480,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).pointerType();
+        \\        }}
+        \\
+        \\        pub fn get_{s}RawPointer(self: Builder) !cpz.Word {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).raw();
         \\        }}
         \\
         \\        pub fn get_{s}DecodedPointer(self: Builder) !?cpz.wire.DecodedPointer {{
