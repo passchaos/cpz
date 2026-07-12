@@ -24,6 +24,10 @@ pub const Type = union(enum) {
     float64,
     text,
     data,
+    any_pointer,
+    any_struct,
+    any_list,
+    capability,
     list: *Type,
     optional: *Type,
     named: []const u8,
@@ -570,6 +574,7 @@ pub const Parser = struct {
             try self.expect(.r_paren);
             return .{ .list = child };
         }
+        if (std.mem.eql(u8, name, "AnyList")) return .any_list;
         if (std.mem.endsWith(u8, name, "List") and name.len > "List".len) {
             const base_name = name[0 .. name.len - "List".len];
             const child = try self.allocator.create(Type);
@@ -603,6 +608,10 @@ pub const Parser = struct {
         if (std.mem.eql(u8, name, "Float64")) return .float64;
         if (std.mem.eql(u8, name, "Text")) return .text;
         if (std.mem.eql(u8, name, "Data")) return .data;
+        if (std.mem.eql(u8, name, "AnyPointer")) return .any_pointer;
+        if (std.mem.eql(u8, name, "AnyStruct")) return .any_struct;
+        if (std.mem.eql(u8, name, "AnyList")) return .any_list;
+        if (std.mem.eql(u8, name, "Capability")) return .capability;
         return .{ .named = name };
     }
 
@@ -1027,7 +1036,7 @@ fn classify(file: *const File, ty: Type) LayoutError!TypeClass {
         .int16, .uint16 => .{ .data = 16 },
         .int32, .uint32, .float32 => .{ .data = 32 },
         .int64, .uint64, .float64 => .{ .data = 64 },
-        .text, .data, .list => .pointer,
+        .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => .pointer,
         .optional => .pointer,
         .named => |name| if (findEnum(file, name) != null) .{ .data = 16 } else .pointer,
     };
@@ -1926,6 +1935,50 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 , .{index});
             }
         },
+        .any_pointer => {
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !cpz.PointerReader {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({});
+                \\    }}
+                \\
+            , .{index});
+        },
+        .any_struct => {
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !cpz.StructReader {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getStruct(null);
+                \\    }}
+                \\
+            , .{index});
+        },
+        .any_list => {
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !cpz.ListReader {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getList(null);
+                \\    }}
+                \\
+            , .{index});
+        },
+        .capability => {
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !u32 {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return self.reader.getPointerField({}).getCapabilityIndex();
+                \\    }}
+                \\
+            , .{index});
+        },
         .list => |child| {
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !{s}_{s}_List {{
@@ -2009,6 +2062,30 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         .data => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
             \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+        , .{}),
+        .any_pointer => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !cpz.PointerReader {{
+            \\            return self.list.getPointerElement(index);
+            \\        }}
+            \\
+        , .{}),
+        .any_struct => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !cpz.StructReader {{
+            \\            return (try self.list.getPointerElement(index)).getStruct(null);
+            \\        }}
+            \\
+        , .{}),
+        .any_list => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !cpz.ListReader {{
+            \\            return (try self.list.getPointerElement(index)).getList(null);
+            \\        }}
+            \\
+        , .{}),
+        .capability => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !u32 {{
+            \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
             \\        }}
             \\
         , .{}),
@@ -2096,6 +2173,62 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn set(self: @This(), index: usize, value: []const u8) !void {{
             \\            return (try self.list.getPointerElement(index)).setData(value);
+            \\        }}
+            \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
+        , .{}),
+        .any_pointer => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !cpz.PointerBuilder {{
+            \\            return self.list.getPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn set(self: @This(), index: usize, value: cpz.PointerReader) !void {{
+            \\            return (try self.list.getPointerElement(index)).copyFrom(value);
+            \\        }}
+            \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
+        , .{}),
+        .any_struct => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !cpz.StructBuilder {{
+            \\            return (try self.list.getPointerElement(index)).getStruct();
+            \\        }}
+            \\
+            \\        pub fn set(self: @This(), index: usize, value: cpz.StructReader) !void {{
+            \\            return (try self.list.getPointerElement(index)).copyStructFrom(value);
+            \\        }}
+            \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
+        , .{}),
+        .any_list => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).getList(null);
+            \\        }}
+            \\
+            \\        pub fn set(self: @This(), index: usize, value: cpz.PointerReader) !void {{
+            \\            return (try self.list.getPointerElement(index)).copyFrom(value);
+            \\        }}
+            \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
+        , .{}),
+        .capability => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !u32 {{
+            \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
+            \\        }}
+            \\
+            \\        pub fn set(self: @This(), index: usize, value: u32) !void {{
+            \\            return (try self.list.getPointerElement(index)).setCapability(value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -2404,6 +2537,92 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\
             , .{ index, try listElementSizeLiteral(file, child.*) });
         },
+        .any_pointer => {
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) !cpz.PointerBuilder {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return self.builder.getPointerField({});
+                \\        }}
+                \\
+                \\        pub fn set_{s}(self: Builder, value: cpz.PointerReader) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyFrom(value);
+                \\        }}
+                \\
+            , .{index});
+        },
+        .any_struct => {
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) !cpz.StructBuilder {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).getStruct();
+                \\        }}
+                \\
+                \\        pub fn init_{s}(self: Builder, struct_size: cpz.StructSize) !cpz.StructBuilder {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).initStruct(struct_size);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_from(self: Builder, value: cpz.StructReader) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyStructFrom(value);
+                \\        }}
+                \\
+            , .{index});
+        },
+        .any_list => {
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) !cpz.ListBuilder {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).getList(null);
+                \\        }}
+                \\
+                \\        pub fn init_{s}(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).initList(element_size, count);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_from(self: Builder, value: cpz.PointerReader) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyFrom(value);
+                \\        }}
+                \\
+            , .{index});
+        },
+        .capability => {
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) !u32 {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn set_{s}(self: Builder, value: u32) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            (try self.builder.getPointerField({})).setCapability(value);
+                \\        }}
+                \\
+            , .{index});
+        },
         .named => |type_name| {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
@@ -2461,7 +2680,7 @@ fn listElementSizeLiteral(file: *const File, ty: Type) LayoutError![]const u8 {
         .int16, .uint16 => ".two_bytes",
         .int32, .uint32, .float32 => ".four_bytes",
         .int64, .uint64, .float64 => ".eight_bytes",
-        .text, .data, .list => ".pointer",
+        .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => ".pointer",
         .optional => ".pointer",
         .named => |name| if (findEnum(file, name) != null) ".two_bytes" else ".composite",
     };

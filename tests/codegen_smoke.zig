@@ -258,3 +258,42 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectError(error.InactiveUnionField, choice.name());
     try std.testing.expectEqual(@as(u32, 99), try choice.id());
 }
+
+test "generated builtin any and capability accessors round-trip" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer source_builder.deinit();
+    const source_root = try source_builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try source_root.setUInt32(0, 0xdecafbad, 0);
+    try source_root.setText(0, "dynamic");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_struct = try source_reader.getRoot();
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const box_builder = try generated.DynamicBox.initRootTyped(&builder);
+    try box_builder.set_any(source_struct.getPointerField(0));
+    try box_builder.set_anyStruct_from(source_struct);
+    const any_list = try box_builder.init_anyList(.two_bytes, 2);
+    try any_list.setUInt16(0, 111);
+    try any_list.setUInt16(1, 222);
+    try box_builder.set_cap(77);
+    const caps = try box_builder.init_capList(2);
+    try caps.set(0, 88);
+    try caps.set(1, 99);
+    try std.testing.expectEqual(@as(u32, 77), try box_builder.get_cap());
+    try std.testing.expectEqual(@as(u32, 99), try caps.get(1));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const dynamic_box = generated.DynamicBox.fromReader(try reader.getRoot());
+    try std.testing.expect(dynamic_box.has_any());
+    try std.testing.expectEqualSlices(u8, "dynamic", try (try dynamic_box.any()).getText());
+    const any_struct = try dynamic_box.anyStruct();
+    try std.testing.expectEqual(@as(u32, 0xdecafbad), any_struct.getUInt32(0, 0));
+    try std.testing.expectEqualSlices(u8, "dynamic", try any_struct.getPointerField(0).getText());
+    const read_list = try dynamic_box.anyList();
+    try std.testing.expectEqual(@as(u16, 222), read_list.getUInt16(1));
+    try std.testing.expectEqual(@as(u32, 77), try dynamic_box.cap());
+    const read_caps = try dynamic_box.capList();
+    try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));
+    try std.testing.expectEqual(@as(u32, 99), try read_caps.get(1));
+}

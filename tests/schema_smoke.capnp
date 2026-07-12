@@ -33,3 +33,11 @@ struct Choice {
   }
   after @3 :Text;
 }
+
+struct DynamicBox {
+  any @0 :AnyPointer;
+  anyStruct @1 :AnyStruct;
+  anyList @2 :AnyList;
+  cap @3 :Capability;
+  capList @4 :List(Capability);
+}

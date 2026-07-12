@@ -427,6 +427,26 @@ pub const PointerBuilder = struct {
         };
     }
 
+    pub fn getList(self: PointerBuilder, expected: ?wire.ElementSize) Error!ListBuilder {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        const list_reader = try (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getList(expected);
+        return .{
+            .message = self.message,
+            .segment_id = list_reader.segment_id,
+            .start = list_reader.start,
+            .element_count = list_reader.element_count,
+            .element_size = list_reader.element_size,
+            .data_words = list_reader.data_words,
+            .pointer_count = list_reader.pointer_count,
+            .step_bits = list_reader.step_bits,
+        };
+    }
+
     pub fn setText(self: PointerBuilder, text: []const u8) Error!void {
         if (!std.unicode.utf8ValidateSlice(text)) return error.Utf8Invalid;
         const list = try self.initList(.byte, text.len + 1);
@@ -482,6 +502,16 @@ pub const PointerBuilder = struct {
 
     pub fn setCapability(self: PointerBuilder, index: u32) void {
         self.message.writePtr(self.segment_id, self.word_index, wire.encodeCapability(index));
+    }
+
+    pub fn getCapabilityIndex(self: PointerBuilder) Error!u32 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getCapabilityIndex();
     }
 
     pub fn copyFrom(self: PointerBuilder, source: PointerReader) Error!void {
