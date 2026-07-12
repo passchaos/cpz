@@ -137,7 +137,12 @@ const TokenTag = enum {
     r_brace,
     l_paren,
     r_paren,
+    l_bracket,
+    r_bracket,
     equal,
+    dollar,
+    dot,
+    comma,
     integer,
     string,
     eof,
@@ -166,7 +171,12 @@ const Lexer = struct {
             '}' => .{ .tag = .r_brace, .lexeme = self.source[start..self.index] },
             '(' => .{ .tag = .l_paren, .lexeme = self.source[start..self.index] },
             ')' => .{ .tag = .r_paren, .lexeme = self.source[start..self.index] },
+            '[' => .{ .tag = .l_bracket, .lexeme = self.source[start..self.index] },
+            ']' => .{ .tag = .r_bracket, .lexeme = self.source[start..self.index] },
             '=' => .{ .tag = .equal, .lexeme = self.source[start..self.index] },
+            '$' => .{ .tag = .dollar, .lexeme = self.source[start..self.index] },
+            '.' => .{ .tag = .dot, .lexeme = self.source[start..self.index] },
+            ',' => .{ .tag = .comma, .lexeme = self.source[start..self.index] },
             '"' => blk: {
                 const content_start = self.index;
                 while (self.index < self.source.len) {
@@ -277,6 +287,7 @@ pub const Parser = struct {
 
     fn parseStruct(self: *Parser) Error!Struct {
         const name = try self.expectIdentifier();
+        try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
         var fields = std.ArrayList(Field).empty;
@@ -295,6 +306,7 @@ pub const Parser = struct {
 
     fn parseEnum(self: *Parser) Error!EnumDecl {
         const name = try self.expectIdentifier();
+        try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
         var values = std.ArrayList(EnumValue).empty;
@@ -306,7 +318,7 @@ pub const Parser = struct {
             try self.expect(.at);
             const ordinal_u64 = try self.expectInteger();
             if (ordinal_u64 > std.math.maxInt(u16)) return error.InvalidOrdinal;
-            try self.expect(.semicolon);
+            try self.skipUntilSemicolon();
             try values.append(self.allocator, .{ .name = value_name, .ordinal = @intCast(ordinal_u64) });
         }
         try self.expect(.r_brace);
@@ -324,7 +336,7 @@ pub const Parser = struct {
             try self.expect(.equal);
             break :blk try self.expectDefaultLiteral();
         } else null;
-        try self.expect(.semicolon);
+        try self.skipUntilSemicolon();
         return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = ty, .default_literal = default_literal };
     }
 
@@ -393,11 +405,23 @@ pub const Parser = struct {
     }
 
     fn skipUntilSemicolon(self: *Parser) Error!void {
-        while (self.lookahead.tag != .semicolon) {
+        try self.skipUntil(.semicolon);
+        try self.expect(.semicolon);
+    }
+
+    fn skipUntil(self: *Parser, tag: TokenTag) Error!void {
+        var depth: usize = 0;
+        while (self.lookahead.tag != tag or depth != 0) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            switch (self.lookahead.tag) {
+                .l_paren, .l_bracket => depth += 1,
+                .r_paren, .r_bracket => {
+                    if (depth > 0) depth -= 1;
+                },
+                else => {},
+            }
             try self.advance();
         }
-        try self.expect(.semicolon);
     }
 
     fn expect(self: *Parser, tag: TokenTag) Error!void {
@@ -570,6 +594,26 @@ test "schema parser skips common top-level using and const declarations" {
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Person", file.structs[0].name);
     try std.testing.expectEqualStrings("Ada", file.structs[0].fields[0].default_literal.?);
+}
+
+test "schema parser tolerates imports and annotations" {
+    const source =
+        \\using Cxx = import "/capnp/c++.capnp".Cpp;
+        \\enum Status {
+        \\  ok @0 $Cxx.name("OK");
+        \\  bad @1;
+        \\}
+        \\struct Task $Cxx.name("Task") {
+        \\  id @0 :UInt64 $Cxx.name("id");
+        \\  status @1 :Status = ok $Cxx.name("status");
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.enums.len);
+    try std.testing.expectEqual(@as(usize, 1), file.structs.len);
+    try std.testing.expectEqualStrings("Task", file.structs[0].name);
+    try std.testing.expectEqualStrings("ok", file.structs[0].fields[1].default_literal.?);
 }
 
 test "schema layout planner assigns data and pointer slots" {
