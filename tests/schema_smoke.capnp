@@ -107,6 +107,7 @@ struct ScopedAliasBox {
 
 interface Service {
   call @0 () -> ();
+  ping @1 (request :Text) -> (response :Text);
 }
 
 struct InterfaceBox {

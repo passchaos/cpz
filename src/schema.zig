@@ -146,11 +146,18 @@ pub const EnumDecl = struct {
     }
 };
 
+pub const InterfaceMethod = struct {
+    name: []const u8,
+    ordinal: u16,
+};
+
 pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
+    methods: []InterfaceMethod = &.{},
 
     pub fn deinit(self: *InterfaceDecl, allocator: std.mem.Allocator) void {
+        allocator.free(self.methods);
         if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
@@ -477,8 +484,51 @@ pub const Parser = struct {
         const local_name = try self.expectIdentifier();
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
-        try self.skipBracedDeclaration();
-        return .{ .name = qualified.name, .owns_name = qualified.owns_name };
+        const methods = try self.parseInterfaceBody();
+        errdefer self.allocator.free(methods);
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .methods = methods };
+    }
+
+    fn parseInterfaceBody(self: *Parser) Error![]InterfaceMethod {
+        try self.skipUntil(.l_brace);
+        try self.expect(.l_brace);
+
+        var methods = std.ArrayList(InterfaceMethod).empty;
+        errdefer methods.deinit(self.allocator);
+        var method_names = std.StringHashMap(void).init(self.allocator);
+        defer method_names.deinit();
+        var occupied_ordinals = std.AutoHashMap(u16, void).init(self.allocator);
+        defer occupied_ordinals.deinit();
+
+        while (self.lookahead.tag != .r_brace) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                try self.skipBracedDeclaration();
+                continue;
+            }
+            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+                try self.skipRawUntilSemicolon();
+                continue;
+            }
+            if (self.lookahead.tag != .identifier or (try self.peekNext()).tag != .at) {
+                try self.skipRawUntilSemicolon();
+                continue;
+            }
+            const name = try self.expectIdentifier();
+            try self.expect(.at);
+            const ordinal_u64 = try self.expectInteger();
+            if (ordinal_u64 > std.math.maxInt(u16)) return error.InvalidOrdinal;
+            const ordinal: u16 = @intCast(ordinal_u64);
+            const name_entry = try method_names.getOrPut(name);
+            if (name_entry.found_existing) return error.NameCollision;
+            const ordinal_entry = try occupied_ordinals.getOrPut(ordinal);
+            if (ordinal_entry.found_existing) return error.OrdinalCollision;
+            try self.skipRawUntilSemicolon();
+            try methods.append(self.allocator, .{ .name = name, .ordinal = ordinal });
+        }
+        try self.expect(.r_brace);
+        return methods.toOwnedSlice(self.allocator);
     }
 
     fn qualifiedDeclName(self: *Parser, prefix: ?[]const u8, local_name: []const u8) std.mem.Allocator.Error!QualifiedName {
@@ -1857,6 +1907,21 @@ test "schema parser rejects duplicate enum value names" {
     ));
 }
 
+test "schema parser rejects duplicate interface method names and ordinals" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> ();
+        \\  call @1 () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  first @0 () -> ();
+        \\  second @0 () -> ();
+        \\}
+    ));
+}
+
 test "schema parser rejects duplicate field names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\struct Bad {
@@ -1951,6 +2016,11 @@ test "schema parser skips top-level annotations and interfaces" {
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces.len);
+    try std.testing.expectEqualStrings("Service", file.interfaces[0].name);
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces[0].methods.len);
+    try std.testing.expectEqualStrings("call", file.interfaces[0].methods[0].name);
+    try std.testing.expectEqual(@as(u16, 0), file.interfaces[0].methods[0].ordinal);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Payload", file.structs[0].name);
     try std.testing.expectEqual(@as(usize, 1), file.structs[0].fields.len);
@@ -2325,6 +2395,9 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     for (file.enums) |*decl| {
         try emitEnum(allocator, &out, decl);
     }
+    for (file.interfaces) |*decl| {
+        try emitInterface(allocator, &out, decl);
+    }
     for (layouts.structs) |*layout| {
         try emitStruct(allocator, &out, file, layout);
     }
@@ -2359,6 +2432,9 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.consts) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.interfaces) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
         try validateFieldZigNames(allocator, &lhs);
     }
     for (file.enums, 0..) |lhs, i| {
@@ -2368,12 +2444,24 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.consts) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.interfaces) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
         try validateEnumValueZigNames(allocator, &lhs);
     }
     for (file.consts, 0..) |lhs, i| {
         for (file.consts[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.interfaces) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+    for (file.interfaces, 0..) |lhs, i| {
+        for (file.interfaces[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+        try validateInterfaceMethodZigNames(allocator, &lhs);
     }
 }
 
@@ -2401,6 +2489,14 @@ fn validateEnumValueZigNames(allocator: std.mem.Allocator, decl: *const EnumDecl
     }
 }
 
+fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, decl: *const InterfaceDecl) LayoutError!void {
+    for (decl.methods, 0..) |lhs, i| {
+        for (decl.methods[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
 fn zigNamesEqual(allocator: std.mem.Allocator, lhs_raw: []const u8, rhs_raw: []const u8) std.mem.Allocator.Error!bool {
     const lhs = try zigIdentAlloc(allocator, lhs_raw);
     defer allocator.free(lhs);
@@ -2423,6 +2519,28 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
             \\    {s} = {},
             \\
         , .{ value_name, value.ordinal });
+    }
+    try appendFmt(allocator, out,
+        \\}};
+        \\
+        \\
+    , .{});
+}
+
+fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const InterfaceDecl) LayoutError!void {
+    const interface_name = try zigIdentAlloc(allocator, decl.name);
+    defer allocator.free(interface_name);
+    try appendFmt(allocator, out,
+        \\pub const {s} = struct {{
+        \\
+    , .{interface_name});
+    for (decl.methods) |method| {
+        const method_name = try zigIdentAlloc(allocator, method.name);
+        defer allocator.free(method_name);
+        try appendFmt(allocator, out,
+            \\    pub const {s}: u16 = {};
+            \\
+        , .{ method_name, method.ordinal });
     }
     try appendFmt(allocator, out,
         \\}};

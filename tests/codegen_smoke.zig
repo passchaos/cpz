@@ -1242,6 +1242,11 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqualSlices(u8, "union alias", try box.aliasName());
 }
 
+test "generated interface method constants compile" {
+    try std.testing.expectEqual(@as(u16, 0), generated.Service.call);
+    try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
+}
+
 test "generated interface capability accessors round-trip" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
