@@ -632,8 +632,22 @@ pub const PointerReader = struct {
         return text;
     }
 
+    pub fn getTextDefault(self: PointerReader, default_value: []const u8) Error![]const u8 {
+        if ((try self.raw()) == 0) {
+            if (std.mem.indexOfScalar(u8, default_value, 0) != null) return error.TextContainsInteriorNul;
+            if (!std.unicode.utf8ValidateSlice(default_value)) return error.Utf8Invalid;
+            return default_value;
+        }
+        return self.getText();
+    }
+
     pub fn getData(self: PointerReader) Error![]const u8 {
         return (try self.getList(.byte)).bytes();
+    }
+
+    pub fn getDataDefault(self: PointerReader, default_value: []const u8) Error![]const u8 {
+        if ((try self.raw()) == 0) return default_value;
+        return self.getData();
     }
 
     pub fn getCapabilityIndex(self: PointerReader) Error!u32 {
@@ -1413,6 +1427,26 @@ test "builder rejects invalid UTF-8 text" {
 
     const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
     try testing.expectError(error.Utf8Invalid, root.setText(0, &[_]u8{ 0xff, 0xfe }));
+}
+
+test "pointer reader returns caller defaults for null text and data" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    try testing.expectEqualSlices(u8, "fallback", try read_root.getPointerField(0).getTextDefault("fallback"));
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 2, 3 }, try read_root.getPointerField(1).getDataDefault(&[_]u8{ 1, 2, 3 }));
+    try testing.expectError(error.TextContainsInteriorNul, read_root.getPointerField(0).getTextDefault("bad\x00default"));
+
+    try root.setText(0, "actual");
+    try root.setData(1, &[_]u8{ 9, 8 });
+    var reader2 = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root2 = try reader2.getRoot();
+    try testing.expectEqualSlices(u8, "actual", try read_root2.getPointerField(0).getTextDefault("fallback"));
+    try testing.expectEqualSlices(u8, &[_]u8{ 9, 8 }, try read_root2.getPointerField(1).getDataDefault(&[_]u8{ 1, 2, 3 }));
 }
 
 test "builder creates multiple segments and reader follows far pointers" {
