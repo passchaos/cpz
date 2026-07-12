@@ -1110,6 +1110,10 @@ fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u
 
 test "schema code generator emits Zig accessor skeletons" {
     const source =
+        \\enum Color {
+        \\  red @0;
+        \\  green @1;
+        \\}
         \\struct Person {
         \\  id @0 :UInt32 = 42;
         \\  active @1 :Bool = true;
@@ -1117,6 +1121,7 @@ test "schema code generator emits Zig accessor skeletons" {
         \\  friend @3 :Person;
         \\  scores @4 :List(UInt32);
         \\  children @5 :List(Person);
+        \\  palette @6 :List(Color);
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
@@ -1128,7 +1133,7 @@ test "schema code generator emits Zig accessor skeletons" {
 
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Person = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "data_words = 1") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pointer_count = 4") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pointer_count = 5") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
@@ -1144,6 +1149,10 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, value);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return @enumFromInt(self.list.getUInt16(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(value));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Builder = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, value: u32) !void") != null);

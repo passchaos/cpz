@@ -21,6 +21,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const friend = try person_builder.init_friend();
     try friend.set_id(1234);
     try friend.set_name("Lin");
+    const palette = try person_builder.init_palette(2);
+    try palette.set(0, .red);
+    try palette.set(1, .green);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try reader.getRoot();
@@ -38,6 +41,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_friend = try person.friend();
     try std.testing.expectEqual(@as(u32, 1234), read_friend.id());
     try std.testing.expectEqualSlices(u8, "Lin", try read_friend.name());
+    const read_palette = try person.palette();
+    try std.testing.expectEqual(generated.Color.red, read_palette.get(0));
+    try std.testing.expectEqual(generated.Color.green, read_palette.get(1));
 }
 
 test "generated accessors honor scalar defaults" {

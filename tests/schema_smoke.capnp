@@ -14,4 +14,5 @@ struct Person {
   scores @4 :List(UInt32);
   children @5 :List(Person);
   friend @6 :Person;
+  palette @7 :List(Color);
 }
