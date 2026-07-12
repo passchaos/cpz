@@ -373,6 +373,10 @@ pub const MessageBuilder = struct {
         return .{ .message = self, .segment_id = 0, .word_index = 0 };
     }
 
+    pub fn isRootNull(self: *MessageBuilder) Error!bool {
+        return (try self.getRootPointer()).isNull();
+    }
+
     pub fn clearRoot(self: *MessageBuilder) Error!void {
         (try self.getRootPointer()).clear();
     }
@@ -527,6 +531,10 @@ pub const MessageReader = struct {
     pub fn getRootPointer(self: *MessageReader) Error!PointerReader {
         if (self.segments.len == 0) return error.SegmentOutOfBounds;
         return .{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
+    }
+
+    pub fn isRootNull(self: *MessageReader) Error!bool {
+        return (try self.getRootPointer()).isNull();
     }
 
     pub fn getRootPointerKind(self: *MessageReader) Error!?wire.PointerType {
@@ -2955,13 +2963,17 @@ test "message builder can clear root pointers" {
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 4 });
     defer builder.deinit();
 
+    try testing.expect(try builder.isRootNull());
     try builder.setRootText("clear me");
+    try testing.expect(!(try builder.isRootNull()));
     try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointerKind()).?);
     try builder.clearRoot();
     try testing.expect((try builder.getRootPointer()).isNull());
+    try testing.expect(try builder.isRootNull());
     try testing.expectEqual(@as(?wire.PointerType, null), try builder.getRootPointerKind());
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    try testing.expect(try reader.isRootNull());
     try testing.expectEqual(@as(?wire.PointerType, null), try reader.getRootPointerKind());
     try testing.expectError(error.NullPointer, reader.getRootText());
 }
