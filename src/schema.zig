@@ -453,11 +453,14 @@ pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!
 }
 
 pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!StructLayout {
-    var fields = try std.ArrayList(FieldLayout).initCapacity(allocator, decl.fields.len);
-    errdefer fields.deinit(allocator);
+    const fields = try allocator.alloc(FieldLayout, decl.fields.len);
+    errdefer allocator.free(fields);
 
     var occupied_ordinals = std.AutoHashMap(u32, void).init(allocator);
     defer occupied_ordinals.deinit();
+    var assigned = try allocator.alloc(bool, decl.fields.len);
+    defer allocator.free(assigned);
+    @memset(assigned, false);
 
     var next_bit: usize = 0;
     var next_pointer: usize = 0;
@@ -465,6 +468,12 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
     for (decl.fields) |*field| {
         const entry = try occupied_ordinals.getOrPut(field.ordinal);
         if (entry.found_existing) return error.OrdinalCollision;
+    }
+
+    for (0..decl.fields.len) |_| {
+        const field_index = nextOrdinalFieldIndex(decl.fields, assigned) orelse unreachable;
+        assigned[field_index] = true;
+        const field = &decl.fields[field_index];
 
         const slot: FieldSlot = switch (try classify(file, field.ty)) {
             .void => .void,
@@ -480,7 +489,7 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
                 break :blk .{ .pointer = index };
             },
         };
-        fields.appendAssumeCapacity(.{ .field = field, .slot = slot });
+        fields[field_index] = .{ .field = field, .slot = slot };
     }
 
     if (next_bit > @as(usize, std.math.maxInt(u16)) * 64) return error.InvalidOrdinal;
@@ -490,8 +499,21 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
         .decl = decl,
         .data_words = @intCast((next_bit + 63) / 64),
         .pointer_count = @intCast(next_pointer),
-        .fields = try fields.toOwnedSlice(allocator),
+        .fields = fields,
     };
+}
+
+fn nextOrdinalFieldIndex(fields: []const Field, assigned: []const bool) ?usize {
+    var best: ?usize = null;
+    for (fields, 0..) |field, index| {
+        if (assigned[index]) continue;
+        if (best) |best_index| {
+            if (field.ordinal < fields[best_index].ordinal) best = index;
+        } else {
+            best = index;
+        }
+    }
+    return best;
 }
 
 const TypeClass = union(enum) {
@@ -652,6 +674,30 @@ test "schema layout planner rejects duplicate ordinals" {
     );
     defer file.deinit(std.testing.allocator);
     try std.testing.expectError(error.OrdinalCollision, planLayouts(std.testing.allocator, &file));
+}
+
+test "schema layout planner allocates slots by ordinal not declaration order" {
+    var file = try parse(std.testing.allocator,
+        \\struct OutOfOrder {
+        \\  later @1 :UInt32;
+        \\  first @0 :UInt32;
+        \\  ptrLater @3 :Text;
+        \\  ptrFirst @2 :Text;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const fields = layouts.structs[0].fields;
+    try std.testing.expectEqualStrings("later", fields[0].field.name);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 4 }, fields[0].slot);
+    try std.testing.expectEqualStrings("first", fields[1].field.name);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 0 }, fields[1].slot);
+    try std.testing.expectEqualStrings("ptrLater", fields[2].field.name);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, fields[2].slot);
+    try std.testing.expectEqualStrings("ptrFirst", fields[3].field.name);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, fields[3].slot);
 }
 
 pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
