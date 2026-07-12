@@ -8,9 +8,13 @@ test "generated reader and builder accessors compile and round-trip" {
 
     const person_builder = try generated.Person.initRootTyped(&builder);
     try person_builder.set_id(7);
+    try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
     try person_builder.set_active(false);
+    try std.testing.expectEqual(false, try person_builder.get_active());
     try person_builder.set_name("Ada");
     try person_builder.set_favorite(.blue);
+    try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
+    try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
     const scores = try person_builder.init_scores(2);
     try scores.set(0, 10);
     try scores.set(1, 20);
