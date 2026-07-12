@@ -1057,6 +1057,7 @@ test "schema layout planner reuses alignment padding holes" {
 pub const CodegenOptions = struct {
     runtime_import_name: []const u8 = "cpz",
     raw_schema_comment: ?[]const u8 = null,
+    namespace: ?[]const u8 = null,
 };
 
 pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
@@ -1077,11 +1078,22 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
         \\
         \\
     , .{options.runtime_import_name});
+    if (options.namespace) |raw_namespace| {
+        const namespace = try zigIdentAlloc(allocator, raw_namespace);
+        defer allocator.free(namespace);
+        try appendFmt(allocator, &out,
+            \\pub const {s} = struct {{
+            \\
+        , .{namespace});
+    }
     for (file.enums) |*decl| {
         try emitEnum(allocator, &out, decl);
     }
     for (layouts.structs) |*layout| {
         try emitStruct(allocator, &out, file, layout);
+    }
+    if (options.namespace != null) {
+        try out.appendSlice(allocator, "};\n");
     }
     return out.toOwnedSlice(allocator);
 }
@@ -1953,6 +1965,22 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, value: Person) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
+}
+
+test "schema code generator can wrap declarations in a namespace" {
+    var file = try parse(std.testing.allocator,
+        \\struct Demo {
+        \\  id @0 :UInt32;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{ .namespace = "my.api" });
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const my_api = struct {") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const Demo = struct") != null);
+    try std.testing.expect(std.mem.endsWith(u8, std.mem.trimEnd(u8, code, "\n"), "};"));
 }
 
 test "schema code generator can include raw schema comments" {
