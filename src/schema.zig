@@ -23,11 +23,12 @@ pub const Type = union(enum) {
     text,
     data,
     list: *Type,
+    optional: *Type,
     named: []const u8,
 
     pub fn deinit(self: *Type, allocator: std.mem.Allocator) void {
         switch (self.*) {
-            .list => |child| {
+            .list, .optional => |child| {
                 child.deinit(allocator);
                 allocator.destroy(child);
             },
@@ -143,6 +144,7 @@ const TokenTag = enum {
     dollar,
     dot,
     comma,
+    question,
     arrow,
     integer,
     string,
@@ -180,6 +182,7 @@ const Lexer = struct {
             '$' => .{ .tag = .dollar, .lexeme = self.source[start..self.index] },
             '.' => .{ .tag = .dot, .lexeme = self.source[start..self.index] },
             ',' => .{ .tag = .comma, .lexeme = self.source[start..self.index] },
+            '?' => .{ .tag = .question, .lexeme = self.source[start..self.index] },
             '-' => blk: {
                 if (self.index < self.source.len and self.source[self.index] == '>') {
                     self.index += 1;
@@ -369,6 +372,13 @@ pub const Parser = struct {
     }
 
     fn parseType(self: *Parser) Error!Type {
+        if (self.lookahead.tag == .question) {
+            try self.expect(.question);
+            const child = try self.allocator.create(Type);
+            errdefer self.allocator.destroy(child);
+            child.* = try self.parseType();
+            return .{ .optional = child };
+        }
         const first = self.lookahead;
         const name = try self.expectIdentifier();
         if (std.mem.eql(u8, name, "List")) {
@@ -648,6 +658,7 @@ fn classify(file: *const File, ty: Type) LayoutError!TypeClass {
         .int32, .uint32, .float32 => .{ .data = 32 },
         .int64, .uint64, .float64 => .{ .data = 64 },
         .text, .data, .list => .pointer,
+        .optional => .pointer,
         .named => |name| if (findEnum(file, name) != null) .{ .data = 16 } else .pointer,
     };
 }
@@ -823,6 +834,25 @@ test "schema parser and codegen accept plus-prefixed numeric defaults" {
     try std.testing.expect(std.mem.indexOf(u8, code, "getInt32(4, 7)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(8, 1e-3)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(16, 2.5E+4)") != null);
+}
+
+test "schema parser and codegen accept optional pointer types" {
+    var file = try parse(std.testing.allocator,
+        \\struct Maybe {
+        \\  name @0 :?Text;
+        \\  friend @1 :?Maybe;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expect(file.structs[0].fields[0].ty == .optional);
+    try std.testing.expectEqual(Type.text, file.structs[0].fields[0].ty.optional.*);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u16, 2), layouts.structs[0].pointer_count);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn name(self: @This()) ![]const u8") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !Maybe.Builder") != null);
 }
 
 test "schema parser tolerates union and group blocks inside structs" {
@@ -1138,6 +1168,12 @@ fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
 }
 
 fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    if (field.ty == .optional) {
+        var optional_field = field.*;
+        optional_field.ty = field.ty.optional.*;
+        return emitPointerGetter(allocator, out, file, owner_name, field_name, &optional_field, index);
+    }
+
     try appendFmt(allocator, out,
         \\    pub fn has_{s}(self: @This()) bool {{
         \\        return !self.reader.getPointerField({}).isNull();
@@ -1267,7 +1303,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type });
         },
-        .void, .list => {},
+        .void, .list, .optional => {},
     }
 
     try appendFmt(allocator, out,
@@ -1366,7 +1402,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type, zig_type });
         },
-        .void, .list => {},
+        .void, .list, .optional => {},
     }
 
     try appendFmt(allocator, out,
@@ -1476,6 +1512,12 @@ fn scalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
 }
 
 fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    if (field.ty == .optional) {
+        var optional_field = field.*;
+        optional_field.ty = field.ty.optional.*;
+        return emitPointerBuilderMethod(allocator, out, file, owner_name, field_name, &optional_field, index);
+    }
+
     try appendFmt(allocator, out,
         \\        pub fn has_{s}(self: Builder) !bool {{
         \\            return !(try self.builder.getPointerField({})).isNull();
@@ -1542,6 +1584,7 @@ fn listElementSizeLiteral(file: *const File, ty: Type) LayoutError![]const u8 {
         .int32, .uint32, .float32 => ".four_bytes",
         .int64, .uint64, .float64 => ".eight_bytes",
         .text, .data, .list => ".pointer",
+        .optional => ".pointer",
         .named => |name| if (findEnum(file, name) != null) ".two_bytes" else ".composite",
     };
 }

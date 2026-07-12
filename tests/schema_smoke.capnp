@@ -21,4 +21,6 @@ struct Person {
   flags @11 :BoolList;
   ratios @12 :Float32List;
   weights @13 :Float64List;
+  maybeName @14 :?Text;
+  maybeFriend @15 :?Person;
 }

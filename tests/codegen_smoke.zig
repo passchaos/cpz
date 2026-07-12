@@ -51,6 +51,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try weights.set(0, 10.125);
     try weights.set(1, -20.5);
     try std.testing.expectEqual(@as(f64, 10.125), try weights.get(0));
+    try person_builder.set_maybeName("Optional Ada");
+    const maybe_friend = try person_builder.init_maybeFriend();
+    try maybe_friend.set_id(64);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try reader.getRoot();
@@ -90,6 +93,10 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_weights = try person.weights();
     try std.testing.expectEqual(@as(f64, 10.125), read_weights.get(0));
     try std.testing.expectEqual(@as(f64, -20.5), read_weights.get(1));
+    try std.testing.expect(person.has_maybeName());
+    try std.testing.expectEqualSlices(u8, "Optional Ada", try person.maybeName());
+    const read_maybe_friend = try person.maybeFriend();
+    try std.testing.expectEqual(@as(u32, 64), read_maybe_friend.id());
 }
 
 test "generated accessors honor scalar defaults" {
