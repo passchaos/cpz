@@ -1653,6 +1653,11 @@ pub const ListBuilder = struct {
         return self.element_count == 0;
     }
 
+    pub fn lastIndex(self: ListBuilder) Error!usize {
+        if (self.element_count == 0) return error.PointerOutOfBounds;
+        return self.element_count - 1;
+    }
+
     pub fn elementSize(self: ListBuilder) wire.ElementSize {
         return self.element_size;
     }
@@ -1882,6 +1887,11 @@ pub const ListReader = struct {
 
     pub fn isEmpty(self: ListReader) bool {
         return self.element_count == 0;
+    }
+
+    pub fn lastIndex(self: ListReader) Error!usize {
+        if (self.element_count == 0) return error.PointerOutOfBounds;
+        return self.element_count - 1;
     }
 
     pub fn elementSize(self: ListReader) wire.ElementSize {

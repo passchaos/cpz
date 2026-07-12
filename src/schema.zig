@@ -2948,6 +2948,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.isEmpty();
         \\        }}
         \\
+        \\        pub fn lastIndex(self: @This()) !usize {{
+        \\            return self.list.lastIndex();
+        \\        }}
+        \\
         \\        pub fn rawBytes(self: @This()) []const u8 {{
         \\            return self.list.bytes();
         \\        }}
@@ -3230,6 +3234,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn isEmpty(self: @This()) bool {{
         \\            return self.list.isEmpty();
+        \\        }}
+        \\
+        \\        pub fn lastIndex(self: @This()) !usize {{
+        \\            return self.list.lastIndex();
         \\        }}
         \\
         \\        pub fn rawBytes(self: @This()) []u8 {{
