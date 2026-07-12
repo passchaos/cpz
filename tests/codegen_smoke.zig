@@ -94,3 +94,26 @@ test "generated builders can copy nested struct fields from readers" {
     try std.testing.expectEqual(@as(u32, 888), friend.id());
     try std.testing.expectEqualSlices(u8, "Copied", try friend.name());
 }
+
+test "generated struct list builders can copy elements from readers" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer source_builder.deinit();
+    const source_person_builder = try generated.Person.initRootTyped(&source_builder);
+    try source_person_builder.set_id(321);
+    try source_person_builder.set_name("ListCopy");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_person = generated.Person.fromReader(try source_reader.getRoot());
+
+    var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer target_builder.deinit();
+    const target_person_builder = try generated.Person.initRootTyped(&target_builder);
+    const children = try target_person_builder.init_children(1);
+    try children.set(0, source_person);
+
+    var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
+    const target_person = generated.Person.fromReader(try target_reader.getRoot());
+    const read_children = try target_person.children();
+    const child = try read_children.get(0);
+    try std.testing.expectEqual(@as(u32, 321), child.id());
+    try std.testing.expectEqualSlices(u8, "ListCopy", try child.name());
+}

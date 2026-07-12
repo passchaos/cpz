@@ -793,6 +793,19 @@ pub const StructBuilder = struct {
         (try self.getPointerField(pointer_index)).clear();
     }
 
+    pub fn copyFromReader(self: StructBuilder, source: StructReader) Error!void {
+        @memset(self.dataBytes(), 0);
+        for (0..self.pointer_count) |i| {
+            try self.clearPointer(i);
+        }
+        const data_len = @min(self.dataBytes().len, source.dataBytes().len);
+        @memcpy(self.dataBytes()[0..data_len], source.dataBytes()[0..data_len]);
+        const pointer_len = @min(self.pointer_count, source.pointer_count);
+        for (0..pointer_len) |i| {
+            try (try self.getPointerField(i)).copyFrom(source.getPointerField(i));
+        }
+    }
+
     fn setInt(self: StructBuilder, comptime T: type, byte_offset: usize, value: T, default_value: T) Error!void {
         try self.checkDataBytes(byte_offset, @sizeOf(T));
         const encoded = value ^ default_value;

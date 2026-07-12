@@ -1160,7 +1160,11 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return {s}.Builder.fromBuilder(try self.list.getStructElement(index));
                 \\        }}
                 \\
-            , .{ zig_type, zig_type });
+                \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
+                \\            return (try self.list.getStructElement(index)).copyFromReader(value.reader);
+                \\        }}
+                \\
+            , .{ zig_type, zig_type, zig_type });
         },
         .void, .list => {},
     }
@@ -1431,6 +1435,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, value);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @enumFromInt(self.list.getUInt16(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
