@@ -1110,6 +1110,10 @@ pub const StructBuilder = struct {
         return self.asReader(&reader).totalSize();
     }
 
+    pub fn orphanage(self: StructBuilder) Orphanage {
+        return Orphanage.init(self.message);
+    }
+
     pub fn getPointerField(self: StructBuilder, index: usize) Error!PointerBuilder {
         if (index >= self.pointer_count) return error.PointerOutOfBounds;
         return .{ .message = self.message, .segment_id = self.segment_id, .word_index = self.pointer_start + index };
@@ -1454,6 +1458,10 @@ pub const ListBuilder = struct {
     pub fn totalSize(self: ListBuilder) Error!MessageSize {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return self.asReader(&reader).totalSize();
+    }
+
+    pub fn orphanage(self: ListBuilder) Orphanage {
+        return Orphanage.init(self.message);
     }
 
     pub fn bytes(self: ListBuilder) []u8 {
@@ -2340,16 +2348,17 @@ test "orphanage facade allocates and copies orphans" {
     const testing = std.testing;
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
-    const orphanage = Orphanage.init(&builder);
+    const root_for_orphanage = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    const orphanage = root_for_orphanage.orphanage();
 
     var struct_orphan = try orphanage.newStruct(.{ .data_words = 1, .pointer_count = 1 });
     const struct_builder = try struct_orphan.getStruct();
     try struct_builder.setUInt32(0, 8080, 0);
     try struct_builder.setText(0, "orphanage");
-    try (try builder.getRootPointer()).adopt(&struct_orphan);
+    try (try root_for_orphanage.getPointerField(0)).adopt(&struct_orphan);
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
-    const root = try reader.getRoot();
+    const root = try (try reader.getRoot()).getPointerField(0).getStruct(null);
     try testing.expectEqual(@as(u32, 8080), root.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "orphanage", try root.getPointerField(0).getText());
 

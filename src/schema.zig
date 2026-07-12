@@ -1986,6 +1986,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.builder.totalSize();
         \\        }}
         \\
+        \\        pub fn orphanage(self: Builder) cpz.Orphanage {{
+        \\            return self.builder.orphanage();
+        \\        }}
+        \\
     , .{ struct_name, struct_name });
 
     try emitBuilderUnionHelpers(allocator, out, struct_name, layout);
@@ -2571,6 +2575,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.list.totalSize();
+        \\        }}
+        \\
+        \\        pub fn orphanage(self: @This()) cpz.Orphanage {{
+        \\            return self.list.orphanage();
         \\        }}
         \\
         \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_BuilderList {{

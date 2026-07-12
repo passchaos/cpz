@@ -36,6 +36,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(usize, 1), scores_prefix.len());
     try std.testing.expectEqual(@as(u32, 10), try scores_prefix.get(0));
     try std.testing.expectError(error.UnsupportedElementSize, scores.slice(1, 1));
+    var score_list_orphan = try generated.Person.Person_scores_Orphan.newOrphanIn(scores.orphanage(), 1);
+    score_list_orphan.release();
+    try std.testing.expect(score_list_orphan.isNull());
     var scores_reader = try builder.asReader(.{});
     const scores_view = scores.asReader(&scores_reader);
     try std.testing.expectEqual(@as(u32, 10), scores_view.get(0));
@@ -268,8 +271,7 @@ test "generated structs can allocate typed orphans" {
     dropped.release();
     try std.testing.expect(dropped.isNull());
 
-    const orphanage = cpz.Orphanage.init(&builder);
-    var orphan_from_orphanage = try generated.Person.newOrphanIn(orphanage);
+    var orphan_from_orphanage = try generated.Person.newOrphanIn(person_builder.orphanage());
     const orphanage_builder = try orphan_from_orphanage.get();
     try orphanage_builder.set_id(5252);
     try orphanage_builder.set_name("Orphanage orphan");
@@ -464,7 +466,7 @@ test "generated list orphan wrappers can allocate new orphans" {
     var orphanage_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer orphanage_builder.deinit();
     const orphanage_person_builder = try generated.Person.initRootTyped(&orphanage_builder);
-    var orphanage_scores = try generated.Person.Person_scores_Orphan.newOrphanIn(cpz.Orphanage.init(&orphanage_builder), 1);
+    var orphanage_scores = try generated.Person.Person_scores_Orphan.newOrphanIn(orphanage_person_builder.orphanage(), 1);
     const orphanage_scores_builder = try orphanage_scores.get();
     try orphanage_scores_builder.set(0, 999);
     try orphanage_person_builder.adopt_scores_typed(&orphanage_scores);
@@ -499,7 +501,7 @@ test "generated list orphan wrappers can allocate orphan copies" {
     var target_copy_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer target_copy_builder.deinit();
     const target_copy_person_builder = try generated.Person.initRootTyped(&target_copy_builder);
-    var scores_orphanage = try generated.Person.Person_scores_Orphan.newOrphanCopyIn(cpz.Orphanage.init(&target_copy_builder), try source_person.scores());
+    var scores_orphanage = try generated.Person.Person_scores_Orphan.newOrphanCopyIn(target_copy_person_builder.orphanage(), try source_person.scores());
     try target_copy_person_builder.adopt_scores_typed(&scores_orphanage);
     var target_copy_reader = cpz.MessageReader.init(try target_copy_builder.segmentsConst(), .{});
     const target_copy_person = generated.Person.fromReader(try target_copy_reader.getRoot());
