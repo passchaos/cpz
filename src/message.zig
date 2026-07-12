@@ -93,6 +93,10 @@ pub const Orphan = struct {
         return wire.pointerType(self.raw);
     }
 
+    pub fn decode(self: Orphan, message_reader: *MessageReader) Error!?wire.DecodedPointer {
+        return self.asReader(message_reader).decode();
+    }
+
     pub fn asReader(self: Orphan, message_reader: *MessageReader) PointerReader {
         return .{
             .message = message_reader,
@@ -454,6 +458,16 @@ pub const PointerBuilder = struct {
         const raw_value = self.message.readWord(self.segment_id, self.word_index);
         if (raw_value == 0) return null;
         return wire.pointerType(raw_value);
+    }
+
+    pub fn decode(self: PointerBuilder) Error!?wire.DecodedPointer {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).decode();
     }
 
     pub fn totalSize(self: PointerBuilder) Error!MessageSize {
@@ -832,6 +846,12 @@ pub const PointerReader = struct {
         const resolved = try self.resolve();
         if (resolved.raw == 0) return null;
         return wire.pointerType(resolved.raw);
+    }
+
+    pub fn decode(self: PointerReader) Error!?wire.DecodedPointer {
+        const resolved = try self.resolve();
+        if (resolved.raw == 0) return null;
+        return try wire.decode(resolved.raw);
     }
 
     pub fn totalSize(self: PointerReader) Error!MessageSize {
@@ -2081,6 +2101,11 @@ test "root pointer APIs support non-struct roots" {
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const root_ptr = try reader.getRootPointer();
     try testing.expectEqual(wire.PointerType.list, (try root_ptr.pointerType()).?);
+    const decoded_root = (try root_ptr.decode()).?.list;
+    try testing.expectEqual(wire.ElementSize.two_bytes, decoded_root.element_size);
+    try testing.expectEqual(@as(u29, 2), decoded_root.element_count_or_words);
+    const decoded_builder_root = (try (try builder.getRootPointer()).decode()).?.list;
+    try testing.expectEqual(@as(u29, 2), decoded_builder_root.element_count_or_words);
     const root_ptr_size = try root_ptr.totalSize();
     try testing.expectEqual(@as(usize, 1), root_ptr_size.word_count);
     try testing.expectEqual(@as(usize, 0), root_ptr_size.cap_count);
@@ -2139,6 +2164,9 @@ test "pointer builders can disown and adopt within a message" {
     try testing.expect(field0.isNull());
     try testing.expect(!orphan.isNull());
     try testing.expectEqual(wire.PointerType.list, orphan.pointerType().?);
+    var orphan_decode_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const decoded_orphan = (try orphan.decode(&orphan_decode_reader)).?.list;
+    try testing.expectEqual(wire.ElementSize.byte, decoded_orphan.element_size);
     const orphan_size = try orphan.totalSize();
     try testing.expectEqual(@as(usize, 1), orphan_size.word_count);
     const orphan_text = try orphan.getList(.byte);

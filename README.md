@@ -5,7 +5,7 @@
 - zero-copy readers and flat-message views over caller-owned byte slices;
 - segmented stream framing compatible with `capnp::serialize`, with bounded segment-count validation;
 - C++-style stream prefix sizing via `expectedSizeInWordsFromPrefix`;
-- word/pointer/capability encoding with low-level pointer kind/total-size inspection, lazy pointer validation, and schema-agnostic full-message validation/total-size stats with capability index limits;
+- word/pointer/capability encoding with low-level pointer kind/decode/total-size inspection, lazy pointer validation, and schema-agnostic full-message validation/total-size stats with capability index limits;
 - arena-backed builders for structs and arbitrary root pointers with in-progress scalar reads, scalar fields and plus-prefixed/scientific numeric defaults/lists, pointer lists, UTF-8 text/data blobs with reader defaults, composite struct lists, schema-evolution list upgrades, list slicing, same-message pointer disown/adopt moves with orphan allocation/accessors, whole-list/struct/pointer deep-copying from readers, and explicit pointer clearing;
 - packed stream codec compatible with Cap'n Proto packing, including allocation-free pack/unpack helpers.
 - one-call flat/packed stream framing helpers (`messageToFlatBytes`, `writeMessageToWriter`, `messageToPackedBytes`, `writePackedMessageToWriter`, `readMessageFromReader`, `readPackedMessageFromReader`, `readPackedMessage`) plus builder byte/writer convenience methods.
