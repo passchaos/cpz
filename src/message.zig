@@ -1649,6 +1649,10 @@ pub const ListBuilder = struct {
         return self.element_count;
     }
 
+    pub fn isEmpty(self: ListBuilder) bool {
+        return self.element_count == 0;
+    }
+
     pub fn elementSize(self: ListBuilder) wire.ElementSize {
         return self.element_size;
     }
@@ -1870,6 +1874,10 @@ pub const ListReader = struct {
 
     pub fn len(self: ListReader) usize {
         return self.element_count;
+    }
+
+    pub fn isEmpty(self: ListReader) bool {
+        return self.element_count == 0;
     }
 
     pub fn elementSize(self: ListReader) wire.ElementSize {
