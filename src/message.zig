@@ -106,6 +106,13 @@ pub const MessageBuilder = struct {
         return root.initStruct(size);
     }
 
+    pub fn copyRootFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
+        const dst_root = PointerBuilder{ .message = self, .segment_id = 0, .word_index = 0 };
+        const src_root = PointerReader{ .message = source, .segment_id = 0, .word_index = 0, .nesting_left = source.options.nesting_limit };
+        try dst_root.copyFrom(src_root);
+        return self.getRoot();
+    }
+
     pub fn getRoot(self: *MessageBuilder) Error!StructBuilder {
         var reader = MessageReader.init(try self.segmentsConst(), .{});
         const root = try reader.getRoot();
@@ -330,6 +337,59 @@ pub const PointerBuilder = struct {
         const list = try self.initList(.byte, data.len);
         @memcpy(list.bytes(), data);
     }
+
+    pub fn copyFrom(self: PointerBuilder, source: PointerReader) Error!void {
+        const resolved = try source.resolve();
+        if (resolved.raw == 0) {
+            self.message.writePtr(self.segment_id, self.word_index, 0);
+            return;
+        }
+
+        switch (wire.pointerType(resolved.raw)) {
+            .struct_ptr => {
+                const src = try source.getStruct(null);
+                const dst = try self.initStruct(.{
+                    .data_words = src.data_words,
+                    .pointer_count = src.pointer_count,
+                });
+                @memcpy(dst.dataBytes(), src.dataBytes());
+                for (0..src.pointer_count) |i| {
+                    try (try dst.getPointerField(i)).copyFrom(src.getPointerField(i));
+                }
+            },
+            .list => {
+                const src = try source.getList(null);
+                if (src.element_size == .composite) {
+                    const dst = try self.initStructList(src.element_count, .{
+                        .data_words = src.data_words,
+                        .pointer_count = src.pointer_count,
+                    });
+                    for (0..src.element_count) |i| {
+                        const src_element = try src.getStructElement(i);
+                        const dst_element = try dst.getStructElement(i);
+                        @memcpy(dst_element.dataBytes(), src_element.dataBytes());
+                        for (0..src_element.pointer_count) |j| {
+                            try (try dst_element.getPointerField(j)).copyFrom(src_element.getPointerField(j));
+                        }
+                    }
+                } else {
+                    const dst = try self.initList(src.element_size, src.element_count);
+                    if (src.element_size == .pointer) {
+                        for (0..src.element_count) |i| {
+                            try (try dst.getPointerElement(i)).copyFrom(try src.getPointerElement(i));
+                        }
+                    } else {
+                        @memcpy(dst.bytes(), src.bytes());
+                    }
+                }
+            },
+            .far => return error.InvalidFarPointer,
+            .other => {
+                _ = try wire.decodeOther(resolved.raw);
+                self.message.writePtr(self.segment_id, self.word_index, resolved.raw);
+            },
+        }
+    }
 };
 
 pub const PointerReader = struct {
@@ -441,6 +501,9 @@ pub const PointerReader = struct {
     }
 
     fn resolve(self: PointerReader) Error!ResolvedPointer {
+        if (self.null_override) {
+            return .{ .segment_id = self.segment_id, .pointer_word_index = self.word_index, .raw = 0 };
+        }
         const raw_value = try self.message.readWord(self.segment_id, self.word_index);
         if (raw_value == 0 or wire.pointerType(raw_value) != .far) {
             return .{ .segment_id = self.segment_id, .pointer_word_index = self.word_index, .raw = raw_value };
@@ -1014,4 +1077,39 @@ test "validation reports traversal budget and bounds failures" {
     const bad_segments = [_]serialize.ConstSegment{std.mem.sliceAsBytes(&bad_words)};
     var invalid = MessageReader.init(&bad_segments, .{});
     try testing.expectError(error.PointerOutOfBounds, invalid.validate());
+}
+
+test "message builder deep-copies from a reader" {
+    const testing = std.testing;
+    var source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
+    defer source.deinit();
+
+    const root = try source.initRoot(.{ .data_words = 1, .pointer_count = 2 });
+    try root.setUInt32(0, 77, 0);
+    const names = try (try root.getPointerField(0)).initList(.pointer, 2);
+    try (try names.getPointerElement(0)).setText("left");
+    try (try names.getPointerElement(1)).setText("right");
+    const people = try (try root.getPointerField(1)).initStructList(1, .{ .data_words = 1, .pointer_count = 1 });
+    const person = try people.getStructElement(0);
+    try person.setUInt32(0, 123, 0);
+    try person.setText(0, "nested");
+
+    var source_reader = MessageReader.init(try source.segmentsConst(), .{});
+    var copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2, .next_segment_min_words = 2 });
+    defer copy.deinit();
+    _ = try copy.copyRootFrom(&source_reader);
+
+    var copy_reader = MessageReader.init(try copy.segmentsConst(), .{});
+    const copied_root = try copy_reader.getRoot();
+    try testing.expectEqual(@as(u32, 77), copied_root.getUInt32(0, 0));
+    const copied_names = try copied_root.getPointerField(0).getList(.pointer);
+    try testing.expectEqualSlices(u8, "left", try (try copied_names.getPointerElement(0)).getText());
+    try testing.expectEqualSlices(u8, "right", try (try copied_names.getPointerElement(1)).getText());
+    const copied_people = try copied_root.getPointerField(1).getList(.composite);
+    const copied_person = try copied_people.getStructElement(0);
+    try testing.expectEqual(@as(u32, 123), copied_person.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "nested", try copied_person.getPointerField(0).getText());
+
+    var validating = MessageReader.init(try copy.segmentsConst(), .{});
+    _ = try validating.validate();
 }
