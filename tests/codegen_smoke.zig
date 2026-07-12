@@ -47,7 +47,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(false, person.active());
     try std.testing.expect(person.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person.name());
-    try std.testing.expect(generated.Color.blue == person.favorite());
+    try std.testing.expect(generated.Color.blue == try person.favorite());
     const read_scores = try person.scores();
     try std.testing.expectEqual(@as(u32, 20), read_scores.get(1));
     const read_children = try person.children();
@@ -58,8 +58,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u32, 1234), read_friend.id());
     try std.testing.expectEqualSlices(u8, "Lin", try read_friend.name());
     const read_palette = try person.palette();
-    try std.testing.expectEqual(generated.Color.red, read_palette.get(0));
-    try std.testing.expectEqual(generated.Color.green, read_palette.get(1));
+    try std.testing.expectEqual(generated.Color.red, try read_palette.get(0));
+    try std.testing.expectEqual(generated.Color.green, try read_palette.get(1));
     const read_aliases = try person.aliases();
     try std.testing.expectEqualSlices(u8, "A", try read_aliases.get(0));
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.get(1));
@@ -86,7 +86,7 @@ test "generated accessors honor scalar defaults" {
     const person = generated.Person.fromReader(try reader.getRoot());
     try std.testing.expectEqual(@as(u32, 42), person.id());
     try std.testing.expectEqual(true, person.active());
-    try std.testing.expectEqual(generated.Color.green, person.favorite());
+    try std.testing.expectEqual(generated.Color.green, try person.favorite());
     try std.testing.expect(!person.has_nickname());
     try std.testing.expectEqualSlices(u8, "anon", try person.nickname());
 }

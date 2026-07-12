@@ -13,7 +13,7 @@ test "generated code sanitizes Zig keywords and still round-trips" {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const value = generated.fn_.fromReader(try reader.getRoot());
     try std.testing.expectEqual(@as(u32, 9), value.error_());
-    try std.testing.expectEqual(generated.error_.ok, value.enum_());
+    try std.testing.expectEqual(generated.error_.ok, try value.enum_());
 }
 
 test "generated code sanitizes keyword defaults" {
@@ -24,5 +24,16 @@ test "generated code sanitizes keyword defaults" {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const value = generated.fn_.fromReader(try reader.getRoot());
     try std.testing.expectEqual(@as(u32, 5), value.error_());
-    try std.testing.expectEqual(generated.error_.test_, value.enum_());
+    try std.testing.expectEqual(generated.error_.test_, try value.enum_());
+}
+
+test "generated enum getters reject unknown ordinals" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const raw = try builder.initRoot(generated.fn_.size);
+    try raw.setUInt16(4, 99, 0);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const value = generated.fn_.fromReader(try reader.getRoot());
+    try std.testing.expectError(error.InvalidEnumValue, value.enum_());
 }

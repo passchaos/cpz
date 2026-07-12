@@ -937,6 +937,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
     try appendFmt(allocator, &out,
+        \\const std = @import("std");
         \\const cpz = @import("{s}");
         \\
         \\
@@ -1066,11 +1067,11 @@ fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
             const zig_type = try zigIdentAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
-                \\    pub fn {s}(self: @This()) {s} {{
-                \\        return @enumFromInt(self.reader.getUInt16({}, {}));
+                \\    pub fn {s}(self: @This()) !{s} {{
+                \\        return std.enums.fromInt({s}, self.reader.getUInt16({}, {})) orelse error.InvalidEnumValue;
                 \\    }}
                 \\
-            , .{ field_name, zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+            , .{ field_name, zig_type, zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
         },
         else => return error.UnsupportedType,
     }
@@ -1196,11 +1197,11 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             const zig_type = try zigIdentAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
-                \\        pub fn get(self: @This(), index: usize) {s} {{
-                \\            return @enumFromInt(self.list.getUInt16(index));
+                \\        pub fn get(self: @This(), index: usize) !{s} {{
+                \\            return std.enums.fromInt({s}, self.list.getUInt16(index)) orelse error.InvalidEnumValue;
                 \\        }}
                 \\
-            , .{zig_type});
+            , .{ zig_type, zig_type });
         } else {
             const zig_type = try zigIdentAlloc(allocator, type_name);
             defer allocator.free(zig_type);
@@ -1605,7 +1606,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "getUInt16(6, 1)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "std.enums.fromInt(Color, self.reader.getUInt16(6, 1))") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getTextDefault(\"Anon\")") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_scores_List") != null);
@@ -1622,7 +1623,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearPointerElement(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getStructElement(index)).clear();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return @enumFromInt(self.list.getUInt16(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return std.enums.fromInt(Color, self.list.getUInt16(index)) orelse error.InvalidEnumValue;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(value));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, Person.size)") != null);
@@ -1698,7 +1699,7 @@ test "schema code generator sanitizes Zig keywords in declarations and fields" {
     try std.testing.expect(std.mem.indexOf(u8, code, "test_ = 0") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const fn_ = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn error_(self: @This()) u32") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn enum_(self: @This()) error_") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn enum_(self: @This()) !error_") != null);
 }
 
 test "schema parser, layout, and codegen handle enums" {
@@ -1729,7 +1730,7 @@ test "schema parser, layout, and codegen handle enums" {
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Color = enum(u16)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "green = 1") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn color(self: @This()) Color") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn color(self: @This()) !Color") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getUInt16(0, 1)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_color(self: Builder, value: Color) !void") != null);
 }
