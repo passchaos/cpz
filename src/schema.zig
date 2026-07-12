@@ -216,14 +216,30 @@ const Lexer = struct {
                     self.index += 1;
                     break :blk .{ .tag = .arrow, .lexeme = self.source[start..self.index] };
                 }
-                if (self.index >= self.source.len or !std.ascii.isDigit(self.source[self.index])) return error.InvalidToken;
-                while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
-                break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
+                if (self.index >= self.source.len) return error.InvalidToken;
+                if (std.ascii.isDigit(self.source[self.index])) {
+                    while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
+                    break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
+                }
+                if (isIdentStart(self.source[self.index])) {
+                    self.index += 1;
+                    while (self.index < self.source.len and isIdentContinue(self.source[self.index])) self.index += 1;
+                    break :blk .{ .tag = .identifier, .lexeme = self.source[start..self.index], .start = start, .end = self.index };
+                }
+                return error.InvalidToken;
             },
             '+' => blk: {
-                if (self.index >= self.source.len or !std.ascii.isDigit(self.source[self.index])) return error.InvalidToken;
-                while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
-                break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
+                if (self.index >= self.source.len) return error.InvalidToken;
+                if (std.ascii.isDigit(self.source[self.index])) {
+                    while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
+                    break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
+                }
+                if (isIdentStart(self.source[self.index])) {
+                    self.index += 1;
+                    while (self.index < self.source.len and isIdentContinue(self.source[self.index])) self.index += 1;
+                    break :blk .{ .tag = .identifier, .lexeme = self.source[start..self.index], .start = start, .end = self.index };
+                }
+                return error.InvalidToken;
             },
             '"' => blk: {
                 const content_start = self.index;
@@ -560,7 +576,7 @@ pub const Parser = struct {
         return value;
     }
 
-    fn expectDefaultLiteral(self: *Parser) Error![]const u8 {
+    fn expectDefaultLiteral(self: *Parser) Error!?[]const u8 {
         switch (self.lookahead.tag) {
             .identifier => {
                 const first = self.lookahead;
@@ -581,6 +597,7 @@ pub const Parser = struct {
                 try self.advance();
                 return value;
             },
+            .l_paren, .l_bracket => return null,
             else => return error.UnexpectedToken,
         }
     }
@@ -880,6 +897,13 @@ fn parseInteger(text: []const u8) (std.fmt.ParseIntError || error{InvalidToken})
     return std.fmt.parseInt(u64, text, 10);
 }
 
+fn isIdentStart(c: u8) bool {
+    return switch (c) {
+        'A'...'Z', 'a'...'z', '_' => true,
+        else => false,
+    };
+}
+
 fn isIdentContinue(c: u8) bool {
     return switch (c) {
         'A'...'Z', 'a'...'z', '0'...'9', '_' => true,
@@ -1048,6 +1072,9 @@ test "schema parser and codegen accept plus-prefixed numeric defaults" {
         \\  count @1 :Int32 = +7;
         \\  tiny @2 :Float64 = 1e-3;
         \\  huge @3 :Float64 = +2.5E+4;
+        \\  posInf @4 :Float32 = inf;
+        \\  negInf @5 :Float64 = -inf;
+        \\  quietNan @6 :Float32 = nan;
         \\}
     );
     defer file.deinit(std.testing.allocator);
@@ -1055,6 +1082,9 @@ test "schema parser and codegen accept plus-prefixed numeric defaults" {
     try std.testing.expectEqualStrings("+7", file.structs[0].fields[1].default_literal.?);
     try std.testing.expectEqualStrings("1e-3", file.structs[0].fields[2].default_literal.?);
     try std.testing.expectEqualStrings("+2.5E+4", file.structs[0].fields[3].default_literal.?);
+    try std.testing.expectEqualStrings("inf", file.structs[0].fields[4].default_literal.?);
+    try std.testing.expectEqualStrings("-inf", file.structs[0].fields[5].default_literal.?);
+    try std.testing.expectEqualStrings("nan", file.structs[0].fields[6].default_literal.?);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     const code = try generateZig(std.testing.allocator, &file, &layouts);
@@ -1063,6 +1093,31 @@ test "schema parser and codegen accept plus-prefixed numeric defaults" {
     try std.testing.expect(std.mem.indexOf(u8, code, "getInt32(4, 7)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(8, 1e-3)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(16, 2.5E+4)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(24, std.math.inf(f32))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(32, -std.math.inf(f64))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(28, std.math.nan(f32))") != null);
+}
+
+test "schema parser tolerates list and struct field defaults" {
+    var file = try parse(std.testing.allocator,
+        \\struct Child {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Defaults {
+        \\  nums @0 :List(UInt32) = [1, 2, 3];
+        \\  child @1 :Child = (id = 42);
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(?[]const u8, null), file.structs[1].fields[0].default_literal);
+    try std.testing.expectEqual(@as(?[]const u8, null), file.structs[1].fields[1].default_literal);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const Defaults = struct") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_nums(self: Builder, count: usize)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_child(self: Builder)") != null);
 }
 
 test "schema parser and codegen accept optional pointer types" {
@@ -1556,8 +1611,8 @@ fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         .uint16 => try scalarGetter(allocator, out, field_name, "u16", "getUInt16", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
         .uint32 => try scalarGetter(allocator, out, field_name, "u32", "getUInt32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
         .uint64 => try scalarGetter(allocator, out, field_name, "u64", "getUInt64", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .float32 => try scalarGetter(allocator, out, field_name, "f32", "getFloat32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .float32 => try scalarGetter(allocator, out, field_name, "f32", "getFloat32", byte, defaultFloatLiteral(field, "f32"), union_layout, field.union_discriminant),
+        .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, defaultFloatLiteral(field, "f64"), union_layout, field.union_discriminant),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
@@ -1970,8 +2025,8 @@ fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
         .uint16 => try scalarSetter(allocator, out, field_name, "u16", "getUInt16", "setUInt16", byte, defaultScalarLiteral(field), union_layout, field),
         .uint32 => try scalarSetter(allocator, out, field_name, "u32", "getUInt32", "setUInt32", byte, defaultScalarLiteral(field), union_layout, field),
         .uint64 => try scalarSetter(allocator, out, field_name, "u64", "getUInt64", "setUInt64", byte, defaultScalarLiteral(field), union_layout, field),
-        .float32 => try scalarSetter(allocator, out, field_name, "f32", "getFloat32", "setFloat32", byte, defaultScalarLiteral(field), union_layout, field),
-        .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, defaultScalarLiteral(field), union_layout, field),
+        .float32 => try scalarSetter(allocator, out, field_name, "f32", "getFloat32", "setFloat32", byte, defaultFloatLiteral(field, "f32"), union_layout, field),
+        .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, defaultFloatLiteral(field, "f64"), union_layout, field),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
@@ -2331,6 +2386,15 @@ fn isZigKeyword(name: []const u8) bool {
 fn defaultScalarLiteral(field: *const Field) []const u8 {
     const literal = field.default_literal orelse return "0";
     return if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal;
+}
+
+fn defaultFloatLiteral(field: *const Field, comptime zig_type: []const u8) []const u8 {
+    const literal = field.default_literal orelse return "0";
+    const unsigned = if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal;
+    if (std.mem.eql(u8, unsigned, "inf")) return if (std.mem.eql(u8, zig_type, "f32")) "std.math.inf(f32)" else "std.math.inf(f64)";
+    if (std.mem.eql(u8, unsigned, "-inf")) return if (std.mem.eql(u8, zig_type, "f32")) "-std.math.inf(f32)" else "-std.math.inf(f64)";
+    if (std.mem.eql(u8, unsigned, "nan")) return if (std.mem.eql(u8, zig_type, "f32")) "std.math.nan(f32)" else "std.math.nan(f64)";
+    return unsigned;
 }
 
 fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
