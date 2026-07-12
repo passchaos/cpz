@@ -803,14 +803,22 @@ test "schema layout planner reuses alignment padding holes" {
     try std.testing.expectEqual(FieldSlot{ .data_byte = 2 }, layout.fields[2].slot);
 }
 
+pub const CodegenOptions = struct {
+    runtime_import_name: []const u8 = "cpz",
+};
+
 pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
+    return generateZigWithOptions(allocator, file, layouts, .{});
+}
+
+pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile, options: CodegenOptions) LayoutError![]u8 {
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
-    try out.appendSlice(allocator,
-        \\const cpz = @import("cpz");
+    try appendFmt(allocator, &out,
+        \\const cpz = @import("{s}");
         \\
         \\
-    );
+    , .{options.runtime_import_name});
     for (file.enums) |*decl| {
         try emitEnum(allocator, &out, decl);
     }
@@ -1308,6 +1316,22 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setUInt32(0, value, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setBool(32, value, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
+}
+
+test "schema code generator supports custom runtime import names" {
+    var file = try parse(std.testing.allocator,
+        \\struct Demo {
+        \\  id @0 :UInt32;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{
+        .runtime_import_name = "my_cpz",
+    });
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
 }
 
 test "schema parser, layout, and codegen handle enums" {

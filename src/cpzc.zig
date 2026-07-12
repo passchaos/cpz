@@ -2,7 +2,7 @@ const std = @import("std");
 const cpz = @import("cpz");
 
 const usage =
-    \\usage: cpzc <schema.capnp> [output.zig]
+    \\usage: cpzc [--runtime-import name] <schema.capnp> [output.zig]
     \\
     \\Parses a supported subset of Cap'n Proto schemas and emits Zig accessor skeletons.
     \\
@@ -15,24 +15,39 @@ pub fn main(init: std.process.Init) !u8 {
     defer args.deinit();
 
     _ = args.skip(); // executable name
-    const input_path = args.next() orelse {
+    var runtime_import_name: []const u8 = "cpz";
+    var input_path: ?[]const u8 = null;
+    var output_path: ?[]const u8 = null;
+    while (args.next()) |arg| {
+        if (std.mem.eql(u8, arg, "--runtime-import")) {
+            runtime_import_name = args.next() orelse {
+                std.debug.print("{s}", .{usage});
+                return 2;
+            };
+        } else if (input_path == null) {
+            input_path = arg;
+        } else if (output_path == null) {
+            output_path = arg;
+        } else {
+            std.debug.print("{s}", .{usage});
+            return 2;
+        }
+    }
+    const input = input_path orelse {
         std.debug.print("{s}", .{usage});
         return 2;
     };
-    const output_path = args.next();
-    if (args.next() != null) {
-        std.debug.print("{s}", .{usage});
-        return 2;
-    }
 
-    const source = try std.Io.Dir.cwd().readFileAlloc(io, input_path, allocator, .limited(64 * 1024 * 1024));
+    const source = try std.Io.Dir.cwd().readFileAlloc(io, input, allocator, .limited(64 * 1024 * 1024));
     defer allocator.free(source);
 
     var file = try cpz.schema.parse(allocator, source);
     defer file.deinit(allocator);
     var layouts = try cpz.schema.planLayouts(allocator, &file);
     defer layouts.deinit(allocator);
-    const code = try cpz.schema.generateZig(allocator, &file, &layouts);
+    const code = try cpz.schema.generateZigWithOptions(allocator, &file, &layouts, .{
+        .runtime_import_name = runtime_import_name,
+    });
     defer allocator.free(code);
 
     if (output_path) |path| {
