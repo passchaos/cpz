@@ -33,6 +33,12 @@ test "generated reader and builder accessors compile and round-trip" {
     try flags.set(0, true);
     try flags.set(1, false);
     try flags.set(2, true);
+    const ratios = try person_builder.init_ratios(2);
+    try ratios.set(0, 1.5);
+    try ratios.set(1, -2.25);
+    const weights = try person_builder.init_weights(2);
+    try weights.set(0, 10.125);
+    try weights.set(1, -20.5);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try reader.getRoot();
@@ -62,6 +68,12 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(true, read_flags.get(0));
     try std.testing.expectEqual(false, read_flags.get(1));
     try std.testing.expectEqual(true, read_flags.get(2));
+    const read_ratios = try person.ratios();
+    try std.testing.expectEqual(@as(f32, 1.5), read_ratios.get(0));
+    try std.testing.expectEqual(@as(f32, -2.25), read_ratios.get(1));
+    const read_weights = try person.weights();
+    try std.testing.expectEqual(@as(f64, 10.125), read_weights.get(0));
+    try std.testing.expectEqual(@as(f64, -20.5), read_weights.get(1));
 }
 
 test "generated accessors honor scalar defaults" {

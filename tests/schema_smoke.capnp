@@ -19,4 +19,6 @@ struct Person {
   aliases @9 :TextList;
   payloads @10 :DataList;
   flags @11 :BoolList;
+  ratios @12 :Float32List;
+  weights @13 :Float64List;
 }
