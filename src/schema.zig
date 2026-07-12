@@ -3397,6 +3397,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newStruct(struct_size);
             \\        }}
             \\
+            \\        pub fn newCopyOrphan(self: @This(), new_value: cpz.StructReader) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyStruct(new_value);
+            \\        }}
+            \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
             \\            return self.list.clearPointerElement(index);
             \\        }}
@@ -3433,6 +3437,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn newStructListOrphan(self: @This(), count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
             \\            return self.orphanage().newStructList(count, struct_size);
+            \\        }}
+            \\
+            \\        pub fn newCopyOrphan(self: @This(), new_value: cpz.ListReader) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyList(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{

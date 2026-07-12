@@ -991,16 +991,28 @@ test "generated builtin any and capability accessors round-trip" {
     const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });
     try any_struct_item.setUInt32(0, 0xbeefcafe, 0);
     try any_struct_item.setText(0, "list any struct");
+    var any_struct_item_copy = try any_struct_items.newCopyOrphan(source_struct);
+    try any_struct_items.adopt(0, &any_struct_item_copy);
     const read_any_struct_item = try any_struct_items.get(0);
-    try std.testing.expectEqual(@as(u32, 0xbeefcafe), try read_any_struct_item.getUInt32(0, 0));
-    try std.testing.expectEqualSlices(u8, "list any struct", try (try read_any_struct_item.getPointerField(0)).getText());
+    try std.testing.expectEqual(@as(u32, 0xdecafbad), try read_any_struct_item.getUInt32(0, 0));
+    try std.testing.expectEqualSlices(u8, "dynamic", try (try read_any_struct_item.getPointerField(0)).getText());
+
+    var list_copy_source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer list_copy_source_builder.deinit();
+    const list_copy_source = try list_copy_source_builder.initRootList(.two_bytes, 2);
+    try list_copy_source.setUInt16(0, 111);
+    try list_copy_source.setUInt16(1, 222);
+    var list_copy_source_reader = cpz.MessageReader.init(try list_copy_source_builder.segmentsConst(), .{});
+    const list_copy_source_view = try list_copy_source_reader.getRootList(.two_bytes);
 
     const any_list_items = try box_builder.init_anyListList(1);
     const any_list_item = try any_list_items.init(0, .four_bytes, 2);
     try any_list_item.setUInt32(0, 4242);
     try any_list_item.setUInt32(1, 8484);
+    var any_list_item_copy = try any_list_items.newCopyOrphan(list_copy_source_view);
+    try any_list_items.adopt(0, &any_list_item_copy);
     const read_any_list_item = try any_list_items.get(0);
-    try std.testing.expectEqual(@as(u32, 8484), try read_any_list_item.getUInt32(1));
+    try std.testing.expectEqual(@as(u16, 222), read_any_list_item.getUInt16(1));
 
     var orphan_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer orphan_builder_message.deinit();
