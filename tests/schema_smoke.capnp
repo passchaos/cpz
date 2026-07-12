@@ -16,4 +16,6 @@ struct Person {
   friend @6 :Person;
   palette @7 :List(Color);
   nickname @8 :Text = "anon";
+  aliases @9 :TextList;
+  payloads @10 :DataList;
 }
