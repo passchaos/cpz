@@ -143,6 +143,7 @@ const TokenTag = enum {
     dollar,
     dot,
     comma,
+    arrow,
     integer,
     string,
     eof,
@@ -179,6 +180,15 @@ const Lexer = struct {
             '$' => .{ .tag = .dollar, .lexeme = self.source[start..self.index] },
             '.' => .{ .tag = .dot, .lexeme = self.source[start..self.index] },
             ',' => .{ .tag = .comma, .lexeme = self.source[start..self.index] },
+            '-' => blk: {
+                if (self.index < self.source.len and self.source[self.index] == '>') {
+                    self.index += 1;
+                    break :blk .{ .tag = .arrow, .lexeme = self.source[start..self.index] };
+                }
+                if (self.index >= self.source.len or !std.ascii.isDigit(self.source[self.index])) return error.InvalidToken;
+                while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
+                break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
+            },
             '"' => blk: {
                 const content_start = self.index;
                 while (self.index < self.source.len) {
@@ -200,11 +210,6 @@ const Lexer = struct {
                 return error.InvalidToken;
             },
             '0'...'9' => blk: {
-                while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
-                break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
-            },
-            '-' => blk: {
-                if (self.index >= self.source.len or !std.ascii.isDigit(self.source[self.index])) return error.InvalidToken;
                 while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
                 break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
             },
@@ -264,7 +269,9 @@ pub const Parser = struct {
                 try structs.append(self.allocator, try self.parseStruct());
             } else if (self.eatKeyword("enum")) {
                 try enums.append(self.allocator, try self.parseEnum());
-            } else if (self.eatKeyword("using") or self.eatKeyword("const")) {
+            } else if (self.eatKeyword("interface")) {
+                try self.skipBracedDeclaration();
+            } else if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipUntilSemicolon();
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
@@ -707,6 +714,24 @@ test "schema parser tolerates imports and annotations" {
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Task", file.structs[0].name);
     try std.testing.expectEqualStrings("ok", file.structs[0].fields[1].default_literal.?);
+}
+
+test "schema parser skips top-level annotations and interfaces" {
+    const source =
+        \\annotation deprecated @0xaaaa (field) :Text;
+        \\$Cxx.namespace("example");
+        \\interface Service {
+        \\  call @0 (request :Text) -> (response :Text);
+        \\}
+        \\struct Payload {
+        \\  id @0 :UInt32;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.structs.len);
+    try std.testing.expectEqualStrings("Payload", file.structs[0].name);
+    try std.testing.expectEqual(@as(usize, 1), file.structs[0].fields.len);
 }
 
 test "schema parser tolerates nested declarations and dotted type names" {
