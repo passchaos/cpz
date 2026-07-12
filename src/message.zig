@@ -514,6 +514,18 @@ pub const PointerBuilder = struct {
         return wire.pointerType(raw_value);
     }
 
+    /// Create a read-only view using a caller-owned MessageReader over the
+    /// same message segments. The caller must keep `message_reader` alive for
+    /// the returned PointerReader.
+    pub fn asReader(self: PointerBuilder, message_reader: *MessageReader) PointerReader {
+        return .{
+            .message = message_reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = message_reader.options.nesting_limit,
+        };
+    }
+
     pub fn decode(self: PointerBuilder) Error!?wire.DecodedPointer {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return (PointerReader{
@@ -2194,6 +2206,11 @@ test "root pointer APIs support non-struct roots" {
     const root_ptr_builder_size = try root_ptr_builder.totalSize();
     try testing.expectEqual(@as(usize, 1), root_ptr_builder_size.word_count);
     try testing.expectEqual(@as(usize, 0), root_ptr_builder_size.cap_count);
+    var builder_view_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const root_ptr_builder_view = root_ptr_builder.asReader(&builder_view_reader);
+    try testing.expectEqual(wire.PointerType.list, (try root_ptr_builder_view.pointerType()).?);
+    const builder_view_nums = try root_ptr_builder_view.getList(.two_bytes);
+    try testing.expectEqual(@as(u16, 222), builder_view_nums.getUInt16(1));
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const root_ptr = try reader.getRootPointer();
