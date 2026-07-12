@@ -328,6 +328,10 @@ pub const MessageBuilder = struct {
         return .{ .message = self, .segment_id = 0, .word_index = 0 };
     }
 
+    pub fn clearRoot(self: *MessageBuilder) Error!void {
+        (try self.getRootPointer()).clear();
+    }
+
     pub fn getRootPointerKind(self: *MessageBuilder) Error!?wire.PointerType {
         return (try self.getRootPointer()).pointerType();
     }
@@ -2777,6 +2781,22 @@ test "message builder can disown and adopt root pointers" {
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, "root orphan", try reader.getRootText());
+}
+
+test "message builder can clear root pointers" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 4 });
+    defer builder.deinit();
+
+    try builder.setRootText("clear me");
+    try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointerKind()).?);
+    try builder.clearRoot();
+    try testing.expect((try builder.getRootPointer()).isNull());
+    try testing.expectEqual(@as(?wire.PointerType, null), try builder.getRootPointerKind());
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    try testing.expectEqual(@as(?wire.PointerType, null), try reader.getRootPointerKind());
+    try testing.expectError(error.NullPointer, reader.getRootText());
 }
 
 test "struct builder copyFromReader safely handles self-copy" {
