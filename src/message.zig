@@ -797,6 +797,55 @@ pub const StructBuilder = struct {
         try self.setInt(u64, byte_offset, @bitCast(value), @bitCast(default_value));
     }
 
+    pub fn getBool(self: StructBuilder, bit_offset: usize, default_value: bool) Error!bool {
+        try self.checkDataBit(bit_offset);
+        const abs_bit = self.data_start * wire.bits_per_word + bit_offset;
+        const word_index = abs_bit / wire.bits_per_word;
+        const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
+        const word = self.message.readWord(self.segment_id, word_index);
+        return (((word >> bit) & 1) != 0) != default_value;
+    }
+
+    pub fn getUInt8(self: StructBuilder, byte_offset: usize, default_value: u8) Error!u8 {
+        return self.getInt(u8, byte_offset, default_value);
+    }
+
+    pub fn getUInt16(self: StructBuilder, byte_offset: usize, default_value: u16) Error!u16 {
+        return self.getInt(u16, byte_offset, default_value);
+    }
+
+    pub fn getUInt32(self: StructBuilder, byte_offset: usize, default_value: u32) Error!u32 {
+        return self.getInt(u32, byte_offset, default_value);
+    }
+
+    pub fn getUInt64(self: StructBuilder, byte_offset: usize, default_value: u64) Error!u64 {
+        return self.getInt(u64, byte_offset, default_value);
+    }
+
+    pub fn getInt8(self: StructBuilder, byte_offset: usize, default_value: i8) Error!i8 {
+        return self.getInt(i8, byte_offset, default_value);
+    }
+
+    pub fn getInt16(self: StructBuilder, byte_offset: usize, default_value: i16) Error!i16 {
+        return self.getInt(i16, byte_offset, default_value);
+    }
+
+    pub fn getInt32(self: StructBuilder, byte_offset: usize, default_value: i32) Error!i32 {
+        return self.getInt(i32, byte_offset, default_value);
+    }
+
+    pub fn getInt64(self: StructBuilder, byte_offset: usize, default_value: i64) Error!i64 {
+        return self.getInt(i64, byte_offset, default_value);
+    }
+
+    pub fn getFloat32(self: StructBuilder, byte_offset: usize, default_value: f32) Error!f32 {
+        return @bitCast(try self.getInt(u32, byte_offset, @bitCast(default_value)));
+    }
+
+    pub fn getFloat64(self: StructBuilder, byte_offset: usize, default_value: f64) Error!f64 {
+        return @bitCast(try self.getInt(u64, byte_offset, @bitCast(default_value)));
+    }
+
     pub fn setText(self: StructBuilder, pointer_index: usize, text: []const u8) Error!void {
         try (try self.getPointerField(pointer_index)).setText(text);
     }
@@ -868,6 +917,12 @@ pub const StructBuilder = struct {
         const encoded = value ^ default_value;
         const bytes = self.dataBytes()[byte_offset..][0..@sizeOf(T)];
         std.mem.writeInt(T, bytes, encoded, .little);
+    }
+
+    fn getInt(self: StructBuilder, comptime T: type, byte_offset: usize, default_value: T) Error!T {
+        try self.checkDataBytes(byte_offset, @sizeOf(T));
+        const bytes = self.dataBytes()[byte_offset..][0..@sizeOf(T)];
+        return std.mem.readInt(T, bytes, .little) ^ default_value;
     }
 
     fn dataBytes(self: StructBuilder) []u8 {
@@ -1693,6 +1748,25 @@ test "signed integer and floating-point scalar accessors" {
     const read_f64s = try read_root.getPointerField(4).getList(.eight_bytes);
     try testing.expectEqual(@as(f64, 99.125), read_f64s.getFloat64(0));
     try testing.expectEqual(@as(f64, -0.5), read_f64s.getFloat64(1));
+}
+
+test "struct builder scalar getters reflect in-progress writes" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 4, .pointer_count = 0 });
+    try testing.expectEqual(@as(u32, 123), try root.getUInt32(0, 123));
+    try root.setUInt32(0, 99, 123);
+    try root.setBool(32, true, false);
+    try root.setInt16(6, -321, 7);
+    try root.setFloat64(16, 12.5, 1.5);
+
+    try testing.expectEqual(@as(u32, 99), try root.getUInt32(0, 123));
+    try testing.expectEqual(true, try root.getBool(32, false));
+    try testing.expectEqual(@as(i16, -321), try root.getInt16(6, 7));
+    try testing.expectEqual(@as(f64, 12.5), try root.getFloat64(16, 1.5));
+    try testing.expectError(error.PointerOutOfBounds, root.getUInt64(64, 0));
 }
 
 test "single-segment normalization removes far pointers while preserving data" {

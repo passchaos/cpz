@@ -5,7 +5,7 @@
 - zero-copy readers and flat-message views over caller-owned byte slices;
 - segmented stream framing compatible with `capnp::serialize`, with bounded segment-count validation;
 - word/pointer/capability encoding, lazy pointer validation, and schema-agnostic full-message validation stats with capability index limits;
-- arena-backed builders for structs, scalar fields/lists, pointer lists, UTF-8 text/data blobs with reader defaults, composite struct lists, schema-evolution list upgrades, and deep-copying from readers, and explicit pointer clearing;
+- arena-backed builders for structs with in-progress scalar reads, scalar fields/lists, pointer lists, UTF-8 text/data blobs with reader defaults, composite struct lists, schema-evolution list upgrades, and deep-copying from readers, and explicit pointer clearing;
 - packed stream codec compatible with Cap'n Proto packing, including allocation-free pack/unpack helpers.
 - one-call flat/packed stream framing helpers (`messageToFlatBytes`, `writeMessageToWriter`, `messageToPackedBytes`, `writePackedMessageToWriter`, `readMessageFromReader`, `readPackedMessageFromReader`, `readPackedMessage`) plus builder byte/writer convenience methods.
 - single-segment normalization helper for deterministic flat output (`toSingleSegmentFlatBytes`) and schema-less canonical segment bytes with struct/list truncation (`toCanonicalSegmentBytes`).
