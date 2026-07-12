@@ -251,6 +251,10 @@ test "generated builders can disown and adopt pointer fields" {
     var orphan_reader_alias = try builder.asReader(.{});
     const orphan_view_alias = try typed_orphan.asReader(&orphan_reader_alias);
     try std.testing.expectEqual(@as(u32, 3030), orphan_view_alias.id());
+    var orphan_decode_reader = try builder.asReader(.{});
+    const decoded_orphan = (try typed_orphan.decode(&orphan_decode_reader)).?.struct_ptr;
+    try std.testing.expectEqual(generated.Person.size.data_words, decoded_orphan.data_words);
+    try std.testing.expectEqual(generated.Person.size.pointer_count, decoded_orphan.pointer_count);
     const orphan_size = try typed_orphan.totalSize();
     try std.testing.expect(orphan_size.word_count > 0);
     try person_builder.adopt_maybeFriend_typed(&typed_orphan);
@@ -466,6 +470,10 @@ test "generated builders can use typed list field orphans" {
     var orphan_reader_alias = try builder.asReader(.{});
     const orphan_scores_reader_alias = try scores_orphan.asReader(&orphan_reader_alias);
     try std.testing.expectEqual(@as(u32, 42), orphan_scores_reader_alias.get(1));
+    var scores_decode_reader = try builder.asReader(.{});
+    const decoded_scores = (try scores_orphan.decode(&scores_decode_reader)).?.list;
+    try std.testing.expectEqual(cpz.wire.ElementSize.four_bytes, decoded_scores.element_size);
+    try std.testing.expectEqual(@as(u29, 2), decoded_scores.element_count_or_words);
     try person_builder.adopt_scores_typed(&scores_orphan);
     try std.testing.expect(scores_orphan.isNull());
 

@@ -1922,6 +1922,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.pointerType();
         \\        }}
         \\
+        \\        pub fn decode(self: @This(), message_reader: *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
+        \\            return self.orphan.decode(message_reader);
+        \\        }}
+        \\
         \\        pub fn get(self: @This()) !Builder {{
         \\            return Builder.fromBuilder(try self.orphan.getStruct());
         \\        }}
@@ -2702,6 +2706,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn pointerType(self: @This()) ?cpz.wire.PointerType {{
         \\            return self.orphan.pointerType();
+        \\        }}
+        \\
+        \\        pub fn decode(self: @This(), message_reader: *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
+        \\            return self.orphan.decode(message_reader);
         \\        }}
         \\
         \\        pub fn get(self: @This()) !{s}_{s}_BuilderList {{
