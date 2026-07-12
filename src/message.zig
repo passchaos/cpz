@@ -247,6 +247,28 @@ pub const MessageReader = struct {
     }
 };
 
+/// Copy a message into a fresh builder with enough initial capacity to keep
+/// every reachable object in segment 0, then serialize it using standard stream
+/// framing. This is useful as a deterministic, mmap-friendly normalization
+/// step and as a foundation for stricter canonicalization.
+pub fn toSingleSegmentFlatBytes(allocator: std.mem.Allocator, source: *const MessageReader) (Error || serialize.Error)![]u8 {
+    var stats_reader = MessageReader.init(source.segments, source.options);
+    const stats = try stats_reader.validate();
+    const capacity = std.math.add(usize, stats.total_words, 1) catch return error.SerializedSizeOverflow;
+
+    var copy_reader = MessageReader.init(source.segments, source.options);
+    var builder = try MessageBuilder.init(allocator, .{
+        .first_segment_words = @max(capacity, 1),
+        .next_segment_min_words = @max(capacity, 1),
+    });
+    defer builder.deinit();
+
+    _ = try builder.copyRootFrom(&copy_reader);
+    const segments = try builder.segmentsConst();
+    std.debug.assert(segments.len == 1);
+    return serialize.messageToFlatBytes(allocator, segments);
+}
+
 pub const PointerBuilder = struct {
     message: *MessageBuilder,
     segment_id: u32,
@@ -1255,4 +1277,34 @@ test "signed integer and floating-point scalar accessors" {
     const read_f64s = try read_root.getPointerField(4).getList(.eight_bytes);
     try testing.expectEqual(@as(f64, 99.125), read_f64s.getFloat64(0));
     try testing.expectEqual(@as(f64, -0.5), read_f64s.getFloat64(1));
+}
+
+test "single-segment normalization removes far pointers while preserving data" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2, .next_segment_min_words = 2 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 2 });
+    try root.setUInt32(0, 4242, 0);
+    try root.setText(0, "normalized");
+    const names = try (try root.getPointerField(1)).initList(.pointer, 2);
+    try (try names.getPointerElement(0)).setText("a");
+    try (try names.getPointerElement(1)).setText("b");
+    try testing.expect(builder.segments.items.len > 1);
+
+    var source = MessageReader.init(try builder.segmentsConst(), .{});
+    const normalized = try toSingleSegmentFlatBytes(testing.allocator, &source);
+    defer testing.allocator.free(normalized);
+
+    var flat = try serialize.readFlatMessage(testing.allocator, normalized);
+    defer flat.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 1), flat.segments.len);
+
+    var reader = MessageReader.init(flat.segments, .{});
+    const read_root = try reader.getRoot();
+    try testing.expectEqual(@as(u32, 4242), read_root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "normalized", try read_root.getPointerField(0).getText());
+    const read_names = try read_root.getPointerField(1).getList(.pointer);
+    try testing.expectEqualSlices(u8, "a", try (try read_names.getPointerElement(0)).getText());
+    try testing.expectEqualSlices(u8, "b", try (try read_names.getPointerElement(1)).getText());
 }

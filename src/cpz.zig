@@ -26,6 +26,7 @@ pub const PointerReader = message.PointerReader;
 pub const ReaderOptions = message.ReaderOptions;
 pub const BuilderOptions = message.BuilderOptions;
 pub const MessageStats = message.MessageStats;
+pub const toSingleSegmentFlatBytes = message.toSingleSegmentFlatBytes;
 
 test {
     _ = wire;
