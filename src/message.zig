@@ -137,6 +137,19 @@ pub const MessageBuilder = struct {
         return MessageReader.init(try self.segmentsConst(), options);
     }
 
+    pub fn toFlatBytes(self: *MessageBuilder) (Error || serialize.Error)![]u8 {
+        return serialize.messageToFlatBytes(self.allocator, try self.segmentsConst());
+    }
+
+    pub fn toPackedBytes(self: *MessageBuilder) (Error || serialize.Error)![]u8 {
+        return serialize.messageToPackedBytes(self.allocator, try self.segmentsConst());
+    }
+
+    pub fn toCanonicalSegmentBytes(self: *MessageBuilder, options: ReaderOptions) Error![]u8 {
+        var reader = MessageReader.init(try self.segmentsConst(), options);
+        return messageToCanonicalSegmentBytes(self.allocator, &reader);
+    }
+
     pub fn segmentsConst(self: *MessageBuilder) ![]const serialize.ConstSegment {
         self.const_segments_cache.items.len = 0;
         try self.const_segments_cache.ensureTotalCapacity(self.allocator, self.segments.items.len);
@@ -282,6 +295,10 @@ pub fn toSingleSegmentFlatBytes(allocator: std.mem.Allocator, source: *const Mes
 /// The returned bytes are the canonical segment payload; no stream segment
 /// table is included.
 pub fn toCanonicalSegmentBytes(allocator: std.mem.Allocator, source: *const MessageReader) Error![]u8 {
+    return messageToCanonicalSegmentBytes(allocator, source);
+}
+
+fn messageToCanonicalSegmentBytes(allocator: std.mem.Allocator, source: *const MessageReader) Error![]u8 {
     var stats_reader = MessageReader.init(source.segments, source.options);
     const stats = try stats_reader.validate();
     const capacity = std.math.add(usize, stats.total_words, 1) catch return error.SerializedSizeOverflow;
@@ -1198,6 +1215,35 @@ test "builder and reader round-trip struct with text" {
     try testing.expectEqual(@as(u32, 0x1234_5678), read_root.getUInt32(0, 0));
     try testing.expect(read_root.getBool(32, false));
     try testing.expectEqualSlices(u8, "hello", try read_root.getPointerField(0).getText());
+}
+
+test "message builder serializes flat, packed, and canonical bytes directly" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 2, .pointer_count = 1 });
+    try root.setUInt32(0, 11, 0);
+    try root.setText(0, "direct");
+
+    const flat = try builder.toFlatBytes();
+    defer testing.allocator.free(flat);
+    var parsed = try serialize.readFlatMessage(testing.allocator, flat);
+    defer parsed.deinit(testing.allocator);
+    var flat_reader = MessageReader.init(parsed.segments, .{});
+    try testing.expectEqual(@as(u32, 11), (try flat_reader.getRoot()).getUInt32(0, 0));
+
+    const packed_bytes = try builder.toPackedBytes();
+    defer testing.allocator.free(packed_bytes);
+    var parsed_packed = try serialize.readPackedMessage(testing.allocator, packed_bytes);
+    defer parsed_packed.deinit(testing.allocator);
+    var packed_reader = MessageReader.init(parsed_packed.segments, .{});
+    try testing.expectEqualSlices(u8, "direct", try (try packed_reader.getRoot()).getPointerField(0).getText());
+
+    const canonical = try builder.toCanonicalSegmentBytes(.{});
+    defer testing.allocator.free(canonical);
+    const root_ptr = wire.decodeStruct(try wire.readWord(canonical, 0));
+    try testing.expectEqual(@as(u16, 1), root_ptr.data_words);
 }
 
 test "builder rejects invalid UTF-8 text" {
