@@ -282,6 +282,10 @@ test "generated builders can disown and adopt pointer fields" {
     try person_builder.adopt_nickname(&name_orphan);
     try std.testing.expectEqual(@as(u64, 0), name_orphan.raw);
     try std.testing.expectEqualSlices(u8, "Orphaned name", try person_builder.get_nickname());
+    var nickname_orphan = try person_builder.new_nickname_orphan("Allocated nickname");
+    try std.testing.expectEqualSlices(u8, "Allocated nickname", try nickname_orphan.getText());
+    try person_builder.adopt_nickname(&nickname_orphan);
+    try std.testing.expectEqualSlices(u8, "Allocated nickname", try person_builder.get_nickname());
 
     var friend_orphan = try person_builder.disown_friend();
     try std.testing.expectEqual(false, try person_builder.has_friend());
@@ -331,7 +335,7 @@ test "generated builders can disown and adopt pointer fields" {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     try std.testing.expect(!person.has_name());
-    try std.testing.expectEqualSlices(u8, "Orphaned name", try person.nickname());
+    try std.testing.expectEqualSlices(u8, "Allocated nickname", try person.nickname());
     try std.testing.expect(!person.has_friend());
     const read_maybe_friend = try person.maybeFriend();
     try std.testing.expectEqual(@as(u32, 4040), read_maybe_friend.id());

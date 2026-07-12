@@ -3990,7 +3990,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.builder.setText({}, new_value);
                 \\        }}
                 \\
-            , .{index});
+                \\        pub fn new_{s}_orphan(self: Builder, new_value: []const u8) !cpz.Orphan {{
+                \\            return self.orphanage().newText(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name });
         },
         .data => {
             const default_literal = if (field.default_literal) |literal| try zigDataLiteralAlloc(allocator, literal, field.default_is_hex_data) else null;
@@ -4020,7 +4024,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.builder.setData({}, new_value);
                 \\        }}
                 \\
-            , .{index});
+                \\        pub fn new_{s}_orphan(self: Builder, new_value: []const u8) !cpz.Orphan {{
+                \\            return self.orphanage().newData(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name });
         },
         .list => |child| {
             try appendFmt(allocator, out,
@@ -4302,7 +4310,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            (try self.builder.getPointerField({})).setCapability(new_value);
                 \\        }}
                 \\
-            , .{index});
+                \\        pub fn new_{s}_orphan(self: Builder, new_value: u32) !cpz.Orphan {{
+                \\            return self.orphanage().newCapability(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name });
         },
         .named => |type_name| if (findInterface(file, type_name) != null) {
             try appendFmt(allocator, out,
@@ -4320,7 +4332,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            (try self.builder.getPointerField({})).setCapability(new_value);
                 \\        }}
                 \\
-            , .{index});
+                \\        pub fn new_{s}_orphan(self: Builder, new_value: u32) !cpz.Orphan {{
+                \\            return self.orphanage().newCapability(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name });
         } else if (!isStructLikeName(file, type_name)) {
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !cpz.PointerBuilder {{
