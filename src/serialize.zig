@@ -318,6 +318,12 @@ pub fn expectedSize(prefix: []const u8) Error!usize {
     return std.math.mul(usize, total_words, wire.bytes_per_word) catch return error.SerializedSizeOverflow;
 }
 
+/// Like expectedSize(), but returns a word count for parity with the C++ helper
+/// expectedSizeInWordsFromPrefix().
+pub fn expectedSizeInWordsFromPrefix(prefix: []const u8) Error!usize {
+    return (try expectedSize(prefix)) / wire.bytes_per_word;
+}
+
 pub fn parseSegmentTable(bytes: []const u8) Error!struct { segment_count: usize, table_len: usize } {
     if (bytes.len < 8) return error.SegmentTableTruncated;
     if (bytes.len % wire.bytes_per_word != 0) return error.MessageNotWordAligned;
@@ -399,6 +405,8 @@ test "standard stream framing serializes even segment count with padding" {
     try testing.expectEqualSlices(u8, &s0, bytes[16..24]);
     try testing.expectEqualSlices(u8, &s1, bytes[24..40]);
     try testing.expectEqual(@as(usize, 40), try expectedSize(bytes[0..16]));
+    try testing.expectEqual(@as(usize, 5), try expectedSizeInWordsFromPrefix(bytes[0..16]));
+    try testing.expectEqual(@as(usize, 1), try expectedSizeInWordsFromPrefix(bytes[0..0]));
 }
 
 test "standard stream framing writes directly to Io writer" {
@@ -458,6 +466,7 @@ test "segment table rejects excessive segment counts before allocation" {
     var max_prefix = [_]u8{0} ** 8;
     writeU32(max_prefix[0..4], @intCast(max_segment_count - 1));
     try testing.expectEqual(try segmentTableByteLen(max_segment_count), try expectedSize(&max_prefix));
+    try testing.expectEqual((try segmentTableByteLen(max_segment_count)) / wire.bytes_per_word, try expectedSizeInWordsFromPrefix(&max_prefix));
 }
 
 test "packed stream framing round-trips through unpacked parser" {

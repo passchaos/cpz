@@ -29,6 +29,7 @@ pub const MessageStats = message.MessageStats;
 pub const MessageSize = message.MessageSize;
 pub const toSingleSegmentFlatBytes = message.toSingleSegmentFlatBytes;
 pub const toCanonicalSegmentBytes = message.toCanonicalSegmentBytes;
+pub const expectedSizeInWordsFromPrefix = serialize.expectedSizeInWordsFromPrefix;
 
 test {
     _ = wire;
