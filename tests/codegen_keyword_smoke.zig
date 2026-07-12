@@ -36,4 +36,5 @@ test "generated enum getters reject unknown ordinals" {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const value = generated.fn_.fromReader(try reader.getRoot());
     try std.testing.expectError(error.InvalidEnumValue, value.enum_());
+    try std.testing.expectEqual(@as(u16, 99), value.enum__raw());
 }
