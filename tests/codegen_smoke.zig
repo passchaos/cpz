@@ -211,8 +211,17 @@ test "generated builders can disown and adopt pointer fields" {
     try typed_friend.set_id(3030);
     try typed_friend.set_name("Typed orphan");
     var typed_orphan: generated.Person.Orphan = try person_builder.disown_friend_typed();
+    try std.testing.expect(!typed_orphan.isNull());
+    const orphan_builder = try typed_orphan.get();
+    try std.testing.expectEqual(@as(u32, 3030), try orphan_builder.get_id());
+    try std.testing.expectEqualSlices(u8, "Typed orphan", try orphan_builder.get_name());
+    var orphan_reader = try builder.asReader(.{});
+    const orphan_view = try typed_orphan.getReader(&orphan_reader);
+    try std.testing.expectEqual(@as(u32, 3030), orphan_view.id());
+    const orphan_size = try typed_orphan.totalSize();
+    try std.testing.expect(orphan_size.word_count > 0);
     try person_builder.adopt_maybeFriend_typed(&typed_orphan);
-    try std.testing.expectEqual(@as(u64, 0), typed_orphan.raw);
+    try std.testing.expectEqual(@as(u64, 0), typed_orphan.raw());
     const typed_maybe_friend = try person_builder.get_maybeFriend();
     try std.testing.expectEqual(@as(u32, 3030), try typed_maybe_friend.get_id());
     try std.testing.expectEqualSlices(u8, "Typed orphan", try typed_maybe_friend.get_name());

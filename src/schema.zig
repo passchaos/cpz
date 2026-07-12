@@ -1873,7 +1873,38 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try appendFmt(allocator, out,
         \\pub const {s} = struct {{
         \\    pub const size: cpz.StructSize = .{{ .data_words = {}, .pointer_count = {} }};
-        \\    pub const Orphan = cpz.Orphan;
+        \\
+        \\    pub const Orphan = struct {{
+        \\        orphan: cpz.Orphan,
+        \\
+        \\        pub fn fromOrphan(orphan: cpz.Orphan) Orphan {{
+        \\            return .{{ .orphan = orphan }};
+        \\        }}
+        \\
+        \\        pub fn raw(self: @This()) cpz.Word {{
+        \\            return self.orphan.raw;
+        \\        }}
+        \\
+        \\        pub fn isNull(self: @This()) bool {{
+        \\            return self.orphan.isNull();
+        \\        }}
+        \\
+        \\        pub fn pointerType(self: @This()) ?cpz.wire.PointerType {{
+        \\            return self.orphan.pointerType();
+        \\        }}
+        \\
+        \\        pub fn get(self: @This()) !Builder {{
+        \\            return Builder.fromBuilder(try self.orphan.getStruct());
+        \\        }}
+        \\
+        \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
+        \\            return {s}.fromReader(try self.orphan.asReader(message_reader).getStruct(null));
+        \\        }}
+        \\
+        \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
+        \\            return self.orphan.totalSize();
+        \\        }}
+        \\    }};
         \\
         \\    reader: cpz.StructReader,
         \\
@@ -1897,7 +1928,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return self.reader.totalSize();
         \\    }}
         \\
-    , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name });
+    , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name, struct_name, struct_name });
 
     try emitUnionDeclarations(allocator, out, layout);
 
@@ -3248,14 +3279,14 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             , .{ index, field_name, zig_type });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).disown();
+                \\            return {s}.Orphan.fromOrphan((try self.builder.getPointerField({})).disown());
                 \\        }}
                 \\
                 \\        pub fn adopt_{s}_typed(self: Builder, orphan: *{s}.Orphan) !void {{
-            , .{ index, field_name, zig_type });
+            , .{ zig_type, index, field_name, zig_type });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).adopt(orphan);
+                \\            return (try self.builder.getPointerField({})).adopt(&orphan.orphan);
                 \\        }}
                 \\
             , .{index});
