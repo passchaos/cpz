@@ -4475,12 +4475,16 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value.reader);
                 \\        }}
                 \\
+                \\        pub fn new_{s}_orphan(self: Builder) !{s}.Orphan {{
+                \\            return {s}.Orphan.fromOrphan(try self.orphanage().newStruct({s}.size));
+                \\        }}
+                \\
                 \\        pub fn new_{s}_copyOrphan(self: Builder, new_value: {s}) !{s}.Orphan {{
                 \\            return {s}.Orphan.fromOrphan(try self.orphanage().newCopyStruct(new_value.reader));
                 \\        }}
                 \\
                 \\        pub fn disown_{s}_typed(self: Builder) !{s}.Orphan {{
-            , .{ index, field_name, zig_type, zig_type, zig_type, field_name, zig_type });
+            , .{ index, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\            return {s}.Orphan.fromOrphan((try self.builder.getPointerField({})).disown());
