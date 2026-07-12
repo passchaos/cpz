@@ -20,6 +20,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const scores = try person_builder.init_scores(2);
     try scores.set(0, 10);
     try scores.set(1, 20);
+    try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
     const children = try person_builder.init_children(1);
     const child = try children.get(0);
     try child.set_id(99);
@@ -30,6 +31,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const palette = try person_builder.init_palette(2);
     try palette.set(0, .red);
     try palette.set(1, .green);
+    try std.testing.expectEqual(generated.Color.green, try palette.get(1));
+    try std.testing.expectEqual(@as(u16, 1), try palette.getRaw(1));
     const aliases = try person_builder.init_aliases(2);
     try aliases.set(0, "A");
     try aliases.set(1, "Lovelace");
@@ -39,12 +42,15 @@ test "generated reader and builder accessors compile and round-trip" {
     try flags.set(0, true);
     try flags.set(1, false);
     try flags.set(2, true);
+    try std.testing.expectEqual(true, try flags.get(2));
     const ratios = try person_builder.init_ratios(2);
     try ratios.set(0, 1.5);
     try ratios.set(1, -2.25);
+    try std.testing.expectEqual(@as(f32, -2.25), try ratios.get(1));
     const weights = try person_builder.init_weights(2);
     try weights.set(0, 10.125);
     try weights.set(1, -20.5);
+    try std.testing.expectEqual(@as(f64, 10.125), try weights.get(0));
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try reader.getRoot();
@@ -201,6 +207,7 @@ test "generated enum raw setters preserve unknown ordinals" {
     try person_builder.set_favorite_raw(77);
     const palette = try person_builder.init_palette(1);
     try palette.setRaw(0, 88);
+    try std.testing.expectEqual(@as(u16, 88), try palette.getRaw(0));
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());

@@ -1288,6 +1288,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
 
     switch (child) {
         .bool => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) !bool {{
+            \\            return self.list.getBool(index);
+            \\        }}
+            \\
             \\        pub fn set(self: @This(), index: usize, value: bool) !void {{
             \\            return self.list.setBool(index, value);
             \\        }}
@@ -1327,6 +1331,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             const zig_type = try zigIdentAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) !{s} {{
+                \\            return std.enums.fromInt({s}, try self.list.getUInt16(index)) orelse error.InvalidEnumValue;
+                \\        }}
+                \\
+                \\        pub fn getRaw(self: @This(), index: usize) !u16 {{
+                \\            return self.list.getUInt16(index);
+                \\        }}
+                \\
                 \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
                 \\            return self.list.setUInt16(index, @intFromEnum(value));
                 \\        }}
@@ -1335,7 +1347,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return self.list.setUInt16(index, value);
                 \\        }}
                 \\
-            , .{zig_type});
+            , .{ zig_type, zig_type, zig_type });
         } else {
             const zig_type = try zigIdentAlloc(allocator, type_name);
             defer allocator.free(zig_type);
@@ -1374,11 +1386,15 @@ fn listScalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_t
 
 fn listScalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_type: []const u8, method: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
+        \\        pub fn get(self: @This(), index: usize) !{s} {{
+        \\            return self.list.get{s}(index);
+        \\        }}
+        \\
         \\        pub fn set(self: @This(), index: usize, value: {s}) !void {{
         \\            return self.list.{s}(index, value);
         \\        }}
         \\
-    , .{ zig_type, method });
+    , .{ zig_type, method["set".len..], zig_type, method });
 }
 
 fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_layout: FieldLayout) LayoutError!void {
@@ -1704,6 +1720,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !Person.Builder") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_scores_BuilderList") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, value);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
@@ -1713,6 +1730,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return std.enums.fromInt(Color, self.list.getUInt16(index)) orelse error.InvalidEnumValue;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) u16") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) !u16") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setRaw(self: @This(), index: usize, value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(value));") != null);

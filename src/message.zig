@@ -1086,6 +1086,54 @@ pub const ListBuilder = struct {
         self.message.segments.items[self.segment_id].words.items[word_index] = word;
     }
 
+    pub fn getBool(self: ListBuilder, index: usize) Error!bool {
+        if (self.element_size != .bit or index >= self.element_count) return error.PointerOutOfBounds;
+        const abs_bit = self.start * wire.bits_per_word + index;
+        const word = self.message.readWord(self.segment_id, abs_bit / wire.bits_per_word);
+        const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
+        return ((word >> bit) & 1) != 0;
+    }
+
+    pub fn getUInt8(self: ListBuilder, index: usize) Error!u8 {
+        return self.getPrimitive(u8, index);
+    }
+
+    pub fn getUInt16(self: ListBuilder, index: usize) Error!u16 {
+        return self.getPrimitive(u16, index);
+    }
+
+    pub fn getUInt32(self: ListBuilder, index: usize) Error!u32 {
+        return self.getPrimitive(u32, index);
+    }
+
+    pub fn getUInt64(self: ListBuilder, index: usize) Error!u64 {
+        return self.getPrimitive(u64, index);
+    }
+
+    pub fn getInt8(self: ListBuilder, index: usize) Error!i8 {
+        return self.getPrimitive(i8, index);
+    }
+
+    pub fn getInt16(self: ListBuilder, index: usize) Error!i16 {
+        return self.getPrimitive(i16, index);
+    }
+
+    pub fn getInt32(self: ListBuilder, index: usize) Error!i32 {
+        return self.getPrimitive(i32, index);
+    }
+
+    pub fn getInt64(self: ListBuilder, index: usize) Error!i64 {
+        return self.getPrimitive(i64, index);
+    }
+
+    pub fn getFloat32(self: ListBuilder, index: usize) Error!f32 {
+        return @bitCast(try self.getPrimitive(u32, index));
+    }
+
+    pub fn getFloat64(self: ListBuilder, index: usize) Error!f64 {
+        return @bitCast(try self.getPrimitive(u64, index));
+    }
+
     pub fn getPointerElement(self: ListBuilder, index: usize) Error!PointerBuilder {
         if (self.element_size != .pointer or index >= self.element_count) return error.PointerOutOfBounds;
         return .{
@@ -1119,6 +1167,14 @@ pub const ListBuilder = struct {
         const byte_offset = index * @sizeOf(T);
         const target_bytes = self.bytes()[byte_offset..][0..@sizeOf(T)];
         std.mem.writeInt(T, target_bytes, value, .little);
+    }
+
+    fn getPrimitive(self: ListBuilder, comptime T: type, index: usize) Error!T {
+        if (index >= self.element_count) return error.PointerOutOfBounds;
+        if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
+        const byte_offset = index * @sizeOf(T);
+        const source_bytes = self.bytes()[byte_offset..][0..@sizeOf(T)];
+        return std.mem.readInt(T, source_bytes, .little);
     }
 };
 
