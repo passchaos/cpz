@@ -336,6 +336,12 @@ test "generated builders can disown and adopt pointer fields" {
     const from_raw_friend = try person_builder.get_maybeFriend();
     try std.testing.expectEqual(@as(u32, 4040), try from_raw_friend.get_id());
 
+    var copy_reader_for_orphan = try builder.asReader(.{});
+    var copied_friend_orphan = try person_builder.new_maybeFriend_copyOrphan(from_raw_friend.asReader(&copy_reader_for_orphan));
+    try person_builder.adopt_maybeFriend_typed(&copied_friend_orphan);
+    const copied_friend = try person_builder.get_maybeFriend();
+    try std.testing.expectEqual(@as(u32, 4040), try copied_friend.get_id());
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     try std.testing.expect(!person.has_name());
