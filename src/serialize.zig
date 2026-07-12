@@ -4,6 +4,7 @@ const wire = @import("wire.zig");
 
 pub const Segment = []u8;
 pub const ConstSegment = []const u8;
+pub const max_segment_count: usize = 65_536;
 
 pub const Error = error{
     EmptyMessage,
@@ -45,7 +46,7 @@ pub const FlatMessageView = struct {
 
 pub fn computeSerializedSize(segments: []const ConstSegment) Error!usize {
     if (segments.len == 0) return error.EmptyMessage;
-    if (segments.len > @as(usize, std.math.maxInt(u32)) + 1) return error.TooManySegments;
+    if (segments.len > max_segment_count) return error.TooManySegments;
 
     var words_sum: usize = 0;
     for (segments) |segment| {
@@ -55,7 +56,7 @@ pub fn computeSerializedSize(segments: []const ConstSegment) Error!usize {
         words_sum = std.math.add(usize, words_sum, words) catch return error.SerializedSizeOverflow;
     }
 
-    const table_words = segmentTableWords(segments.len);
+    const table_words = (try segmentTableByteLen(segments.len)) / wire.bytes_per_word;
     const total_words = std.math.add(usize, table_words, words_sum) catch return error.SerializedSizeOverflow;
     return std.math.mul(usize, total_words, wire.bytes_per_word) catch return error.SerializedSizeOverflow;
 }
@@ -72,8 +73,8 @@ pub fn segmentTableWords(segment_count: usize) usize {
 
 pub fn writeSegmentTable(dest: []u8, segments: []const ConstSegment) Error!usize {
     if (segments.len == 0) return error.EmptyMessage;
-    if (segments.len > @as(usize, std.math.maxInt(u32)) + 1) return error.TooManySegments;
-    const table_len = segmentTableWords(segments.len) * wire.bytes_per_word;
+    if (segments.len > max_segment_count) return error.TooManySegments;
+    const table_len = try segmentTableByteLen(segments.len);
     if (dest.len < table_len) return error.SegmentTableTruncated;
     @memset(dest[0..table_len], 0);
 
@@ -90,7 +91,7 @@ pub fn writeSegmentTable(dest: []u8, segments: []const ConstSegment) Error!usize
 }
 
 pub fn serializeSegmentTable(allocator: std.mem.Allocator, segments: []const ConstSegment) Error![]u8 {
-    const table_len = segmentTableWords(segments.len) * wire.bytes_per_word;
+    const table_len = try segmentTableByteLen(segments.len);
     const table = try allocator.alloc(u8, table_len);
     errdefer allocator.free(table);
     _ = try writeSegmentTable(table, segments);
@@ -186,10 +187,11 @@ pub fn expectedSize(prefix: []const u8) Error!usize {
     if (prefix.len < 4) return 8;
     const segment_count_minus_one = readU32(prefix[0..4]);
     const segment_count = std.math.add(usize, @as(usize, segment_count_minus_one), 1) catch return error.SegmentTableOverflow;
-    const table_len = segmentTableWords(segment_count) * wire.bytes_per_word;
+    if (segment_count > max_segment_count) return error.TooManySegments;
+    const table_len = try segmentTableByteLen(segment_count);
     if (prefix.len < table_len) return table_len;
 
-    var total_words = segmentTableWords(segment_count);
+    var total_words = table_len / wire.bytes_per_word;
     var off: usize = 4;
     for (0..segment_count) |_| {
         const words = readU32(prefix[off..][0..4]);
@@ -203,9 +205,19 @@ pub fn parseSegmentTable(bytes: []const u8) Error!struct { segment_count: usize,
     if (bytes.len < 8) return error.SegmentTableTruncated;
     if (bytes.len % wire.bytes_per_word != 0) return error.MessageNotWordAligned;
     const segment_count = std.math.add(usize, @as(usize, readU32(bytes[0..4])), 1) catch return error.SegmentTableOverflow;
-    const table_len = segmentTableWords(segment_count) * wire.bytes_per_word;
+    if (segment_count > max_segment_count) return error.TooManySegments;
+    const table_len = try segmentTableByteLen(segment_count);
     if (bytes.len < table_len) return error.SegmentTableTruncated;
     return .{ .segment_count = segment_count, .table_len = table_len };
+}
+
+fn segmentTableByteLen(segment_count: usize) Error!usize {
+    if (segment_count == 0) return error.EmptyMessage;
+    if (segment_count > max_segment_count) return error.TooManySegments;
+    const size_words_bytes = std.math.mul(usize, segment_count, 4) catch return error.SegmentTableOverflow;
+    const unpadded = std.math.add(usize, 4, size_words_bytes) catch return error.SegmentTableOverflow;
+    const padded = std.math.add(usize, unpadded, wire.bytes_per_word - 1) catch return error.SegmentTableOverflow;
+    return (padded / wire.bytes_per_word) * wire.bytes_per_word;
 }
 
 inline fn readU32(bytes: *const [4]u8) u32 {
@@ -270,6 +282,19 @@ test "standard stream framing serializes even segment count with padding" {
     try testing.expectEqualSlices(u8, &s0, bytes[16..24]);
     try testing.expectEqualSlices(u8, &s1, bytes[24..40]);
     try testing.expectEqual(@as(usize, 40), try expectedSize(bytes[0..16]));
+}
+
+test "segment table rejects excessive segment counts before allocation" {
+    const testing = std.testing;
+
+    var too_many = [_]u8{0} ** 8;
+    writeU32(too_many[0..4], @intCast(max_segment_count));
+    try testing.expectError(error.TooManySegments, expectedSize(&too_many));
+    try testing.expectError(error.TooManySegments, parseSegmentTable(&too_many));
+
+    var max_prefix = [_]u8{0} ** 8;
+    writeU32(max_prefix[0..4], @intCast(max_segment_count - 1));
+    try testing.expectEqual(try segmentTableByteLen(max_segment_count), try expectedSize(&max_prefix));
 }
 
 test "packed stream framing round-trips through unpacked parser" {
