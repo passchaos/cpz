@@ -249,6 +249,33 @@ test "generated nested list wrappers round-trip" {
     try std.testing.expectEqualSlices(u8, "text", try (try read_aliases.getPointerElement(1)).getText());
 }
 
+test "generated nested struct-list wrappers can initialize composite children" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    const struct_groups = try person_builder.init_structGroups(1);
+    const people = try struct_groups.initStructList(0, 2);
+    const first = generated.Person.Builder.fromBuilder(try people.getStructElement(0));
+    try first.set_id(501);
+    try first.set_name("Nested Alice");
+    const second = generated.Person.Builder.fromBuilder(try people.getStructElement(1));
+    try second.set_id(502);
+    try second.set_name("Nested Bob");
+    try std.testing.expectEqual(@as(u32, 502), try generated.Person.Builder.fromBuilder(try (try struct_groups.get(0)).getStructElement(1)).get_id());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    const read_struct_groups = try person.structGroups();
+    const read_people = try read_struct_groups.get(0);
+    const read_first = generated.Person.fromReader(try read_people.getStructElement(0));
+    try std.testing.expectEqual(@as(u32, 501), read_first.id());
+    try std.testing.expectEqualSlices(u8, "Nested Alice", try read_first.name());
+    const read_second = generated.Person.fromReader(try read_people.getStructElement(1));
+    try std.testing.expectEqual(@as(u32, 502), read_second.id());
+    try std.testing.expectEqualSlices(u8, "Nested Bob", try read_second.name());
+}
+
 test "generated enum raw setters preserve unknown ordinals" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

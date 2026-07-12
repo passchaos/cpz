@@ -31,6 +31,7 @@ struct Person {
   maybeFriend @15 :?Person;
   scoreGroups @16 :List(List(UInt32));
   aliasGroups @17 :List(TextList);
+  structGroups @18 :List(List(Person));
 }
 
 struct Choice {

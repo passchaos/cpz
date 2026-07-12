@@ -2394,24 +2394,38 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\        }}
             \\
         , .{}),
-        .list => try appendFmt(allocator, out,
-            \\        pub fn get(self: @This(), index: usize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(index)).getList(null);
-            \\        }}
-            \\
-            \\        pub fn init(self: @This(), index: usize, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(index)).initList(element_size, count);
-            \\        }}
-            \\
-            \\        pub fn set(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
-            \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
-            \\        }}
-            \\
-            \\        pub fn clear(self: @This(), index: usize) !void {{
-            \\            return self.list.clearPointerElement(index);
-            \\        }}
-            \\
-        , .{}),
+        .list => |nested_child| {
+            try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) !cpz.ListBuilder {{
+                \\            return (try self.list.getPointerElement(index)).getList(null);
+                \\        }}
+                \\
+                \\        pub fn init(self: @This(), index: usize, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
+                \\            return (try self.list.getPointerElement(index)).initList(element_size, count);
+                \\        }}
+                \\
+            , .{});
+            if (isStructListElement(file, nested_child.*)) |type_name| {
+                const zig_type = try zigTypeRefAlloc(allocator, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\        pub fn initStructList(self: @This(), index: usize, count: usize) !cpz.ListBuilder {{
+                    \\            return (try self.list.getPointerElement(index)).initStructList(count, {s}.size);
+                    \\        }}
+                    \\
+                , .{zig_type});
+            }
+            try appendFmt(allocator, out,
+                \\        pub fn set(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
+                \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), index: usize) !void {{
+                \\            return self.list.clearPointerElement(index);
+                \\        }}
+                \\
+            , .{});
+        },
         .named => |type_name| if (findEnumDirect(file, type_name) != null) {
             const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
