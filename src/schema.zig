@@ -4,6 +4,7 @@ pub const Error = error{
     UnexpectedToken,
     InvalidToken,
     InvalidOrdinal,
+    NameCollision,
     OrdinalCollision,
     UnsupportedType,
 } || std.mem.Allocator.Error || std.fmt.ParseIntError;
@@ -312,6 +313,8 @@ pub const Parser = struct {
             for (fields.items) |*field| field.deinit(self.allocator);
             fields.deinit(self.allocator);
         }
+        var field_names = std.StringHashMap(void).init(self.allocator);
+        defer field_names.deinit();
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
@@ -325,7 +328,13 @@ pub const Parser = struct {
                 try self.skipBracedDeclaration();
                 continue;
             }
-            try fields.append(self.allocator, try self.parseField());
+            var field = try self.parseField();
+            const entry = try field_names.getOrPut(field.name);
+            if (entry.found_existing) {
+                field.deinit(self.allocator);
+                return error.NameCollision;
+            }
+            try fields.append(self.allocator, field);
         }
         try self.expect(.r_brace);
         return .{ .name = name, .fields = try fields.toOwnedSlice(self.allocator) };
@@ -748,6 +757,15 @@ test "schema parser rejects duplicate enum ordinals" {
         \\enum Bad {
         \\  a @0;
         \\  b @0;
+        \\}
+    ));
+}
+
+test "schema parser rejects duplicate field names" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :UInt32;
+        \\  value @1 :Text;
         \\}
     ));
 }
