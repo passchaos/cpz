@@ -1881,6 +1881,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return .{{ .orphan = orphan }};
         \\        }}
         \\
+        \\        pub fn fromRaw(orphan: cpz.Orphan) Orphan {{
+        \\            return fromOrphan(orphan);
+        \\        }}
+        \\
         \\        pub fn raw(self: @This()) cpz.Word {{
         \\            return self.orphan.raw;
         \\        }}
@@ -2490,6 +2494,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn fromOrphan(orphan: cpz.Orphan) @This() {{
         \\            return .{{ .orphan = orphan }};
+        \\        }}
+        \\
+        \\        pub fn fromRaw(orphan: cpz.Orphan) @This() {{
+        \\            return fromOrphan(orphan);
         \\        }}
         \\
         \\{s}

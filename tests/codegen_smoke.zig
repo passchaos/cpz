@@ -226,14 +226,24 @@ test "generated builders can disown and adopt pointer fields" {
     try std.testing.expectEqual(@as(u32, 3030), try typed_maybe_friend.get_id());
     try std.testing.expectEqualSlices(u8, "Typed orphan", try typed_maybe_friend.get_name());
 
+    const raw_typed_friend = try person_builder.init_friend();
+    try raw_typed_friend.set_id(4040);
+    try raw_typed_friend.set_name("From raw orphan");
+    var raw_orphan = try person_builder.disown_friend();
+    var typed_from_raw = generated.Person.Orphan.fromRaw(raw_orphan);
+    raw_orphan.release();
+    try person_builder.adopt_maybeFriend_typed(&typed_from_raw);
+    const from_raw_friend = try person_builder.get_maybeFriend();
+    try std.testing.expectEqual(@as(u32, 4040), try from_raw_friend.get_id());
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     try std.testing.expect(!person.has_name());
     try std.testing.expectEqualSlices(u8, "Orphaned name", try person.nickname());
     try std.testing.expect(!person.has_friend());
     const read_maybe_friend = try person.maybeFriend();
-    try std.testing.expectEqual(@as(u32, 3030), read_maybe_friend.id());
-    try std.testing.expectEqualSlices(u8, "Typed orphan", try read_maybe_friend.name());
+    try std.testing.expectEqual(@as(u32, 4040), read_maybe_friend.id());
+    try std.testing.expectEqualSlices(u8, "From raw orphan", try read_maybe_friend.name());
 }
 
 test "generated structs can allocate typed orphans" {
@@ -390,11 +400,19 @@ test "generated builders can use typed list field orphans" {
     try person_builder.adopt_scores_typed(&scores_orphan);
     try std.testing.expect(scores_orphan.isNull());
 
+    try person_builder.set_scores(&[_]u32{ 3, 4 });
+    var raw_scores = try person_builder.disown_scores();
+    var scores_from_raw = generated.Person.Person_scores_Orphan.fromRaw(raw_scores);
+    raw_scores.release();
+    const from_raw_scores = try scores_from_raw.get();
+    try from_raw_scores.set(0, 33);
+    try person_builder.adopt_scores_typed(&scores_from_raw);
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     const scores = try person.scores();
-    try std.testing.expectEqual(@as(u32, 1), scores.get(0));
-    try std.testing.expectEqual(@as(u32, 42), scores.get(1));
+    try std.testing.expectEqual(@as(u32, 33), scores.get(0));
+    try std.testing.expectEqual(@as(u32, 4), scores.get(1));
 }
 
 test "generated list orphan wrappers can allocate new orphans" {
