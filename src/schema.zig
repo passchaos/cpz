@@ -271,13 +271,27 @@ pub const Parser = struct {
             for (enums.items) |*e| e.deinit(self.allocator);
             enums.deinit(self.allocator);
         }
+        var decl_names = std.StringHashMap(void).init(self.allocator);
+        defer decl_names.deinit();
         var file_id: ?u64 = null;
 
         while (self.lookahead.tag != .eof) {
             if (self.eatKeyword("struct")) {
-                try structs.append(self.allocator, try self.parseStruct());
+                var decl = try self.parseStruct();
+                const entry = try decl_names.getOrPut(decl.name);
+                if (entry.found_existing) {
+                    decl.deinit(self.allocator);
+                    return error.NameCollision;
+                }
+                try structs.append(self.allocator, decl);
             } else if (self.eatKeyword("enum")) {
-                try enums.append(self.allocator, try self.parseEnum());
+                var decl = try self.parseEnum();
+                const entry = try decl_names.getOrPut(decl.name);
+                if (entry.found_existing) {
+                    decl.deinit(self.allocator);
+                    return error.NameCollision;
+                }
+                try enums.append(self.allocator, decl);
             } else if (self.eatKeyword("interface")) {
                 try self.skipBracedDeclaration();
             } else if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
@@ -779,6 +793,17 @@ test "schema parser rejects duplicate field names" {
         \\struct Bad {
         \\  value @0 :UInt32;
         \\  value @1 :Text;
+        \\}
+    ));
+}
+
+test "schema parser rejects duplicate top-level declaration names" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Thing {
+        \\  id @0 :UInt32;
+        \\}
+        \\enum Thing {
+        \\  value @0;
         \\}
     ));
 }
