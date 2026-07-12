@@ -23,6 +23,13 @@ test "generated schemas reference imported modules" {
     try list_child.set_id(456);
     try list_child.set_name("Imported list child");
     try holder_builder.set_shared_from(source_child);
+    const extra_builder = try holder_builder.init_extra();
+    try extra_builder.set_code(321);
+    try extra_builder.set_label("Anonymous import extra");
+    const extras_builder = try holder_builder.init_extras(1);
+    const list_extra = try extras_builder.get(0);
+    try list_extra.set_code(654);
+    try list_extra.set_label("Anonymous import list extra");
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const holder = try generated.Holder.getRoot(&reader);
@@ -36,4 +43,11 @@ test "generated schemas reference imported modules" {
     const shared = try holder.shared();
     try std.testing.expectEqual(@as(u32, 777), shared.id());
     try std.testing.expectEqualSlices(u8, "Copied import", try shared.name());
+    const extra = try holder.extra();
+    try std.testing.expectEqual(@as(u16, 321), extra.code());
+    try std.testing.expectEqualSlices(u8, "Anonymous import extra", try extra.label());
+    const extras = try holder.extras();
+    const read_list_extra = try extras.get(0);
+    try std.testing.expectEqual(@as(u16, 654), read_list_extra.code());
+    try std.testing.expectEqualSlices(u8, "Anonymous import list extra", try read_list_extra.label());
 }

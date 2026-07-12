@@ -607,8 +607,33 @@ pub const Parser = struct {
             if (imports) |imports_list| try self.parseAnonymousImport(imports_list, decl_names) else try self.skipRawUntilSemicolon();
             return;
         }
-        if (self.lookahead.tag != .identifier or (try self.peekNext()).tag != .equal) {
+        if (self.lookahead.tag != .identifier) {
             try self.skipRawUntilSemicolon();
+            return;
+        }
+        if ((try self.peekNext()).tag != .equal) {
+            var target = self.parseType() catch {
+                try self.skipRawUntilSemicolon();
+                return;
+            };
+            errdefer target.deinit(self.allocator);
+            if (self.lookahead.tag != .semicolon) {
+                target.deinit(self.allocator);
+                try self.skipRawUntilSemicolon();
+                return;
+            }
+            try self.expect(.semicolon);
+
+            const name = anonymousAliasName(target) orelse {
+                target.deinit(self.allocator);
+                return;
+            };
+            const entry = try decl_names.getOrPut(name);
+            if (entry.found_existing) {
+                target.deinit(self.allocator);
+                return error.NameCollision;
+            }
+            try aliases.append(self.allocator, .{ .name = name, .target = target });
             return;
         }
 
@@ -1525,6 +1550,13 @@ fn isSimpleConstType(ty: Type) bool {
     };
 }
 
+fn anonymousAliasName(ty: Type) ?[]const u8 {
+    return switch (ty) {
+        .named => |name| if (std.mem.lastIndexOfScalar(u8, name, '.')) |dot| name[dot + 1 ..] else name,
+        else => null,
+    };
+}
+
 fn isGroupType(ty: Type) bool {
     return switch (ty) {
         .named => |name| std.mem.eql(u8, name, "group"),
@@ -1890,17 +1922,22 @@ test "schema parser tolerates nested declarations and dotted type names" {
         \\    ready @0;
         \\  }
         \\  using LocalName = Text;
+        \\  using Outer.Inner;
         \\  child @0 :Outer.Inner;
         \\  state @1 :Outer.State;
         \\  aliasName @2 :LocalName;
+        \\  anonymousAlias @3 :Inner;
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
-    try std.testing.expectEqual(@as(usize, 3), file.structs[0].fields.len);
-    try std.testing.expectEqual(@as(usize, 1), file.structs[0].aliases.len);
+    try std.testing.expectEqual(@as(usize, 4), file.structs[0].fields.len);
+    try std.testing.expectEqual(@as(usize, 2), file.structs[0].aliases.len);
     try std.testing.expectEqualStrings("LocalName", file.structs[0].aliases[0].name);
+    try std.testing.expectEqualStrings("Inner", file.structs[0].aliases[1].name);
+    try std.testing.expect(file.structs[0].aliases[1].target == .named);
+    try std.testing.expectEqualStrings("Outer.Inner", file.structs[0].aliases[1].target.named);
     try std.testing.expect(file.structs[0].fields[0].ty == .named);
     try std.testing.expectEqualStrings("Outer.Inner", file.structs[0].fields[0].ty.named);
     try std.testing.expect(file.structs[0].fields[1].ty == .named);
@@ -1908,9 +1945,15 @@ test "schema parser tolerates nested declarations and dotted type names" {
     try std.testing.expect(file.structs[0].fields[2].ty == .named);
     try std.testing.expectEqualStrings("LocalName", file.structs[0].fields[2].ty.named);
     try std.testing.expectEqual(Type.text, resolveTypeScoped(&file, &file.structs[0], file.structs[0].fields[2].ty));
+    try std.testing.expect(file.structs[0].fields[3].ty == .named);
+    try std.testing.expectEqualStrings("Inner", file.structs[0].fields[3].ty.named);
+    const resolved_anonymous = resolveTypeScoped(&file, &file.structs[0], file.structs[0].fields[3].ty);
+    try std.testing.expect(resolved_anonymous == .named);
+    try std.testing.expectEqualStrings("Outer.Inner", resolved_anonymous.named);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     try std.testing.expectEqual(FieldSlot{ .pointer = 2 }, layouts.structs[0].fields[2].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 3 }, layouts.structs[0].fields[3].slot);
 }
 
 test "schema layout planner assigns data and pointer slots" {
