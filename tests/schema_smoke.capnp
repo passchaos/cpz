@@ -11,4 +11,6 @@ struct Person {
   active @1 :Bool = true;
   name @2 :Text;
   favorite @3 :Color = green;
+  scores @4 :List(UInt32);
+  children @5 :List(Person);
 }
