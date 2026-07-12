@@ -2290,6 +2290,13 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).decode();
         \\    }}
         \\
+        \\    pub fn {s}TotalSize(self: @This()) !cpz.MessageSize {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).totalSize();
+        \\    }}
+        \\
     , .{index});
 
     switch (resolveType(file, field.ty)) {
@@ -3502,6 +3509,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).decode();
+        \\        }}
+        \\
+        \\        pub fn get_{s}TotalSize(self: Builder) !cpz.MessageSize {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).totalSize();
         \\        }}
         \\
     , .{index});

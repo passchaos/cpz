@@ -38,6 +38,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(name_raw_pointer));
     const name_decoded = (try person_builder.get_nameDecodedPointer()).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, name_decoded.element_size);
+    const name_total_size = try person_builder.get_nameTotalSize();
+    try std.testing.expect(name_total_size.word_count > 0);
     try person_builder.set_favorite(.blue);
     try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
@@ -139,6 +141,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_name_raw_pointer));
     const read_name_decoded = (try person.nameDecodedPointer()).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, read_name_decoded.element_size);
+    const read_name_total_size = try person.nameTotalSize();
+    try std.testing.expect(read_name_total_size.word_count > 0);
     try std.testing.expect(generated.Color.blue == try person.favorite());
     try std.testing.expectEqual(@as(u16, 2), person.favorite_raw());
     const read_scores = try person.scores();
