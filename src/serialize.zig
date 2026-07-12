@@ -191,6 +191,44 @@ pub fn readPackedMessage(allocator: std.mem.Allocator, packed_bytes: []const u8)
     return readOwnedFlatMessage(allocator, flat);
 }
 
+/// Read one packed stream-framed message from an Io reader. Decoding stops
+/// exactly when the unpacked stream framing says the message is complete,
+/// leaving any following bytes buffered for the next message.
+pub fn readPackedMessageFromReader(allocator: std.mem.Allocator, reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!FlatMessage {
+    var unpacked = std.ArrayList(u8).empty;
+    errdefer unpacked.deinit(allocator);
+
+    while (true) {
+        const tag = try takePackedByte(reader);
+        var word = [_]u8{0} ** wire.bytes_per_word;
+        inline for (0..wire.bytes_per_word) |j| {
+            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                word[j] = try takePackedByte(reader);
+            }
+        }
+        try unpacked.appendSlice(allocator, &word);
+
+        if (tag == 0x00) {
+            const additional_words = @as(usize, try takePackedByte(reader));
+            try unpacked.appendNTimes(allocator, 0, additional_words * wire.bytes_per_word);
+        } else if (tag == 0xff) {
+            const raw_words = @as(usize, try takePackedByte(reader));
+            const raw_bytes = raw_words * wire.bytes_per_word;
+            const dest = try unpacked.addManyAsSlice(allocator, raw_bytes);
+            try readPackedExact(reader, dest);
+        }
+
+        if (unpacked.items.len >= wire.bytes_per_word) {
+            const expected_len = try expectedSize(unpacked.items);
+            if (unpacked.items.len >= expected_len) {
+                if (unpacked.items.len != expected_len) return error.PackedOutputLengthMismatch;
+                const owned = try unpacked.toOwnedSlice(allocator);
+                return readOwnedFlatMessage(allocator, owned);
+            }
+        }
+    }
+}
+
 /// Read one standard stream-framed message from an Io reader. The returned
 /// FlatMessage owns the exact bytes consumed for that message.
 pub fn readMessageFromReader(allocator: std.mem.Allocator, reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!FlatMessage {
@@ -222,6 +260,20 @@ pub fn readMessageFromReader(allocator: std.mem.Allocator, reader: *std.Io.Reade
         };
     }
     return readOwnedFlatMessage(allocator, owned);
+}
+
+fn takePackedByte(reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!u8 {
+    return reader.takeByte() catch |err| switch (err) {
+        error.EndOfStream => error.MessageTruncated,
+        else => |e| e,
+    };
+}
+
+fn readPackedExact(reader: *std.Io.Reader, dest: []u8) (Error || std.Io.Reader.Error)!void {
+    reader.readSliceAll(dest) catch |err| switch (err) {
+        error.EndOfStream => return error.MessageTruncated,
+        else => |e| return e,
+    };
 }
 
 fn readOwnedFlatMessage(allocator: std.mem.Allocator, owned: []u8) Error!FlatMessage {
@@ -457,4 +509,28 @@ test "packed stream framing writes directly to Io writer" {
     defer parsed.deinit(allocator);
     try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
     try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
+}
+
+test "packed stream framing reads one message from Io reader" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const s0 = [_]u8{0} ** 24;
+    const s1 = [_]u8{0x8a} ** 32;
+    const trailer = [_]u8{ 0x44, 0x55, 0x66 };
+    const segments = [_]ConstSegment{ &s0, &s1 };
+    const packed_bytes = try messageToPackedBytes(allocator, &segments);
+    defer allocator.free(packed_bytes);
+    const with_trailer = try std.mem.concat(allocator, u8, &.{ packed_bytes, &trailer });
+    defer allocator.free(with_trailer);
+
+    var reader = std.Io.Reader.fixed(with_trailer);
+    var parsed = try readPackedMessageFromReader(allocator, &reader);
+    defer parsed.deinit(allocator);
+    try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
+    try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
+    try testing.expectEqualSlices(u8, &trailer, reader.buffered());
+
+    var truncated_reader = std.Io.Reader.fixed(packed_bytes[0 .. packed_bytes.len - 1]);
+    try testing.expectError(error.MessageTruncated, readPackedMessageFromReader(allocator, &truncated_reader));
 }
