@@ -23,6 +23,7 @@ pub const ListBuilder = message.ListBuilder;
 pub const ListReader = message.ListReader;
 pub const PointerBuilder = message.PointerBuilder;
 pub const PointerReader = message.PointerReader;
+pub const Orphan = message.Orphan;
 pub const ReaderOptions = message.ReaderOptions;
 pub const BuilderOptions = message.BuilderOptions;
 pub const MessageStats = message.MessageStats;

@@ -78,6 +78,13 @@ const SegmentCursor = struct {
     start: usize,
 };
 
+pub const Orphan = struct {
+    message: *MessageBuilder,
+    segment_id: u32,
+    pointer_word_index: usize,
+    raw: wire.Word,
+};
+
 pub const MessageBuilder = struct {
     allocator: std.mem.Allocator,
     segments: std.ArrayList(SegmentBuilder),
@@ -383,6 +390,64 @@ pub const PointerBuilder = struct {
 
     pub fn clear(self: PointerBuilder) void {
         self.message.writePtr(self.segment_id, self.word_index, 0);
+    }
+
+    pub fn disown(self: PointerBuilder) Orphan {
+        const raw_value = self.message.readWord(self.segment_id, self.word_index);
+        self.clear();
+        return .{
+            .message = self.message,
+            .segment_id = self.segment_id,
+            .pointer_word_index = self.word_index,
+            .raw = raw_value,
+        };
+    }
+
+    pub fn adopt(self: PointerBuilder, orphan: *Orphan) Error!void {
+        if (orphan.raw == 0) {
+            self.clear();
+            return;
+        }
+        if (orphan.message != self.message) return error.InvalidPointerKind;
+        switch (wire.pointerType(orphan.raw)) {
+            .struct_ptr => {
+                const s = wire.decodeStruct(orphan.raw);
+                const total_words = @as(usize, s.data_words) + @as(usize, s.pointer_count);
+                if (total_words == 0) {
+                    self.message.writePtr(self.segment_id, self.word_index, try wire.encodeStruct(-1, 0, 0));
+                } else {
+                    const target = try wire.targetWordIndex(orphan.pointer_word_index, s.offset_words);
+                    const object = SegmentCursor{ .id = orphan.segment_id, .start = target };
+                    const near_raw = if (object.id == self.segment_id)
+                        try wire.encodeStruct(try wire.offsetFromPointer(self.word_index, target), s.data_words, s.pointer_count)
+                    else
+                        try wire.encodeStruct(0, s.data_words, s.pointer_count);
+                    const tag = try wire.encodeStruct(0, s.data_words, s.pointer_count);
+                    try self.message.placePointerToObject(self, object, total_words, tag, near_raw);
+                }
+            },
+            .list => {
+                const l = try wire.decodeList(orphan.raw);
+                const object_word_count = if (l.element_size == .composite)
+                    std.math.add(usize, l.element_count_or_words, 1) catch return error.MessageTooLarge
+                else
+                    try wire.wordsForList(l.element_size, l.element_count_or_words);
+                if (object_word_count == 0) {
+                    self.message.writePtr(self.segment_id, self.word_index, try wire.encodeList(0, l.element_size, l.element_count_or_words));
+                } else {
+                    const target = try wire.targetWordIndex(orphan.pointer_word_index, l.offset_words);
+                    const object = SegmentCursor{ .id = orphan.segment_id, .start = target };
+                    const near_raw = if (object.id == self.segment_id)
+                        try wire.encodeList(try wire.offsetFromPointer(self.word_index, target), l.element_size, l.element_count_or_words)
+                    else
+                        try wire.encodeList(0, l.element_size, l.element_count_or_words);
+                    const tag = try wire.encodeList(0, l.element_size, l.element_count_or_words);
+                    try self.message.placePointerToObject(self, object, object_word_count, tag, near_raw);
+                }
+            },
+            .far, .other => self.message.writePtr(self.segment_id, self.word_index, orphan.raw),
+        }
+        orphan.raw = 0;
     }
 
     pub fn initStruct(self: PointerBuilder, size: wire.StructSize) Error!StructBuilder {
@@ -1970,6 +2035,43 @@ test "builders can clear pointer fields and elements" {
     const read_names = try read_root.getPointerField(1).getList(.pointer);
     try testing.expectEqualSlices(u8, "keep", try (try read_names.getPointerElement(0)).getText());
     try testing.expect((try read_names.getPointerElement(1)).isNull());
+}
+
+test "pointer builders can disown and adopt within a message" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    try root.setText(0, "move me");
+    const field0 = try root.getPointerField(0);
+    const field1 = try root.getPointerField(1);
+
+    var orphan = field0.disown();
+    try testing.expect(field0.isNull());
+    try field1.adopt(&orphan);
+    try testing.expectEqual(@as(u64, 0), orphan.raw);
+    try testing.expect(field0.isNull());
+    try testing.expect(!field1.isNull());
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    try testing.expect(read_root.getPointerField(0).isNull());
+    try testing.expectEqualSlices(u8, "move me", try read_root.getPointerField(1).getText());
+}
+
+test "pointer builders reject adopting from another message" {
+    const testing = std.testing;
+    var source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer source.deinit();
+    const source_root = try source.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    try source_root.setText(0, "foreign");
+    var orphan = (try source_root.getPointerField(0)).disown();
+
+    var target = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer target.deinit();
+    const target_root = try target.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    try testing.expectError(error.InvalidPointerKind, (try target_root.getPointerField(0)).adopt(&orphan));
 }
 
 test "schema-agnostic validation returns reachable layout stats" {
