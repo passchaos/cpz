@@ -35,6 +35,9 @@ struct Person {
   friend @6 :Person;
   palette @7 :List(Color);
   nickname @8 :Text = "anon";
+  blockName @20 :Text = `block
+    default
+    ;
   aliases @9 :TextList;
   payloads @10 :DataList;
   flags @11 :BoolList;

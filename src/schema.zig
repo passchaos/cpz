@@ -627,46 +627,55 @@ pub const Parser = struct {
             try self.skipRawUntilSemicolon();
             return;
         }
-        const list_literal = self.constLiteralStartsList();
-        if (self.constLiteralStartsUnsupported(list_literal)) {
+        const block_text_literal = ty == .text and self.constLiteralFirstByte() == '`';
+        const list_literal = !block_text_literal and self.constLiteralStartsList();
+        if (!block_text_literal and self.constLiteralStartsUnsupported(list_literal)) {
             ty.deinit(self.allocator);
             try self.skipRawUntilSemicolon();
             return;
         }
-        try self.expect(.equal);
 
         var is_hex_data = false;
         var list_items: ?[]ConstListItem = null;
         errdefer if (list_items) |items| self.allocator.free(items);
-        const literal: []const u8 = if (list_literal) blk: {
-            list_items = self.parseConstListItems() catch {
+        const literal: []const u8 = if (block_text_literal) blk: {
+            break :blk self.parseBlockTextLiteralAfterEqual() catch {
                 ty.deinit(self.allocator);
                 try self.skipRawUntilSemicolon();
                 return;
             };
-            break :blk "";
-        } else if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
-            try self.expect(.integer);
-            if (self.lookahead.tag != .string) {
-                ty.deinit(self.allocator);
-                try self.skipRawUntilSemicolon();
-                return;
-            }
-            const value = self.lookahead.lexeme;
-            try self.advance();
-            is_hex_data = true;
-            break :blk value;
         } else blk: {
-            const value = (self.expectDefaultLiteral() catch {
-                ty.deinit(self.allocator);
-                try self.skipRawUntilSemicolon();
-                return;
-            }) orelse {
-                ty.deinit(self.allocator);
-                try self.skipRawUntilSemicolon();
-                return;
+            try self.expect(.equal);
+            break :blk if (list_literal) list_blk: {
+                list_items = self.parseConstListItems() catch {
+                    ty.deinit(self.allocator);
+                    try self.skipRawUntilSemicolon();
+                    return;
+                };
+                break :list_blk "";
+            } else if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) data_blk: {
+                try self.expect(.integer);
+                if (self.lookahead.tag != .string) {
+                    ty.deinit(self.allocator);
+                    try self.skipRawUntilSemicolon();
+                    return;
+                }
+                const value = self.lookahead.lexeme;
+                try self.advance();
+                is_hex_data = true;
+                break :data_blk value;
+            } else value_blk: {
+                const value = (self.expectDefaultLiteral() catch {
+                    ty.deinit(self.allocator);
+                    try self.skipRawUntilSemicolon();
+                    return;
+                }) orelse {
+                    ty.deinit(self.allocator);
+                    try self.skipRawUntilSemicolon();
+                    return;
+                };
+                break :value_blk value;
             };
-            break :blk value;
         };
 
         if (self.lookahead.tag != .semicolon) {
@@ -731,7 +740,7 @@ pub const Parser = struct {
     fn constLiteralStartsUnsupported(self: *const Parser, allow_list: bool) bool {
         const first = self.constLiteralFirstByte() orelse return true;
         return switch (first) {
-            '(', '`' => true,
+            '(' => true,
             '[' => !allow_list,
             else => false,
         };
@@ -1144,6 +1153,9 @@ pub const Parser = struct {
         }
         var default_is_hex_data = false;
         const default_literal = if (self.lookahead.tag == .equal) blk: {
+            if (ty == .text and self.constLiteralFirstByte() == '`') {
+                break :blk try self.parseBlockTextLiteralAfterEqual();
+            }
             try self.expect(.equal);
             if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) {
                 try self.expect(.integer);
@@ -1290,6 +1302,22 @@ pub const Parser = struct {
         const value = try parseInteger(self.lookahead.lexeme);
         try self.advance();
         return value;
+    }
+
+    fn parseBlockTextLiteralAfterEqual(self: *Parser) Error![]const u8 {
+        const source = self.lexer.source;
+        var index = self.lexer.index;
+        while (index < source.len and (source[index] == ' ' or source[index] == '\t' or source[index] == '\r' or source[index] == '\n')) : (index += 1) {}
+        if (index >= source.len or source[index] != '`') return error.UnexpectedToken;
+        index += 1;
+        const start = index;
+        while (index < source.len and source[index] != ';') : (index += 1) {}
+        if (index >= source.len) return error.UnexpectedToken;
+        var end = index;
+        while (end > start and (source[end - 1] == ' ' or source[end - 1] == '\t' or source[end - 1] == '\r' or source[end - 1] == '\n')) end -= 1;
+        self.lexer.index = index;
+        try self.advance();
+        return source[start..end];
     }
 
     fn expectDefaultLiteral(self: *Parser) Error!?[]const u8 {

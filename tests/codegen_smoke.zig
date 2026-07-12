@@ -52,6 +52,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(false, try person_builder.get_active());
     try std.testing.expectEqual(false, try person_builder.has_name());
     try std.testing.expectEqualSlices(u8, "anon", try person_builder.get_nickname());
+    try std.testing.expectEqualSlices(u8, "block\n    default", try person_builder.get_blockName());
     try person_builder.set_name("Ada");
     try std.testing.expectEqual(true, try person_builder.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person_builder.get_name());
@@ -172,6 +173,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(false, person.active());
     try std.testing.expect(person.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person.name());
+    try std.testing.expectEqualSlices(u8, "block\n    default", try person.blockName());
     const read_name_pointer = try person.nameAsPointer();
     try std.testing.expectEqualSlices(u8, "Ada", try read_name_pointer.getText());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person.namePointerKind()).?);
