@@ -1092,51 +1092,38 @@ pub const Parser = struct {
             child.* = scalarOrNamed(base_name);
             return .{ .list = child };
         }
-        if (try self.skipTypeApplications()) {
-            try self.skipDottedTypeSuffix();
-            return scalarOrNamed(name);
-        }
-
         var end = first.end;
+        if (try self.skipTypeApplications()) |app_end| end = app_end;
         while (self.lookahead.tag == .dot) {
             try self.expect(.dot);
             const part = self.lookahead;
             _ = try self.expectIdentifier();
             end = part.end;
-            if (try self.skipTypeApplications()) {
-                try self.skipDottedTypeSuffix();
-                break;
-            }
+            if (try self.skipTypeApplications()) |app_end| end = app_end;
         }
         if (end != first.end) return .{ .named = self.lexer.source[first.start..end] };
         return scalarOrNamed(name);
     }
 
-    fn skipTypeApplications(self: *Parser) Error!bool {
-        var skipped = false;
+    fn skipTypeApplications(self: *Parser) Error!?usize {
+        var last_end: ?usize = null;
         while (self.lookahead.tag == .l_paren) {
-            skipped = true;
             try self.expect(.l_paren);
             var depth: usize = 1;
             while (depth != 0) {
                 if (self.lookahead.tag == .eof) return error.UnexpectedToken;
                 switch (self.lookahead.tag) {
                     .l_paren => depth += 1,
-                    .r_paren => depth -= 1,
+                    .r_paren => {
+                        depth -= 1;
+                        last_end = self.lexer.index;
+                    },
                     else => {},
                 }
                 try self.advance();
             }
         }
-        return skipped;
-    }
-
-    fn skipDottedTypeSuffix(self: *Parser) Error!void {
-        while (self.lookahead.tag == .dot) {
-            try self.expect(.dot);
-            _ = try self.expectIdentifier();
-            _ = try self.skipTypeApplications();
-        }
+        return last_end;
     }
 
     fn scalarOrNamed(name: []const u8) Type {
@@ -1603,14 +1590,14 @@ fn findEnum(file: *const File, name: []const u8) ?*const EnumDecl {
 
 fn findEnumDirect(file: *const File, name: []const u8) ?*const EnumDecl {
     for (file.enums) |*decl| {
-        if (std.mem.eql(u8, decl.name, name)) return decl;
+        if (typeNameEqualsCanonical(name, decl.name)) return decl;
     }
     return null;
 }
 
 fn findStructDirect(file: *const File, name: []const u8) ?*const Struct {
     for (file.structs) |*decl| {
-        if (std.mem.eql(u8, decl.name, name)) return decl;
+        if (typeNameEqualsCanonical(name, decl.name)) return decl;
     }
     return null;
 }
@@ -1629,17 +1616,96 @@ const builtin_capability_interface = InterfaceDecl{ .name = "Capability" };
 
 fn findInterfaceDirect(file: *const File, name: []const u8) ?*const InterfaceDecl {
     for (file.interfaces) |*decl| {
-        if (std.mem.eql(u8, decl.name, name)) return decl;
+        if (typeNameEqualsCanonical(name, decl.name)) return decl;
     }
     return null;
 }
 
+fn firstTopLevelDot(raw: []const u8) ?usize {
+    var depth: usize = 0;
+    for (raw, 0..) |c, index| {
+        switch (c) {
+            '(' => depth += 1,
+            ')' => {
+                if (depth != 0) depth -= 1;
+            },
+            '.' => {
+                if (depth == 0) return index;
+            },
+            else => {},
+        }
+    }
+    return null;
+}
+
+fn lastTopLevelDot(raw: []const u8) ?usize {
+    var depth: usize = 0;
+    var found: ?usize = null;
+    for (raw, 0..) |c, index| {
+        switch (c) {
+            '(' => depth += 1,
+            ')' => {
+                if (depth != 0) depth -= 1;
+            },
+            '.' => {
+                if (depth == 0) found = index;
+            },
+            else => {},
+        }
+    }
+    return found;
+}
+
+fn typeNameEqualsCanonical(raw: []const u8, canonical: []const u8) bool {
+    var canonical_index: usize = 0;
+    var depth: usize = 0;
+    for (raw) |c| {
+        switch (c) {
+            '(' => {
+                depth += 1;
+                continue;
+            },
+            ')' => {
+                if (depth == 0) return false;
+                depth -= 1;
+                continue;
+            },
+            else => {},
+        }
+        if (depth != 0) continue;
+        if (canonical_index >= canonical.len or canonical[canonical_index] != c) return false;
+        canonical_index += 1;
+    }
+    return depth == 0 and canonical_index == canonical.len;
+}
+
+fn canonicalTypeNameAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+    var depth: usize = 0;
+    for (raw) |c| {
+        switch (c) {
+            '(' => {
+                depth += 1;
+                continue;
+            },
+            ')' => {
+                if (depth != 0) depth -= 1;
+                continue;
+            },
+            else => {},
+        }
+        if (depth == 0) try out.append(allocator, c);
+    }
+    return out.toOwnedSlice(allocator);
+}
+
 fn isImportedTypeName(file: *const File, name: []const u8) bool {
-    const dot = std.mem.indexOfScalar(u8, name, '.');
+    const dot = firstTopLevelDot(name);
     const head = if (dot) |index| name[0..index] else name;
     const has_tail = dot != null;
     for (file.imports) |import_decl| {
-        if (!std.mem.eql(u8, import_decl.name, head)) continue;
+        if (!typeNameEqualsCanonical(head, import_decl.name)) continue;
         if (import_decl.member != null) return true;
         return has_tail;
     }
@@ -1693,7 +1759,7 @@ fn isSimpleConstType(ty: Type) bool {
 
 fn anonymousAliasName(ty: Type) ?[]const u8 {
     return switch (ty) {
-        .named => |name| if (std.mem.lastIndexOfScalar(u8, name, '.')) |dot| name[dot + 1 ..] else name,
+        .named => |name| if (lastTopLevelDot(name)) |dot| name[dot + 1 ..] else name,
         else => null,
     };
 }
@@ -4881,17 +4947,19 @@ fn appendFmt(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt
 
 fn zigTypeRefAlloc(allocator: std.mem.Allocator, file: *const File, raw: []const u8) std.mem.Allocator.Error![]u8 {
     if (try importedTypeRefAlloc(allocator, file, raw)) |imported| return imported;
-    const ident = try zigIdentAlloc(allocator, raw);
+    const canonical = try canonicalTypeNameAlloc(allocator, raw);
+    defer allocator.free(canonical);
+    const ident = try zigIdentAlloc(allocator, canonical);
     defer allocator.free(ident);
     return std.fmt.allocPrint(allocator, "@\"cpz.schema\".{s}", .{ident});
 }
 
 fn importedTypeRefAlloc(allocator: std.mem.Allocator, file: *const File, raw: []const u8) std.mem.Allocator.Error!?[]u8 {
-    const dot = std.mem.indexOfScalar(u8, raw, '.');
+    const dot = firstTopLevelDot(raw);
     const head = if (dot) |index| raw[0..index] else raw;
     const tail = if (dot) |index| raw[index + 1 ..] else null;
     for (file.imports) |import_decl| {
-        if (!std.mem.eql(u8, import_decl.name, head)) continue;
+        if (!typeNameEqualsCanonical(head, import_decl.name)) continue;
 
         const imported_raw = if (import_decl.member) |member| blk: {
             if (tail) |suffix| {
@@ -4904,9 +4972,11 @@ fn importedTypeRefAlloc(allocator: std.mem.Allocator, file: *const File, raw: []
         };
         defer allocator.free(imported_raw);
 
+        const canonical_imported_raw = try canonicalTypeNameAlloc(allocator, imported_raw);
+        defer allocator.free(canonical_imported_raw);
         const module_literal = try zigStringLiteralAlloc(allocator, import_decl.name);
         defer allocator.free(module_literal);
-        const imported_ident = try zigIdentAlloc(allocator, imported_raw);
+        const imported_ident = try zigIdentAlloc(allocator, canonical_imported_raw);
         defer allocator.free(imported_ident);
         return try std.fmt.allocPrint(allocator, "@import({s}).{s}", .{ module_literal, imported_ident });
     }

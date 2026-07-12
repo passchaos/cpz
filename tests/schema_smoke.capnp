@@ -131,6 +131,11 @@ struct NestedBox {
 }
 
 struct GenericBox(T) {
+  struct Inner {
+    id @0 :UInt32;
+    label @1 :Text;
+  }
+
   value @0 :T;
 }
 
@@ -138,4 +143,5 @@ struct GenericUseBox {
   direct @0 :GenericBox(Person);
   alias @1 :GenericPersonAlias;
   many @2 :List(GenericBox(Person));
+  nested @3 :GenericBox(Person).Inner;
 }

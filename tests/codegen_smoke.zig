@@ -932,6 +932,9 @@ test "generated generic type applications lower to base accessors" {
     const many = try box_builder.init_many(1);
     const many_item = try many.get(0);
     try many_item.set_value_from(source_ptr);
+    const nested = try box_builder.init_nested();
+    try nested.set_id(4242);
+    try nested.set_label("branded nested");
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const box = generated.GenericUseBox.fromReader(try reader.getRoot());
@@ -942,6 +945,9 @@ test "generated generic type applications lower to base accessors" {
     try std.testing.expectEqual(@as(u32, 8181), alias_person.id());
     const many_person = generated.Person.fromReader(try (try (try (try box.many()).get(0)).value()).getStruct(null));
     try std.testing.expectEqualSlices(u8, "generic person", try many_person.name());
+    const nested_read = try box.nested();
+    try std.testing.expectEqual(@as(u32, 4242), nested_read.id());
+    try std.testing.expectEqualSlices(u8, "branded nested", try nested_read.label());
 }
 
 test "generated builtin any and capability accessors round-trip" {
