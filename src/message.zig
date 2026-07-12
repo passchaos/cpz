@@ -333,6 +333,10 @@ pub const PointerBuilder = struct {
         return self.message.readWord(self.segment_id, self.word_index) == 0;
     }
 
+    pub fn clear(self: PointerBuilder) void {
+        self.message.writePtr(self.segment_id, self.word_index, 0);
+    }
+
     pub fn initStruct(self: PointerBuilder, size: wire.StructSize) Error!StructBuilder {
         const total_words = size.totalWords();
         if (total_words == 0) {
@@ -774,6 +778,10 @@ pub const StructBuilder = struct {
         try (try self.getPointerField(pointer_index)).setData(data);
     }
 
+    pub fn clearPointer(self: StructBuilder, pointer_index: usize) Error!void {
+        (try self.getPointerField(pointer_index)).clear();
+    }
+
     fn setInt(self: StructBuilder, comptime T: type, byte_offset: usize, value: T, default_value: T) Error!void {
         try self.checkDataBytes(byte_offset, @sizeOf(T));
         const encoded = value ^ default_value;
@@ -949,6 +957,10 @@ pub const ListBuilder = struct {
             .segment_id = self.segment_id,
             .word_index = self.start + index,
         };
+    }
+
+    pub fn clearPointerElement(self: ListBuilder, index: usize) Error!void {
+        (try self.getPointerElement(index)).clear();
     }
 
     pub fn getStructElement(self: ListBuilder, index: usize) Error!StructBuilder {
@@ -1394,6 +1406,28 @@ test "pointer lists hold nested text values" {
     try testing.expectEqualSlices(u8, "alice", try (try read_names.getPointerElement(0)).getText());
     try testing.expectEqualSlices(u8, "bob", try (try read_names.getPointerElement(1)).getText());
     try testing.expectEqualSlices(u8, "carol", try (try read_names.getPointerElement(2)).getText());
+}
+
+test "builders can clear pointer fields and elements" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    try root.setText(0, "clear me");
+    try root.clearPointer(0);
+
+    const names = try (try root.getPointerField(1)).initList(.pointer, 2);
+    try (try names.getPointerElement(0)).setText("keep");
+    try (try names.getPointerElement(1)).setText("drop");
+    try names.clearPointerElement(1);
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    try testing.expect(read_root.getPointerField(0).isNull());
+    const read_names = try read_root.getPointerField(1).getList(.pointer);
+    try testing.expectEqualSlices(u8, "keep", try (try read_names.getPointerElement(0)).getText());
+    try testing.expect((try read_names.getPointerElement(1)).isNull());
 }
 
 test "schema-agnostic validation returns reachable layout stats" {
