@@ -2926,6 +2926,23 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         , .{ field_name, index, field_name, index });
     }
 
+    try appendFmt(allocator, out,
+        \\        pub fn disown_{s}(self: Builder) !cpz.Orphan {{
+    , .{field_name});
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).disown();
+        \\        }}
+        \\
+        \\        pub fn adopt_{s}(self: Builder, orphan: *cpz.Orphan) !void {{
+    , .{ index, field_name });
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).adopt(orphan);
+        \\        }}
+        \\
+    , .{index});
+
     switch (resolveType(file, field.ty)) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;

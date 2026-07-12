@@ -184,6 +184,39 @@ test "generated builders can clear pointer fields" {
     try std.testing.expectError(error.NullPointer, person.friend());
 }
 
+test "generated builders can disown and adopt pointer fields" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    try person_builder.set_name("Orphaned name");
+    const friend = try person_builder.init_friend();
+    try friend.set_id(2024);
+    try friend.set_name("Orphaned friend");
+
+    var name_orphan = try person_builder.disown_name();
+    try std.testing.expectEqual(false, try person_builder.has_name());
+    try person_builder.adopt_nickname(&name_orphan);
+    try std.testing.expectEqual(@as(u64, 0), name_orphan.raw);
+    try std.testing.expectEqualSlices(u8, "Orphaned name", try person_builder.get_nickname());
+
+    var friend_orphan = try person_builder.disown_friend();
+    try std.testing.expectEqual(false, try person_builder.has_friend());
+    try person_builder.adopt_maybeFriend(&friend_orphan);
+    const maybe_friend = try person_builder.get_maybeFriend();
+    try std.testing.expectEqual(@as(u32, 2024), try maybe_friend.get_id());
+    try std.testing.expectEqualSlices(u8, "Orphaned friend", try maybe_friend.get_name());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    try std.testing.expect(!person.has_name());
+    try std.testing.expectEqualSlices(u8, "Orphaned name", try person.nickname());
+    try std.testing.expect(!person.has_friend());
+    const read_maybe_friend = try person.maybeFriend();
+    try std.testing.expectEqual(@as(u32, 2024), read_maybe_friend.id());
+    try std.testing.expectEqualSlices(u8, "Orphaned friend", try read_maybe_friend.name());
+}
+
 test "generated builders can copy nested struct fields from readers" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();
