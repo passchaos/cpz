@@ -3051,6 +3051,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getList(null);
             \\        }}
             \\
+            \\        pub fn elementSizeAt(self: @This(), index: usize) !cpz.ElementSize {{
+            \\            return (try (try self.list.getPointerElement(index)).getList(null)).elementSize();
+            \\        }}
+            \\
+            \\        pub fn structElementSizeAt(self: @This(), index: usize) !cpz.StructSize {{
+            \\            return (try (try self.list.getPointerElement(index)).getList(null)).structElementSize();
+            \\        }}
+            \\
         , .{}),
         .capability => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !u32 {{

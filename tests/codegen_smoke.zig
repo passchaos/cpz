@@ -1031,6 +1031,9 @@ test "generated builtin any and capability accessors round-trip" {
     try any_list_items.adopt(0, &any_list_item_copy);
     const read_any_list_item = try any_list_items.get(0);
     try std.testing.expectEqual(@as(u16, 222), read_any_list_item.getUInt16(1));
+    var any_list_items_reader = try builder.asReader(.{});
+    const read_any_list_items = try generated.DynamicBox.fromReader(try any_list_items_reader.getRoot()).anyListList();
+    try std.testing.expectEqual(cpz.ElementSize.two_bytes, try read_any_list_items.elementSizeAt(0));
 
     var orphan_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer orphan_builder_message.deinit();
