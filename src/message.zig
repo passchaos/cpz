@@ -916,6 +916,11 @@ pub const StructBuilder = struct {
         (try self.getPointerField(pointer_index)).clear();
     }
 
+    pub fn clearDataBytes(self: StructBuilder, byte_offset: usize, len: usize) Error!void {
+        try self.checkDataBytes(byte_offset, len);
+        @memset(self.dataBytes()[byte_offset..][0..len], 0);
+    }
+
     pub fn clear(self: StructBuilder) Error!void {
         @memset(self.dataBytes(), 0);
         for (0..self.pointer_count) |i| {

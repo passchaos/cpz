@@ -45,10 +45,28 @@ pub const Field = struct {
     ordinal: u32,
     ty: Type,
     default_literal: ?[]const u8 = null,
+    union_index: ?u32 = null,
+    union_discriminant: u16 = 0,
 
     pub fn deinit(self: *Field, allocator: std.mem.Allocator) void {
         self.ty.deinit(allocator);
         self.* = undefined;
+    }
+};
+
+const UnionBuilder = struct {
+    fields: std.ArrayList(Field) = .empty,
+    field_names: std.StringHashMap(void),
+    next_discriminant: u16 = 0,
+
+    fn init(allocator: std.mem.Allocator) UnionBuilder {
+        return .{ .field_names = std.StringHashMap(void).init(allocator) };
+    }
+
+    fn deinit(self: *UnionBuilder, allocator: std.mem.Allocator) void {
+        for (self.fields.items) |*field| field.deinit(allocator);
+        self.fields.deinit(allocator);
+        self.field_names.deinit();
     }
 };
 
@@ -108,14 +126,23 @@ pub const FieldLayout = struct {
     slot: FieldSlot,
 };
 
+pub const UnionLayout = struct {
+    discriminant_byte: usize,
+    data_bit: usize = 0,
+    data_bits: usize = 0,
+    pointer: ?usize = null,
+};
+
 pub const StructLayout = struct {
     decl: *const Struct,
     data_words: u16,
     pointer_count: u16,
     fields: []FieldLayout,
+    unions: []UnionLayout,
 
     pub fn deinit(self: *StructLayout, allocator: std.mem.Allocator) void {
         allocator.free(self.fields);
+        allocator.free(self.unions);
         self.* = undefined;
     }
 };
@@ -329,6 +356,11 @@ pub const Parser = struct {
         }
         var field_names = std.StringHashMap(void).init(self.allocator);
         defer field_names.deinit();
+        var unions = std.ArrayList(UnionBuilder).empty;
+        errdefer {
+            for (unions.items) |*u| u.deinit(self.allocator);
+            unions.deinit(self.allocator);
+        }
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
@@ -339,19 +371,59 @@ pub const Parser = struct {
             }
             if (self.isKeyword("union") and (try self.peekNext()).tag == .l_brace) {
                 try self.advance();
-                try self.skipBracedDeclaration();
+                const union_index: u32 = @intCast(unions.items.len);
+                try unions.append(self.allocator, UnionBuilder.init(self.allocator));
+                try self.parseAnonymousUnion(&unions.items[union_index], union_index);
                 continue;
             }
             var field = try self.parseField();
-            const entry = try field_names.getOrPut(field.name);
-            if (entry.found_existing) {
+            if (try putFieldName(&field_names, field.name)) {
                 field.deinit(self.allocator);
                 return error.NameCollision;
             }
             try fields.append(self.allocator, field);
         }
         try self.expect(.r_brace);
+        for (unions.items) |*u| {
+            try appendUnionFields(self.allocator, &fields, &field_names, u);
+            u.deinit(self.allocator);
+        }
+        unions.deinit(self.allocator);
         return .{ .name = name, .fields = try fields.toOwnedSlice(self.allocator) };
+    }
+
+    fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
+        try self.expect(.l_brace);
+        while (self.lookahead.tag != .r_brace) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            if ((self.isKeyword("struct") or self.isKeyword("enum")) and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                try self.skipBracedDeclaration();
+                continue;
+            }
+            var field = try self.parseField();
+            field.union_index = union_index;
+            if (try putFieldName(&union_builder.field_names, field.name)) {
+                field.deinit(self.allocator);
+                return error.NameCollision;
+            }
+            try union_builder.fields.append(self.allocator, field);
+        }
+        try self.expect(.r_brace);
+        if (union_builder.fields.items.len < 2) return error.UnexpectedToken;
+        try self.assignUnionDiscriminants(union_builder.fields.items);
+    }
+
+    fn assignUnionDiscriminants(self: *Parser, fields: []Field) Error!void {
+        var assigned = try self.allocator.alloc(bool, fields.len);
+        defer self.allocator.free(assigned);
+        @memset(assigned, false);
+        for (0..fields.len) |discriminant| {
+            if (discriminant > std.math.maxInt(u16)) return error.InvalidOrdinal;
+            const field_index = nextOrdinalFieldIndex(fields, assigned) orelse unreachable;
+            assigned[field_index] = true;
+            fields[field_index].union_discriminant = @intCast(discriminant);
+        }
     }
 
     fn parseEnum(self: *Parser) Error!EnumDecl {
@@ -567,6 +639,31 @@ pub fn parse(allocator: std.mem.Allocator, source: []const u8) Error!File {
     return parser.parse();
 }
 
+fn putFieldName(names: *std.StringHashMap(void), name: []const u8) std.mem.Allocator.Error!bool {
+    const entry = try names.getOrPut(name);
+    return entry.found_existing;
+}
+
+fn appendUnionFields(allocator: std.mem.Allocator, fields: *std.ArrayList(Field), field_names: *std.StringHashMap(void), union_builder: *UnionBuilder) Error!void {
+    var appended: usize = 0;
+    errdefer {
+        var i = fields.items.len - appended;
+        while (i < fields.items.len) : (i += 1) fields.items[i].deinit(allocator);
+        fields.shrinkRetainingCapacity(fields.items.len - appended);
+    }
+    try fields.ensureUnusedCapacity(allocator, union_builder.fields.items.len);
+    try field_names.ensureUnusedCapacity(@intCast(union_builder.fields.items.len));
+    for (union_builder.fields.items) |field| {
+        if (field_names.contains(field.name)) return error.NameCollision;
+    }
+    for (union_builder.fields.items) |field| {
+        field_names.putAssumeCapacityNoClobber(field.name, {});
+        fields.appendAssumeCapacity(field);
+        appended += 1;
+    }
+    union_builder.fields.clearRetainingCapacity();
+}
+
 pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!LayoutFile {
     var layouts = std.ArrayList(StructLayout).empty;
     errdefer {
@@ -583,6 +680,16 @@ pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!
 pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!StructLayout {
     const fields = try allocator.alloc(FieldLayout, decl.fields.len);
     errdefer allocator.free(fields);
+    const union_count = countUnions(decl.fields);
+    const unions = try allocator.alloc(UnionLayout, union_count);
+    errdefer allocator.free(unions);
+    for (unions) |*u| u.* = .{ .discriminant_byte = 0 };
+    const union_requirements = try allocator.alloc(UnionRequirement, union_count);
+    defer allocator.free(union_requirements);
+    for (union_requirements) |*req| req.* = .{};
+    const union_allocated = try allocator.alloc(bool, union_count);
+    defer allocator.free(union_allocated);
+    @memset(union_allocated, false);
 
     var occupied_ordinals = std.AutoHashMap(u32, void).init(allocator);
     defer occupied_ordinals.deinit();
@@ -598,6 +705,9 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
     for (decl.fields) |*field| {
         const entry = try occupied_ordinals.getOrPut(field.ordinal);
         if (entry.found_existing) return error.OrdinalCollision;
+        if (field.union_index) |union_index| {
+            try addUnionRequirement(file, &union_requirements[@intCast(union_index)], field.ty);
+        }
     }
 
     for (0..decl.fields.len) |_| {
@@ -605,7 +715,26 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
         assigned[field_index] = true;
         const field = &decl.fields[field_index];
 
-        const slot: FieldSlot = switch (try classify(file, field.ty)) {
+        const slot: FieldSlot = if (field.union_index) |union_index| blk: {
+            const index: usize = @intCast(union_index);
+            if (!union_allocated[index]) {
+                const discriminant_start = try allocateDataBits(allocator, &data_ranges, 16);
+                data_end_bit = @max(data_end_bit, discriminant_start + 16);
+                unions[index].discriminant_byte = discriminant_start / 8;
+                if (union_requirements[index].data_bits != 0) {
+                    const start = try allocateDataBits(allocator, &data_ranges, union_requirements[index].data_bits);
+                    data_end_bit = @max(data_end_bit, start + union_requirements[index].data_bits);
+                    unions[index].data_bit = start;
+                    unions[index].data_bits = union_requirements[index].data_bits;
+                }
+                if (union_requirements[index].has_pointer) {
+                    unions[index].pointer = next_pointer;
+                    next_pointer += 1;
+                }
+                union_allocated[index] = true;
+            }
+            break :blk try unionFieldSlot(file, field.ty, unions[index]);
+        } else switch (try classify(file, field.ty)) {
             .void => .void,
             .data => |bits| blk: {
                 const start = try allocateDataBits(allocator, &data_ranges, bits);
@@ -630,6 +759,36 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
         .data_words = @intCast((data_end_bit + 63) / 64),
         .pointer_count = @intCast(next_pointer),
         .fields = fields,
+        .unions = unions,
+    };
+}
+
+const UnionRequirement = struct {
+    data_bits: usize = 0,
+    has_pointer: bool = false,
+};
+
+fn countUnions(fields: []const Field) usize {
+    var count: usize = 0;
+    for (fields) |field| {
+        if (field.union_index) |union_index| count = @max(count, @as(usize, @intCast(union_index)) + 1);
+    }
+    return count;
+}
+
+fn addUnionRequirement(file: *const File, req: *UnionRequirement, ty: Type) LayoutError!void {
+    switch (try classify(file, ty)) {
+        .void => {},
+        .data => |bits| req.data_bits = @max(req.data_bits, @max(bits, @as(usize, 8))),
+        .pointer => req.has_pointer = true,
+    }
+}
+
+fn unionFieldSlot(file: *const File, ty: Type, layout: UnionLayout) LayoutError!FieldSlot {
+    return switch (try classify(file, ty)) {
+        .void => .void,
+        .data => |bits| if (bits == 1) .{ .data_bit = layout.data_bit } else .{ .data_byte = layout.data_bit / 8 },
+        .pointer => .{ .pointer = layout.pointer orelse return error.UnsupportedType },
     };
 }
 
@@ -922,10 +1081,10 @@ test "schema parser and codegen accept optional pointer types" {
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn name(self: @This()) ![]const u8") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !Maybe.Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !@\"cpz.schema\".Maybe.Builder") != null);
 }
 
-test "schema parser tolerates union and group blocks inside structs" {
+test "schema parser lowers anonymous unions and tolerates group blocks inside structs" {
     const source =
         \\struct Choice {
         \\  union {
@@ -941,13 +1100,19 @@ test "schema parser tolerates union and group blocks inside structs" {
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
-    // The union is skipped for now; the group is represented as a void
-    // placeholder so ordinal accounting can remain deterministic until full
-    // group lowering exists.
-    try std.testing.expectEqual(@as(usize, 2), file.structs[0].fields.len);
+    // The group is still represented as a void placeholder until full group
+    // lowering exists; anonymous union fields are now lowered into ordinary
+    // fields tagged with discriminant metadata.
+    try std.testing.expectEqual(@as(usize, 4), file.structs[0].fields.len);
     try std.testing.expectEqualStrings("metadata", file.structs[0].fields[0].name);
     try std.testing.expectEqual(Type.void, file.structs[0].fields[0].ty);
     try std.testing.expectEqualStrings("keep", file.structs[0].fields[1].name);
+    try std.testing.expectEqualStrings("name", file.structs[0].fields[2].name);
+    try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[2].union_index);
+    try std.testing.expectEqual(@as(u16, 0), file.structs[0].fields[2].union_discriminant);
+    try std.testing.expectEqualStrings("id", file.structs[0].fields[3].name);
+    try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[3].union_index);
+    try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[3].union_discriminant);
 }
 
 test "schema parser tolerates nested declarations and dotted type names" {
@@ -1035,6 +1200,36 @@ test "schema layout planner allocates slots by ordinal not declaration order" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, fields[3].slot);
 }
 
+test "schema layout planner overlaps anonymous union fields" {
+    var file = try parse(std.testing.allocator,
+        \\struct Choice {
+        \\  before @0 :Text;
+        \\  union {
+        \\    foo @1 :UInt16;
+        \\    bar @3 :UInt32;
+        \\  }
+        \\  middle @2 :UInt16;
+        \\  after @4 :Text;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const layout = layouts.structs[0];
+    try std.testing.expectEqual(@as(u16, 1), layout.data_words);
+    try std.testing.expectEqual(@as(u16, 2), layout.pointer_count);
+    try std.testing.expectEqual(@as(usize, 1), layout.unions.len);
+    try std.testing.expectEqual(@as(usize, 0), layout.unions[0].discriminant_byte);
+    try std.testing.expectEqual(@as(usize, 32), layout.unions[0].data_bit);
+    try std.testing.expectEqual(@as(usize, 32), layout.unions[0].data_bits);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, layout.fields[0].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 2 }, layout.fields[1].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, layout.fields[2].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 4 }, layout.fields[3].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 4 }, layout.fields[4].slot);
+}
+
 test "schema layout planner reuses alignment padding holes" {
     var file = try parse(std.testing.allocator,
         \\struct Compact {
@@ -1075,6 +1270,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     try appendFmt(allocator, &out,
         \\const std = @import("std");
         \\const cpz = @import("{s}");
+        \\const @"cpz.schema" = @This();
         \\
         \\
     , .{options.runtime_import_name});
@@ -1083,6 +1279,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
         defer allocator.free(namespace);
         try appendFmt(allocator, &out,
             \\pub const {s} = struct {{
+            \\    const @"cpz.schema" = @This();
             \\
         , .{namespace});
     }
@@ -1195,8 +1392,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
     , .{ struct_name, layout.data_words, layout.pointer_count, struct_name });
 
+    try emitUnionDeclarations(allocator, out, layout);
+
     for (layout.fields) |field_layout| {
-        try emitFieldGetter(allocator, out, file, struct_name, field_layout);
+        try emitFieldGetter(allocator, out, file, layout, struct_name, field_layout);
     }
     for (layout.fields) |field_layout| {
         if (field_layout.field.ty == .list) {
@@ -1219,8 +1418,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
     , .{});
 
+    try emitBuilderUnionHelpers(allocator, out, struct_name, layout);
+
     for (layout.fields) |field_layout| {
-        try emitFieldBuilderMethod(allocator, out, file, struct_name, field_layout);
+        try emitFieldBuilderMethod(allocator, out, file, layout, struct_name, field_layout);
     }
 
     try appendFmt(allocator, out,
@@ -1231,46 +1432,146 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try appendFmt(allocator, out, "}};\n\n", .{});
 }
 
-fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_layout: FieldLayout) LayoutError!void {
+fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
+    for (layout.unions, 0..) |union_layout, union_index| {
+        _ = union_layout;
+        try appendFmt(allocator, out,
+            \\    pub const Union{} = enum(u16) {{
+            \\
+        , .{union_index});
+        for (layout.fields) |field_layout| {
+            const field = field_layout.field;
+            if (field.union_index == null or field.union_index.? != union_index) continue;
+            const field_name = try zigIdentAlloc(allocator, field.name);
+            defer allocator.free(field_name);
+            try appendFmt(allocator, out,
+                \\        {s} = {},
+                \\
+            , .{ field_name, field.union_discriminant });
+        }
+        try appendFmt(allocator, out,
+            \\    }};
+            \\
+            \\    pub fn union{}(self: @This()) ?Union{} {{
+            \\        return std.enums.fromInt(Union{}, self.reader.getUInt16({}, 0));
+            \\    }}
+            \\
+            \\
+        , .{ union_index, union_index, union_index, layout.unions[union_index].discriminant_byte });
+    }
+    if (layout.unions.len == 1) {
+        try appendFmt(allocator, out,
+            \\    pub fn which(self: @This()) ?Union0 {{
+            \\        return self.union0();
+            \\    }}
+            \\
+            \\
+        , .{});
+    }
+}
+
+fn emitBuilderUnionHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), owner_name: []const u8, layout: *const StructLayout) LayoutError!void {
+    for (layout.unions, 0..) |union_layout, union_index| {
+        try appendFmt(allocator, out,
+            \\        pub fn union{}(self: Builder) !?{s}.Union{} {{
+            \\            return std.enums.fromInt({s}.Union{}, try self.builder.getUInt16({}, 0));
+            \\        }}
+            \\
+        , .{ union_index, owner_name, union_index, owner_name, union_index, union_layout.discriminant_byte });
+        try appendFmt(allocator, out,
+            \\        fn activateUnion{}(self: Builder, discriminant: u16) !void {{
+        , .{union_index});
+        if (union_layout.data_bits != 0) {
+            try appendFmt(allocator, out,
+                \\
+                \\            try self.builder.clearDataBytes({}, {});
+            , .{ union_layout.data_bit / 8, (union_layout.data_bits + 7) / 8 });
+        }
+        if (union_layout.pointer) |pointer| {
+            try appendFmt(allocator, out,
+                \\
+                \\            try self.builder.clearPointer({});
+            , .{pointer});
+        }
+        try appendFmt(allocator, out,
+            \\
+            \\            try self.builder.setUInt16({}, discriminant, 0);
+            \\        }}
+            \\
+            \\
+        , .{union_layout.discriminant_byte});
+    }
+    if (layout.unions.len == 1) {
+        try appendFmt(allocator, out,
+            \\        pub fn which(self: Builder) !?{s}.Union0 {{
+            \\            return self.union0();
+            \\        }}
+            \\
+            \\
+        , .{owner_name});
+    }
+}
+
+fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_layout: FieldLayout) LayoutError!void {
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
     switch (field_layout.slot) {
-        .void => try appendFmt(allocator, out,
+        .void => if (unionLayoutForField(layout, field)) |union_layout| try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) !void {{
+            \\        if (self.reader.getUInt16({}, 0) != {}) return error.InactiveUnionField;
+            \\    }}
+            \\
+        , .{ field_name, union_layout.discriminant_byte, field.union_discriminant }) else try appendFmt(allocator, out,
             \\    pub fn {s}(self: {s}) void {{
             \\        _ = self;
             \\    }}
             \\
         , .{ field_name, "@This()" }),
-        .data_bit => |bit| try appendFmt(allocator, out,
+        .data_bit => |bit| if (unionLayoutForField(layout, field)) |union_layout| try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) !bool {{
+            \\        if (self.reader.getUInt16({}, 0) != {}) return error.InactiveUnionField;
+            \\        return self.reader.getBool({}, {s});
+            \\    }}
+            \\
+        , .{ field_name, union_layout.discriminant_byte, field.union_discriminant, bit, try defaultBoolLiteral(field) }) else try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) bool {{
             \\        return self.reader.getBool({}, {s});
             \\    }}
             \\
         , .{ field_name, bit, try defaultBoolLiteral(field) }),
-        .data_byte => |byte| try emitDataGetter(allocator, out, file, field_name, field, byte),
-        .pointer => |index| try emitPointerGetter(allocator, out, file, owner_name, field_name, field, index),
+        .data_byte => |byte| try emitDataGetter(allocator, out, file, layout, field_name, field, byte),
+        .pointer => |index| try emitPointerGetter(allocator, out, file, layout, owner_name, field_name, field, index),
     }
 }
 
-fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
+fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
+    const union_layout = unionLayoutForField(layout, field);
     switch (field.ty) {
-        .int8 => try scalarGetter(allocator, out, field_name, "i8", "getInt8", byte, defaultScalarLiteral(field)),
-        .int16 => try scalarGetter(allocator, out, field_name, "i16", "getInt16", byte, defaultScalarLiteral(field)),
-        .int32 => try scalarGetter(allocator, out, field_name, "i32", "getInt32", byte, defaultScalarLiteral(field)),
-        .int64 => try scalarGetter(allocator, out, field_name, "i64", "getInt64", byte, defaultScalarLiteral(field)),
-        .uint8 => try scalarGetter(allocator, out, field_name, "u8", "getUInt8", byte, defaultScalarLiteral(field)),
-        .uint16 => try scalarGetter(allocator, out, field_name, "u16", "getUInt16", byte, defaultScalarLiteral(field)),
-        .uint32 => try scalarGetter(allocator, out, field_name, "u32", "getUInt32", byte, defaultScalarLiteral(field)),
-        .uint64 => try scalarGetter(allocator, out, field_name, "u64", "getUInt64", byte, defaultScalarLiteral(field)),
-        .float32 => try scalarGetter(allocator, out, field_name, "f32", "getFloat32", byte, defaultScalarLiteral(field)),
-        .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, defaultScalarLiteral(field)),
+        .int8 => try scalarGetter(allocator, out, field_name, "i8", "getInt8", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .int16 => try scalarGetter(allocator, out, field_name, "i16", "getInt16", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .int32 => try scalarGetter(allocator, out, field_name, "i32", "getInt32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .int64 => try scalarGetter(allocator, out, field_name, "i64", "getInt64", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .uint8 => try scalarGetter(allocator, out, field_name, "u8", "getUInt8", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .uint16 => try scalarGetter(allocator, out, field_name, "u16", "getUInt16", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .uint32 => try scalarGetter(allocator, out, field_name, "u32", "getUInt32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .uint64 => try scalarGetter(allocator, out, field_name, "u64", "getUInt64", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .float32 => try scalarGetter(allocator, out, field_name, "f32", "getFloat32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
+        .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !{s} {{
+            , .{ field_name, zig_type });
+            if (union_layout) |u| {
+                try appendFmt(allocator, out,
+                    \\        if (self.reader.getUInt16({}, 0) != {}) return error.InactiveUnionField;
+                    \\
+                , .{ u.discriminant_byte, field.union_discriminant });
+            }
+            try appendFmt(allocator, out,
                 \\        return std.enums.fromInt({s}, self.reader.getUInt16({}, {})) orelse error.InvalidEnumValue;
                 \\    }}
                 \\
@@ -1278,88 +1579,139 @@ fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
                 \\        return self.reader.getUInt16({}, {});
                 \\    }}
                 \\
-            , .{ field_name, zig_type, zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+            , .{ zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
         },
         else => return error.UnsupportedType,
     }
 }
 
-fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, method: []const u8, byte: usize, default: []const u8) !void {
-    try appendFmt(allocator, out,
-        \\    pub fn {s}(self: @This()) {s} {{
-        \\        return self.reader.{s}({}, {s});
-        \\    }}
-        \\
-    , .{ name, zig_type, method, byte, default });
+fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, method: []const u8, byte: usize, default: []const u8, union_layout: ?UnionLayout, discriminant: u16) !void {
+    if (union_layout) |u| {
+        try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) !{s} {{
+            \\        if (self.reader.getUInt16({}, 0) != {}) return error.InactiveUnionField;
+            \\        return self.reader.{s}({}, {s});
+            \\    }}
+            \\
+        , .{ name, zig_type, u.discriminant_byte, discriminant, method, byte, default });
+    } else {
+        try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) {s} {{
+            \\        return self.reader.{s}({}, {s});
+            \\    }}
+            \\
+        , .{ name, zig_type, method, byte, default });
+    }
 }
 
-fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
     if (field.ty == .optional) {
         var optional_field = field.*;
         optional_field.ty = field.ty.optional.*;
-        return emitPointerGetter(allocator, out, file, owner_name, field_name, &optional_field, index);
+        return emitPointerGetter(allocator, out, file, layout, owner_name, field_name, &optional_field, index);
     }
+    const union_layout = unionLayoutForField(layout, field);
 
-    try appendFmt(allocator, out,
-        \\    pub fn has_{s}(self: @This()) bool {{
-        \\        return !self.reader.getPointerField({}).isNull();
-        \\    }}
-        \\
-    , .{ field_name, index });
+    if (union_layout) |u| {
+        try appendFmt(allocator, out,
+            \\    pub fn has_{s}(self: @This()) bool {{
+            \\        if (self.reader.getUInt16({}, 0) != {}) return false;
+            \\        return !self.reader.getPointerField({}).isNull();
+            \\    }}
+            \\
+        , .{ field_name, u.discriminant_byte, field.union_discriminant, index });
+    } else {
+        try appendFmt(allocator, out,
+            \\    pub fn has_{s}(self: @This()) bool {{
+            \\        return !self.reader.getPointerField({}).isNull();
+            \\    }}
+            \\
+        , .{ field_name, index });
+    }
 
     switch (field.ty) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
             defer if (default_literal) |literal| allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) ![]const u8 {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             if (default_literal) |literal| {
                 try appendFmt(allocator, out,
-                    \\    pub fn {s}(self: @This()) ![]const u8 {{
                     \\        return self.reader.getPointerField({}).getTextDefault({s});
                     \\    }}
                     \\
-                , .{ field_name, index, literal });
-            } else try appendFmt(allocator, out,
-                \\    pub fn {s}(self: @This()) ![]const u8 {{
-                \\        return self.reader.getPointerField({}).getText();
-                \\    }}
-                \\
-            , .{ field_name, index });
+                , .{ index, literal });
+            } else {
+                try appendFmt(allocator, out,
+                    \\        return self.reader.getPointerField({}).getText();
+                    \\    }}
+                    \\
+                , .{index});
+            }
         },
         .data => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
             defer if (default_literal) |literal| allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) ![]const u8 {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             if (default_literal) |literal| {
                 try appendFmt(allocator, out,
-                    \\    pub fn {s}(self: @This()) ![]const u8 {{
                     \\        return self.reader.getPointerField({}).getDataDefault({s});
                     \\    }}
                     \\
-                , .{ field_name, index, literal });
-            } else try appendFmt(allocator, out,
-                \\    pub fn {s}(self: @This()) ![]const u8 {{
-                \\        return self.reader.getPointerField({}).getData();
+                , .{ index, literal });
+            } else {
+                try appendFmt(allocator, out,
+                    \\        return self.reader.getPointerField({}).getData();
+                    \\    }}
+                    \\
+                , .{index});
+            }
+        },
+        .list => |child| {
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) !{s}_{s}_List {{
+            , .{ field_name, owner_name, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return .{{ .list = try self.reader.getPointerField({}).getList({s}) }};
                 \\    }}
                 \\
-            , .{ field_name, index });
+            , .{ index, try listElementSizeLiteral(file, child.*) });
         },
-        .list => |child| try appendFmt(allocator, out,
-            \\    pub fn {s}(self: @This()) !{s}_{s}_List {{
-            \\        return .{{ .list = try self.reader.getPointerField({}).getList({s}) }};
-            \\    }}
-            \\
-        , .{ field_name, owner_name, field_name, index, try listElementSizeLiteral(file, child.*) }),
         .named => |type_name| {
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !{s} {{
+            , .{ field_name, zig_type });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
                 \\        return {s}.fromReader(try self.reader.getPointerField({}).getStruct(null));
                 \\    }}
                 \\
-            , .{ field_name, zig_type, zig_type, index });
+            , .{ zig_type, index });
         },
         else => return error.UnsupportedType,
     }
+}
+
+fn emitReaderUnionCheck(allocator: std.mem.Allocator, out: *std.ArrayList(u8), union_layout: ?UnionLayout, discriminant: u16) std.mem.Allocator.Error!void {
+    if (union_layout) |u| {
+        try appendFmt(allocator, out,
+            \\        if (self.reader.getUInt16({}, 0) != {}) return error.InactiveUnionField;
+            \\
+        , .{ u.discriminant_byte, discriminant });
+    }
+}
+
+fn unionLayoutForField(layout: *const StructLayout, field: *const Field) ?UnionLayout {
+    const union_index = field.union_index orelse return null;
+    return layout.unions[@intCast(union_index)];
 }
 
 fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field: *const Field) LayoutError!void {
@@ -1407,7 +1759,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{}),
         .named => |type_name| if (findEnum(file, type_name) != null) {
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s} {{
@@ -1420,7 +1772,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type });
         } else {
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s} {{
@@ -1498,7 +1850,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{}),
         .named => |type_name| if (findEnum(file, type_name) != null) {
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s} {{
@@ -1519,7 +1871,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type, zig_type });
         } else {
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), index: usize) !{s}.Builder {{
@@ -1567,183 +1919,283 @@ fn listScalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_t
     , .{ zig_type, method["set".len..], zig_type, method });
 }
 
-fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_layout: FieldLayout) LayoutError!void {
+fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_layout: FieldLayout) LayoutError!void {
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
+    const union_layout = unionLayoutForField(layout, field);
     switch (field_layout.slot) {
-        .void => try appendFmt(allocator, out,
+        .void => if (field.union_index) |union_index| try appendFmt(allocator, out,
+            \\        pub fn set_{s}(self: Builder) !void {{
+            \\            return self.activateUnion{}({});
+            \\        }}
+            \\
+        , .{ field_name, union_index, field.union_discriminant }) else try appendFmt(allocator, out,
             \\        pub fn set_{s}(self: Builder) void {{
             \\            _ = self;
             \\        }}
             \\
         , .{field_name}),
-        .data_bit => |bit| try appendFmt(allocator, out,
-            \\        pub fn get_{s}(self: Builder) !bool {{
-            \\            return self.builder.getBool({}, {s});
-            \\        }}
-            \\
-            \\        pub fn set_{s}(self: Builder, value: bool) !void {{
-            \\            return self.builder.setBool({}, value, {s});
-            \\        }}
-            \\
-        , .{ field_name, bit, try defaultBoolLiteral(field), field_name, bit, try defaultBoolLiteral(field) }),
-        .data_byte => |byte| try emitDataBuilderMethod(allocator, out, file, field_name, field, byte),
-        .pointer => |index| try emitPointerBuilderMethod(allocator, out, file, owner_name, field_name, field, index),
+        .data_bit => |bit| {
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) !bool {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return self.builder.getBool({}, {s});
+                \\        }}
+                \\
+                \\        pub fn set_{s}(self: Builder, value: bool) !void {{
+            , .{ bit, try defaultBoolLiteral(field), field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return self.builder.setBool({}, value, {s});
+                \\        }}
+                \\
+            , .{ bit, try defaultBoolLiteral(field) });
+        },
+        .data_byte => |byte| try emitDataBuilderMethod(allocator, out, file, layout, field_name, field, byte),
+        .pointer => |index| try emitPointerBuilderMethod(allocator, out, file, layout, owner_name, field_name, field, index),
     }
 }
 
-fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
+fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
+    const union_layout = unionLayoutForField(layout, field);
     switch (field.ty) {
-        .int8 => try scalarSetter(allocator, out, field_name, "i8", "getInt8", "setInt8", byte, defaultScalarLiteral(field)),
-        .int16 => try scalarSetter(allocator, out, field_name, "i16", "getInt16", "setInt16", byte, defaultScalarLiteral(field)),
-        .int32 => try scalarSetter(allocator, out, field_name, "i32", "getInt32", "setInt32", byte, defaultScalarLiteral(field)),
-        .int64 => try scalarSetter(allocator, out, field_name, "i64", "getInt64", "setInt64", byte, defaultScalarLiteral(field)),
-        .uint8 => try scalarSetter(allocator, out, field_name, "u8", "getUInt8", "setUInt8", byte, defaultScalarLiteral(field)),
-        .uint16 => try scalarSetter(allocator, out, field_name, "u16", "getUInt16", "setUInt16", byte, defaultScalarLiteral(field)),
-        .uint32 => try scalarSetter(allocator, out, field_name, "u32", "getUInt32", "setUInt32", byte, defaultScalarLiteral(field)),
-        .uint64 => try scalarSetter(allocator, out, field_name, "u64", "getUInt64", "setUInt64", byte, defaultScalarLiteral(field)),
-        .float32 => try scalarSetter(allocator, out, field_name, "f32", "getFloat32", "setFloat32", byte, defaultScalarLiteral(field)),
-        .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, defaultScalarLiteral(field)),
+        .int8 => try scalarSetter(allocator, out, field_name, "i8", "getInt8", "setInt8", byte, defaultScalarLiteral(field), union_layout, field),
+        .int16 => try scalarSetter(allocator, out, field_name, "i16", "getInt16", "setInt16", byte, defaultScalarLiteral(field), union_layout, field),
+        .int32 => try scalarSetter(allocator, out, field_name, "i32", "getInt32", "setInt32", byte, defaultScalarLiteral(field), union_layout, field),
+        .int64 => try scalarSetter(allocator, out, field_name, "i64", "getInt64", "setInt64", byte, defaultScalarLiteral(field), union_layout, field),
+        .uint8 => try scalarSetter(allocator, out, field_name, "u8", "getUInt8", "setUInt8", byte, defaultScalarLiteral(field), union_layout, field),
+        .uint16 => try scalarSetter(allocator, out, field_name, "u16", "getUInt16", "setUInt16", byte, defaultScalarLiteral(field), union_layout, field),
+        .uint32 => try scalarSetter(allocator, out, field_name, "u32", "getUInt32", "setUInt32", byte, defaultScalarLiteral(field), union_layout, field),
+        .uint64 => try scalarSetter(allocator, out, field_name, "u64", "getUInt64", "setUInt64", byte, defaultScalarLiteral(field), union_layout, field),
+        .float32 => try scalarSetter(allocator, out, field_name, "f32", "getFloat32", "setFloat32", byte, defaultScalarLiteral(field), union_layout, field),
+        .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, defaultScalarLiteral(field), union_layout, field),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !{s} {{
+            , .{ field_name, zig_type });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
                 \\            return std.enums.fromInt({s}, try self.builder.getUInt16({}, {})) orelse error.InvalidEnumValue;
                 \\        }}
                 \\
                 \\        pub fn get_{s}_raw(self: Builder) !u16 {{
+            , .{ zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
                 \\            return self.builder.getUInt16({}, {});
                 \\        }}
                 \\
                 \\        pub fn set_{s}(self: Builder, value: {s}) !void {{
+            , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
                 \\            return self.builder.setUInt16({}, @intFromEnum(value), {});
                 \\        }}
                 \\
                 \\        pub fn set_{s}_raw(self: Builder, value: u16) !void {{
+            , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
                 \\            return self.builder.setUInt16({}, value, {});
                 \\        }}
                 \\
-            , .{ field_name, zig_type, zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+            , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
         },
         else => return error.UnsupportedType,
     }
 }
 
-fn scalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, get_method: []const u8, method: []const u8, byte: usize, default: []const u8) !void {
+fn scalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, get_method: []const u8, method: []const u8, byte: usize, default: []const u8, union_layout: ?UnionLayout, field: *const Field) LayoutError!void {
     try appendFmt(allocator, out,
         \\        pub fn get_{s}(self: Builder) !{s} {{
+    , .{ name, zig_type });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
         \\            return self.builder.{s}({}, {s});
         \\        }}
         \\
         \\        pub fn set_{s}(self: Builder, value: {s}) !void {{
+    , .{ get_method, byte, default, name, zig_type });
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
         \\            return self.builder.{s}({}, value, {s});
         \\        }}
         \\
-    , .{ name, zig_type, get_method, byte, default, name, zig_type, method, byte, default });
+    , .{ method, byte, default });
 }
 
-fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
     if (field.ty == .optional) {
         var optional_field = field.*;
         optional_field.ty = field.ty.optional.*;
-        return emitPointerBuilderMethod(allocator, out, file, owner_name, field_name, &optional_field, index);
+        return emitPointerBuilderMethod(allocator, out, file, layout, owner_name, field_name, &optional_field, index);
     }
+    const union_layout = unionLayoutForField(layout, field);
 
-    try appendFmt(allocator, out,
-        \\        pub fn has_{s}(self: Builder) !bool {{
-        \\            return !(try self.builder.getPointerField({})).isNull();
-        \\        }}
-        \\
-        \\        pub fn clear_{s}(self: Builder) !void {{
-        \\            return self.builder.clearPointer({});
-        \\        }}
-        \\
-    , .{ field_name, index, field_name, index });
+    if (union_layout) |u| {
+        try appendFmt(allocator, out,
+            \\        pub fn has_{s}(self: Builder) !bool {{
+            \\            if (try self.builder.getUInt16({}, 0) != {}) return false;
+            \\            return !(try self.builder.getPointerField({})).isNull();
+            \\        }}
+            \\
+            \\        pub fn clear_{s}(self: Builder) !void {{
+        , .{ field_name, u.discriminant_byte, field.union_discriminant, index, field_name });
+        try emitBuilderUnionActivation(allocator, out, field);
+        try appendFmt(allocator, out,
+            \\            return self.builder.clearPointer({});
+            \\        }}
+            \\
+        , .{index});
+    } else {
+        try appendFmt(allocator, out,
+            \\        pub fn has_{s}(self: Builder) !bool {{
+            \\            return !(try self.builder.getPointerField({})).isNull();
+            \\        }}
+            \\
+            \\        pub fn clear_{s}(self: Builder) !void {{
+            \\            return self.builder.clearPointer({});
+            \\        }}
+            \\
+        , .{ field_name, index, field_name, index });
+    }
 
     switch (field.ty) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
             defer if (default_literal) |literal| allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) ![]const u8 {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             if (default_literal) |literal| {
                 try appendFmt(allocator, out,
-                    \\        pub fn get_{s}(self: Builder) ![]const u8 {{
                     \\            return (try self.builder.getPointerField({})).getTextDefault({s});
                     \\        }}
                     \\
-                , .{ field_name, index, literal });
-            } else try appendFmt(allocator, out,
-                \\        pub fn get_{s}(self: Builder) ![]const u8 {{
-                \\            return (try self.builder.getPointerField({})).getText();
-                \\        }}
-                \\
-            , .{ field_name, index });
+                , .{ index, literal });
+            } else {
+                try appendFmt(allocator, out,
+                    \\            return (try self.builder.getPointerField({})).getText();
+                    \\        }}
+                    \\
+                , .{index});
+            }
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+            , .{field_name});
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
                 \\            return self.builder.setText({}, value);
                 \\        }}
                 \\
-            , .{ field_name, index });
+            , .{index});
         },
         .data => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
             defer if (default_literal) |literal| allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) ![]const u8 {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             if (default_literal) |literal| {
                 try appendFmt(allocator, out,
-                    \\        pub fn get_{s}(self: Builder) ![]const u8 {{
                     \\            return (try self.builder.getPointerField({})).getDataDefault({s});
                     \\        }}
                     \\
-                , .{ field_name, index, literal });
-            } else try appendFmt(allocator, out,
-                \\        pub fn get_{s}(self: Builder) ![]const u8 {{
-                \\            return (try self.builder.getPointerField({})).getData();
-                \\        }}
-                \\
-            , .{ field_name, index });
+                , .{ index, literal });
+            } else {
+                try appendFmt(allocator, out,
+                    \\            return (try self.builder.getPointerField({})).getData();
+                    \\        }}
+                    \\
+                , .{index});
+            }
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+            , .{field_name});
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
                 \\            return self.builder.setData({}, value);
                 \\        }}
                 \\
-            , .{ field_name, index });
+            , .{index});
         },
         .list => |child| if (isStructListElement(file, child.*)) |type_name| {
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
+            , .{ field_name, owner_name, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
                 \\            return .{{ .list = try (try self.builder.getPointerField({})).initStructList(count, {s}.size) }};
                 \\        }}
                 \\
-            , .{ field_name, owner_name, field_name, index, zig_type });
-        } else try appendFmt(allocator, out,
-            \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
-            \\            return .{{ .list = try (try self.builder.getPointerField({})).initList({s}, count) }};
-            \\        }}
-            \\
-        , .{ field_name, owner_name, field_name, index, try listElementSizeLiteral(file, child.*) }),
+            , .{ index, zig_type });
+        } else {
+            try appendFmt(allocator, out,
+                \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
+            , .{ field_name, owner_name, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return .{{ .list = try (try self.builder.getPointerField({})).initList({s}, count) }};
+                \\        }}
+                \\
+            , .{ index, try listElementSizeLiteral(file, child.*) });
+        },
         .named => |type_name| {
-            const zig_type = try zigIdentAlloc(allocator, type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !{s}.Builder {{
+            , .{ field_name, zig_type });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
                 \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).getStruct());
                 \\        }}
                 \\
                 \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
+            , .{ zig_type, index, field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
                 \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
                 \\        }}
                 \\
                 \\        pub fn set_{s}_from(self: Builder, value: {s}) !void {{
+            , .{ zig_type, index, zig_type, field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyStructFrom(value.reader);
                 \\        }}
                 \\
-            , .{ field_name, zig_type, zig_type, index, field_name, zig_type, zig_type, index, zig_type, field_name, zig_type, index });
+            , .{index});
         },
         else => return error.UnsupportedType,
+    }
+}
+
+fn emitBuilderUnionCheck(allocator: std.mem.Allocator, out: *std.ArrayList(u8), union_layout: ?UnionLayout, discriminant: u16) std.mem.Allocator.Error!void {
+    if (union_layout) |u| {
+        try appendFmt(allocator, out,
+            \\            if (try self.builder.getUInt16({}, 0) != {}) return error.InactiveUnionField;
+            \\
+        , .{ u.discriminant_byte, discriminant });
+    }
+}
+
+fn emitBuilderUnionActivation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field) std.mem.Allocator.Error!void {
+    if (field.union_index) |union_index| {
+        try appendFmt(allocator, out,
+            \\            try self.activateUnion{}({});
+            \\
+        , .{ union_index, field.union_discriminant });
     }
 }
 
@@ -1772,6 +2224,12 @@ fn appendFmt(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt
     const text = try std.fmt.allocPrint(allocator, fmt, args);
     defer allocator.free(text);
     try out.appendSlice(allocator, text);
+}
+
+fn zigTypeRefAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
+    const ident = try zigIdentAlloc(allocator, raw);
+    defer allocator.free(ident);
+    return std.fmt.allocPrint(allocator, "@\"cpz.schema\".{s}", .{ident});
 }
 
 fn zigIdentAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
@@ -1921,37 +2379,37 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "std.enums.fromInt(Color, self.reader.getUInt16(6, 1))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "std.enums.fromInt(@\"cpz.schema\".Color, self.reader.getUInt16(6, 1))") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn favorite_raw(self: @This()) u16") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_favorite(self: Builder) !Color") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_favorite(self: Builder) !@\"cpz.schema\".Color") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_favorite_raw(self: Builder) !u16") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_favorite_raw(self: Builder, value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getTextDefault(\"Anon\")") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "@\"cpz.schema\".Person.fromReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_scores_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_children_List") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return Person.fromReader(try self.list.getStructElement(index));") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_friend(self: Builder) !Person.Builder") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !Person.Builder") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(Person.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.fromReader(try self.list.getStructElement(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_friend(self: Builder) !@\"cpz.schema\".Person.Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !@\"cpz.schema\".Person.Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@\"cpz.schema\".Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_scores_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, value);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getPointerElement(index)).getText();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearPointerElement(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getStructElement(index)).clear();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return std.enums.fromInt(Color, self.list.getUInt16(index)) orelse error.InvalidEnumValue;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return std.enums.fromInt(@\"cpz.schema\".Color, self.list.getUInt16(index)) orelse error.InvalidEnumValue;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) u16") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) !u16") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setRaw(self: @This(), index: usize, value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(value));") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, Person.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @\"cpz.schema\".Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Builder = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_id(self: Builder) !u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, value: u32) !void") != null);
@@ -1962,7 +2420,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_name(self: Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_friend(self: Builder) !void") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, value: Person) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, value: @\"cpz.schema\".Person) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
 }
@@ -2034,10 +2492,10 @@ test "schema code generator sanitizes dotted named type references" {
     defer layouts.deinit(std.testing.allocator);
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
-    try std.testing.expect(std.mem.indexOf(u8, code, "!Outer_Inner") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "Outer_Inner.fromReader") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "Outer_Inner.Builder") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "Outer_Inner.size") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "!@\"cpz.schema\".Outer_Inner") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "@\"cpz.schema\".Outer_Inner.fromReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "@\"cpz.schema\".Outer_Inner.Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "@\"cpz.schema\".Outer_Inner.size") != null);
 }
 
 test "schema code generator sanitizes Zig keywords in declarations and fields" {
@@ -2060,7 +2518,7 @@ test "schema code generator sanitizes Zig keywords in declarations and fields" {
     try std.testing.expect(std.mem.indexOf(u8, code, "test_ = 0") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const fn_ = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn error_(self: @This()) u32") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn enum_(self: @This()) !error_") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn enum_(self: @This()) !@\"cpz.schema\".error_") != null);
 }
 
 test "schema code generator rejects sanitized Zig name collisions" {
@@ -2132,7 +2590,7 @@ test "schema parser, layout, and codegen handle enums" {
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Color = enum(u16)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "green = 1") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn color(self: @This()) !Color") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn color(self: @This()) !@\"cpz.schema\".Color") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getUInt16(0, 1)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_color(self: Builder, value: Color) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_color(self: Builder, value: @\"cpz.schema\".Color) !void") != null);
 }

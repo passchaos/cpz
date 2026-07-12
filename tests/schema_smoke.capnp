@@ -24,3 +24,12 @@ struct Person {
   maybeName @14 :?Text;
   maybeFriend @15 :?Person;
 }
+
+struct Choice {
+  before @0 :Text;
+  union {
+    name @1 :Text;
+    id @2 :UInt32;
+  }
+  after @3 :Text;
+}

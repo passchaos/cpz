@@ -230,3 +230,31 @@ test "generated enum raw setters preserve unknown ordinals" {
     try std.testing.expectError(error.InvalidEnumValue, read_palette.get(0));
     try std.testing.expectEqual(@as(u16, 88), read_palette.getRaw(0));
 }
+
+test "generated anonymous union accessors activate and guard fields" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const choice_builder = try generated.Choice.initRootTyped(&builder);
+    try choice_builder.set_before("pre");
+    try choice_builder.set_after("post");
+    try choice_builder.set_name("Ada");
+    try std.testing.expectEqual(generated.Choice.Union0.name, (try choice_builder.which()).?);
+    try std.testing.expectEqual(true, try choice_builder.has_name());
+    try std.testing.expectEqualSlices(u8, "Ada", try choice_builder.get_name());
+    try std.testing.expectError(error.InactiveUnionField, choice_builder.get_id());
+
+    try choice_builder.set_id(99);
+    try std.testing.expectEqual(generated.Choice.Union0.id, (try choice_builder.which()).?);
+    try std.testing.expectEqual(false, try choice_builder.has_name());
+    try std.testing.expectError(error.InactiveUnionField, choice_builder.get_name());
+    try std.testing.expectEqual(@as(u32, 99), try choice_builder.get_id());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const choice = generated.Choice.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(generated.Choice.Union0.id, choice.which().?);
+    try std.testing.expectEqualSlices(u8, "pre", try choice.before());
+    try std.testing.expectEqualSlices(u8, "post", try choice.after());
+    try std.testing.expectError(error.InactiveUnionField, choice.name());
+    try std.testing.expectEqual(@as(u32, 99), try choice.id());
+}
