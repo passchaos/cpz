@@ -2203,6 +2203,23 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         , .{ field_name, index });
     }
 
+    try appendFmt(allocator, out,
+        \\    pub fn {s}PointerKind(self: @This()) !?cpz.wire.PointerType {{
+    , .{field_name});
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).pointerType();
+        \\    }}
+        \\
+        \\    pub fn {s}DecodedPointer(self: @This()) !?cpz.wire.DecodedPointer {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).decode();
+        \\    }}
+        \\
+    , .{index});
+
     switch (resolveType(file, field.ty)) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;

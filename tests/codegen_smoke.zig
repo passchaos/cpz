@@ -106,6 +106,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(false, person.active());
     try std.testing.expect(person.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person.name());
+    try std.testing.expectEqual(cpz.wire.PointerType.list, (try person.namePointerKind()).?);
+    const read_name_decoded = (try person.nameDecodedPointer()).?.list;
+    try std.testing.expectEqual(cpz.ElementSize.byte, read_name_decoded.element_size);
     try std.testing.expect(generated.Color.blue == try person.favorite());
     try std.testing.expectEqual(@as(u16, 2), person.favorite_raw());
     const read_scores = try person.scores();
