@@ -4232,7 +4232,15 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try (try self.builder.getPointerField({})).getStruct()).dataSectionBytes();
                 \\        }}
                 \\
-            , .{index});
+                \\        pub fn new_{s}_structOrphan(self: Builder, struct_size: cpz.StructSize) !cpz.Orphan {{
+                \\            return self.orphanage().newStruct(struct_size);
+                \\        }}
+                \\
+                \\        pub fn new_{s}_copyOrphan(self: Builder, new_value: cpz.StructReader) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyStruct(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name, field_name });
         },
         .any_list => {
             try appendFmt(allocator, out,

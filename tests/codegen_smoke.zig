@@ -959,6 +959,15 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 0xfeedface), orphan_any.getUInt32(0, 0));
     try std.testing.expectEqualSlices(u8, "orphan any", try orphan_any.getPointerField(0).getText());
 
+    var any_struct_orphan = try orphan_box_builder.new_anyStruct_structOrphan(.{ .data_words = 1, .pointer_count = 1 });
+    const any_struct_orphan_builder = try any_struct_orphan.getStruct();
+    try any_struct_orphan_builder.setUInt32(0, 0x13572468, 0);
+    try any_struct_orphan_builder.setText(0, "any struct orphan");
+    try orphan_box_builder.adopt_anyStruct(&any_struct_orphan);
+    const adopted_any_struct = try orphan_box_builder.get_anyStruct();
+    try std.testing.expectEqual(@as(u32, 0x13572468), try adopted_any_struct.getUInt32(0, 0));
+    try std.testing.expectEqualSlices(u8, "any struct orphan", try (try adopted_any_struct.getPointerField(0)).getText());
+
     var text_orphan = try orphan_box_builder.new_any_textOrphan("orphan text any");
     try std.testing.expectEqualSlices(u8, "orphan text any", try text_orphan.getText());
     try orphan_box_builder.adopt_any(&text_orphan);
