@@ -1064,6 +1064,8 @@ pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *co
 }
 
 pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile, options: CodegenOptions) LayoutError![]u8 {
+    try validateZigNameCollisions(allocator, file);
+
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
     if (options.raw_schema_comment) |source| {
@@ -1096,6 +1098,48 @@ fn appendRawSchemaComment(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         start = end + 1;
     }
     try out.appendSlice(allocator, "// cpz source schema end\n\n");
+}
+
+fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    for (file.structs, 0..) |lhs, i| {
+        for (file.structs[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+        for (file.enums) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+        try validateFieldZigNames(allocator, &lhs);
+    }
+    for (file.enums, 0..) |lhs, i| {
+        for (file.enums[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+        try validateEnumValueZigNames(allocator, &lhs);
+    }
+}
+
+fn validateFieldZigNames(allocator: std.mem.Allocator, decl: *const Struct) LayoutError!void {
+    for (decl.fields, 0..) |lhs, i| {
+        for (decl.fields[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
+fn validateEnumValueZigNames(allocator: std.mem.Allocator, decl: *const EnumDecl) LayoutError!void {
+    for (decl.values, 0..) |lhs, i| {
+        for (decl.values[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
+fn zigNamesEqual(allocator: std.mem.Allocator, lhs_raw: []const u8, rhs_raw: []const u8) std.mem.Allocator.Error!bool {
+    const lhs = try zigIdentAlloc(allocator, lhs_raw);
+    defer allocator.free(lhs);
+    const rhs = try zigIdentAlloc(allocator, rhs_raw);
+    defer allocator.free(rhs);
+    return std.mem.eql(u8, lhs, rhs);
 }
 
 fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const EnumDecl) LayoutError!void {
@@ -1989,6 +2033,47 @@ test "schema code generator sanitizes Zig keywords in declarations and fields" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const fn_ = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn error_(self: @This()) u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn enum_(self: @This()) !error_") != null);
+}
+
+test "schema code generator rejects sanitized Zig name collisions" {
+    {
+        var file = try parse(std.testing.allocator,
+            \\struct error {
+            \\  id @0 :UInt32;
+            \\}
+            \\struct error_ {
+            \\  id @0 :UInt32;
+            \\}
+        );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    {
+        var file = try parse(std.testing.allocator,
+            \\struct Fields {
+            \\  error @0 :UInt32;
+            \\  error_ @1 :UInt32;
+            \\}
+        );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    {
+        var file = try parse(std.testing.allocator,
+            \\enum Values {
+            \\  test @0;
+            \\  test_ @1;
+            \\}
+        );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
 }
 
 test "schema parser, layout, and codegen handle enums" {
