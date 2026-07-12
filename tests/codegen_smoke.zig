@@ -81,11 +81,21 @@ test "generated reader and builder accessors compile and round-trip" {
     const aliases = try person_builder.init_aliases(2);
     try aliases.set(0, "A");
     try aliases.set(1, "Lovelace");
+    try std.testing.expectEqual(cpz.wire.PointerType.list, (try aliases.elementPointerKind(0)).?);
+    const alias_element_decoded = (try aliases.elementDecodedPointer(0)).?.list;
+    try std.testing.expectEqual(cpz.ElementSize.byte, alias_element_decoded.element_size);
+    var alias_element_reader = try builder.asReader(.{});
+    const alias_element_pointer = try aliases.elementAsReader(1, &alias_element_reader);
+    try std.testing.expectEqualSlices(u8, "Lovelace", try alias_element_pointer.getText());
+    try std.testing.expectEqualSlices(u8, "A", try aliases.elementAsText(0));
+    const alias_element_size = try aliases.elementTotalSize(0);
+    try std.testing.expect(alias_element_size.word_count > 0);
     try std.testing.expectEqualSlices(u8, "Lovelace", try aliases.get(1));
     const same_aliases = try person_builder.get_aliases();
     try std.testing.expectEqualSlices(u8, "A", try same_aliases.get(0));
     const payloads = try person_builder.init_payloads(1);
     try payloads.set(0, &[_]u8{ 4, 5, 6 });
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try payloads.elementAsData(0));
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try payloads.get(0));
     const flags = try person_builder.init_flags(3);
     try flags.set(0, true);
@@ -155,8 +165,16 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_aliases = try person.aliases();
     try std.testing.expectEqualSlices(u8, "A", try read_aliases.get(0));
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.get(1));
+    try std.testing.expectEqual(cpz.wire.PointerType.list, (try read_aliases.elementPointerKind(1)).?);
+    const read_alias_decoded = (try read_aliases.elementDecodedPointer(1)).?.list;
+    try std.testing.expectEqual(cpz.ElementSize.byte, read_alias_decoded.element_size);
+    try std.testing.expectEqualSlices(u8, "A", try (try read_aliases.elementAsPointer(0)).getText());
+    try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.elementAsText(1));
+    const read_alias_element_size = try read_aliases.elementTotalSize(1);
+    try std.testing.expect(read_alias_element_size.word_count > 0);
     const read_payloads = try person.payloads();
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try read_payloads.get(0));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try read_payloads.elementAsData(0));
     const read_flags = try person.flags();
     try std.testing.expectEqual(true, read_flags.get(0));
     try std.testing.expectEqual(false, read_flags.get(1));
@@ -848,6 +866,9 @@ test "generated builtin any and capability accessors round-trip" {
     const caps = try box_builder.init_capList(2);
     try caps.set(0, 88);
     try caps.set(1, 99);
+    try std.testing.expectEqual(cpz.wire.PointerType.other, (try caps.elementPointerKind(0)).?);
+    try std.testing.expectEqual(@as(u32, 88), (try caps.elementDecodedPointer(0)).?.other.index);
+    try std.testing.expectEqual(@as(u32, 99), try caps.elementAsCapability(1));
     try std.testing.expectEqual(@as(u32, 77), try box_builder.get_cap());
     try std.testing.expectEqual(@as(u32, 99), try caps.get(1));
 
@@ -873,6 +894,9 @@ test "generated builtin any and capability accessors round-trip" {
     const read_caps = try dynamic_box.capList();
     try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));
     try std.testing.expectEqual(@as(u32, 99), try read_caps.get(1));
+    try std.testing.expectEqual(cpz.wire.PointerType.other, (try read_caps.elementPointerKind(1)).?);
+    try std.testing.expectEqual(@as(u32, 99), (try read_caps.elementDecodedPointer(1)).?.other.index);
+    try std.testing.expectEqual(@as(u32, 88), try read_caps.elementAsCapability(0));
 
     var orphan_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer orphan_builder_message.deinit();

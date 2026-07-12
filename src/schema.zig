@@ -2530,6 +2530,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
     , .{ owner_name, field_name, owner_name, field_name });
 
+    if (isPointerListElement(file, child)) {
+        try emitListReaderPointerElementHelpers(allocator, out);
+    }
+
     switch (resolved_child) {
         .void => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) void {{
@@ -2773,6 +2777,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\        }}
         \\
     , .{ owner_name, field_name, owner_name, field_name, owner_name, field_name });
+
+    if (isPointerListElement(file, child)) {
+        try emitListBuilderPointerElementHelpers(allocator, out);
+    }
 
     switch (resolved_child) {
         .void => try appendFmt(allocator, out,
@@ -3142,6 +3150,92 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         },
         .optional => {},
     }
+}
+
+fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
+    try appendFmt(allocator, out,
+        \\        pub fn elementAsPointer(self: @This(), index: usize) !cpz.PointerReader {{
+        \\            return self.list.getPointerElement(index);
+        \\        }}
+        \\
+        \\        pub fn elementPointerKind(self: @This(), index: usize) !?cpz.wire.PointerType {{
+        \\            return (try self.list.getPointerElement(index)).pointerType();
+        \\        }}
+        \\
+        \\        pub fn elementDecodedPointer(self: @This(), index: usize) !?cpz.wire.DecodedPointer {{
+        \\            return (try self.list.getPointerElement(index)).decode();
+        \\        }}
+        \\
+        \\        pub fn elementTotalSize(self: @This(), index: usize) !cpz.MessageSize {{
+        \\            return (try self.list.getPointerElement(index)).totalSize();
+        \\        }}
+        \\
+        \\        pub fn elementAsStruct(self: @This(), index: usize) !cpz.StructReader {{
+        \\            return (try self.list.getPointerElement(index)).getStruct(null);
+        \\        }}
+        \\
+        \\        pub fn elementAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
+        \\            return (try self.list.getPointerElement(index)).getList(expected);
+        \\        }}
+        \\
+        \\        pub fn elementAsText(self: @This(), index: usize) ![]const u8 {{
+        \\            return (try self.list.getPointerElement(index)).getText();
+        \\        }}
+        \\
+        \\        pub fn elementAsData(self: @This(), index: usize) ![]const u8 {{
+        \\            return (try self.list.getPointerElement(index)).getData();
+        \\        }}
+        \\
+        \\        pub fn elementAsCapability(self: @This(), index: usize) !u32 {{
+        \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
+        \\        }}
+        \\
+    , .{});
+}
+
+fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8)) std.mem.Allocator.Error!void {
+    try appendFmt(allocator, out,
+        \\        pub fn elementAsPointer(self: @This(), index: usize) !cpz.PointerBuilder {{
+        \\            return self.list.getPointerElement(index);
+        \\        }}
+        \\
+        \\        pub fn elementAsReader(self: @This(), index: usize, message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+        \\            return (try self.list.getPointerElement(index)).asReader(message_reader);
+        \\        }}
+        \\
+        \\        pub fn elementPointerKind(self: @This(), index: usize) !?cpz.wire.PointerType {{
+        \\            return (try self.list.getPointerElement(index)).pointerType();
+        \\        }}
+        \\
+        \\        pub fn elementDecodedPointer(self: @This(), index: usize) !?cpz.wire.DecodedPointer {{
+        \\            return (try self.list.getPointerElement(index)).decode();
+        \\        }}
+        \\
+        \\        pub fn elementTotalSize(self: @This(), index: usize) !cpz.MessageSize {{
+        \\            return (try self.list.getPointerElement(index)).totalSize();
+        \\        }}
+        \\
+        \\        pub fn elementAsStruct(self: @This(), index: usize) !cpz.StructBuilder {{
+        \\            return (try self.list.getPointerElement(index)).getStruct();
+        \\        }}
+        \\
+        \\        pub fn elementAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListBuilder {{
+        \\            return (try self.list.getPointerElement(index)).getList(expected);
+        \\        }}
+        \\
+        \\        pub fn elementAsText(self: @This(), index: usize) ![]const u8 {{
+        \\            return (try self.list.getPointerElement(index)).getText();
+        \\        }}
+        \\
+        \\        pub fn elementAsData(self: @This(), index: usize) ![]const u8 {{
+        \\            return (try self.list.getPointerElement(index)).getData();
+        \\        }}
+        \\
+        \\        pub fn elementAsCapability(self: @This(), index: usize) !u32 {{
+        \\            return (try self.list.getPointerElement(index)).getCapabilityIndex();
+        \\        }}
+        \\
+    , .{});
 }
 
 fn emitListPrimitiveSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize, zig_type: []const u8, element_size: []const u8, method: []const u8) LayoutError!void {
@@ -3809,6 +3903,14 @@ fn listElementSizeLiteral(file: *const File, ty: Type) LayoutError![]const u8 {
         .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => ".pointer",
         .optional => ".pointer",
         .named => |name| if (findEnum(file, name) != null) ".two_bytes" else if (findInterface(file, name) != null or !isStructLikeName(file, name)) ".pointer" else ".composite",
+    };
+}
+
+fn isPointerListElement(file: *const File, ty: Type) bool {
+    return switch (resolveType(file, ty)) {
+        .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => true,
+        .named => |name| findEnum(file, name) == null and (findInterface(file, name) != null or !isStructLikeName(file, name)),
+        else => false,
     };
 }
 
