@@ -401,6 +401,39 @@ test "generated list builders can clear pointer-backed and struct elements" {
     try std.testing.expectError(error.NullPointer, read_child.name());
 }
 
+test "generated pointer list builders can disown and adopt elements" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    const aliases = try person_builder.init_aliases(2);
+    try aliases.set(0, "move alias");
+    try aliases.set(1, "replace me");
+    var alias_orphan = try aliases.disown(0);
+    try aliases.adopt(1, &alias_orphan);
+    try std.testing.expectEqual(@as(u64, 0), alias_orphan.raw);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    const read_aliases = try person.aliases();
+    try std.testing.expectError(error.NullPointer, read_aliases.get(0));
+    try std.testing.expectEqualSlices(u8, "move alias", try read_aliases.get(1));
+
+    var cap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer cap_builder.deinit();
+    const caps = try (try generated.DynamicBox.initRootTyped(&cap_builder)).init_capList(2);
+    try caps.set(0, 1000);
+    try caps.set(1, 2000);
+    var cap_orphan = try caps.disown(0);
+    try caps.adopt(1, &cap_orphan);
+
+    var cap_reader = cpz.MessageReader.init(try cap_builder.segmentsConst(), .{});
+    const box = generated.DynamicBox.fromReader(try cap_reader.getRoot());
+    const read_caps = try box.capList();
+    try std.testing.expectError(error.NullPointer, read_caps.get(0));
+    try std.testing.expectEqual(@as(u32, 1000), try read_caps.get(1));
+}
+
 test "generated nested list wrappers round-trip" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();

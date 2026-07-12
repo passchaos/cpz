@@ -1428,6 +1428,14 @@ pub const ListBuilder = struct {
         (try self.getPointerElement(index)).clear();
     }
 
+    pub fn disownPointerElement(self: ListBuilder, index: usize) Error!Orphan {
+        return (try self.getPointerElement(index)).disown();
+    }
+
+    pub fn adoptPointerElement(self: ListBuilder, index: usize, orphan: *Orphan) Error!void {
+        return (try self.getPointerElement(index)).adopt(orphan);
+    }
+
     pub fn getStructElement(self: ListBuilder, index: usize) Error!StructBuilder {
         if (self.element_size != .composite or index >= self.element_count) return error.PointerOutOfBounds;
         const step_words = @as(usize, self.data_words) + @as(usize, self.pointer_count);
@@ -2072,6 +2080,27 @@ test "pointer builders reject adopting from another message" {
     defer target.deinit();
     const target_root = try target.initRoot(.{ .data_words = 0, .pointer_count = 1 });
     try testing.expectError(error.InvalidPointerKind, (try target_root.getPointerField(0)).adopt(&orphan));
+}
+
+test "pointer list elements can disown and adopt within a message" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    const list = try (try root.getPointerField(0)).initList(.pointer, 2);
+    try (try list.getPointerElement(0)).setText("first");
+    try (try list.getPointerElement(1)).setText("second");
+
+    var orphan = try list.disownPointerElement(0);
+    try testing.expect((try list.getPointerElement(0)).isNull());
+    try list.adoptPointerElement(1, &orphan);
+    try testing.expectEqual(@as(u64, 0), orphan.raw);
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_list = try (try reader.getRoot()).getPointerField(0).getList(.pointer);
+    try testing.expect((try read_list.getPointerElement(0)).isNull());
+    try testing.expectEqualSlices(u8, "first", try (try read_list.getPointerElement(1)).getText());
 }
 
 test "schema-agnostic validation returns reachable layout stats" {

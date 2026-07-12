@@ -2482,6 +2482,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.list.clearPointerElement(index);
             \\        }}
             \\
+            \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+            \\            return self.list.disownPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+            \\            return self.list.adoptPointerElement(index, orphan);
+            \\        }}
+            \\
         , .{}),
         .data => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
@@ -2494,6 +2502,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
             \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+            \\            return self.list.disownPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+            \\            return self.list.adoptPointerElement(index, orphan);
             \\        }}
             \\
         , .{}),
@@ -2510,6 +2526,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.list.clearPointerElement(index);
             \\        }}
             \\
+            \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+            \\            return self.list.disownPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+            \\            return self.list.adoptPointerElement(index, orphan);
+            \\        }}
+            \\
         , .{}),
         .any_struct => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !cpz.StructBuilder {{
@@ -2522,6 +2546,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
             \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+            \\            return self.list.disownPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+            \\            return self.list.adoptPointerElement(index, orphan);
             \\        }}
             \\
         , .{}),
@@ -2538,6 +2570,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.list.clearPointerElement(index);
             \\        }}
             \\
+            \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+            \\            return self.list.disownPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+            \\            return self.list.adoptPointerElement(index, orphan);
+            \\        }}
+            \\
         , .{}),
         .capability => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !u32 {{
@@ -2550,6 +2590,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
             \\            return self.list.clearPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+            \\            return self.list.disownPointerElement(index);
+            \\        }}
+            \\
+            \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+            \\            return self.list.adoptPointerElement(index, orphan);
             \\        }}
             \\
         , .{}),
@@ -2581,6 +2629,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
                 \\        pub fn clear(self: @This(), index: usize) !void {{
                 \\            return self.list.clearPointerElement(index);
+                \\        }}
+                \\
+                \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+                \\            return self.list.disownPointerElement(index);
+                \\        }}
+                \\
+                \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+                \\            return self.list.adoptPointerElement(index, orphan);
                 \\        }}
                 \\
             , .{});
@@ -2618,6 +2674,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
                 \\        pub fn clear(self: @This(), index: usize) !void {{
                 \\            return self.list.clearPointerElement(index);
+                \\        }}
+                \\
+                \\        pub fn disown(self: @This(), index: usize) !cpz.Orphan {{
+                \\            return self.list.disownPointerElement(index);
+                \\        }}
+                \\
+                \\        pub fn adopt(self: @This(), index: usize, orphan: *cpz.Orphan) !void {{
+                \\            return self.list.adoptPointerElement(index, orphan);
                 \\        }}
                 \\
             , .{});
