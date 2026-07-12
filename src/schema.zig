@@ -60,13 +60,31 @@ pub const Struct = struct {
     }
 };
 
+pub const EnumValue = struct {
+    name: []const u8,
+    ordinal: u16,
+};
+
+pub const EnumDecl = struct {
+    name: []const u8,
+    values: []EnumValue,
+
+    pub fn deinit(self: *EnumDecl, allocator: std.mem.Allocator) void {
+        allocator.free(self.values);
+        self.* = undefined;
+    }
+};
+
 pub const File = struct {
     id: ?u64,
     structs: []Struct,
+    enums: []EnumDecl,
 
     pub fn deinit(self: *File, allocator: std.mem.Allocator) void {
         for (self.structs) |*s| s.deinit(allocator);
         allocator.free(self.structs);
+        for (self.enums) |*e| e.deinit(allocator);
+        allocator.free(self.enums);
         self.* = undefined;
     }
 };
@@ -201,11 +219,18 @@ pub const Parser = struct {
             for (structs.items) |*s| s.deinit(self.allocator);
             structs.deinit(self.allocator);
         }
+        var enums = std.ArrayList(EnumDecl).empty;
+        errdefer {
+            for (enums.items) |*e| e.deinit(self.allocator);
+            enums.deinit(self.allocator);
+        }
         var file_id: ?u64 = null;
 
         while (self.lookahead.tag != .eof) {
             if (self.eatKeyword("struct")) {
                 try structs.append(self.allocator, try self.parseStruct());
+            } else if (self.eatKeyword("enum")) {
+                try enums.append(self.allocator, try self.parseEnum());
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
             } else {
@@ -213,7 +238,11 @@ pub const Parser = struct {
             }
         }
 
-        return .{ .id = file_id, .structs = try structs.toOwnedSlice(self.allocator) };
+        return .{
+            .id = file_id,
+            .structs = try structs.toOwnedSlice(self.allocator),
+            .enums = try enums.toOwnedSlice(self.allocator),
+        };
     }
 
     fn parseFileId(self: *Parser) Error!u64 {
@@ -239,6 +268,26 @@ pub const Parser = struct {
         }
         try self.expect(.r_brace);
         return .{ .name = name, .fields = try fields.toOwnedSlice(self.allocator) };
+    }
+
+    fn parseEnum(self: *Parser) Error!EnumDecl {
+        const name = try self.expectIdentifier();
+        try self.expect(.l_brace);
+
+        var values = std.ArrayList(EnumValue).empty;
+        errdefer values.deinit(self.allocator);
+
+        while (self.lookahead.tag != .r_brace) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            const value_name = try self.expectIdentifier();
+            try self.expect(.at);
+            const ordinal_u64 = try self.expectInteger();
+            if (ordinal_u64 > std.math.maxInt(u16)) return error.InvalidOrdinal;
+            try self.expect(.semicolon);
+            try values.append(self.allocator, .{ .name = value_name, .ordinal = @intCast(ordinal_u64) });
+        }
+        try self.expect(.r_brace);
+        return .{ .name = name, .values = try values.toOwnedSlice(self.allocator) };
     }
 
     fn parseField(self: *Parser) Error!Field {
@@ -343,12 +392,12 @@ pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!
     }
 
     for (file.structs) |*decl| {
-        try layouts.append(allocator, try planStructLayout(allocator, decl));
+        try layouts.append(allocator, try planStructLayout(allocator, file, decl));
     }
     return .{ .structs = try layouts.toOwnedSlice(allocator) };
 }
 
-pub fn planStructLayout(allocator: std.mem.Allocator, decl: *const Struct) LayoutError!StructLayout {
+pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!StructLayout {
     var fields = try std.ArrayList(FieldLayout).initCapacity(allocator, decl.fields.len);
     errdefer fields.deinit(allocator);
 
@@ -362,7 +411,7 @@ pub fn planStructLayout(allocator: std.mem.Allocator, decl: *const Struct) Layou
         const entry = try occupied_ordinals.getOrPut(field.ordinal);
         if (entry.found_existing) return error.OrdinalCollision;
 
-        const slot: FieldSlot = switch (try classify(field.ty)) {
+        const slot: FieldSlot = switch (try classify(file, field.ty)) {
             .void => .void,
             .data => |bits| blk: {
                 const aligned = alignForward(usize, next_bit, bits);
@@ -396,7 +445,7 @@ const TypeClass = union(enum) {
     pointer,
 };
 
-fn classify(ty: Type) LayoutError!TypeClass {
+fn classify(file: *const File, ty: Type) LayoutError!TypeClass {
     return switch (ty) {
         .void => .void,
         .bool => .{ .data = 1 },
@@ -404,8 +453,16 @@ fn classify(ty: Type) LayoutError!TypeClass {
         .int16, .uint16 => .{ .data = 16 },
         .int32, .uint32, .float32 => .{ .data = 32 },
         .int64, .uint64, .float64 => .{ .data = 64 },
-        .text, .data, .list, .named => .pointer,
+        .text, .data, .list => .pointer,
+        .named => |name| if (findEnum(file, name) != null) .{ .data = 16 } else .pointer,
     };
+}
+
+fn findEnum(file: *const File, name: []const u8) ?*const EnumDecl {
+    for (file.enums) |*decl| {
+        if (std.mem.eql(u8, decl.name, name)) return decl;
+    }
+    return null;
 }
 
 fn alignForward(comptime T: type, value: T, alignment: T) T {
@@ -515,14 +572,34 @@ pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *co
         \\
         \\
     );
+    for (file.enums) |*decl| {
+        try emitEnum(allocator, &out, decl);
+    }
     for (layouts.structs) |*layout| {
         try emitStruct(allocator, &out, file, layout);
     }
     return out.toOwnedSlice(allocator);
 }
 
+fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const EnumDecl) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\pub const {s} = enum(u16) {{
+        \\
+    , .{decl.name});
+    for (decl.values) |value| {
+        try appendFmt(allocator, out,
+            \\    {s} = {},
+            \\
+        , .{ value.name, value.ordinal });
+    }
+    try appendFmt(allocator, out,
+        \\}};
+        \\
+        \\
+    , .{});
+}
+
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
-    _ = file;
     try appendFmt(allocator, out,
         \\pub const {s} = struct {{
         \\    pub const size: cpz.StructSize = .{{ .data_words = {}, .pointer_count = {} }};
@@ -540,7 +617,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     , .{ layout.decl.name, layout.data_words, layout.pointer_count, layout.decl.name });
 
     for (layout.fields) |field_layout| {
-        try emitFieldGetter(allocator, out, field_layout);
+        try emitFieldGetter(allocator, out, file, field_layout);
     }
 
     try appendFmt(allocator, out,
@@ -559,7 +636,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     , .{});
 
     for (layout.fields) |field_layout| {
-        try emitFieldBuilderMethod(allocator, out, field_layout);
+        try emitFieldBuilderMethod(allocator, out, file, field_layout);
     }
 
     try appendFmt(allocator, out,
@@ -570,7 +647,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try appendFmt(allocator, out, "}};\n\n", .{});
 }
 
-fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_layout: FieldLayout) LayoutError!void {
+fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field_layout: FieldLayout) LayoutError!void {
     const field = field_layout.field;
     switch (field_layout.slot) {
         .void => try appendFmt(allocator, out,
@@ -585,12 +662,12 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_
             \\    }}
             \\
         , .{ field.name, bit, try defaultBoolLiteral(field) }),
-        .data_byte => |byte| try emitDataGetter(allocator, out, field, byte),
+        .data_byte => |byte| try emitDataGetter(allocator, out, file, field, byte),
         .pointer => |index| try emitPointerGetter(allocator, out, field, index),
     }
 }
 
-fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field, byte: usize) LayoutError!void {
+fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field: *const Field, byte: usize) LayoutError!void {
     switch (field.ty) {
         .int8 => try scalarGetter(allocator, out, field.name, "i8", "getInt8", byte, defaultScalarLiteral(field)),
         .int16 => try scalarGetter(allocator, out, field.name, "i16", "getInt16", byte, defaultScalarLiteral(field)),
@@ -602,6 +679,15 @@ fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: 
         .uint64 => try scalarGetter(allocator, out, field.name, "u64", "getUInt64", byte, defaultScalarLiteral(field)),
         .float32 => try scalarGetter(allocator, out, field.name, "f32", "getFloat32", byte, defaultScalarLiteral(field)),
         .float64 => try scalarGetter(allocator, out, field.name, "f64", "getFloat64", byte, defaultScalarLiteral(field)),
+        .named => |type_name| {
+            const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
+            try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) {s} {{
+                \\        return @enumFromInt(self.reader.getUInt16({}, {}));
+                \\    }}
+                \\
+            , .{ field.name, type_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+        },
         else => return error.UnsupportedType,
     }
 }
@@ -645,7 +731,7 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fiel
     }
 }
 
-fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_layout: FieldLayout) LayoutError!void {
+fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field_layout: FieldLayout) LayoutError!void {
     const field = field_layout.field;
     switch (field_layout.slot) {
         .void => try appendFmt(allocator, out,
@@ -660,12 +746,12 @@ fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
             \\        }}
             \\
         , .{ field.name, bit, try defaultBoolLiteral(field) }),
-        .data_byte => |byte| try emitDataBuilderMethod(allocator, out, field, byte),
+        .data_byte => |byte| try emitDataBuilderMethod(allocator, out, file, field, byte),
         .pointer => |index| try emitPointerBuilderMethod(allocator, out, field, index),
     }
 }
 
-fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field, byte: usize) LayoutError!void {
+fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field: *const Field, byte: usize) LayoutError!void {
     switch (field.ty) {
         .int8 => try scalarSetter(allocator, out, field.name, "i8", "setInt8", byte, defaultScalarLiteral(field)),
         .int16 => try scalarSetter(allocator, out, field.name, "i16", "setInt16", byte, defaultScalarLiteral(field)),
@@ -677,6 +763,15 @@ fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
         .uint64 => try scalarSetter(allocator, out, field.name, "u64", "setUInt64", byte, defaultScalarLiteral(field)),
         .float32 => try scalarSetter(allocator, out, field.name, "f32", "setFloat32", byte, defaultScalarLiteral(field)),
         .float64 => try scalarSetter(allocator, out, field.name, "f64", "setFloat64", byte, defaultScalarLiteral(field)),
+        .named => |type_name| {
+            const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
+            try appendFmt(allocator, out,
+                \\        pub fn set_{s}(self: Builder, value: {s}) !void {{
+                \\            return self.builder.setUInt16({}, @intFromEnum(value), {});
+                \\        }}
+                \\
+            , .{ field.name, type_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+        },
         else => return error.UnsupportedType,
     }
 }
@@ -736,6 +831,14 @@ fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
     return error.InvalidToken;
 }
 
+fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u16 {
+    const name = literal orelse return 0;
+    for (decl.values) |value| {
+        if (std.mem.eql(u8, value.name, name)) return value.ordinal;
+    }
+    return error.InvalidToken;
+}
+
 test "schema code generator emits Zig accessor skeletons" {
     const source =
         \\struct Person {
@@ -765,4 +868,37 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setUInt32(0, value, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setBool(32, value, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
+}
+
+test "schema parser, layout, and codegen handle enums" {
+    const source =
+        \\enum Color {
+        \\  red @0;
+        \\  green @1;
+        \\  blue @2;
+        \\}
+        \\struct Pixel {
+        \\  color @0 :Color = green;
+        \\  label @1 :Text;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.enums.len);
+    try std.testing.expectEqualStrings("Color", file.enums[0].name);
+    try std.testing.expectEqual(@as(u16, 1), file.enums[0].values[1].ordinal);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u16, 1), layouts.structs[0].data_words);
+    try std.testing.expectEqual(@as(u16, 1), layouts.structs[0].pointer_count);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 0 }, layouts.structs[0].fields[0].slot);
+
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const Color = enum(u16)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "green = 1") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn color(self: @This()) Color") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getUInt16(0, 1)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_color(self: Builder, value: Color) !void") != null);
 }
