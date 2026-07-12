@@ -372,6 +372,7 @@ pub const Parser = struct {
     parsed_structs: ?*std.ArrayList(Struct) = null,
     parsed_enums: ?*std.ArrayList(EnumDecl) = null,
     parsed_interfaces: ?*std.ArrayList(InterfaceDecl) = null,
+    parsed_imports: ?*std.ArrayList(ImportDecl) = null,
     parsed_decl_names: ?*std.StringHashMap(void) = null,
 
     pub fn init(allocator: std.mem.Allocator, source: []const u8) Error!Parser {
@@ -414,11 +415,13 @@ pub const Parser = struct {
         self.parsed_structs = &structs;
         self.parsed_enums = &enums;
         self.parsed_interfaces = &interfaces;
+        self.parsed_imports = &imports;
         self.parsed_decl_names = &decl_names;
         defer {
             self.parsed_structs = null;
             self.parsed_enums = null;
             self.parsed_interfaces = null;
+            self.parsed_imports = null;
             self.parsed_decl_names = null;
         }
 
@@ -884,7 +887,7 @@ pub const Parser = struct {
                 continue;
             }
             if (self.eatKeyword("using")) {
-                try self.parseUsingOrSkip(&aliases, null, &member_names);
+                try self.parseUsingOrSkip(&aliases, self.parsed_imports, &member_names);
                 continue;
             }
             if (self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {

@@ -11,3 +11,13 @@ struct Holder {
   extra @3 :Extra;
   extras @4 :List(Extra);
 }
+
+struct ScopedImportHolder {
+  using Local = import "schema_import_base.capnp";
+  using import "schema_import_base.capnp".Extra;
+
+  child @0 :Local.Child;
+  children @1 :List(Local.Child);
+  extra @2 :Extra;
+  extras @3 :List(Extra);
+}

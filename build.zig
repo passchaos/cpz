@@ -127,6 +127,8 @@ pub fn build(b: *std.Build) void {
             .{ .name = "cpz", .module = cpz_mod },
             .{ .name = "Base", .module = generated_import_base },
             .{ .name = "Child", .module = generated_import_base },
+            .{ .name = "Local", .module = generated_import_base },
+            .{ .name = "Extra", .module = generated_import_base },
         },
     });
     const codegen_import_smoke_mod = b.createModule(.{
