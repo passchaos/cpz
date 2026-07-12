@@ -179,6 +179,39 @@ pub fn readPackedMessage(allocator: std.mem.Allocator, packed_bytes: []const u8)
     return readOwnedFlatMessage(allocator, flat);
 }
 
+/// Read one standard stream-framed message from an Io reader. The returned
+/// FlatMessage owns the exact bytes consumed for that message.
+pub fn readMessageFromReader(allocator: std.mem.Allocator, reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!FlatMessage {
+    var first_word: [wire.bytes_per_word]u8 = undefined;
+    reader.readSliceAll(&first_word) catch |err| switch (err) {
+        error.EndOfStream => return error.MessageTruncated,
+        else => |e| return e,
+    };
+
+    const table_len = try expectedSize(&first_word);
+    var table = try allocator.alloc(u8, table_len);
+    defer allocator.free(table);
+    @memcpy(table[0..wire.bytes_per_word], &first_word);
+    if (table_len > wire.bytes_per_word) {
+        reader.readSliceAll(table[wire.bytes_per_word..]) catch |err| switch (err) {
+            error.EndOfStream => return error.MessageTruncated,
+            else => |e| return e,
+        };
+    }
+
+    const expected_len = try expectedSize(table);
+    const owned = try allocator.alloc(u8, expected_len);
+    errdefer allocator.free(owned);
+    @memcpy(owned[0..table_len], table);
+    if (expected_len > table_len) {
+        reader.readSliceAll(owned[table_len..]) catch |err| switch (err) {
+            error.EndOfStream => return error.MessageTruncated,
+            else => |e| return e,
+        };
+    }
+    return readOwnedFlatMessage(allocator, owned);
+}
+
 fn readOwnedFlatMessage(allocator: std.mem.Allocator, owned: []u8) Error!FlatMessage {
     errdefer allocator.free(owned);
 
@@ -323,6 +356,31 @@ test "standard stream framing writes directly to Io writer" {
     var small: [8]u8 = undefined;
     var small_writer = std.Io.Writer.fixed(&small);
     try testing.expectError(error.WriteFailed, writeMessageToWriter(&small_writer, &segments));
+}
+
+test "standard stream framing reads one message from Io reader" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const s0 = [_]u8{0xaa} ** 8;
+    const s1 = [_]u8{0xbb} ** 16;
+    const trailer = [_]u8{ 0x99, 0x88, 0x77 };
+    const segments = [_]ConstSegment{ &s0, &s1 };
+    const flat = try messageToFlatBytes(allocator, &segments);
+    defer allocator.free(flat);
+    const with_trailer = try std.mem.concat(allocator, u8, &.{ flat, &trailer });
+    defer allocator.free(with_trailer);
+
+    var reader = std.Io.Reader.fixed(with_trailer);
+    var parsed = try readMessageFromReader(allocator, &reader);
+    defer parsed.deinit(allocator);
+    try testing.expectEqual(flat.len, parsed.consumed_len);
+    try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
+    try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
+    try testing.expectEqualSlices(u8, &trailer, reader.buffered());
+
+    var truncated_reader = std.Io.Reader.fixed(flat[0 .. flat.len - 1]);
+    try testing.expectError(error.MessageTruncated, readMessageFromReader(allocator, &truncated_reader));
 }
 
 test "segment table rejects excessive segment counts before allocation" {
