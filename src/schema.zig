@@ -2554,9 +2554,20 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, decl: *const Struct) Layo
         for (decl.consts) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (decl.aliases) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
     for (decl.consts, 0..) |lhs, i| {
         for (decl.consts[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+        for (decl.aliases) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+    for (decl.aliases, 0..) |lhs, i| {
+        for (decl.aliases[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
     }
@@ -2658,30 +2669,61 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
 fn emitAlias(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, decl: *const AliasDecl, indent: []const u8) LayoutError!void {
     const alias_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(alias_name);
-    switch (resolveTypeScoped(file, scope, decl.target)) {
-        .void => try appendFmt(allocator, out, "{s}pub const {s} = void;\n\n", .{ indent, alias_name }),
-        .bool => try appendFmt(allocator, out, "{s}pub const {s} = bool;\n\n", .{ indent, alias_name }),
-        .int8 => try appendFmt(allocator, out, "{s}pub const {s} = i8;\n\n", .{ indent, alias_name }),
-        .int16 => try appendFmt(allocator, out, "{s}pub const {s} = i16;\n\n", .{ indent, alias_name }),
-        .int32 => try appendFmt(allocator, out, "{s}pub const {s} = i32;\n\n", .{ indent, alias_name }),
-        .int64 => try appendFmt(allocator, out, "{s}pub const {s} = i64;\n\n", .{ indent, alias_name }),
-        .uint8 => try appendFmt(allocator, out, "{s}pub const {s} = u8;\n\n", .{ indent, alias_name }),
-        .uint16 => try appendFmt(allocator, out, "{s}pub const {s} = u16;\n\n", .{ indent, alias_name }),
-        .uint32 => try appendFmt(allocator, out, "{s}pub const {s} = u32;\n\n", .{ indent, alias_name }),
-        .uint64 => try appendFmt(allocator, out, "{s}pub const {s} = u64;\n\n", .{ indent, alias_name }),
-        .float32 => try appendFmt(allocator, out, "{s}pub const {s} = f32;\n\n", .{ indent, alias_name }),
-        .float64 => try appendFmt(allocator, out, "{s}pub const {s} = f64;\n\n", .{ indent, alias_name }),
-        .text, .data => try appendFmt(allocator, out, "{s}pub const {s} = []const u8;\n\n", .{ indent, alias_name }),
-        .any_pointer => try appendFmt(allocator, out, "{s}pub const {s} = cpz.PointerReader;\n\n", .{ indent, alias_name }),
-        .any_struct => try appendFmt(allocator, out, "{s}pub const {s} = cpz.StructReader;\n\n", .{ indent, alias_name }),
-        .any_list => try appendFmt(allocator, out, "{s}pub const {s} = cpz.ListReader;\n\n", .{ indent, alias_name }),
-        .capability => try appendFmt(allocator, out, "{s}pub const {s} = u32;\n\n", .{ indent, alias_name }),
+    try emitAliasTarget(allocator, out, file, scope, indent, alias_name, decl.target);
+}
+
+fn aliasLine(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, alias_name: []const u8, value: []const u8) std.mem.Allocator.Error!void {
+    return appendFmt(allocator, out, "{s}pub const {s} = {s};\n\n", .{ indent, alias_name, value });
+}
+
+fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, alias_name: []const u8, target: Type) LayoutError!void {
+    switch (resolveTypeScoped(file, scope, target)) {
+        .void => try aliasLine(allocator, out, indent, alias_name, "void"),
+        .bool => try aliasLine(allocator, out, indent, alias_name, "bool"),
+        .int8 => try aliasLine(allocator, out, indent, alias_name, "i8"),
+        .int16 => try aliasLine(allocator, out, indent, alias_name, "i16"),
+        .int32 => try aliasLine(allocator, out, indent, alias_name, "i32"),
+        .int64 => try aliasLine(allocator, out, indent, alias_name, "i64"),
+        .uint8 => try aliasLine(allocator, out, indent, alias_name, "u8"),
+        .uint16 => try aliasLine(allocator, out, indent, alias_name, "u16"),
+        .uint32 => try aliasLine(allocator, out, indent, alias_name, "u32"),
+        .uint64 => try aliasLine(allocator, out, indent, alias_name, "u64"),
+        .float32 => try aliasLine(allocator, out, indent, alias_name, "f32"),
+        .float64 => try aliasLine(allocator, out, indent, alias_name, "f64"),
+        .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const u8"),
+        .any_pointer => try aliasLine(allocator, out, indent, alias_name, "cpz.PointerReader"),
+        .any_struct => try aliasLine(allocator, out, indent, alias_name, "cpz.StructReader"),
+        .any_list => try aliasLine(allocator, out, indent, alias_name, "cpz.ListReader"),
+        .capability => try aliasLine(allocator, out, indent, alias_name, "u32"),
         .named => |type_name| {
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
-            try appendFmt(allocator, out, "{s}pub const {s} = {s};\n\n", .{ indent, alias_name, zig_type });
+            try aliasLine(allocator, out, indent, alias_name, zig_type);
         },
-        .list, .optional => {},
+        .list => |child| switch (resolveTypeScoped(file, scope, child.*)) {
+            .void => try aliasLine(allocator, out, indent, alias_name, "[]const void"),
+            .bool => try aliasLine(allocator, out, indent, alias_name, "[]const bool"),
+            .uint8 => try aliasLine(allocator, out, indent, alias_name, "[]const u8"),
+            .uint16 => try aliasLine(allocator, out, indent, alias_name, "[]const u16"),
+            .uint32 => try aliasLine(allocator, out, indent, alias_name, "[]const u32"),
+            .uint64 => try aliasLine(allocator, out, indent, alias_name, "[]const u64"),
+            .int8 => try aliasLine(allocator, out, indent, alias_name, "[]const i8"),
+            .int16 => try aliasLine(allocator, out, indent, alias_name, "[]const i16"),
+            .int32 => try aliasLine(allocator, out, indent, alias_name, "[]const i32"),
+            .int64 => try aliasLine(allocator, out, indent, alias_name, "[]const i64"),
+            .float32 => try aliasLine(allocator, out, indent, alias_name, "[]const f32"),
+            .float64 => try aliasLine(allocator, out, indent, alias_name, "[]const f64"),
+            .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const []const u8"),
+            .named => |type_name| {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                const list_type = try std.fmt.allocPrint(allocator, "[]const {s}", .{zig_type});
+                defer allocator.free(list_type);
+                try aliasLine(allocator, out, indent, alias_name, list_type);
+            },
+            .any_pointer, .any_struct, .any_list, .capability, .list, .optional => {},
+        },
+        .optional => |child| try emitAliasTarget(allocator, out, file, scope, indent, alias_name, child.*),
     }
 }
 
@@ -2864,6 +2906,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
             \\    pub const @"cpz.type_id": u64 = 0x{x};
             \\
         , .{id});
+    }
+
+    for (layout.decl.aliases) |*decl| {
+        try emitAlias(allocator, out, file, layout.decl, decl, "    ");
     }
 
     for (layout.decl.consts) |*decl| {

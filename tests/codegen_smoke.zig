@@ -8,6 +8,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(u64, 0xe57e0001), generated.ExtendedService.@"cpz.type_id");
     try std.testing.expectEqual(@as(u32, 123), @as(generated.Id, 123));
     try std.testing.expectEqual(generated.Color.blue, @as(generated.Shade, generated.Color.blue));
+    try std.testing.expectEqual(@as(u32, 456), @as(generated.ScopedAliasBox.LocalId, 456));
+    try std.testing.expectEqual(generated.Color.red, @as(generated.ScopedAliasBox.LocalShade, generated.Color.red));
 }
 
 test "generated simple constants compile" {
