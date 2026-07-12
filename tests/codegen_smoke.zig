@@ -14,6 +14,10 @@ test "generated reader and builder accessors compile and round-trip" {
     var builder_reader = try builder.asReader(.{});
     const builder_view = person_builder.asReader(&builder_reader);
     try std.testing.expectEqual(@as(u32, 7), builder_view.id());
+    const builder_view_size = try builder_view.totalSize();
+    try std.testing.expect(builder_view_size.word_count > 0);
+    const builder_size = try person_builder.totalSize();
+    try std.testing.expect(builder_size.word_count > 0);
     try person_builder.set_active(false);
     try std.testing.expectEqual(false, try person_builder.get_active());
     try std.testing.expectEqual(false, try person_builder.has_name());
@@ -95,6 +99,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_child = try read_children.get(0);
     try std.testing.expectEqual(@as(u32, 99), read_child.id());
     try std.testing.expectEqualSlices(u8, "Grace", try read_child.name());
+    const children_size = try read_children.totalSize();
+    try std.testing.expect(children_size.word_count > 0);
+    try std.testing.expectEqual(@as(usize, 0), children_size.cap_count);
     const read_friend = try person.friend();
     try std.testing.expectEqual(@as(u32, 1234), read_friend.id());
     try std.testing.expectEqualSlices(u8, "Lin", try read_friend.name());
@@ -125,6 +132,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqualSlices(u8, "Optional Ada", try person.maybeName());
     const read_maybe_friend = try person.maybeFriend();
     try std.testing.expectEqual(@as(u32, 64), read_maybe_friend.id());
+    const person_size = try person.totalSize();
+    try std.testing.expect(person_size.word_count > 0);
+    try std.testing.expectEqual(@as(usize, 0), person_size.cap_count);
 }
 
 test "generated accessors honor scalar defaults" {

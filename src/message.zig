@@ -33,6 +33,11 @@ pub const MessageStats = struct {
     total_words: usize = 0,
 };
 
+pub const MessageSize = struct {
+    word_count: usize = 0,
+    cap_count: usize = 0,
+};
+
 pub const BuilderOptions = struct {
     first_segment_words: usize = 1024,
     next_segment_min_words: usize = 1024,
@@ -838,6 +843,11 @@ pub const StructBuilder = struct {
         };
     }
 
+    pub fn totalSize(self: StructBuilder) Error!MessageSize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).totalSize();
+    }
+
     pub fn getPointerField(self: StructBuilder, index: usize) Error!PointerBuilder {
         if (index >= self.pointer_count) return error.PointerOutOfBounds;
         return .{ .message = self.message, .segment_id = self.segment_id, .word_index = self.pointer_start + index };
@@ -1121,6 +1131,12 @@ pub const StructReader = struct {
         if (self.segment_id >= self.message.segments.len) return &.{};
         return self.message.segments[self.segment_id][self.data_start * wire.bytes_per_word .. (self.data_start + self.data_words) * wire.bytes_per_word];
     }
+
+    pub fn totalSize(self: StructReader) Error!MessageSize {
+        var stats: MessageStats = .{};
+        try collectStructStats(self, &stats);
+        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
+    }
 };
 
 pub const ListBuilder = struct {
@@ -1152,6 +1168,11 @@ pub const ListBuilder = struct {
             .step_bits = self.step_bits,
             .nesting_left = message_reader.options.nesting_limit,
         };
+    }
+
+    pub fn totalSize(self: ListBuilder) Error!MessageSize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).totalSize();
     }
 
     pub fn bytes(self: ListBuilder) []u8 {
@@ -1404,6 +1425,12 @@ pub const ListReader = struct {
         const b = self.bytes()[byte_offset..][0..@sizeOf(T)];
         return std.mem.readInt(T, b, .little);
     }
+
+    pub fn totalSize(self: ListReader) Error!MessageSize {
+        var stats: MessageStats = .{};
+        try collectListStats(self, &stats);
+        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
+    }
 };
 
 fn tag_forFarWithZeroOffset(tag: wire.Word) wire.Word {
@@ -1458,45 +1485,11 @@ fn validatePointer(ptr: PointerReader, stats: *MessageStats) Error!void {
     switch (wire.pointerType(resolved.raw)) {
         .struct_ptr => {
             const s = try ptr.getStruct(null);
-            try addStat(&stats.structs, 1);
-            try addStat(&stats.data_words, s.data_words);
-            try addStat(&stats.pointer_words, s.pointer_count);
-            try addStat(&stats.total_words, @as(usize, s.data_words) + @as(usize, s.pointer_count));
-            for (0..s.pointer_count) |i| {
-                try validatePointer(s.getPointerField(i), stats);
-            }
+            try collectStructStats(s, stats);
         },
         .list => {
             const list = try ptr.getList(null);
-            try addStat(&stats.lists, 1);
-            switch (list.element_size) {
-                .pointer => {
-                    try addStat(&stats.pointer_words, list.element_count);
-                    try addStat(&stats.total_words, list.element_count);
-                    for (0..list.element_count) |i| {
-                        try validatePointer(try list.getPointerElement(i), stats);
-                    }
-                },
-                .composite => {
-                    const element_words = @as(usize, list.data_words) + @as(usize, list.pointer_count);
-                    const content_words = std.math.mul(usize, element_words, list.element_count) catch return error.SerializedSizeOverflow;
-                    try addStat(&stats.structs, list.element_count);
-                    try addStat(&stats.data_words, std.math.mul(usize, list.data_words, list.element_count) catch return error.SerializedSizeOverflow);
-                    try addStat(&stats.pointer_words, std.math.mul(usize, list.pointer_count, list.element_count) catch return error.SerializedSizeOverflow);
-                    try addStat(&stats.total_words, std.math.add(usize, content_words, 1) catch return error.SerializedSizeOverflow); // include composite tag word.
-                    for (0..list.element_count) |element_index| {
-                        const element = try list.getStructElement(element_index);
-                        for (0..element.pointer_count) |pointer_index| {
-                            try validatePointer(element.getPointerField(pointer_index), stats);
-                        }
-                    }
-                },
-                else => {
-                    const words = try wire.wordsForList(list.element_size, list.element_count);
-                    try addStat(&stats.data_words, words);
-                    try addStat(&stats.total_words, words);
-                },
-            }
+            try collectListStats(list, stats);
         },
         .far => return error.InvalidFarPointer,
         .other => {
@@ -1508,6 +1501,48 @@ fn validatePointer(ptr: PointerReader, stats: *MessageStats) Error!void {
             if (stats.max_capability_index == null or cap.index > stats.max_capability_index.?) {
                 stats.max_capability_index = cap.index;
             }
+        },
+    }
+}
+
+fn collectStructStats(s: StructReader, stats: *MessageStats) Error!void {
+    try addStat(&stats.structs, 1);
+    try addStat(&stats.data_words, s.data_words);
+    try addStat(&stats.pointer_words, s.pointer_count);
+    try addStat(&stats.total_words, @as(usize, s.data_words) + @as(usize, s.pointer_count));
+    for (0..s.pointer_count) |i| {
+        try validatePointer(s.getPointerField(i), stats);
+    }
+}
+
+fn collectListStats(list: ListReader, stats: *MessageStats) Error!void {
+    try addStat(&stats.lists, 1);
+    switch (list.element_size) {
+        .pointer => {
+            try addStat(&stats.pointer_words, list.element_count);
+            try addStat(&stats.total_words, list.element_count);
+            for (0..list.element_count) |i| {
+                try validatePointer(try list.getPointerElement(i), stats);
+            }
+        },
+        .composite => {
+            const element_words = @as(usize, list.data_words) + @as(usize, list.pointer_count);
+            const content_words = std.math.mul(usize, element_words, list.element_count) catch return error.SerializedSizeOverflow;
+            try addStat(&stats.structs, list.element_count);
+            try addStat(&stats.data_words, std.math.mul(usize, list.data_words, list.element_count) catch return error.SerializedSizeOverflow);
+            try addStat(&stats.pointer_words, std.math.mul(usize, list.pointer_count, list.element_count) catch return error.SerializedSizeOverflow);
+            try addStat(&stats.total_words, std.math.add(usize, content_words, 1) catch return error.SerializedSizeOverflow); // include composite tag word.
+            for (0..list.element_count) |element_index| {
+                const element = try list.getStructElement(element_index);
+                for (0..element.pointer_count) |pointer_index| {
+                    try validatePointer(element.getPointerField(pointer_index), stats);
+                }
+            }
+        },
+        else => {
+            const words = try wire.wordsForList(list.element_size, list.element_count);
+            try addStat(&stats.data_words, words);
+            try addStat(&stats.total_words, words);
         },
     }
 }
@@ -1731,6 +1766,16 @@ test "primitive and struct lists" {
     const read_p1 = try read_people.getStructElement(1);
     try testing.expectEqual(@as(u32, 2), read_p1.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "bb", try read_p1.getPointerField(0).getText());
+
+    const root_size = try r.totalSize();
+    try testing.expectEqual(@as(usize, 10), root_size.word_count);
+    try testing.expectEqual(@as(usize, 0), root_size.cap_count);
+    const nums_size = try read_nums.totalSize();
+    try testing.expectEqual(@as(usize, 1), nums_size.word_count);
+    try testing.expectEqual(@as(usize, 0), nums_size.cap_count);
+    const people_size = try read_people.totalSize();
+    try testing.expectEqual(@as(usize, 7), people_size.word_count);
+    try testing.expectEqual(@as(usize, 0), people_size.cap_count);
 }
 
 test "pointer lists hold nested text values" {
@@ -2061,6 +2106,10 @@ test "capability pointers round-trip and validate" {
     const stats = try validating.validate();
     try testing.expectEqual(@as(usize, 2), stats.capabilities);
     try testing.expectEqual(@as(?u32, 456), stats.max_capability_index);
+    var size_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const root_size = try (try size_reader.getRoot()).totalSize();
+    try testing.expectEqual(@as(usize, 3), root_size.word_count);
+    try testing.expectEqual(@as(usize, 2), root_size.cap_count);
 
     var limited = MessageReader.init(try builder.segmentsConst(), .{ .capability_count_limit = 200 });
     try testing.expectError(error.InvalidCapabilityPointer, limited.validate());
