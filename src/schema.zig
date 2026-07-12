@@ -3315,6 +3315,30 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
             \\        }}
             \\
+            \\        pub fn setText(self: @This(), index: usize, new_value: []const u8) !void {{
+            \\            return (try self.list.getPointerElement(index)).setText(new_value);
+            \\        }}
+            \\
+            \\        pub fn setData(self: @This(), index: usize, new_value: []const u8) !void {{
+            \\            return (try self.list.getPointerElement(index)).setData(new_value);
+            \\        }}
+            \\
+            \\        pub fn setCapability(self: @This(), index: usize, new_value: u32) !void {{
+            \\            return (try self.list.getPointerElement(index)).setCapability(new_value);
+            \\        }}
+            \\
+            \\        pub fn newTextOrphan(self: @This(), new_value: []const u8) !cpz.Orphan {{
+            \\            return self.orphanage().newText(new_value);
+            \\        }}
+            \\
+            \\        pub fn newDataOrphan(self: @This(), new_value: []const u8) !cpz.Orphan {{
+            \\            return self.orphanage().newData(new_value);
+            \\        }}
+            \\
+            \\        pub fn newCapabilityOrphan(self: @This(), new_value: u32) !cpz.Orphan {{
+            \\            return self.orphanage().newCapability(new_value);
+            \\        }}
+            \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
             \\            return self.list.clearPointerElement(index);
             \\        }}
