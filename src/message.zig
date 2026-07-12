@@ -274,6 +274,16 @@ pub const MessageBuilder = struct {
         return slot.disown();
     }
 
+    pub fn disownRoot(self: *MessageBuilder) Error!Orphan {
+        return (try self.getRootPointer()).disown();
+    }
+
+    pub fn adoptRoot(self: *MessageBuilder, orphan: *Orphan) Error!PointerBuilder {
+        const dst_root = try self.getRootPointer();
+        try dst_root.adopt(orphan);
+        return dst_root;
+    }
+
     pub fn copyRootFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
         const dst_root = try self.getRootPointer();
         const src_root = try source.getRootPointer();
@@ -2704,6 +2714,27 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(u32, 4242), try cap_builder.getRootCapability());
     var cap_reader = MessageReader.init(try cap_builder.segmentsConst(), .{});
     try testing.expectEqual(@as(u32, 4242), try cap_reader.getRootCapability());
+}
+
+test "message builder can disown and adopt root pointers" {
+    const testing = std.testing;
+
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    try builder.setRootText("root orphan");
+
+    var orphan = try builder.disownRoot();
+    try testing.expectEqual(wire.PointerType.list, orphan.pointerType().?);
+    try testing.expect((try builder.getRootPointer()).isNull());
+    const orphan_bytes = (try orphan.getList(.byte)).bytes();
+    try testing.expectEqualSlices(u8, "root orphan", orphan_bytes[0.."root orphan".len]);
+
+    _ = try builder.adoptRoot(&orphan);
+    try testing.expect(orphan.isNull());
+    try testing.expectEqualSlices(u8, "root orphan", try builder.getRootText());
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, "root orphan", try reader.getRootText());
 }
 
 test "struct builder copyFromReader safely handles self-copy" {
