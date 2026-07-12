@@ -3009,13 +3009,25 @@ fn isZigIdentContinue(c: u8) bool {
 
 fn isZigKeyword(name: []const u8) bool {
     const keywords = [_][]const u8{
-        "addrspace", "align",     "allowzero",   "and",            "anyframe", "anytype",     "asm",
-        "async",     "await",     "break",       "callconv",       "catch",    "comptime",    "const",
-        "continue",  "defer",     "else",        "enum",           "errdefer", "error",       "export",
-        "extern",    "fn",        "for",         "if",             "inline",   "linksection", "noalias",
-        "noinline",  "nosuspend", "opaque",      "or",             "orelse",   "packed",      "pub",
-        "resume",    "return",    "struct",      "suspend",        "switch",   "test",        "threadlocal",
-        "try",       "union",     "unreachable", "usingnamespace", "var",      "volatile",    "while",
+        "addrspace", "align",     "allowzero",   "and",            "anyframe",       "anytype",      "asm",
+        "async",     "await",     "break",       "callconv",       "catch",          "comptime",     "const",
+        "continue",  "defer",     "else",        "enum",           "errdefer",       "error",        "export",
+        "extern",    "fn",        "for",         "if",             "inline",         "linksection",  "noalias",
+        "noinline",  "nosuspend", "opaque",      "or",             "orelse",         "packed",       "pub",
+        "resume",    "return",    "struct",      "suspend",        "switch",         "test",         "threadlocal",
+        "try",       "union",     "unreachable", "usingnamespace", "var",            "volatile",     "while",
+
+        // Primitive type names and literal spellings are not all Zig keywords,
+        // but declarations using them still shadow builtins or produce invalid
+        // generated code in common schemas (for example json.Value.null).
+        "bool",      "c_int",     "c_long",      "c_longdouble",   "c_longlong",     "c_char",       "c_short",
+        "c_uint",    "c_ulong",   "c_ulonglong", "c_ushort",       "comptime_float", "comptime_int", "f16",
+        "f32",       "f64",       "f80",         "f128",           "false",          "isize",        "null",
+        "true",      "type",      "usize",       "void",           "anyopaque",      "i0",           "i1",
+        "i2",        "i3",        "i4",          "i5",             "i6",             "i7",           "i8",
+        "i16",       "i32",       "i64",         "i128",           "u0",             "u1",           "u2",
+        "u3",        "u4",        "u5",          "u6",             "u7",             "u8",           "u16",
+        "u32",       "u64",       "u128",
     };
     for (keywords) |keyword| {
         if (std.mem.eql(u8, name, keyword)) return true;

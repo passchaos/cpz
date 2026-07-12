@@ -50,3 +50,17 @@ test "generated keyword enum raw setter preserves unknown ordinals" {
     try std.testing.expectError(error.InvalidEnumValue, value.enum_());
     try std.testing.expectEqual(@as(u16, 77), value.enum__raw());
 }
+
+test "generated code sanitizes primitive and literal names" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const value_builder = try generated.type_.initRootTyped(&builder);
+    try value_builder.set_null_(42);
+    try value_builder.set_true_("literal");
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const value = generated.type_.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(@as(u32, 42), value.null_());
+    try std.testing.expectEqualSlices(u8, "literal", try value.true_());
+}
