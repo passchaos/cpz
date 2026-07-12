@@ -409,6 +409,24 @@ pub const PointerBuilder = struct {
         };
     }
 
+    pub fn getStruct(self: PointerBuilder) Error!StructBuilder {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        const struct_reader = try (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getStruct(null);
+        return .{
+            .message = self.message,
+            .segment_id = struct_reader.segment_id,
+            .data_start = struct_reader.data_start,
+            .pointer_start = struct_reader.pointer_start,
+            .data_words = struct_reader.data_words,
+            .pointer_count = struct_reader.pointer_count,
+        };
+    }
+
     pub fn setText(self: PointerBuilder, text: []const u8) Error!void {
         if (!std.unicode.utf8ValidateSlice(text)) return error.Utf8Invalid;
         const list = try self.initList(.byte, text.len + 1);

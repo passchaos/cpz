@@ -30,6 +30,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const friend = try person_builder.init_friend();
     try friend.set_id(1234);
     try friend.set_name("Lin");
+    const same_friend = try person_builder.get_friend();
+    try std.testing.expectEqual(@as(u32, 1234), try same_friend.get_id());
     const palette = try person_builder.init_palette(2);
     try palette.set(0, .red);
     try palette.set(1, .green);
