@@ -1087,18 +1087,40 @@ fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
 
 fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
     switch (field.ty) {
-        .text => try appendFmt(allocator, out,
-            \\    pub fn {s}(self: @This()) ![]const u8 {{
-            \\        return self.reader.getPointerField({}).getText();
-            \\    }}
-            \\
-        , .{ field_name, index }),
-        .data => try appendFmt(allocator, out,
-            \\    pub fn {s}(self: @This()) ![]const u8 {{
-            \\        return self.reader.getPointerField({}).getData();
-            \\    }}
-            \\
-        , .{ field_name, index }),
+        .text => {
+            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            defer if (default_literal) |literal| allocator.free(literal);
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\    pub fn {s}(self: @This()) ![]const u8 {{
+                    \\        return self.reader.getPointerField({}).getTextDefault({s});
+                    \\    }}
+                    \\
+                , .{ field_name, index, literal });
+            } else try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) ![]const u8 {{
+                \\        return self.reader.getPointerField({}).getText();
+                \\    }}
+                \\
+            , .{ field_name, index });
+        },
+        .data => {
+            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            defer if (default_literal) |literal| allocator.free(literal);
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\    pub fn {s}(self: @This()) ![]const u8 {{
+                    \\        return self.reader.getPointerField({}).getDataDefault({s});
+                    \\    }}
+                    \\
+                , .{ field_name, index, literal });
+            } else try appendFmt(allocator, out,
+                \\    pub fn {s}(self: @This()) ![]const u8 {{
+                \\        return self.reader.getPointerField({}).getData();
+                \\    }}
+                \\
+            , .{ field_name, index });
+        },
         .list => |child| try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) !{s}_{s}_List {{
             \\        return .{{ .list = try self.reader.getPointerField({}).getList({s}) }};
@@ -1433,6 +1455,24 @@ fn zigIdentAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocato
     return out.toOwnedSlice(allocator);
 }
 
+fn zigStringLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+    try out.append(allocator, '"');
+    for (raw) |c| {
+        switch (c) {
+            '\\' => try out.appendSlice(allocator, "\\\\"),
+            '"' => try out.appendSlice(allocator, "\\\""),
+            '\n' => try out.appendSlice(allocator, "\\n"),
+            '\r' => try out.appendSlice(allocator, "\\r"),
+            '\t' => try out.appendSlice(allocator, "\\t"),
+            else => try out.append(allocator, c),
+        }
+    }
+    try out.append(allocator, '"');
+    return out.toOwnedSlice(allocator);
+}
+
 fn isZigIdentStart(c: u8) bool {
     return switch (c) {
         'A'...'Z', 'a'...'z', '_' => true,
@@ -1492,7 +1532,7 @@ test "schema code generator emits Zig accessor skeletons" {
         \\  id @0 :UInt32 = 42;
         \\  active @1 :Bool = true;
         \\  favorite @2 :Color = Color.green;
-        \\  name @3 :Text;
+        \\  name @3 :Text = "Anon";
         \\  friend @4 :Person;
         \\  scores @5 :List(UInt32);
         \\  children @6 :List(Person);
@@ -1513,7 +1553,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getUInt16(6, 1)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "getText()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getTextDefault(\"Anon\")") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_scores_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(index);") != null);

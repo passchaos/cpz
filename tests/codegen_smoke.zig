@@ -56,6 +56,7 @@ test "generated accessors honor scalar defaults" {
     try std.testing.expectEqual(@as(u32, 42), person.id());
     try std.testing.expectEqual(true, person.active());
     try std.testing.expectEqual(generated.Color.green, person.favorite());
+    try std.testing.expectEqualSlices(u8, "anon", try person.nickname());
 }
 
 test "generated builders can clear pointer fields" {

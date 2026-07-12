@@ -15,4 +15,5 @@ struct Person {
   children @5 :List(Person);
   friend @6 :Person;
   palette @7 :List(Color);
+  nickname @8 :Text = "anon";
 }
