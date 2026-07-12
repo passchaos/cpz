@@ -1661,10 +1661,14 @@ pub const ListBuilder = struct {
         return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
     }
 
-    /// Return a sub-list view. The current representation is word-addressed, so
-    /// slicing at non-word-aligned element offsets returns UnsupportedElementSize.
     pub fn slice(self: ListBuilder, start_index: usize, count: usize) Error!ListBuilder {
         if (start_index > self.element_count or self.element_count - start_index < count) return error.PointerOutOfBounds;
+        if (self.element_size == .bit) {
+            const copy = try self.orphanage().newList(.bit, count);
+            const list = try copy.getList(.bit);
+            for (0..count) |i| try list.setBool(i, try self.getBool(start_index + i));
+            return list;
+        }
         const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
         if (start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
         const start_words = start_bits / wire.bits_per_word;
@@ -1888,8 +1892,6 @@ pub const ListReader = struct {
         return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
     }
 
-    /// Return a sub-list view. The current representation is word-addressed, so
-    /// slicing at non-word-aligned element offsets returns UnsupportedElementSize.
     pub fn slice(self: ListReader, start_index: usize, count: usize) Error!ListReader {
         if (start_index > self.element_count or self.element_count - start_index < count) return error.PointerOutOfBounds;
         const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
@@ -2408,6 +2410,21 @@ test "root pointer APIs support non-struct roots" {
     try nums.setUInt16(1, 222);
     const builder_root_list = try builder.getRootList(.two_bytes);
     try testing.expectEqual(@as(u16, 222), try builder_root_list.getUInt16(1));
+    const bools = try (try builder.getRootPointer()).initList(.bit, 5);
+    try bools.setBool(0, true);
+    try bools.setBool(1, false);
+    try bools.setBool(2, true);
+    try bools.setBool(3, true);
+    try bools.setBool(4, false);
+    const bool_tail = try bools.slice(1, 3);
+    try testing.expectEqual(@as(usize, 3), bool_tail.len());
+    try testing.expectEqual(false, try bool_tail.getBool(0));
+    try testing.expectEqual(true, try bool_tail.getBool(1));
+    try testing.expectEqual(true, try bool_tail.getBool(2));
+    _ = try (try builder.getRootPointer()).initList(.two_bytes, 2);
+    const nums_reset = try builder.getRootList(.two_bytes);
+    try nums_reset.setUInt16(0, 111);
+    try nums_reset.setUInt16(1, 222);
     const root_ptr_builder = try builder.getRootPointer();
     try testing.expect(!root_ptr_builder.isNull());
     try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointerKind()).?);
