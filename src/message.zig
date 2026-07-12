@@ -145,6 +145,14 @@ pub const MessageBuilder = struct {
         return serialize.messageToPackedBytes(self.allocator, try self.segmentsConst());
     }
 
+    pub fn writeToWriter(self: *MessageBuilder, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return serialize.writeMessageToWriter(writer, try self.segmentsConst());
+    }
+
+    pub fn writePackedToWriter(self: *MessageBuilder, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return serialize.writePackedMessageToWriter(self.allocator, writer, try self.segmentsConst());
+    }
+
     pub fn toCanonicalSegmentBytes(self: *MessageBuilder, options: ReaderOptions) Error![]u8 {
         var reader = MessageReader.init(try self.segmentsConst(), options);
         return messageToCanonicalSegmentBytes(self.allocator, &reader);
@@ -1284,6 +1292,33 @@ test "message builder serializes flat, packed, and canonical bytes directly" {
     defer testing.allocator.free(canonical);
     const root_ptr = wire.decodeStruct(try wire.readWord(canonical, 0));
     try testing.expectEqual(@as(u16, 1), root_ptr.data_words);
+}
+
+test "message builder writes flat and packed streams directly" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try root.setUInt32(0, 777, 0);
+    try root.setText(0, "writer");
+
+    const expected_flat = try builder.toFlatBytes();
+    defer testing.allocator.free(expected_flat);
+    var flat_buffer: [128]u8 = undefined;
+    var flat_writer = std.Io.Writer.fixed(&flat_buffer);
+    try builder.writeToWriter(&flat_writer);
+    try testing.expectEqualSlices(u8, expected_flat, std.Io.Writer.buffered(&flat_writer));
+
+    var packed_buffer: [128]u8 = undefined;
+    var packed_writer = std.Io.Writer.fixed(&packed_buffer);
+    try builder.writePackedToWriter(&packed_writer);
+    var parsed = try serialize.readPackedMessage(testing.allocator, std.Io.Writer.buffered(&packed_writer));
+    defer parsed.deinit(testing.allocator);
+    var reader = MessageReader.init(parsed.segments, .{});
+    const read_root = try reader.getRoot();
+    try testing.expectEqual(@as(u32, 777), read_root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "writer", try read_root.getPointerField(0).getText());
 }
 
 test "builder rejects invalid UTF-8 text" {
