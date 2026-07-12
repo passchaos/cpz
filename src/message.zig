@@ -137,6 +137,21 @@ pub const Orphan = struct {
         };
     }
 
+    pub fn getText(self: Orphan) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).getText();
+    }
+
+    pub fn getData(self: Orphan) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).getData();
+    }
+
+    pub fn getCapabilityIndex(self: Orphan) Error!u32 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).getCapabilityIndex();
+    }
+
     pub fn totalSize(self: Orphan) Error!MessageSize {
         if (self.raw == 0) return error.NullPointer;
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
@@ -2781,6 +2796,28 @@ test "message builder can disown and adopt root pointers" {
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, "root orphan", try reader.getRootText());
+}
+
+test "orphan scalar accessors read moved pointers" {
+    const testing = std.testing;
+
+    var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer text_builder.deinit();
+    try text_builder.setRootText("orphan text");
+    var text_orphan = try text_builder.disownRoot();
+    try testing.expectEqualSlices(u8, "orphan text", try text_orphan.getText());
+
+    var data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer data_builder.deinit();
+    try data_builder.setRootData(&[_]u8{ 9, 8, 7 });
+    var data_orphan = try data_builder.disownRoot();
+    try testing.expectEqualSlices(u8, &[_]u8{ 9, 8, 7 }, try data_orphan.getData());
+
+    var cap_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer cap_builder.deinit();
+    try cap_builder.setRootCapability(5150);
+    var cap_orphan = try cap_builder.disownRoot();
+    try testing.expectEqual(@as(u32, 5150), try cap_orphan.getCapabilityIndex());
 }
 
 test "message builder can clear root pointers" {
