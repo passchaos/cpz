@@ -4,7 +4,7 @@
 
 - zero-copy readers and flat-message views over caller-owned byte slices;
 - segmented stream framing compatible with `capnp::serialize`;
-- word/pointer encoding and lazy pointer validation;
+- word/pointer encoding, lazy pointer validation, and schema-agnostic full-message validation stats;
 - arena-backed builders for structs, primitive lists, pointer lists, text/data blobs, and composite struct lists;
 - packed stream codec compatible with Cap'n Proto packing.
 - one-call packed stream framing helpers (`messageToPackedBytes` / `readPackedMessage`).

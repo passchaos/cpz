@@ -19,6 +19,18 @@ pub const ReaderOptions = struct {
     nesting_limit: u16 = 64,
 };
 
+pub const MessageStats = struct {
+    /// Pointer slots inspected, including null slots and the root pointer.
+    pointer_slots: usize = 0,
+    non_null_pointers: usize = 0,
+    structs: usize = 0,
+    lists: usize = 0,
+    capabilities: usize = 0,
+    data_words: usize = 0,
+    pointer_words: usize = 0,
+    total_words: usize = 0,
+};
+
 pub const BuilderOptions = struct {
     first_segment_words: usize = 1024,
     next_segment_min_words: usize = 1024,
@@ -195,6 +207,18 @@ pub const MessageReader = struct {
         if (self.segments.len == 0) return error.SegmentOutOfBounds;
         const ptr = PointerReader{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
         return ptr.getStruct(null);
+    }
+
+    /// Lazily traverses every reachable pointer without schema knowledge.
+    /// This validates pointer bounds, far-pointer landing pads, traversal
+    /// limits, and nesting limits while returning coarse wire-layout stats.
+    /// The traversal consumes this reader's traversal budget just like normal
+    /// accessor calls.
+    pub fn validate(self: *MessageReader) Error!MessageStats {
+        var stats: MessageStats = .{};
+        const root = PointerReader{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
+        try validatePointer(root, &stats);
+        return stats;
     }
 
     fn segmentWords(self: *const MessageReader, segment_id: u32) Error!usize {
@@ -804,6 +828,68 @@ fn primitivePointerCount(size: wire.ElementSize) u16 {
     return if (size == .pointer) 1 else 0;
 }
 
+fn validatePointer(ptr: PointerReader, stats: *MessageStats) Error!void {
+    try addStat(&stats.pointer_slots, 1);
+
+    const resolved = try ptr.resolve();
+    if (resolved.raw == 0) return;
+    try addStat(&stats.non_null_pointers, 1);
+
+    switch (wire.pointerType(resolved.raw)) {
+        .struct_ptr => {
+            const s = try ptr.getStruct(null);
+            try addStat(&stats.structs, 1);
+            try addStat(&stats.data_words, s.data_words);
+            try addStat(&stats.pointer_words, s.pointer_count);
+            try addStat(&stats.total_words, @as(usize, s.data_words) + @as(usize, s.pointer_count));
+            for (0..s.pointer_count) |i| {
+                try validatePointer(s.getPointerField(i), stats);
+            }
+        },
+        .list => {
+            const list = try ptr.getList(null);
+            try addStat(&stats.lists, 1);
+            switch (list.element_size) {
+                .pointer => {
+                    try addStat(&stats.pointer_words, list.element_count);
+                    try addStat(&stats.total_words, list.element_count);
+                    for (0..list.element_count) |i| {
+                        try validatePointer(try list.getPointerElement(i), stats);
+                    }
+                },
+                .composite => {
+                    const element_words = @as(usize, list.data_words) + @as(usize, list.pointer_count);
+                    const content_words = std.math.mul(usize, element_words, list.element_count) catch return error.SerializedSizeOverflow;
+                    try addStat(&stats.structs, list.element_count);
+                    try addStat(&stats.data_words, std.math.mul(usize, list.data_words, list.element_count) catch return error.SerializedSizeOverflow);
+                    try addStat(&stats.pointer_words, std.math.mul(usize, list.pointer_count, list.element_count) catch return error.SerializedSizeOverflow);
+                    try addStat(&stats.total_words, std.math.add(usize, content_words, 1) catch return error.SerializedSizeOverflow); // include composite tag word.
+                    for (0..list.element_count) |element_index| {
+                        const element = try list.getStructElement(element_index);
+                        for (0..element.pointer_count) |pointer_index| {
+                            try validatePointer(element.getPointerField(pointer_index), stats);
+                        }
+                    }
+                },
+                else => {
+                    const words = try wire.wordsForList(list.element_size, list.element_count);
+                    try addStat(&stats.data_words, words);
+                    try addStat(&stats.total_words, words);
+                },
+            }
+        },
+        .far => return error.InvalidFarPointer,
+        .other => {
+            _ = try wire.decodeOther(resolved.raw);
+            try addStat(&stats.capabilities, 1);
+        },
+    }
+}
+
+fn addStat(target: *usize, amount: usize) Error!void {
+    target.* = std.math.add(usize, target.*, amount) catch return error.SerializedSizeOverflow;
+}
+
 fn listByteLen(element_count: usize, step_bits: usize) usize {
     const bits = std.math.mul(usize, element_count, step_bits) catch @panic("list byte length overflow");
     return (bits + 7) / 8;
@@ -890,4 +976,42 @@ test "pointer lists hold nested text values" {
     try testing.expectEqualSlices(u8, "alice", try (try read_names.getPointerElement(0)).getText());
     try testing.expectEqualSlices(u8, "bob", try (try read_names.getPointerElement(1)).getText());
     try testing.expectEqualSlices(u8, "carol", try (try read_names.getPointerElement(2)).getText());
+}
+
+test "schema-agnostic validation returns reachable layout stats" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    const names = try (try root.getPointerField(0)).initList(.pointer, 2);
+    try (try names.getPointerElement(0)).setText("a");
+    try (try names.getPointerElement(1)).setText("bb");
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const stats = try reader.validate();
+    try testing.expectEqual(@as(usize, 4), stats.pointer_slots); // root, root field, two list elements.
+    try testing.expectEqual(@as(usize, 4), stats.non_null_pointers);
+    try testing.expectEqual(@as(usize, 1), stats.structs);
+    try testing.expectEqual(@as(usize, 3), stats.lists); // pointer list plus two text byte lists.
+    try testing.expectEqual(@as(usize, 2), stats.data_words);
+    try testing.expectEqual(@as(usize, 3), stats.pointer_words);
+    try testing.expectEqual(@as(usize, 5), stats.total_words);
+}
+
+test "validation reports traversal budget and bounds failures" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    try root.setText(0, "budget");
+
+    var limited = MessageReader.init(try builder.segmentsConst(), .{ .traversal_limit_words = 1 });
+    try testing.expectError(error.TraversalLimitExceeded, limited.validate());
+
+    var bad_words = [_]wire.Word{try wire.encodeStruct(10, 1, 0)};
+    const bad_segments = [_]serialize.ConstSegment{std.mem.sliceAsBytes(&bad_words)};
+    var invalid = MessageReader.init(&bad_segments, .{});
+    try testing.expectError(error.PointerOutOfBounds, invalid.validate());
 }
