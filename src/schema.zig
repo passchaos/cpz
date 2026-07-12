@@ -2450,6 +2450,23 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
     , .{});
 
+    const list_orphan_new = if (isStructListElement(file, child)) |type_name| blk: {
+        const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+        defer allocator.free(zig_type);
+        break :blk try std.fmt.allocPrint(allocator,
+            \\        pub fn newOrphan(builder: *cpz.MessageBuilder, count: usize) !@This() {{
+            \\            return fromOrphan(try builder.newOrphanStructList(count, {s}.size));
+            \\        }}
+            \\
+        , .{zig_type});
+    } else try std.fmt.allocPrint(allocator,
+        \\        pub fn newOrphan(builder: *cpz.MessageBuilder, count: usize) !@This() {{
+        \\            return fromOrphan(try builder.newOrphanList({s}, count));
+        \\        }}
+        \\
+    , .{try listElementSizeLiteral(file, child)});
+    defer allocator.free(list_orphan_new);
+
     try appendFmt(allocator, out,
         \\
         \\    pub const {s}_{s}_Orphan = struct {{
@@ -2459,6 +2476,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return .{{ .orphan = orphan }};
         \\        }}
         \\
+        \\{s}
         \\        pub fn raw(self: @This()) cpz.Word {{
         \\            return self.orphan.raw;
         \\        }}
@@ -2484,7 +2502,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\        }}
         \\    }};
         \\
-    , .{ owner_name, field_name, owner_name, field_name, try listElementSizeLiteral(file, child), owner_name, field_name, try listElementSizeLiteral(file, child) });
+    , .{ owner_name, field_name, list_orphan_new, owner_name, field_name, try listElementSizeLiteral(file, child), owner_name, field_name, try listElementSizeLiteral(file, child) });
 
     try appendFmt(allocator, out,
         \\
