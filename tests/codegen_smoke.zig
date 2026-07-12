@@ -2,8 +2,10 @@ const std = @import("std");
 const cpz = @import("cpz");
 const generated = @import("generated_schema");
 
-test "generated schema exposes file id" {
+test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(u64, 0xc0ffee), generated.@"cpz.file_id");
+    try std.testing.expectEqual(@as(u64, 0xd00d), generated.DynamicBox.@"cpz.type_id");
+    try std.testing.expectEqual(@as(u64, 0xe57e0001), generated.ExtendedService.@"cpz.type_id");
 }
 
 test "generated simple constants compile" {

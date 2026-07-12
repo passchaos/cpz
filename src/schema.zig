@@ -113,6 +113,7 @@ const UnionBuilder = struct {
 pub const Struct = struct {
     name: []const u8,
     owns_name: bool = false,
+    id: ?u64 = null,
     fields: []Field,
     consts: []ConstDecl,
     aliases: []AliasDecl,
@@ -137,6 +138,7 @@ pub const EnumValue = struct {
 pub const EnumDecl = struct {
     name: []const u8,
     owns_name: bool = false,
+    id: ?u64 = null,
     values: []EnumValue,
 
     pub fn deinit(self: *EnumDecl, allocator: std.mem.Allocator) void {
@@ -154,6 +156,7 @@ pub const InterfaceMethod = struct {
 pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
+    id: ?u64 = null,
     methods: []InterfaceMethod = &.{},
     superclasses: []Type = &.{},
 
@@ -487,6 +490,7 @@ pub const Parser = struct {
         const local_name = try self.expectIdentifier();
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
+        const decl_id = try self.parseOptionalDeclarationId();
         const superclasses = try self.parseInterfaceExtendsOrEmpty();
         errdefer {
             for (superclasses) |*superclass| superclass.deinit(self.allocator);
@@ -494,7 +498,7 @@ pub const Parser = struct {
         }
         const methods = try self.parseInterfaceBody();
         errdefer self.allocator.free(methods);
-        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .methods = methods, .superclasses = superclasses };
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .methods = methods, .superclasses = superclasses };
     }
 
     fn parseInterfaceExtendsOrEmpty(self: *Parser) Error![]Type {
@@ -887,10 +891,17 @@ pub const Parser = struct {
         return id;
     }
 
+    fn parseOptionalDeclarationId(self: *Parser) Error!?u64 {
+        if (self.lookahead.tag != .at) return null;
+        try self.expect(.at);
+        return try self.expectInteger();
+    }
+
     fn parseStruct(self: *Parser, name_prefix: ?[]const u8) Error!Struct {
         const local_name = try self.expectIdentifier();
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
+        const decl_id = try self.parseOptionalDeclarationId();
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
@@ -993,6 +1004,7 @@ pub const Parser = struct {
         return .{
             .name = qualified.name,
             .owns_name = qualified.owns_name,
+            .id = decl_id,
             .fields = try fields.toOwnedSlice(self.allocator),
             .consts = try consts.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
@@ -1089,6 +1101,7 @@ pub const Parser = struct {
         const local_name = try self.expectIdentifier();
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
+        const decl_id = try self.parseOptionalDeclarationId();
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
@@ -1114,7 +1127,7 @@ pub const Parser = struct {
             try values.append(self.allocator, .{ .name = value_name, .ordinal = ordinal });
         }
         try self.expect(.r_brace);
-        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .values = try values.toOwnedSlice(self.allocator) };
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .values = try values.toOwnedSlice(self.allocator) };
     }
 
     fn parseField(self: *Parser) Error!Field {
@@ -2560,6 +2573,12 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\pub const {s} = enum(u16) {{
         \\
     , .{enum_name});
+    if (decl.id) |id| {
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.type_id": u64 = 0x{x};
+            \\
+        , .{id});
+    }
     for (decl.values) |value| {
         const value_name = try zigIdentAlloc(allocator, value.name);
         defer allocator.free(value_name);
@@ -2582,6 +2601,12 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         \\pub const {s} = struct {{
         \\
     , .{interface_name});
+    if (decl.id) |id| {
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.type_id": u64 = 0x{x};
+            \\
+        , .{id});
+    }
     for (decl.superclasses, 0..) |superclass, index| {
         switch (resolveType(file, superclass)) {
             .named => |type_name| {
@@ -2784,6 +2809,12 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\    pub const size: cpz.StructSize = .{{ .data_words = {}, .pointer_count = {} }};
         \\
     , .{ struct_name, layout.data_words, layout.pointer_count });
+    if (layout.decl.id) |id| {
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.type_id": u64 = 0x{x};
+            \\
+        , .{id});
+    }
 
     for (layout.decl.consts) |*decl| {
         try emitNestedConst(allocator, out, file, layout.decl, decl);
@@ -5343,6 +5374,27 @@ fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u
         if (std.mem.eql(u8, value.name, name)) return value.ordinal;
     }
     return error.InvalidToken;
+}
+
+test "schema parser and code generator preserve declaration ids" {
+    const source =
+        \\struct StreamResult @0x995f9a3377c0b16e {
+        \\  value @0 :Text;
+        \\}
+        \\interface Persistent @0xc8cb212fcd9f5691 {
+        \\  save @0 () -> (sturdyRef :Data);
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(?u64, 0x995f9a3377c0b16e), file.structs[0].id);
+    try std.testing.expectEqual(@as(?u64, 0xc8cb212fcd9f5691), file.interfaces[0].id);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.type_id\": u64 = 0x995f9a3377c0b16e;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.type_id\": u64 = 0xc8cb212fcd9f5691;") != null);
 }
 
 test "schema code generator emits file id constant" {

@@ -62,7 +62,7 @@ struct Choice {
   after @3 :Text;
 }
 
-struct DynamicBox {
+struct DynamicBox @0xd00d {
   any @0 :AnyPointer;
   anyStruct @1 :AnyStruct;
   anyList @2 :AnyList;
@@ -110,7 +110,7 @@ interface Service {
   ping @1 (request :Text) -> (response :Text);
 }
 
-interface ExtendedService extends(Service) {
+interface ExtendedService @0xe57e0001 extends(Service) {
   pong @0 () -> ();
 }
 
