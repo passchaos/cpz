@@ -3169,6 +3169,10 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).pointerType();
         \\        }}
         \\
+        \\        pub fn elementRawPointer(self: @This(), index: usize) !cpz.Word {{
+        \\            return (try self.list.getPointerElement(index)).raw();
+        \\        }}
+        \\
         \\        pub fn elementDecodedPointer(self: @This(), index: usize) !?cpz.wire.DecodedPointer {{
         \\            return (try self.list.getPointerElement(index)).decode();
         \\        }}
@@ -3212,6 +3216,10 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\
         \\        pub fn elementPointerKind(self: @This(), index: usize) !?cpz.wire.PointerType {{
         \\            return (try self.list.getPointerElement(index)).pointerType();
+        \\        }}
+        \\
+        \\        pub fn elementRawPointer(self: @This(), index: usize) !cpz.Word {{
+        \\            return (try self.list.getPointerElement(index)).raw();
         \\        }}
         \\
         \\        pub fn elementDecodedPointer(self: @This(), index: usize) !?cpz.wire.DecodedPointer {{

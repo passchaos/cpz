@@ -84,6 +84,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try aliases.set(0, "A");
     try aliases.set(1, "Lovelace");
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try aliases.elementPointerKind(0)).?);
+    const alias_element_raw = try aliases.elementRawPointer(0);
+    try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(alias_element_raw));
     const alias_element_decoded = (try aliases.elementDecodedPointer(0)).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, alias_element_decoded.element_size);
     var alias_element_reader = try builder.asReader(.{});
@@ -170,6 +172,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqualSlices(u8, "A", try read_aliases.get(0));
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.get(1));
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try read_aliases.elementPointerKind(1)).?);
+    const read_alias_element_raw = try read_aliases.elementRawPointer(1);
+    try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_alias_element_raw));
     const read_alias_decoded = (try read_aliases.elementDecodedPointer(1)).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, read_alias_decoded.element_size);
     try std.testing.expectEqualSlices(u8, "A", try (try read_aliases.elementAsPointer(0)).getText());
@@ -871,6 +875,8 @@ test "generated builtin any and capability accessors round-trip" {
     try caps.set(0, 88);
     try caps.set(1, 99);
     try std.testing.expectEqual(cpz.wire.PointerType.other, (try caps.elementPointerKind(0)).?);
+    const cap_element_raw = try caps.elementRawPointer(0);
+    try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(cap_element_raw));
     try std.testing.expectEqual(@as(u32, 88), (try caps.elementDecodedPointer(0)).?.other.index);
     try std.testing.expectEqual(@as(u32, 99), try caps.elementAsCapability(1));
     try std.testing.expectEqual(@as(u32, 77), try box_builder.get_cap());
@@ -899,6 +905,8 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));
     try std.testing.expectEqual(@as(u32, 99), try read_caps.get(1));
     try std.testing.expectEqual(cpz.wire.PointerType.other, (try read_caps.elementPointerKind(1)).?);
+    const read_cap_element_raw = try read_caps.elementRawPointer(1);
+    try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(read_cap_element_raw));
     try std.testing.expectEqual(@as(u32, 99), (try read_caps.elementDecodedPointer(1)).?.other.index);
     try std.testing.expectEqual(@as(u32, 88), try read_caps.elementAsCapability(0));
 
