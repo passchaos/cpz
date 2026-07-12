@@ -173,6 +173,7 @@ const TokenTag = enum {
     dot,
     comma,
     question,
+    bang,
     arrow,
     integer,
     string,
@@ -211,6 +212,7 @@ const Lexer = struct {
             '.' => .{ .tag = .dot, .lexeme = self.source[start..self.index] },
             ',' => .{ .tag = .comma, .lexeme = self.source[start..self.index] },
             '?' => .{ .tag = .question, .lexeme = self.source[start..self.index] },
+            '!' => .{ .tag = .bang, .lexeme = self.source[start..self.index] },
             '-' => blk: {
                 if (self.index < self.source.len and self.source[self.index] == '>') {
                     self.index += 1;
@@ -338,7 +340,7 @@ pub const Parser = struct {
             } else if (self.eatKeyword("interface")) {
                 try self.skipBracedDeclaration();
             } else if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
-                try self.skipUntilSemicolon();
+                try self.skipRawUntilSemicolon();
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
             } else {
@@ -380,9 +382,13 @@ pub const Parser = struct {
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
-            if ((self.isKeyword("struct") or self.isKeyword("enum")) and (try self.peekNext()).tag == .identifier) {
+            if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
                 try self.advance();
                 try self.skipBracedDeclaration();
+                continue;
+            }
+            if (try self.isNamedAggregateStart()) {
+                try self.parseNamedAggregate(&fields, &field_names, &unions);
                 continue;
             }
             if (self.isKeyword("union") and (try self.peekNext()).tag == .l_brace) {
@@ -390,6 +396,10 @@ pub const Parser = struct {
                 const union_index: u32 = @intCast(unions.items.len);
                 try unions.append(self.allocator, UnionBuilder.init(self.allocator));
                 try self.parseAnonymousUnion(&unions.items[union_index], union_index);
+                continue;
+            }
+            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+                try self.skipRawUntilSemicolon();
                 continue;
             }
             var field = try self.parseField();
@@ -400,21 +410,72 @@ pub const Parser = struct {
             try fields.append(self.allocator, field);
         }
         try self.expect(.r_brace);
-        for (unions.items) |*u| {
-            try appendUnionFields(self.allocator, &fields, &field_names, u);
-            u.deinit(self.allocator);
-        }
+        for (unions.items) |*u| try appendUnionFields(self.allocator, &fields, &field_names, u);
+        for (unions.items) |*u| u.deinit(self.allocator);
         unions.deinit(self.allocator);
         return .{ .name = name, .fields = try fields.toOwnedSlice(self.allocator) };
     }
 
     fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
         try self.expect(.l_brace);
+        try self.parseAnonymousUnionBody(union_builder, union_index);
+    }
+
+    fn parseNamedAggregate(self: *Parser, fields: *std.ArrayList(Field), field_names: *std.StringHashMap(void), unions: *std.ArrayList(UnionBuilder)) Error!void {
+        const name = try self.expectIdentifier();
+        const ordinal = try self.parseOptionalOrdinalBang();
+        try self.expect(.colon);
+        const kind = try self.expectIdentifier();
+        _ = unions;
+        if (std.mem.eql(u8, kind, "union") or std.mem.eql(u8, kind, "group")) {
+            try self.skipUntil(.l_brace);
+            try self.skipCurrentBracedBody();
+            if (ordinal) |value| {
+                var field = Field{ .name = name, .ordinal = value, .ty = .void };
+                if (try putFieldName(field_names, field.name)) {
+                    field.deinit(self.allocator);
+                    return error.NameCollision;
+                }
+                try fields.append(self.allocator, field);
+            }
+            return;
+        }
+        return error.UnexpectedToken;
+    }
+
+    fn skipNamedAggregate(self: *Parser) Error!void {
+        _ = try self.expectIdentifier();
+        _ = try self.parseOptionalOrdinalBang();
+        try self.expect(.colon);
+        const kind = try self.expectIdentifier();
+        if (!std.mem.eql(u8, kind, "union") and !std.mem.eql(u8, kind, "group")) return error.UnexpectedToken;
+        try self.skipUntil(.l_brace);
+        try self.skipCurrentBracedBody();
+    }
+
+    fn parseOptionalOrdinalBang(self: *Parser) Error!?u32 {
+        if (self.lookahead.tag != .at) return null;
+        try self.expect(.at);
+        const ordinal_u64 = try self.expectInteger();
+        if (ordinal_u64 > std.math.maxInt(u32)) return error.InvalidOrdinal;
+        if (self.lookahead.tag == .bang) try self.expect(.bang);
+        return @intCast(ordinal_u64);
+    }
+
+    fn parseAnonymousUnionBody(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
-            if ((self.isKeyword("struct") or self.isKeyword("enum")) and (try self.peekNext()).tag == .identifier) {
+            if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
                 try self.advance();
                 try self.skipBracedDeclaration();
+                continue;
+            }
+            if (try self.isNamedAggregateStart()) {
+                try self.skipNamedAggregate();
+                continue;
+            }
+            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+                try self.skipRawUntilSemicolon();
                 continue;
             }
             var field = try self.parseField();
@@ -426,7 +487,6 @@ pub const Parser = struct {
             try union_builder.fields.append(self.allocator, field);
         }
         try self.expect(.r_brace);
-        if (union_builder.fields.items.len < 2) return error.UnexpectedToken;
         try self.assignUnionDiscriminants(union_builder.fields.items);
     }
 
@@ -477,6 +537,7 @@ pub const Parser = struct {
         try self.expect(.at);
         const ordinal_u64 = try self.expectInteger();
         if (ordinal_u64 > std.math.maxInt(u32)) return error.InvalidOrdinal;
+        if (self.lookahead.tag == .bang) try self.expect(.bang);
         try self.expect(.colon);
         const ty = try self.parseType();
         if (isGroupType(ty) and self.lookahead.tag == .l_brace) {
@@ -545,6 +606,26 @@ pub const Parser = struct {
         return .{ .named = name };
     }
 
+    fn isNamedAggregateStart(self: *const Parser) Error!bool {
+        if (self.lookahead.tag != .identifier) return false;
+        var lexer = self.lexer;
+        var token = try lexer.next();
+        if (token.tag == .at) {
+            token = try lexer.next();
+            if (token.tag != .integer) return false;
+            token = try lexer.next();
+            if (token.tag == .bang) token = try lexer.next();
+        }
+        if (token.tag != .colon) return false;
+        token = try lexer.next();
+        if (token.tag != .identifier) return false;
+        if (!std.mem.eql(u8, token.lexeme, "union") and !std.mem.eql(u8, token.lexeme, "group")) return false;
+        while (token.tag != .eof and token.tag != .semicolon and token.tag != .r_brace) : (token = try lexer.next()) {
+            if (token.tag == .l_brace) return true;
+        }
+        return false;
+    }
+
     fn eatKeyword(self: *Parser, keyword: []const u8) bool {
         if (self.isKeyword(keyword)) {
             self.advance() catch unreachable;
@@ -605,6 +686,87 @@ pub const Parser = struct {
     fn skipUntilSemicolon(self: *Parser) Error!void {
         try self.skipUntil(.semicolon);
         try self.expect(.semicolon);
+    }
+
+    fn skipRawUntilSemicolon(self: *Parser) Error!void {
+        const source = self.lexer.source;
+        var index = self.lexer.index;
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        var brace_depth: usize = 0;
+        while (index < source.len) {
+            const c = source[index];
+            switch (c) {
+                '`' => {
+                    while (index < source.len and source[index] != '\n') index += 1;
+                },
+                '"' => {
+                    if (index + 2 < source.len and source[index + 1] == '"' and source[index + 2] == '"') {
+                        index += 3;
+                        while (index + 2 < source.len and !(source[index] == '"' and source[index + 1] == '"' and source[index + 2] == '"')) : (index += 1) {}
+                        if (index + 2 >= source.len) return error.UnexpectedToken;
+                        index += 3;
+                    } else {
+                        index += 1;
+                        while (index < source.len) {
+                            if (source[index] == '\\') {
+                                index += 2;
+                            } else if (source[index] == '"') {
+                                index += 1;
+                                break;
+                            } else {
+                                index += 1;
+                            }
+                        }
+                    }
+                },
+                '#' => {
+                    while (index < source.len and source[index] != '\n') index += 1;
+                },
+                '/' => {
+                    if (index + 1 < source.len and source[index + 1] == '/') {
+                        index += 2;
+                        while (index < source.len and source[index] != '\n') index += 1;
+                    } else {
+                        index += 1;
+                    }
+                },
+                '(' => {
+                    paren_depth += 1;
+                    index += 1;
+                },
+                ')' => {
+                    if (paren_depth > 0) paren_depth -= 1;
+                    index += 1;
+                },
+                '[' => {
+                    bracket_depth += 1;
+                    index += 1;
+                },
+                ']' => {
+                    if (bracket_depth > 0) bracket_depth -= 1;
+                    index += 1;
+                },
+                '{' => {
+                    brace_depth += 1;
+                    index += 1;
+                },
+                '}' => {
+                    if (brace_depth > 0) brace_depth -= 1;
+                    index += 1;
+                },
+                ';' => {
+                    index += 1;
+                    if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) {
+                        self.lexer.index = index;
+                        try self.advance();
+                        return;
+                    }
+                },
+                else => index += 1,
+            }
+        }
+        return error.UnexpectedToken;
     }
 
     fn skipUntil(self: *Parser, tag: TokenTag) Error!void {
@@ -950,7 +1112,7 @@ test "schema parser handles structs, file ids, lists, comments" {
 
 test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 UInt32; }"));
-    try std.testing.expectError(error.InvalidToken, parse(std.testing.allocator, "@!;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "@!;"));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
@@ -995,6 +1157,10 @@ test "schema parser skips common top-level using and const declarations" {
     const source =
         \\using Go = import "go.capnp";
         \\const defaultName :Text = "Ada";
+        \\const blockText :Text =
+        \\  `line one
+        \\  `"quoted" line two
+        \\  ;
         \\struct Person {
         \\  name @0 :Text = "Ada";
         \\}
@@ -1042,6 +1208,39 @@ test "schema parser skips top-level annotations and interfaces" {
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Payload", file.structs[0].name);
     try std.testing.expectEqual(@as(usize, 1), file.structs[0].fields.len);
+}
+
+test "schema parser tolerates named union and group declarations" {
+    const source =
+        \\struct Late {
+        \\  before @0 :Text;
+        \\  selected @1! :union $Ann.name("selected") {
+        \\    text @2 :Text;
+        \\    id @3 :UInt32;
+        \\  }
+        \\  metadata :group {
+        \\    created @4 :UInt64;
+        \\  }
+        \\  const localName :Text =
+        \\    `block text
+        \\    ;
+        \\  using Alias = Text;
+        \\  annotation local(field) :Text;
+        \\  interface Local {
+        \\    call @0 () -> ();
+        \\  }
+        \\  keep @5 :Text;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.structs.len);
+    try std.testing.expectEqual(@as(usize, 3), file.structs[0].fields.len);
+    try std.testing.expectEqualStrings("before", file.structs[0].fields[0].name);
+    try std.testing.expectEqualStrings("selected", file.structs[0].fields[1].name);
+    try std.testing.expectEqual(Type.void, file.structs[0].fields[1].ty);
+    try std.testing.expectEqual(@as(u32, 1), file.structs[0].fields[1].ordinal);
+    try std.testing.expectEqualStrings("keep", file.structs[0].fields[2].name);
 }
 
 test "schema parser accepts TypeList shorthand" {
