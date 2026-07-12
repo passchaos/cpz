@@ -182,7 +182,10 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_scores_prefix = try read_scores.slice(0, 1);
     try std.testing.expectEqual(@as(usize, 1), read_scores_prefix.len());
     try std.testing.expectEqual(@as(u32, 10), read_scores_prefix.get(0));
-    try std.testing.expectError(error.UnsupportedElementSize, read_scores.slice(1, 1));
+    const read_scores_tail = try read_scores.slice(1, 1);
+    try std.testing.expectEqual(@as(usize, 1), read_scores_tail.len());
+    try std.testing.expectEqual(@as(u32, 20), read_scores_tail.get(0));
+    try std.testing.expectEqual(@as(usize, 4), read_scores_tail.rawBytes().len);
     const read_children = try person.children();
     try std.testing.expectEqual(generated.Person.size, read_children.structElementSize());
     const read_child = try read_children.get(0);
