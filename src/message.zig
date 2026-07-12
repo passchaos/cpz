@@ -1190,6 +1190,25 @@ pub const ListBuilder = struct {
         return self.element_count;
     }
 
+    /// Return a sub-list view. The current representation is word-addressed, so
+    /// slicing at non-word-aligned element offsets returns UnsupportedElementSize.
+    pub fn slice(self: ListBuilder, start_index: usize, count: usize) Error!ListBuilder {
+        if (start_index > self.element_count or self.element_count - start_index < count) return error.PointerOutOfBounds;
+        const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
+        if (start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+        const start_words = start_bits / wire.bits_per_word;
+        return .{
+            .message = self.message,
+            .segment_id = self.segment_id,
+            .start = self.start + start_words,
+            .element_count = count,
+            .element_size = self.element_size,
+            .data_words = self.data_words,
+            .pointer_count = self.pointer_count,
+            .step_bits = self.step_bits,
+        };
+    }
+
     /// Create a read-only view using a caller-owned MessageReader over the
     /// same message segments. The caller must keep `message_reader` alive for
     /// the returned ListReader.
@@ -1372,6 +1391,26 @@ pub const ListReader = struct {
 
     pub fn len(self: ListReader) usize {
         return self.element_count;
+    }
+
+    /// Return a sub-list view. The current representation is word-addressed, so
+    /// slicing at non-word-aligned element offsets returns UnsupportedElementSize.
+    pub fn slice(self: ListReader, start_index: usize, count: usize) Error!ListReader {
+        if (start_index > self.element_count or self.element_count - start_index < count) return error.PointerOutOfBounds;
+        const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
+        if (start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+        const start_words = start_bits / wire.bits_per_word;
+        return .{
+            .message = self.message,
+            .segment_id = self.segment_id,
+            .start = self.start + start_words,
+            .element_count = count,
+            .element_size = self.element_size,
+            .data_words = self.data_words,
+            .pointer_count = self.pointer_count,
+            .step_bits = self.step_bits,
+            .nesting_left = self.nesting_left,
+        };
     }
 
     pub fn bytes(self: ListReader) []const u8 {
@@ -1797,12 +1836,21 @@ test "primitive and struct lists" {
     const read_nums = try r.getPointerField(0).getList(.two_bytes);
     try testing.expectEqual(@as(usize, 3), read_nums.len());
     try testing.expectEqual(@as(u16, 20), read_nums.getUInt16(1));
+    const nums_prefix = try read_nums.slice(0, 2);
+    try testing.expectEqual(@as(usize, 2), nums_prefix.len());
+    try testing.expectEqual(@as(u16, 10), nums_prefix.getUInt16(0));
+    try testing.expectEqual(@as(u16, 20), nums_prefix.getUInt16(1));
+    try testing.expectError(error.UnsupportedElementSize, read_nums.slice(1, 2));
+    try testing.expectError(error.PointerOutOfBounds, read_nums.slice(2, 2));
 
     const read_people = try r.getPointerField(1).getList(.composite);
     try testing.expectEqual(@as(usize, 2), read_people.len());
     const read_p1 = try read_people.getStructElement(1);
     try testing.expectEqual(@as(u32, 2), read_p1.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "bb", try read_p1.getPointerField(0).getText());
+    const second_person = try read_people.slice(1, 1);
+    try testing.expectEqual(@as(usize, 1), second_person.len());
+    try testing.expectEqual(@as(u32, 2), (try second_person.getStructElement(0)).getUInt32(0, 0));
 
     const root_size = try r.totalSize();
     try testing.expectEqual(@as(usize, 10), root_size.word_count);
@@ -1821,6 +1869,10 @@ test "primitive and struct lists" {
     const builder_size = try builder.totalSize();
     try testing.expectEqual(@as(usize, 10), builder_size.word_count);
     try testing.expectEqual(@as(usize, 0), builder_size.cap_count);
+
+    const nums_builder_tail = try nums.slice(0, 2);
+    try nums_builder_tail.setUInt16(1, 44);
+    try testing.expectEqual(@as(u16, 44), try nums.getUInt16(1));
 }
 
 test "pointer lists hold nested text values" {
