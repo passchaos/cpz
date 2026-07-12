@@ -49,6 +49,7 @@ pub const Field = struct {
     ordinal: u32,
     ty: Type,
     default_literal: ?[]const u8 = null,
+    default_is_hex_data: bool = false,
     union_index: ?u32 = null,
     union_discriminant: u16 = 0,
 
@@ -548,12 +549,21 @@ pub const Parser = struct {
             try self.skipCurrentBracedBody();
             return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = .void };
         }
+        var default_is_hex_data = false;
         const default_literal = if (self.lookahead.tag == .equal) blk: {
             try self.expect(.equal);
+            if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) {
+                try self.expect(.integer);
+                if (self.lookahead.tag != .string) return error.UnexpectedToken;
+                const value = self.lookahead.lexeme;
+                try self.advance();
+                default_is_hex_data = true;
+                break :blk value;
+            }
             break :blk try self.expectDefaultLiteral();
         } else null;
         try self.skipUntilSemicolon();
-        return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = ty, .default_literal = default_literal };
+        return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = ty, .default_literal = default_literal, .default_is_hex_data = default_is_hex_data };
     }
 
     fn parseType(self: *Parser) Error!Type {
@@ -1314,11 +1324,14 @@ test "schema parser tolerates list and struct field defaults" {
         \\struct Defaults {
         \\  nums @0 :List(UInt32) = [1, 2, 3];
         \\  child @1 :Child = (id = 42);
+        \\  bytes @2 :Data = 0x"62 61 72";
         \\}
     );
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(?[]const u8, null), file.structs[1].fields[0].default_literal);
     try std.testing.expectEqual(@as(?[]const u8, null), file.structs[1].fields[1].default_literal);
+    try std.testing.expectEqualStrings("62 61 72", file.structs[1].fields[2].default_literal.?);
+    try std.testing.expect(file.structs[1].fields[2].default_is_hex_data);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     const code = try generateZig(std.testing.allocator, &file, &layouts);
@@ -1326,6 +1339,7 @@ test "schema parser tolerates list and struct field defaults" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Defaults = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_nums(self: Builder, count: usize)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_child(self: Builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getDataDefault(\"bar\")") != null);
 }
 
 test "schema parser and codegen accept optional pointer types" {
@@ -1915,7 +1929,7 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
             }
         },
         .data => {
-            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            const default_literal = if (field.default_literal) |literal| try zigDataLiteralAlloc(allocator, literal, field.default_is_hex_data) else null;
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) ![]const u8 {{
@@ -2485,7 +2499,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             , .{index});
         },
         .data => {
-            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            const default_literal = if (field.default_literal) |literal| try zigDataLiteralAlloc(allocator, literal, field.default_is_hex_data) else null;
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) ![]const u8 {{
@@ -2720,6 +2734,40 @@ fn zigIdentAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocato
     return out.toOwnedSlice(allocator);
 }
 
+fn zigDataLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8, is_hex: bool) LayoutError![]u8 {
+    if (!is_hex) return zigStringLiteralAlloc(allocator, raw);
+
+    var bytes = std.ArrayList(u8).empty;
+    errdefer bytes.deinit(allocator);
+    var high_nibble: ?u8 = null;
+    for (raw) |c| {
+        switch (c) {
+            ' ', '\t', '\n', '\r' => continue,
+            else => {},
+        }
+        const value = hexValue(c) orelse return error.InvalidToken;
+        if (high_nibble) |high| {
+            try bytes.append(allocator, (high << 4) | value);
+            high_nibble = null;
+        } else {
+            high_nibble = value;
+        }
+    }
+    if (high_nibble != null) return error.InvalidToken;
+    const decoded = try bytes.toOwnedSlice(allocator);
+    defer allocator.free(decoded);
+    return zigStringLiteralAlloc(allocator, decoded);
+}
+
+fn hexValue(c: u8) ?u8 {
+    return switch (c) {
+        '0'...'9' => c - '0',
+        'a'...'f' => c - 'a' + 10,
+        'A'...'F' => c - 'A' + 10,
+        else => null,
+    };
+}
+
 fn zigStringLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
@@ -2767,7 +2815,11 @@ fn appendZigStringChar(allocator: std.mem.Allocator, out: *std.ArrayList(u8), c:
         '\n' => try out.appendSlice(allocator, "\\n"),
         '\r' => try out.appendSlice(allocator, "\\r"),
         '\t' => try out.appendSlice(allocator, "\\t"),
-        else => try out.append(allocator, c),
+        else => if (c < 0x20 or c >= 0x7f) {
+            try appendFmt(allocator, out, "\\x{X:0>2}", .{c});
+        } else {
+            try out.append(allocator, c);
+        },
     }
 }
 
@@ -2960,6 +3012,9 @@ test "schema code generator converts escaped string defaults to Zig literals" {
     const literal = try zigStringLiteralAlloc(std.testing.allocator, "line\\n\\\"tab\\t\\x21");
     defer std.testing.allocator.free(literal);
     try std.testing.expectEqualStrings("\"line\\n\\\"tab\\t!\"", literal);
+    const hex_literal = try zigDataLiteralAlloc(std.testing.allocator, "62 61 72 00 ff", true);
+    defer std.testing.allocator.free(hex_literal);
+    try std.testing.expectEqualStrings("\"bar\\x00\\xFF\"", hex_literal);
 }
 
 test "schema code generator sanitizes dotted named type references" {
