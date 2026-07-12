@@ -977,6 +977,14 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5 }, try (try any_items.get(1)).getData());
     try std.testing.expectEqual(@as(u32, 6060), try (try any_items.get(2)).getCapabilityIndex());
 
+    const any_struct_items = try box_builder.init_anyStructItems(1);
+    const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });
+    try any_struct_item.setUInt32(0, 0xbeefcafe, 0);
+    try any_struct_item.setText(0, "list any struct");
+    const read_any_struct_item = try any_struct_items.get(0);
+    try std.testing.expectEqual(@as(u32, 0xbeefcafe), try read_any_struct_item.getUInt32(0, 0));
+    try std.testing.expectEqualSlices(u8, "list any struct", try (try read_any_struct_item.getPointerField(0)).getText());
+
     var orphan_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer orphan_builder_message.deinit();
     const orphan_box_builder = try generated.DynamicBox.initRootTyped(&orphan_builder_message);

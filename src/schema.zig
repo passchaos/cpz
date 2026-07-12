@@ -3357,8 +3357,16 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getStruct();
             \\        }}
             \\
+            \\        pub fn init(self: @This(), index: usize, struct_size: cpz.StructSize) !cpz.StructBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initStruct(struct_size);
+            \\        }}
+            \\
             \\        pub fn set(self: @This(), index: usize, new_value: cpz.StructReader) !void {{
             \\            return (try self.list.getPointerElement(index)).copyStructFrom(new_value);
+            \\        }}
+            \\
+            \\        pub fn newOrphan(self: @This(), struct_size: cpz.StructSize) !cpz.Orphan {{
+            \\            return self.orphanage().newStruct(struct_size);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{

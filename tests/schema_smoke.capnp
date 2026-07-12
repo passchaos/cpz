@@ -69,6 +69,7 @@ struct DynamicBox {
   capList @4 :List(Capability);
   blob @5 :Data;
   anyListItems @6 :List(AnyPointer);
+  anyStructItems @7 :List(AnyStruct);
 }
 
 struct AliasBox {
