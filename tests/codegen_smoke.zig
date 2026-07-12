@@ -27,6 +27,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try person_builder.set_name("Ada");
     try std.testing.expectEqual(true, try person_builder.has_name());
     try std.testing.expectEqualSlices(u8, "Ada", try person_builder.get_name());
+    const builder_pointer_section = person_builder.pointerSection();
+    try std.testing.expectEqual(@as(usize, generated.Person.size.pointer_count), builder_pointer_section.len());
+    try std.testing.expectEqualSlices(u8, "Ada", try (try builder_pointer_section.getPointerElement(0)).getText());
     var name_view_reader = try builder.asReader(.{});
     const name_pointer_view = try person_builder.get_nameAsReader(&name_view_reader);
     try std.testing.expectEqualSlices(u8, "Ada", try name_pointer_view.getText());
@@ -110,6 +113,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const person = try generated.Person.getRoot(&reader);
     try std.testing.expectEqual(generated.Person.size, person.actualSize());
     try std.testing.expectEqual(@as(u8, 7 ^ 42), person.dataSection()[0]);
+    const person_pointer_section = person.pointerSection();
+    try std.testing.expectEqual(@as(usize, generated.Person.size.pointer_count), person_pointer_section.len());
+    try std.testing.expectEqualSlices(u8, "Ada", try (try person_pointer_section.getPointerElement(0)).getText());
     try std.testing.expectEqual(@as(u32, 7), person.id());
     try std.testing.expectEqual(false, person.active());
     try std.testing.expect(person.has_name());
