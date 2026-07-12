@@ -83,6 +83,61 @@ pub const Orphan = struct {
     segment_id: u32,
     pointer_word_index: usize,
     raw: wire.Word,
+
+    pub fn isNull(self: Orphan) bool {
+        return self.raw == 0;
+    }
+
+    pub fn pointerType(self: Orphan) ?wire.PointerType {
+        if (self.raw == 0) return null;
+        return wire.pointerType(self.raw);
+    }
+
+    pub fn asReader(self: Orphan, message_reader: *MessageReader) PointerReader {
+        return .{
+            .message = message_reader,
+            .segment_id = self.segment_id,
+            .word_index = self.pointer_word_index,
+            .nesting_left = message_reader.options.nesting_limit,
+            .raw_override = self.raw,
+        };
+    }
+
+    pub fn getStruct(self: Orphan) Error!StructBuilder {
+        if (self.raw == 0) return error.NullPointer;
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        const struct_reader = try self.asReader(&reader).getStruct(null);
+        return .{
+            .message = self.message,
+            .segment_id = struct_reader.segment_id,
+            .data_start = struct_reader.data_start,
+            .pointer_start = struct_reader.pointer_start,
+            .data_words = struct_reader.data_words,
+            .pointer_count = struct_reader.pointer_count,
+        };
+    }
+
+    pub fn getList(self: Orphan, expected: ?wire.ElementSize) Error!ListBuilder {
+        if (self.raw == 0) return error.NullPointer;
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        const list_reader = try self.asReader(&reader).getList(expected);
+        return .{
+            .message = self.message,
+            .segment_id = list_reader.segment_id,
+            .start = list_reader.start,
+            .element_count = list_reader.element_count,
+            .element_size = list_reader.element_size,
+            .data_words = list_reader.data_words,
+            .pointer_count = list_reader.pointer_count,
+            .step_bits = list_reader.step_bits,
+        };
+    }
+
+    pub fn totalSize(self: Orphan) Error!MessageSize {
+        if (self.raw == 0) return error.NullPointer;
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).totalSize();
+    }
 };
 
 pub const MessageBuilder = struct {
@@ -738,8 +793,10 @@ pub const PointerReader = struct {
     word_index: usize,
     nesting_left: u16,
     null_override: bool = false,
+    raw_override: ?wire.Word = null,
 
     pub fn raw(self: PointerReader) Error!wire.Word {
+        if (self.raw_override) |raw_value| return raw_value;
         if (self.null_override) return 0;
         return self.message.readWord(self.segment_id, self.word_index);
     }
@@ -892,6 +949,9 @@ pub const PointerReader = struct {
     }
 
     fn resolve(self: PointerReader) Error!ResolvedPointer {
+        if (self.raw_override) |raw_value| {
+            return .{ .segment_id = self.segment_id, .pointer_word_index = self.word_index, .raw = raw_value };
+        }
         if (self.null_override) {
             return .{ .segment_id = self.segment_id, .pointer_word_index = self.word_index, .raw = 0 };
         }
@@ -2057,6 +2117,12 @@ test "pointer builders can disown and adopt within a message" {
 
     var orphan = field0.disown();
     try testing.expect(field0.isNull());
+    try testing.expect(!orphan.isNull());
+    try testing.expectEqual(wire.PointerType.list, orphan.pointerType().?);
+    const orphan_size = try orphan.totalSize();
+    try testing.expectEqual(@as(usize, 1), orphan_size.word_count);
+    const orphan_text = try orphan.getList(.byte);
+    try testing.expectEqual(@as(u8, 'm'), try orphan_text.getUInt8(0));
     try field1.adopt(&orphan);
     try testing.expectEqual(@as(u64, 0), orphan.raw);
     try testing.expect(field0.isNull());
