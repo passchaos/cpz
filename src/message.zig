@@ -365,6 +365,12 @@ pub const PointerBuilder = struct {
         return self.message.readWord(self.segment_id, self.word_index) == 0;
     }
 
+    pub fn pointerType(self: PointerBuilder) ?wire.PointerType {
+        const raw_value = self.message.readWord(self.segment_id, self.word_index);
+        if (raw_value == 0) return null;
+        return wire.pointerType(raw_value);
+    }
+
     pub fn clear(self: PointerBuilder) void {
         self.message.writePtr(self.segment_id, self.word_index, 0);
     }
@@ -665,6 +671,12 @@ pub const PointerReader = struct {
 
     pub fn isNull(self: PointerReader) bool {
         return (self.raw() catch 0) == 0;
+    }
+
+    pub fn pointerType(self: PointerReader) Error!?wire.PointerType {
+        const resolved = try self.resolve();
+        if (resolved.raw == 0) return null;
+        return wire.pointerType(resolved.raw);
     }
 
     pub fn getStruct(self: PointerReader, default_value: ?StructReader) Error!StructReader {
@@ -1844,6 +1856,8 @@ test "root pointer APIs support non-struct roots" {
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const root_ptr = try reader.getRootPointer();
+    try testing.expectEqual(wire.PointerType.list, (try root_ptr.pointerType()).?);
+    try testing.expectEqual(wire.PointerType.list, (try builder.getRootPointer()).pointerType().?);
     const read_nums = try root_ptr.getList(.two_bytes);
     try testing.expectEqual(@as(u16, 111), read_nums.getUInt16(0));
     try testing.expectEqual(@as(u16, 222), read_nums.getUInt16(1));
@@ -1855,6 +1869,11 @@ test "root pointer APIs support non-struct roots" {
     var copied_reader = MessageReader.init(try copied.segmentsConst(), .{});
     const copied_nums = try (try copied_reader.getRootPointer()).getList(.two_bytes);
     try testing.expectEqual(@as(u16, 222), copied_nums.getUInt16(1));
+
+    (try copied.getRootPointer()).clear();
+    try testing.expect((try copied.getRootPointer()).pointerType() == null);
+    var cleared_reader = MessageReader.init(try copied.segmentsConst(), .{});
+    try testing.expect((try (try cleared_reader.getRootPointer()).pointerType()) == null);
 }
 
 test "builders can clear pointer fields and elements" {
