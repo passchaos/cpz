@@ -18,6 +18,9 @@ const globalName :Text = "const text";
 const globalPayload :Data = 0x"de ad be ef";
 const globalShade :Color = blue;
 const globalRatio :Float64 = +1.25e2;
+const globalScores :List(UInt32) = [10, 20, 30];
+const globalNames :TextList = ["alpha", "beta"];
+const globalShades :List(Color) = [red, blue];
 
 struct Person {
   id @0 :UInt32 = 42;
@@ -44,6 +47,7 @@ struct Person {
   const defaultAge :UInt16 = 99;
   const defaultAlias :Text = "nested const";
   const defaultColor :Color = red;
+  const defaultScores :List(UInt16) = [7, 8, 9];
 }
 
 struct Choice {

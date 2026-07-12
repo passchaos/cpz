@@ -9,9 +9,13 @@ test "generated simple constants compile" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0xde, 0xad, 0xbe, 0xef }, generated.globalPayload);
     try std.testing.expectEqual(generated.Color.blue, generated.globalShade);
     try std.testing.expectEqual(@as(f64, 125.0), generated.globalRatio);
+    try std.testing.expectEqualSlices(u32, &[_]u32{ 10, 20, 30 }, generated.globalScores);
+    try std.testing.expectEqualSlices(u8, "beta", generated.globalNames[1]);
+    try std.testing.expectEqual(generated.Color.blue, generated.globalShades[1]);
     try std.testing.expectEqual(@as(u16, 99), generated.Person.defaultAge);
     try std.testing.expectEqualSlices(u8, "nested const", generated.Person.defaultAlias);
     try std.testing.expectEqual(generated.Color.red, generated.Person.defaultColor);
+    try std.testing.expectEqualSlices(u16, &[_]u16{ 7, 8, 9 }, generated.Person.defaultScores);
 }
 
 test "generated reader and builder accessors compile and round-trip" {

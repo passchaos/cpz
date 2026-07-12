@@ -74,11 +74,18 @@ pub const ConstDecl = struct {
     ty: Type,
     literal: []const u8,
     is_hex_data: bool = false,
+    list_items: ?[]ConstListItem = null,
 
     pub fn deinit(self: *ConstDecl, allocator: std.mem.Allocator) void {
         self.ty.deinit(allocator);
+        if (self.list_items) |items| allocator.free(items);
         self.* = undefined;
     }
+};
+
+pub const ConstListItem = struct {
+    literal: []const u8,
+    is_hex_data: bool = false,
 };
 
 pub const ImportDecl = struct {
@@ -458,7 +465,8 @@ pub const Parser = struct {
             try self.skipRawUntilSemicolon();
             return;
         }
-        if (self.constLiteralStartsUnsupported()) {
+        const list_literal = self.constLiteralStartsList();
+        if (self.constLiteralStartsUnsupported(list_literal)) {
             ty.deinit(self.allocator);
             try self.skipRawUntilSemicolon();
             return;
@@ -466,7 +474,21 @@ pub const Parser = struct {
         try self.expect(.equal);
 
         var is_hex_data = false;
-        const literal = if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
+        var list_items: ?[]ConstListItem = null;
+        errdefer if (list_items) |items| self.allocator.free(items);
+        const literal: []const u8 = if (list_literal) blk: {
+            if (ty != .list) {
+                ty.deinit(self.allocator);
+                try self.skipRawUntilSemicolon();
+                return;
+            }
+            list_items = self.parseConstListItems(ty.list.*) catch {
+                ty.deinit(self.allocator);
+                try self.skipRawUntilSemicolon();
+                return;
+            };
+            break :blk "";
+        } else if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
             try self.expect(.integer);
             if (self.lookahead.tag != .string) {
                 ty.deinit(self.allocator);
@@ -495,7 +517,7 @@ pub const Parser = struct {
             try self.skipRawUntilSemicolon();
             return;
         }
-        if (!isSimpleConstType(ty)) {
+        if (!isSimpleConstType(ty) and list_items == null) {
             ty.deinit(self.allocator);
             try self.expect(.semicolon);
             return;
@@ -512,10 +534,53 @@ pub const Parser = struct {
             .ty = ty,
             .literal = literal,
             .is_hex_data = is_hex_data,
+            .list_items = list_items,
         });
     }
 
-    fn constLiteralStartsUnsupported(self: *const Parser) bool {
+    fn parseConstListItems(self: *Parser, child_ty: Type) Error![]ConstListItem {
+        var items = std.ArrayList(ConstListItem).empty;
+        errdefer items.deinit(self.allocator);
+
+        try self.expect(.l_bracket);
+        while (self.lookahead.tag != .r_bracket) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+
+            var is_hex_data = false;
+            const literal = if (child_ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
+                try self.expect(.integer);
+                if (self.lookahead.tag != .string) return error.UnexpectedToken;
+                const value = self.lookahead.lexeme;
+                try self.advance();
+                is_hex_data = true;
+                break :blk value;
+            } else (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
+            try items.append(self.allocator, .{ .literal = literal, .is_hex_data = is_hex_data });
+
+            if (self.lookahead.tag == .comma) {
+                try self.expect(.comma);
+            } else if (self.lookahead.tag != .r_bracket) {
+                return error.UnexpectedToken;
+            }
+        }
+        try self.expect(.r_bracket);
+        return items.toOwnedSlice(self.allocator);
+    }
+
+    fn constLiteralStartsList(self: *const Parser) bool {
+        return self.constLiteralFirstByte() == '[';
+    }
+
+    fn constLiteralStartsUnsupported(self: *const Parser, allow_list: bool) bool {
+        const first = self.constLiteralFirstByte() orelse return true;
+        return switch (first) {
+            '(', '`' => true,
+            '[' => !allow_list,
+            else => false,
+        };
+    }
+
+    fn constLiteralFirstByte(self: *const Parser) ?u8 {
         const source = self.lexer.source;
         var index = self.lexer.index;
         while (index < source.len) : (index += 1) {
@@ -531,13 +596,12 @@ pub const Parser = struct {
                         while (index < source.len and source[index] != '\n') index += 1;
                         continue;
                     }
-                    return false;
+                    return source[index];
                 },
-                '(', '[', '`' => return true,
-                else => return false,
+                else => return source[index],
             }
         }
-        return true;
+        return null;
     }
 
     fn parseUsingOrSkip(self: *Parser, aliases: *std.ArrayList(AliasDecl), imports: *std.ArrayList(ImportDecl), decl_names: *std.StringHashMap(void)) Error!void {
@@ -2131,6 +2195,10 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\
             , .{ indent, const_name, zig_type, try enumDefaultOrdinal(enum_decl, decl.literal) });
         },
+        .list => |child| {
+            const items = decl.list_items orelse return;
+            try emitListConst(allocator, out, file, indent, const_name, child.*, items);
+        },
         else => return,
     }
 }
@@ -2141,6 +2209,90 @@ fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), inden
         \\
         \\
     , .{ indent, name, zig_type, if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal });
+}
+
+fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, indent: []const u8, name: []const u8, child: Type, items: []const ConstListItem) LayoutError!void {
+    switch (resolveType(file, child)) {
+        .void => try emitListConstOfType(allocator, out, indent, name, "void", items, voidConstItem),
+        .bool => try emitListConstOfType(allocator, out, indent, name, "bool", items, boolConstItem),
+        .int8 => try emitListConstOfType(allocator, out, indent, name, "i8", items, numericConstItem),
+        .int16 => try emitListConstOfType(allocator, out, indent, name, "i16", items, numericConstItem),
+        .int32 => try emitListConstOfType(allocator, out, indent, name, "i32", items, numericConstItem),
+        .int64 => try emitListConstOfType(allocator, out, indent, name, "i64", items, numericConstItem),
+        .uint8 => try emitListConstOfType(allocator, out, indent, name, "u8", items, numericConstItem),
+        .uint16 => try emitListConstOfType(allocator, out, indent, name, "u16", items, numericConstItem),
+        .uint32 => try emitListConstOfType(allocator, out, indent, name, "u32", items, numericConstItem),
+        .uint64 => try emitListConstOfType(allocator, out, indent, name, "u64", items, numericConstItem),
+        .float32 => try emitListConstOfType(allocator, out, indent, name, "f32", items, float32ConstItem),
+        .float64 => try emitListConstOfType(allocator, out, indent, name, "f64", items, float64ConstItem),
+        .text => try emitListConstOfType(allocator, out, indent, name, "[]const u8", items, stringConstItem),
+        .data => try emitListConstOfType(allocator, out, indent, name, "[]const u8", items, dataConstItem),
+        .named => |type_name| {
+            const enum_decl = findEnum(file, type_name) orelse return;
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\{s}pub const {s}: []const {s} = &[_]{s}{{
+            , .{ indent, name, zig_type, zig_type });
+            for (items, 0..) |item, i| {
+                if (i != 0) try out.appendSlice(allocator, ", ");
+                try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, item.literal)});
+            }
+            try out.appendSlice(allocator, "};\n\n");
+        },
+        else => return,
+    }
+}
+
+fn emitListConstOfType(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    indent: []const u8,
+    name: []const u8,
+    zig_type: []const u8,
+    items: []const ConstListItem,
+    comptime itemLiteral: fn (std.mem.Allocator, ConstListItem) LayoutError![]const u8,
+) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}: []const {s} = &[_]{s}{{
+    , .{ indent, name, zig_type, zig_type });
+    for (items, 0..) |item, i| {
+        if (i != 0) try out.appendSlice(allocator, ", ");
+        const literal = try itemLiteral(allocator, item);
+        defer allocator.free(literal);
+        try out.appendSlice(allocator, literal);
+    }
+    try out.appendSlice(allocator, "};\n\n");
+}
+
+fn voidConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
+    if (!std.mem.eql(u8, item.literal, "void")) return error.InvalidToken;
+    return allocator.dupe(u8, "{}");
+}
+
+fn boolConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
+    return allocator.dupe(u8, try boolConstLiteral(item.literal));
+}
+
+fn numericConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
+    const literal = if (std.mem.startsWith(u8, item.literal, "+")) item.literal[1..] else item.literal;
+    return allocator.dupe(u8, literal);
+}
+
+fn float32ConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
+    return allocator.dupe(u8, floatConstLiteral(item.literal, "f32"));
+}
+
+fn float64ConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
+    return allocator.dupe(u8, floatConstLiteral(item.literal, "f64"));
+}
+
+fn stringConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
+    return zigStringLiteralAlloc(allocator, item.literal);
+}
+
+fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
+    return zigDataLiteralAlloc(allocator, item.literal, item.is_hex_data);
 }
 
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
