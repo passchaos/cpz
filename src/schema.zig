@@ -1817,7 +1817,11 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return .{{ .builder = builder }};
         \\        }}
         \\
-    , .{});
+        \\        pub fn asReader(self: Builder, message_reader: *cpz.MessageReader) {s} {{
+        \\            return {s}.fromReader(self.builder.asReader(message_reader));
+        \\        }}
+        \\
+    , .{ struct_name, struct_name });
 
     try emitBuilderUnionHelpers(allocator, out, struct_name, layout);
 

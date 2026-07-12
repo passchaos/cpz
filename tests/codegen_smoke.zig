@@ -11,6 +11,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
     const root_builder = try generated.Person.getRootTyped(&builder);
     try std.testing.expectEqual(@as(u32, 7), try root_builder.get_id());
+    var builder_reader = try builder.asReader(.{});
+    const builder_view = person_builder.asReader(&builder_reader);
+    try std.testing.expectEqual(@as(u32, 7), builder_view.id());
     try person_builder.set_active(false);
     try std.testing.expectEqual(false, try person_builder.get_active());
     try std.testing.expectEqual(false, try person_builder.has_name());
