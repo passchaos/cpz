@@ -148,6 +148,34 @@ pub const Orphan = struct {
     }
 };
 
+pub const Orphanage = struct {
+    message: *MessageBuilder,
+
+    pub fn init(message: *MessageBuilder) Orphanage {
+        return .{ .message = message };
+    }
+
+    pub fn newStruct(self: Orphanage, size: wire.StructSize) Error!Orphan {
+        return self.message.newOrphanStruct(size);
+    }
+
+    pub fn newList(self: Orphanage, element_size: wire.ElementSize, element_count: usize) Error!Orphan {
+        return self.message.newOrphanList(element_size, element_count);
+    }
+
+    pub fn newStructList(self: Orphanage, element_count: usize, size: wire.StructSize) Error!Orphan {
+        return self.message.newOrphanStructList(element_count, size);
+    }
+
+    pub fn newCopyStruct(self: Orphanage, source: StructReader) Error!Orphan {
+        return self.message.newOrphanCopyStruct(source);
+    }
+
+    pub fn newCopyList(self: Orphanage, source: ListReader) Error!Orphan {
+        return self.message.newOrphanCopyList(source);
+    }
+};
+
 pub const MessageBuilder = struct {
     allocator: std.mem.Allocator,
     segments: std.ArrayList(SegmentBuilder),
@@ -2306,6 +2334,44 @@ test "message builder allocates orphan copies from readers" {
     const target_list = try (try target_list_reader.getRootPointer()).getList(.four_bytes);
     try testing.expectEqual(@as(u32, 11), target_list.getUInt32(0));
     try testing.expectEqual(@as(u32, 22), target_list.getUInt32(1));
+}
+
+test "orphanage facade allocates and copies orphans" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const orphanage = Orphanage.init(&builder);
+
+    var struct_orphan = try orphanage.newStruct(.{ .data_words = 1, .pointer_count = 1 });
+    const struct_builder = try struct_orphan.getStruct();
+    try struct_builder.setUInt32(0, 8080, 0);
+    try struct_builder.setText(0, "orphanage");
+    try (try builder.getRootPointer()).adopt(&struct_orphan);
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try reader.getRoot();
+    try testing.expectEqual(@as(u32, 8080), root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "orphanage", try root.getPointerField(0).getText());
+
+    var copy_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer copy_builder.deinit();
+    const copy_orphanage = Orphanage.init(&copy_builder);
+    var copied = try copy_orphanage.newCopyStruct(root);
+    try (try copy_builder.getRootPointer()).adopt(&copied);
+    var copy_reader = MessageReader.init(try copy_builder.segmentsConst(), .{});
+    const copy_root = try copy_reader.getRoot();
+    try testing.expectEqual(@as(u32, 8080), copy_root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "orphanage", try copy_root.getPointerField(0).getText());
+
+    var list_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer list_builder.deinit();
+    var list_orphan = try Orphanage.init(&list_builder).newList(.two_bytes, 1);
+    const list = try list_orphan.getList(.two_bytes);
+    try list.setUInt16(0, 9090);
+    try (try list_builder.getRootPointer()).adopt(&list_orphan);
+    var list_reader = MessageReader.init(try list_builder.segmentsConst(), .{});
+    const root_list = try (try list_reader.getRootPointer()).getList(.two_bytes);
+    try testing.expectEqual(@as(u16, 9090), root_list.getUInt16(0));
 }
 
 test "schema-agnostic validation returns reachable layout stats" {
