@@ -7,7 +7,7 @@ The implementation follows Cap'n Proto's published encoding and the C++ runtime 
 - `wire.zig` encodes/decodes the four pointer families: struct, list, far, and capability.
 - `serialize.zig` implements the standard stream segment table (`segment count - 1`, segment word sizes, padding, segment bytes) and packed stream framing helpers layered on `packing.zig`.
 - `packing.zig` implements Cap'n Proto packing/unpacking with the `0x00` zero-run and `0xff` raw-run special cases.
-- `message.zig` provides arena-backed builders and lazy-validating readers for structs, lists, text/data, and far pointers.
+- `message.zig` provides arena-backed builders and lazy-validating readers for structs, primitive lists, pointer lists, composite lists, text/data, and far pointers.
 
 ## Performance direction
 

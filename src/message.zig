@@ -667,6 +667,15 @@ pub const ListBuilder = struct {
         self.message.segments.items[self.segment_id].words.items[word_index] = word;
     }
 
+    pub fn getPointerElement(self: ListBuilder, index: usize) Error!PointerBuilder {
+        if (self.element_size != .pointer or index >= self.element_count) return error.PointerOutOfBounds;
+        return .{
+            .message = self.message,
+            .segment_id = self.segment_id,
+            .word_index = self.start + index,
+        };
+    }
+
     pub fn getStructElement(self: ListBuilder, index: usize) Error!StructBuilder {
         if (self.element_size != .composite or index >= self.element_count) return error.PointerOutOfBounds;
         const step_words = @as(usize, self.data_words) + @as(usize, self.pointer_count);
@@ -729,6 +738,16 @@ pub const ListReader = struct {
 
     pub fn getUInt32(self: ListReader, index: usize) u32 {
         return self.getPrimitive(u32, index) catch 0;
+    }
+
+    pub fn getPointerElement(self: ListReader, index: usize) Error!PointerReader {
+        if (self.element_size != .pointer or index >= self.element_count) return error.PointerOutOfBounds;
+        return .{
+            .message = self.message,
+            .segment_id = self.segment_id,
+            .word_index = self.start + index,
+            .nesting_left = self.nesting_left,
+        };
     }
 
     pub fn getStructElement(self: ListReader, index: usize) Error!StructReader {
@@ -851,4 +870,24 @@ test "primitive and struct lists" {
     const read_p1 = try read_people.getStructElement(1);
     try testing.expectEqual(@as(u32, 2), read_p1.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "bb", try read_p1.getPointerField(0).getText());
+}
+
+test "pointer lists hold nested text values" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    const names = try (try root.getPointerField(0)).initList(.pointer, 3);
+    try (try names.getPointerElement(0)).setText("alice");
+    try (try names.getPointerElement(1)).setText("bob");
+    try (try names.getPointerElement(2)).setText("carol");
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    const read_names = try read_root.getPointerField(0).getList(.pointer);
+    try testing.expectEqual(@as(usize, 3), read_names.len());
+    try testing.expectEqualSlices(u8, "alice", try (try read_names.getPointerElement(0)).getText());
+    try testing.expectEqualSlices(u8, "bob", try (try read_names.getPointerElement(1)).getText());
+    try testing.expectEqualSlices(u8, "carol", try (try read_names.getPointerElement(2)).getText());
 }
