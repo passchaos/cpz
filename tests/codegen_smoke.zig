@@ -85,6 +85,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const aliases = try person_builder.init_aliases(2);
     try aliases.set(0, "A");
     try aliases.set(1, "Lovelace");
+    try std.testing.expectEqual(false, try aliases.elementIsNull(0));
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try aliases.elementPointerKind(0)).?);
     const alias_element_raw = try aliases.elementRawPointer(0);
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(alias_element_raw));
@@ -175,6 +176,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_aliases = try person.aliases();
     try std.testing.expectEqualSlices(u8, "A", try read_aliases.get(0));
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.get(1));
+    try std.testing.expectEqual(false, try read_aliases.elementIsNull(1));
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try read_aliases.elementPointerKind(1)).?);
     const read_alias_element_raw = try read_aliases.elementRawPointer(1);
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_alias_element_raw));
@@ -677,9 +679,11 @@ test "generated list builders can clear pointer-backed and struct elements" {
     const aliases = try person_builder.init_aliases(1);
     try aliases.set(0, "drop");
     try aliases.clear(0);
+    try std.testing.expect(try aliases.elementIsNull(0));
     const payloads = try person_builder.init_payloads(1);
     try payloads.set(0, &[_]u8{7});
     try payloads.clear(0);
+    try std.testing.expect(try payloads.elementIsNull(0));
     const children = try person_builder.init_children(1);
     const child = try children.get(0);
     try child.set_id(111);
@@ -689,8 +693,10 @@ test "generated list builders can clear pointer-backed and struct elements" {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     const read_aliases = try person.aliases();
+    try std.testing.expect(try read_aliases.elementIsNull(0));
     try std.testing.expectError(error.NullPointer, read_aliases.get(0));
     const read_payloads = try person.payloads();
+    try std.testing.expect(try read_payloads.elementIsNull(0));
     try std.testing.expectError(error.NullPointer, read_payloads.get(0));
     const read_children = try person.children();
     const read_child = try read_children.get(0);

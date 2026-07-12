@@ -3172,6 +3172,10 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return self.list.getPointerElement(index);
         \\        }}
         \\
+        \\        pub fn elementIsNull(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isNull();
+        \\        }}
+        \\
         \\        pub fn elementPointerKind(self: @This(), index: usize) !?cpz.wire.PointerType {{
         \\            return (try self.list.getPointerElement(index)).pointerType();
         \\        }}
@@ -3215,6 +3219,10 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
     try appendFmt(allocator, out,
         \\        pub fn elementAsPointer(self: @This(), index: usize) !cpz.PointerBuilder {{
         \\            return self.list.getPointerElement(index);
+        \\        }}
+        \\
+        \\        pub fn elementIsNull(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isNull();
         \\        }}
         \\
         \\        pub fn elementAsReader(self: @This(), index: usize, message_reader: *cpz.MessageReader) !cpz.PointerReader {{
