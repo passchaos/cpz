@@ -968,14 +968,22 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 99), (try read_caps.elementDecodedPointer(1)).?.other.index);
     try std.testing.expectEqual(@as(u32, 88), try read_caps.elementAsCapability(0));
 
-    const any_items = try box_builder.init_anyListItems(3);
+    const any_items = try box_builder.init_anyListItems(5);
     try any_items.setText(0, "list any text");
     try any_items.setData(1, &[_]u8{ 4, 5 });
     var any_item_cap = try any_items.newCapabilityOrphan(6060);
     try any_items.adopt(2, &any_item_cap);
+    const any_item_struct = try any_items.initStruct(3, .{ .data_words = 1, .pointer_count = 0 });
+    try any_item_struct.setUInt32(0, 0x7777, 0);
+    var any_item_list_orphan = try any_items.newListOrphan(.four_bytes, 1);
+    const any_item_list_builder = try any_item_list_orphan.getList(.four_bytes);
+    try any_item_list_builder.setUInt32(0, 5151);
+    try any_items.adopt(4, &any_item_list_orphan);
     try std.testing.expectEqualSlices(u8, "list any text", try (try any_items.get(0)).getText());
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5 }, try (try any_items.get(1)).getData());
     try std.testing.expectEqual(@as(u32, 6060), try (try any_items.get(2)).getCapabilityIndex());
+    try std.testing.expectEqual(@as(u32, 0x7777), try (try (try any_items.get(3)).getStruct()).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u32, 5151), try (try (try any_items.get(4)).getList(.four_bytes)).getUInt32(0));
 
     const any_struct_items = try box_builder.init_anyStructItems(1);
     const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });

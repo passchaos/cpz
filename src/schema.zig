@@ -3315,6 +3315,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
             \\        }}
             \\
+            \\        pub fn initStruct(self: @This(), index: usize, struct_size: cpz.StructSize) !cpz.StructBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initStruct(struct_size);
+            \\        }}
+            \\
+            \\        pub fn initList(self: @This(), index: usize, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initList(element_size, count);
+            \\        }}
+            \\
+            \\        pub fn initStructList(self: @This(), index: usize, count: usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initStructList(count, struct_size);
+            \\        }}
+            \\
             \\        pub fn setText(self: @This(), index: usize, new_value: []const u8) !void {{
             \\            return (try self.list.getPointerElement(index)).setText(new_value);
             \\        }}
@@ -3325,6 +3337,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn setCapability(self: @This(), index: usize, new_value: u32) !void {{
             \\            return (try self.list.getPointerElement(index)).setCapability(new_value);
+            \\        }}
+            \\
+            \\        pub fn newStructOrphan(self: @This(), struct_size: cpz.StructSize) !cpz.Orphan {{
+            \\            return self.orphanage().newStruct(struct_size);
+            \\        }}
+            \\
+            \\        pub fn newListOrphan(self: @This(), element_size: cpz.ElementSize, count: usize) !cpz.Orphan {{
+            \\            return self.orphanage().newList(element_size, count);
+            \\        }}
+            \\
+            \\        pub fn newStructListOrphan(self: @This(), count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
+            \\            return self.orphanage().newStructList(count, struct_size);
             \\        }}
             \\
             \\        pub fn newTextOrphan(self: @This(), new_value: []const u8) !cpz.Orphan {{
