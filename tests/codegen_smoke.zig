@@ -268,11 +268,21 @@ test "generated structs can allocate typed orphans" {
     dropped.release();
     try std.testing.expect(dropped.isNull());
 
+    const orphanage = cpz.Orphanage.init(&builder);
+    var orphan_from_orphanage = try generated.Person.newOrphanIn(orphanage);
+    const orphanage_builder = try orphan_from_orphanage.get();
+    try orphanage_builder.set_id(5252);
+    try orphanage_builder.set_name("Orphanage orphan");
+    try person_builder.adopt_maybeFriend_typed(&orphan_from_orphanage);
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     const friend = try person.friend();
     try std.testing.expectEqual(@as(u32, 5150), friend.id());
     try std.testing.expectEqualSlices(u8, "Allocated orphan", try friend.name());
+    const maybe_friend = try person.maybeFriend();
+    try std.testing.expectEqual(@as(u32, 5252), maybe_friend.id());
+    try std.testing.expectEqualSlices(u8, "Orphanage orphan", try maybe_friend.name());
 }
 
 test "generated structs can allocate typed orphan copies" {
@@ -289,12 +299,16 @@ test "generated structs can allocate typed orphan copies" {
     const target_person_builder = try generated.Person.initRootTyped(&target_builder);
     var orphan = try generated.Person.newOrphanCopy(&target_builder, source_person);
     try target_person_builder.adopt_friend_typed(&orphan);
+    var orphanage_copy = try generated.Person.newOrphanCopyIn(cpz.Orphanage.init(&target_builder), source_person);
+    try target_person_builder.adopt_maybeFriend_typed(&orphanage_copy);
 
     var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
     const target_person = generated.Person.fromReader(try target_reader.getRoot());
     const friend = try target_person.friend();
     try std.testing.expectEqual(@as(u32, 6161), friend.id());
     try std.testing.expectEqualSlices(u8, "Copied orphan", try friend.name());
+    const maybe_friend = try target_person.maybeFriend();
+    try std.testing.expectEqual(@as(u32, 6161), maybe_friend.id());
 }
 
 test "generated builders can copy nested struct fields from readers" {
@@ -446,6 +460,18 @@ test "generated list orphan wrappers can allocate new orphans" {
     const read_child = try children.get(0);
     try std.testing.expectEqual(@as(u32, 654), read_child.id());
     try std.testing.expectEqualSlices(u8, "List orphan child", try read_child.name());
+
+    var orphanage_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer orphanage_builder.deinit();
+    const orphanage_person_builder = try generated.Person.initRootTyped(&orphanage_builder);
+    var orphanage_scores = try generated.Person.Person_scores_Orphan.newOrphanIn(cpz.Orphanage.init(&orphanage_builder), 1);
+    const orphanage_scores_builder = try orphanage_scores.get();
+    try orphanage_scores_builder.set(0, 999);
+    try orphanage_person_builder.adopt_scores_typed(&orphanage_scores);
+    var orphanage_reader = cpz.MessageReader.init(try orphanage_builder.segmentsConst(), .{});
+    const orphanage_person = generated.Person.fromReader(try orphanage_reader.getRoot());
+    const orphanage_read_scores = try orphanage_person.scores();
+    try std.testing.expectEqual(@as(u32, 999), orphanage_read_scores.get(0));
 }
 
 test "generated list orphan wrappers can allocate orphan copies" {
@@ -469,6 +495,16 @@ test "generated list orphan wrappers can allocate orphan copies" {
     const scores = try target_person.scores();
     try std.testing.expectEqual(@as(u32, 7), scores.get(0));
     try std.testing.expectEqual(@as(u32, 28), scores.get(1));
+
+    var target_copy_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer target_copy_builder.deinit();
+    const target_copy_person_builder = try generated.Person.initRootTyped(&target_copy_builder);
+    var scores_orphanage = try generated.Person.Person_scores_Orphan.newOrphanCopyIn(cpz.Orphanage.init(&target_copy_builder), try source_person.scores());
+    try target_copy_person_builder.adopt_scores_typed(&scores_orphanage);
+    var target_copy_reader = cpz.MessageReader.init(try target_copy_builder.segmentsConst(), .{});
+    const target_copy_person = generated.Person.fromReader(try target_copy_reader.getRoot());
+    const copied_scores = try target_copy_person.scores();
+    try std.testing.expectEqual(@as(u32, 14), copied_scores.get(1));
 }
 
 test "generated builders can set whole list fields from slices" {

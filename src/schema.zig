@@ -1932,8 +1932,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Orphan.fromOrphan(try builder.newOrphanStruct(size));
         \\    }}
         \\
+        \\    pub fn newOrphanIn(orphanage: cpz.Orphanage) !Orphan {{
+        \\        return Orphan.fromOrphan(try orphanage.newStruct(size));
+        \\    }}
+        \\
         \\    pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": @This()) !Orphan {{
         \\        return Orphan.fromOrphan(try builder.newOrphanCopyStruct(@"cpz.value".reader));
+        \\    }}
+        \\
+        \\    pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": @This()) !Orphan {{
+        \\        return Orphan.fromOrphan(try orphanage.newCopyStruct(@"cpz.value".reader));
         \\    }}
         \\
         \\    pub fn fromReader(reader: cpz.StructReader) {s} {{
@@ -2470,21 +2478,37 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return fromOrphan(try builder.newOrphanStructList(count, {s}.size));
             \\        }}
             \\
+            \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, count: usize) !@This() {{
+            \\            return fromOrphan(try orphanage.newStructList(count, {s}.size));
+            \\        }}
+            \\
             \\        pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
             \\            return fromOrphan(try builder.newOrphanCopyList(@"cpz.value".list));
             \\        }}
             \\
-        , .{ zig_type, owner_name, field_name });
+            \\        pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_List) !@This() {{
+            \\            return fromOrphan(try orphanage.newCopyList(@"cpz.value".list));
+            \\        }}
+            \\
+        , .{ zig_type, zig_type, owner_name, field_name, owner_name, field_name });
     } else try std.fmt.allocPrint(allocator,
         \\        pub fn newOrphan(builder: *cpz.MessageBuilder, count: usize) !@This() {{
         \\            return fromOrphan(try builder.newOrphanList({s}, count));
+        \\        }}
+        \\
+        \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, count: usize) !@This() {{
+        \\            return fromOrphan(try orphanage.newList({s}, count));
         \\        }}
         \\
         \\        pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
         \\            return fromOrphan(try builder.newOrphanCopyList(@"cpz.value".list));
         \\        }}
         \\
-    , .{ try listElementSizeLiteral(file, child), owner_name, field_name });
+        \\        pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_List) !@This() {{
+        \\            return fromOrphan(try orphanage.newCopyList(@"cpz.value".list));
+        \\        }}
+        \\
+    , .{ try listElementSizeLiteral(file, child), try listElementSizeLiteral(file, child), owner_name, field_name, owner_name, field_name });
     defer allocator.free(list_orphan_new);
 
     try appendFmt(allocator, out,
