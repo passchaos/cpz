@@ -1,0 +1,69 @@
+const std = @import("std");
+
+pub fn build(b: *std.Build) void {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+
+    const cpz_mod = b.addModule("cpz", .{
+        .root_source_file = b.path("src/cpz.zig"),
+    });
+
+    const test_mod = b.createModule(.{
+        .root_source_file = b.path("src/cpz.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const unit_tests = b.addTest(.{ .root_module = test_mod });
+    const run_unit_tests = b.addRunArtifact(unit_tests);
+
+    const example_mod = b.createModule(.{
+        .root_source_file = b.path("examples/addressbook.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const example = b.addExecutable(.{
+        .name = "cpz-addressbook",
+        .root_module = example_mod,
+    });
+    b.installArtifact(example);
+
+    const bench_mod = b.createModule(.{
+        .root_source_file = b.path("src/bench.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const bench = b.addExecutable(.{
+        .name = "cpz-bench",
+        .root_module = bench_mod,
+    });
+    b.installArtifact(bench);
+
+    const run_bench = b.addRunArtifact(bench);
+    const bench_step = b.step("bench", "Run a microbenchmark over dynamic readers");
+    bench_step.dependOn(&run_bench.step);
+
+    const run_example = b.addRunArtifact(example);
+    if (b.args) |args| run_example.addArgs(args);
+    const run_step = b.step("run", "Run the addressbook example");
+    run_step.dependOn(&run_example.step);
+
+    const test_step = b.step("test", "Run unit tests");
+    test_step.dependOn(&run_unit_tests.step);
+
+    const fmt_step = b.step("fmt", "Format Zig sources");
+    const fmt = b.addFmt(.{
+        .paths = &.{ "build.zig", "src", "examples", "tests" },
+        .check = false,
+    });
+    fmt_step.dependOn(&fmt.step);
+
+    const check_fmt = b.addFmt(.{
+        .paths = &.{ "build.zig", "src", "examples", "tests" },
+        .check = true,
+    });
+    const check_step = b.step("check", "Check formatting and run tests");
+    check_step.dependOn(&check_fmt.step);
+    check_step.dependOn(&run_unit_tests.step);
+}

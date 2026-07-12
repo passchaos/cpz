@@ -1,0 +1,197 @@
+const std = @import("std");
+const wire = @import("wire.zig");
+
+pub const Segment = []u8;
+pub const ConstSegment = []const u8;
+
+pub const Error = error{
+    EmptyMessage,
+    SegmentNotWordAligned,
+    TooManySegments,
+    SegmentTooLarge,
+    MessageTruncated,
+    SegmentTableTruncated,
+    SegmentTableOverflow,
+    SerializedSizeOverflow,
+    MessageNotWordAligned,
+} || std.mem.Allocator.Error;
+
+pub const FlatMessage = struct {
+    /// Owned copy of the complete serialized message bytes consumed by this
+    /// reader. Segment slices point into this allocation.
+    bytes: []u8,
+    segments: []ConstSegment,
+    consumed_len: usize,
+
+    pub fn deinit(self: *FlatMessage, allocator: std.mem.Allocator) void {
+        allocator.free(self.segments);
+        allocator.free(self.bytes);
+        self.* = undefined;
+    }
+};
+
+pub fn computeSerializedSize(segments: []const ConstSegment) Error!usize {
+    if (segments.len == 0) return error.EmptyMessage;
+    if (segments.len > @as(usize, std.math.maxInt(u32)) + 1) return error.TooManySegments;
+
+    var words_sum: usize = 0;
+    for (segments) |segment| {
+        if (segment.len % wire.bytes_per_word != 0) return error.SegmentNotWordAligned;
+        const words = segment.len / wire.bytes_per_word;
+        if (words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+        words_sum = std.math.add(usize, words_sum, words) catch return error.SerializedSizeOverflow;
+    }
+
+    const table_words = segmentTableWords(segments.len);
+    const total_words = std.math.add(usize, table_words, words_sum) catch return error.SerializedSizeOverflow;
+    return std.math.mul(usize, total_words, wire.bytes_per_word) catch return error.SerializedSizeOverflow;
+}
+
+pub fn computeSerializedSizeInWords(segments: []const ConstSegment) Error!usize {
+    return (try computeSerializedSize(segments)) / wire.bytes_per_word;
+}
+
+pub fn segmentTableWords(segment_count: usize) usize {
+    // 4 bytes for segment_count_minus_one plus 4 bytes per segment, rounded up
+    // to a word boundary.
+    return (4 + 4 * segment_count + 7) / 8;
+}
+
+pub fn writeSegmentTable(dest: []u8, segments: []const ConstSegment) Error!usize {
+    if (segments.len == 0) return error.EmptyMessage;
+    if (segments.len > @as(usize, std.math.maxInt(u32)) + 1) return error.TooManySegments;
+    const table_len = segmentTableWords(segments.len) * wire.bytes_per_word;
+    if (dest.len < table_len) return error.SegmentTableTruncated;
+    @memset(dest[0..table_len], 0);
+
+    writeU32(dest[0..4], @intCast(segments.len - 1));
+    var off: usize = 4;
+    for (segments) |segment| {
+        if (segment.len % wire.bytes_per_word != 0) return error.SegmentNotWordAligned;
+        const words = segment.len / wire.bytes_per_word;
+        if (words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+        writeU32(dest[off..][0..4], @intCast(words));
+        off += 4;
+    }
+    return table_len;
+}
+
+pub fn serializeSegmentTable(allocator: std.mem.Allocator, segments: []const ConstSegment) Error![]u8 {
+    const table_len = segmentTableWords(segments.len) * wire.bytes_per_word;
+    const table = try allocator.alloc(u8, table_len);
+    errdefer allocator.free(table);
+    _ = try writeSegmentTable(table, segments);
+    return table;
+}
+
+/// Serialize segments using Cap'n Proto's standard stream framing.
+pub fn messageToFlatBytes(allocator: std.mem.Allocator, segments: []const ConstSegment) Error![]u8 {
+    const total_len = try computeSerializedSize(segments);
+    const out = try allocator.alloc(u8, total_len);
+    errdefer allocator.free(out);
+
+    const table_len = try writeSegmentTable(out, segments);
+    var off = table_len;
+    for (segments) |segment| {
+        @memcpy(out[off .. off + segment.len], segment);
+        off += segment.len;
+    }
+    return out;
+}
+
+/// Parse a flat serialized message and copy exactly the consumed message bytes.
+/// Extra trailing data is allowed and reported via `consumed_len`.
+pub fn readFlatMessage(allocator: std.mem.Allocator, bytes: []const u8) Error!FlatMessage {
+    const expected_len = try expectedSize(bytes);
+    if (bytes.len < expected_len) return error.MessageTruncated;
+    const owned = try allocator.dupe(u8, bytes[0..expected_len]);
+    errdefer allocator.free(owned);
+
+    const table = try parseSegmentTable(owned);
+    const segments = try allocator.alloc(ConstSegment, table.segment_count);
+    errdefer allocator.free(segments);
+
+    var off = table.table_len;
+    for (0..table.segment_count) |idx| {
+        const words = readU32(owned[4 + idx * 4 ..][0..4]);
+        const len = @as(usize, words) * wire.bytes_per_word;
+        segments[idx] = owned[off .. off + len];
+        off += len;
+    }
+
+    return .{ .bytes = owned, .segments = segments, .consumed_len = expected_len };
+}
+
+/// Return exact total size if enough prefix is available to read the whole
+/// segment table; otherwise return the minimum bytes still required to finish
+/// reading the table. This follows the intent of Cap'n Proto's
+/// expectedSizeInWordsFromPrefix() but returns bytes for Zig slice ergonomics.
+pub fn expectedSize(prefix: []const u8) Error!usize {
+    if (prefix.len < 4) return 8;
+    const segment_count_minus_one = readU32(prefix[0..4]);
+    const segment_count = std.math.add(usize, @as(usize, segment_count_minus_one), 1) catch return error.SegmentTableOverflow;
+    const table_len = segmentTableWords(segment_count) * wire.bytes_per_word;
+    if (prefix.len < table_len) return table_len;
+
+    var total_words = segmentTableWords(segment_count);
+    var off: usize = 4;
+    for (0..segment_count) |_| {
+        const words = readU32(prefix[off..][0..4]);
+        total_words = std.math.add(usize, total_words, words) catch return error.SerializedSizeOverflow;
+        off += 4;
+    }
+    return std.math.mul(usize, total_words, wire.bytes_per_word) catch return error.SerializedSizeOverflow;
+}
+
+pub fn parseSegmentTable(bytes: []const u8) Error!struct { segment_count: usize, table_len: usize } {
+    if (bytes.len < 8) return error.SegmentTableTruncated;
+    if (bytes.len % wire.bytes_per_word != 0) return error.MessageNotWordAligned;
+    const segment_count = std.math.add(usize, @as(usize, readU32(bytes[0..4])), 1) catch return error.SegmentTableOverflow;
+    const table_len = segmentTableWords(segment_count) * wire.bytes_per_word;
+    if (bytes.len < table_len) return error.SegmentTableTruncated;
+    return .{ .segment_count = segment_count, .table_len = table_len };
+}
+
+inline fn readU32(bytes: *const [4]u8) u32 {
+    return std.mem.readInt(u32, bytes, .little);
+}
+
+inline fn writeU32(bytes: *[4]u8, value: u32) void {
+    std.mem.writeInt(u32, bytes, value, .little);
+}
+
+test "standard stream framing serializes single segment" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const segment = [_]u8{0} ** 16;
+    const segments = [_]ConstSegment{&segment};
+    const bytes = try messageToFlatBytes(allocator, &segments);
+    defer allocator.free(bytes);
+
+    try testing.expectEqual(@as(usize, 24), bytes.len);
+    try testing.expectEqualSlices(u8, &[_]u8{ 0, 0, 0, 0, 2, 0, 0, 0 }, bytes[0..8]);
+    try testing.expectEqualSlices(u8, &segment, bytes[8..]);
+
+    var flat = try readFlatMessage(allocator, bytes);
+    defer flat.deinit(allocator);
+    try testing.expectEqual(@as(usize, bytes.len), flat.consumed_len);
+    try testing.expectEqual(@as(usize, 1), flat.segments.len);
+    try testing.expectEqualSlices(u8, &segment, flat.segments[0]);
+}
+
+test "standard stream framing serializes even segment count with padding" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const s0 = [_]u8{0xaa} ** 8;
+    const s1 = [_]u8{0xbb} ** 16;
+    const segments = [_]ConstSegment{ &s0, &s1 };
+    const bytes = try messageToFlatBytes(allocator, &segments);
+    defer allocator.free(bytes);
+
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0 }, bytes[0..16]);
+    try testing.expectEqualSlices(u8, &s0, bytes[16..24]);
+    try testing.expectEqualSlices(u8, &s1, bytes[24..40]);
+    try testing.expectEqual(@as(usize, 40), try expectedSize(bytes[0..16]));
+}

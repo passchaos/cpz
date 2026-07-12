@@ -1,0 +1,268 @@
+const std = @import("std");
+
+pub const Word = u64;
+pub const bytes_per_word: usize = 8;
+pub const bits_per_word: usize = 64;
+
+pub const Error = error{
+    NullPointer,
+    InvalidPointerKind,
+    InvalidFarPointer,
+    InvalidCapabilityPointer,
+    PointerOutOfBounds,
+    SegmentOutOfBounds,
+    MessageTooLarge,
+    CountOutOfRange,
+    OffsetOutOfRange,
+    UnsupportedElementSize,
+    NonCanonical,
+};
+
+pub const PointerType = enum(u2) {
+    struct_ptr = 0,
+    list = 1,
+    far = 2,
+    other = 3,
+};
+
+pub const ElementSize = enum(u3) {
+    void = 0,
+    bit = 1,
+    byte = 2,
+    two_bytes = 3,
+    four_bytes = 4,
+    eight_bytes = 5,
+    pointer = 6,
+    composite = 7,
+};
+
+pub const StructSize = struct {
+    data_words: u16 = 0,
+    pointer_count: u16 = 0,
+
+    pub fn totalWords(self: StructSize) usize {
+        return @as(usize, self.data_words) + @as(usize, self.pointer_count);
+    }
+};
+
+pub const StructPointer = struct {
+    offset_words: i32,
+    data_words: u16,
+    pointer_count: u16,
+};
+
+pub const ListPointer = struct {
+    offset_words: i32,
+    element_size: ElementSize,
+    element_count_or_words: u29,
+};
+
+pub const FarPointer = struct {
+    two_word_landing_pad: bool,
+    landing_pad_offset: u29,
+    segment_id: u32,
+};
+
+pub const CapabilityPointer = struct {
+    index: u32,
+};
+
+pub const DecodedPointer = union(PointerType) {
+    struct_ptr: StructPointer,
+    list: ListPointer,
+    far: FarPointer,
+    other: CapabilityPointer,
+};
+
+pub inline fn readWord(bytes: []const u8, word_index: usize) Error!Word {
+    const byte_index = word_index * bytes_per_word;
+    if (byte_index > bytes.len or bytes.len - byte_index < bytes_per_word) return error.SegmentOutOfBounds;
+    return readWordAt(bytes[byte_index..][0..bytes_per_word]);
+}
+
+pub inline fn readWordAt(bytes: *const [bytes_per_word]u8) Word {
+    return std.mem.readInt(Word, bytes, .little);
+}
+
+pub inline fn writeWordAt(bytes: *[bytes_per_word]u8, value: Word) void {
+    std.mem.writeInt(Word, bytes, value, .little);
+}
+
+pub inline fn pointerType(raw: Word) PointerType {
+    return @enumFromInt(@as(u2, @truncate(raw & 0x3)));
+}
+
+pub inline fn isNull(raw: Word) bool {
+    return raw == 0;
+}
+
+pub fn decode(raw: Word) Error!DecodedPointer {
+    return switch (pointerType(raw)) {
+        .struct_ptr => .{ .struct_ptr = decodeStruct(raw) },
+        .list => .{ .list = try decodeList(raw) },
+        .far => .{ .far = decodeFar(raw) },
+        .other => .{ .other = try decodeOther(raw) },
+    };
+}
+
+pub inline fn decodeStruct(raw: Word) StructPointer {
+    return .{
+        .offset_words = decodeSigned30(@as(u30, @truncate(raw >> 2))),
+        .data_words = @as(u16, @truncate(raw >> 32)),
+        .pointer_count = @as(u16, @truncate(raw >> 48)),
+    };
+}
+
+pub inline fn decodeList(raw: Word) Error!ListPointer {
+    return .{
+        .offset_words = decodeSigned30(@as(u30, @truncate(raw >> 2))),
+        .element_size = @enumFromInt(@as(u3, @truncate(raw >> 32))),
+        .element_count_or_words = @as(u29, @truncate(raw >> 35)),
+    };
+}
+
+pub inline fn decodeFar(raw: Word) FarPointer {
+    return .{
+        .two_word_landing_pad = ((raw >> 2) & 1) != 0,
+        .landing_pad_offset = @as(u29, @truncate(raw >> 3)),
+        .segment_id = @as(u32, @truncate(raw >> 32)),
+    };
+}
+
+pub inline fn decodeOther(raw: Word) Error!CapabilityPointer {
+    const subtype: u30 = @truncate(raw >> 2);
+    if (subtype != 0) return error.InvalidCapabilityPointer;
+    return .{ .index = @as(u32, @truncate(raw >> 32)) };
+}
+
+pub fn encodeStruct(offset_words: i32, data_words: u16, pointer_count: u16) Error!Word {
+    const off = try encodeSigned30(offset_words);
+    return @as(Word, @intFromEnum(PointerType.struct_ptr)) |
+        (@as(Word, off) << 2) |
+        (@as(Word, data_words) << 32) |
+        (@as(Word, pointer_count) << 48);
+}
+
+pub fn encodeList(offset_words: i32, element_size: ElementSize, element_count_or_words: usize) Error!Word {
+    if (element_count_or_words > std.math.maxInt(u29)) return error.CountOutOfRange;
+    const off = try encodeSigned30(offset_words);
+    return @as(Word, @intFromEnum(PointerType.list)) |
+        (@as(Word, off) << 2) |
+        (@as(Word, @intFromEnum(element_size)) << 32) |
+        (@as(Word, @as(u29, @intCast(element_count_or_words))) << 35);
+}
+
+pub fn encodeFar(two_word_landing_pad: bool, landing_pad_offset: usize, segment_id: u32) Error!Word {
+    if (landing_pad_offset > std.math.maxInt(u29)) return error.CountOutOfRange;
+    return @as(Word, @intFromEnum(PointerType.far)) |
+        (@as(Word, @intFromBool(two_word_landing_pad)) << 2) |
+        (@as(Word, @as(u29, @intCast(landing_pad_offset))) << 3) |
+        (@as(Word, segment_id) << 32);
+}
+
+pub inline fn encodeCapability(index: u32) Word {
+    return @as(Word, @intFromEnum(PointerType.other)) | (@as(Word, index) << 32);
+}
+
+pub fn targetWordIndex(pointer_word_index: usize, offset_words: i32) Error!usize {
+    const base: isize = @intCast(pointer_word_index + 1);
+    const target = base + @as(isize, @intCast(offset_words));
+    if (target < 0) return error.PointerOutOfBounds;
+    return @intCast(target);
+}
+
+pub fn offsetFromPointer(pointer_word_index: usize, target_word_index: usize) Error!i32 {
+    const base: isize = @intCast(pointer_word_index + 1);
+    const target: isize = @intCast(target_word_index);
+    const offset = target - base;
+    if (offset < std.math.minInt(i30) or offset > std.math.maxInt(i30)) return error.OffsetOutOfRange;
+    return @intCast(offset);
+}
+
+pub inline fn bitsPerElement(size: ElementSize) usize {
+    return switch (size) {
+        .void => 0,
+        .bit => 1,
+        .byte => 8,
+        .two_bytes => 16,
+        .four_bytes => 32,
+        .eight_bytes, .pointer => 64,
+        .composite => 0,
+    };
+}
+
+pub inline fn wordsForBits(bits: usize) usize {
+    return (bits + bits_per_word - 1) / bits_per_word;
+}
+
+pub inline fn wordsForList(size: ElementSize, element_count: usize) Error!usize {
+    if (size == .composite) return error.UnsupportedElementSize;
+    const bits = std.math.mul(usize, bitsPerElement(size), element_count) catch return error.MessageTooLarge;
+    return wordsForBits(bits);
+}
+
+pub inline fn wordsForStructList(element_count: usize, size: StructSize) Error!usize {
+    return std.math.mul(usize, element_count, size.totalWords()) catch return error.MessageTooLarge;
+}
+
+pub fn encodeStructListTag(element_count: usize, size: StructSize) Error!Word {
+    if (element_count > std.math.maxInt(i29)) return error.CountOutOfRange;
+    return try encodeStruct(@intCast(element_count), size.data_words, size.pointer_count);
+}
+
+pub fn decodeStructListTag(raw: Word) Error!struct { element_count: usize, size: StructSize } {
+    if (pointerType(raw) != .struct_ptr) return error.InvalidPointerKind;
+    const tag = decodeStruct(raw);
+    if (tag.offset_words < 0) return error.CountOutOfRange;
+    return .{
+        .element_count = @intCast(tag.offset_words),
+        .size = .{ .data_words = tag.data_words, .pointer_count = tag.pointer_count },
+    };
+}
+
+inline fn decodeSigned30(bits: u30) i32 {
+    const signed: i30 = @bitCast(bits);
+    return @intCast(signed);
+}
+
+inline fn encodeSigned30(value: i32) Error!u30 {
+    if (value < std.math.minInt(i30) or value > std.math.maxInt(i30)) return error.OffsetOutOfRange;
+    const signed: i30 = @intCast(value);
+    return @bitCast(signed);
+}
+
+test "wire pointer encoding matches Cap'n Proto spec examples" {
+    const testing = std.testing;
+
+    const struct_raw = try encodeStruct(2, 3, 2);
+    try testing.expectEqual(@as(Word, 0x0002_0003_0000_0008), struct_raw);
+    const struct_ptr = decodeStruct(struct_raw);
+    try testing.expectEqual(@as(i32, 2), struct_ptr.offset_words);
+    try testing.expectEqual(@as(u16, 3), struct_ptr.data_words);
+    try testing.expectEqual(@as(u16, 2), struct_ptr.pointer_count);
+
+    const text_raw = try encodeList(6, .byte, 53);
+    try testing.expectEqual(@as(Word, 0x0000_01aa_0000_0019), text_raw);
+    const list_ptr = try decodeList(text_raw);
+    try testing.expectEqual(@as(i32, 6), list_ptr.offset_words);
+    try testing.expectEqual(ElementSize.byte, list_ptr.element_size);
+    try testing.expectEqual(@as(u29, 53), list_ptr.element_count_or_words);
+}
+
+test "wire signed offsets and far/capability pointers" {
+    const testing = std.testing;
+
+    const zero_struct = try encodeStruct(-1, 0, 0);
+    try testing.expectEqual(@as(Word, 0x0000_0000_ffff_fffc), zero_struct);
+    try testing.expectEqual(@as(i32, -1), decodeStruct(zero_struct).offset_words);
+
+    const far_raw = try encodeFar(true, 17, 9);
+    const far = decodeFar(far_raw);
+    try testing.expect(far.two_word_landing_pad);
+    try testing.expectEqual(@as(u29, 17), far.landing_pad_offset);
+    try testing.expectEqual(@as(u32, 9), far.segment_id);
+
+    const cap_raw = encodeCapability(1234);
+    const cap = try decodeOther(cap_raw);
+    try testing.expectEqual(@as(u32, 1234), cap.index);
+}
