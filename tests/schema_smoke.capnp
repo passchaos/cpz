@@ -110,6 +110,10 @@ interface Service {
   ping @1 (request :Text) -> (response :Text);
 }
 
+interface ExtendedService extends(Service) {
+  pong @0 () -> ();
+}
+
 struct InterfaceBox {
   service @0 :Service;
   services @1 :List(Service);

@@ -155,9 +155,12 @@ pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
     methods: []InterfaceMethod = &.{},
+    superclasses: []Type = &.{},
 
     pub fn deinit(self: *InterfaceDecl, allocator: std.mem.Allocator) void {
         allocator.free(self.methods);
+        for (self.superclasses) |*superclass| superclass.deinit(allocator);
+        allocator.free(self.superclasses);
         if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
@@ -484,9 +487,36 @@ pub const Parser = struct {
         const local_name = try self.expectIdentifier();
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
+        const superclasses = try self.parseInterfaceExtendsOrEmpty();
+        errdefer {
+            for (superclasses) |*superclass| superclass.deinit(self.allocator);
+            self.allocator.free(superclasses);
+        }
         const methods = try self.parseInterfaceBody();
         errdefer self.allocator.free(methods);
-        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .methods = methods };
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .methods = methods, .superclasses = superclasses };
+    }
+
+    fn parseInterfaceExtendsOrEmpty(self: *Parser) Error![]Type {
+        if (!self.isKeyword("extends")) return try self.allocator.alloc(Type, 0);
+        try self.advance();
+        try self.expect(.l_paren);
+        var superclasses = std.ArrayList(Type).empty;
+        errdefer {
+            for (superclasses.items) |*superclass| superclass.deinit(self.allocator);
+            superclasses.deinit(self.allocator);
+        }
+        while (self.lookahead.tag != .r_paren) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            try superclasses.append(self.allocator, try self.parseType());
+            if (self.lookahead.tag == .comma) {
+                try self.expect(.comma);
+            } else if (self.lookahead.tag != .r_paren) {
+                return error.UnexpectedToken;
+            }
+        }
+        try self.expect(.r_paren);
+        return superclasses.toOwnedSlice(self.allocator);
     }
 
     fn parseInterfaceBody(self: *Parser) Error![]InterfaceMethod {
@@ -2010,17 +2040,27 @@ test "schema parser skips top-level annotations and interfaces" {
         \\interface Service {
         \\  call @0 (request :Text) -> (response :Text);
         \\}
+        \\interface Extended extends(Service) {
+        \\  next @1 () -> ();
+        \\}
         \\struct Payload {
         \\  id @0 :UInt32;
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
-    try std.testing.expectEqual(@as(usize, 1), file.interfaces.len);
+    try std.testing.expectEqual(@as(usize, 2), file.interfaces.len);
     try std.testing.expectEqualStrings("Service", file.interfaces[0].name);
     try std.testing.expectEqual(@as(usize, 1), file.interfaces[0].methods.len);
     try std.testing.expectEqualStrings("call", file.interfaces[0].methods[0].name);
     try std.testing.expectEqual(@as(u16, 0), file.interfaces[0].methods[0].ordinal);
+    try std.testing.expectEqualStrings("Extended", file.interfaces[1].name);
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces[1].superclasses.len);
+    try std.testing.expect(file.interfaces[1].superclasses[0] == .named);
+    try std.testing.expectEqualStrings("Service", file.interfaces[1].superclasses[0].named);
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces[1].methods.len);
+    try std.testing.expectEqualStrings("next", file.interfaces[1].methods[0].name);
+    try std.testing.expectEqual(@as(u16, 1), file.interfaces[1].methods[0].ordinal);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Payload", file.structs[0].name);
     try std.testing.expectEqual(@as(usize, 1), file.structs[0].fields.len);
@@ -2396,7 +2436,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
         try emitEnum(allocator, &out, decl);
     }
     for (file.interfaces) |*decl| {
-        try emitInterface(allocator, &out, decl);
+        try emitInterface(allocator, &out, file, decl);
     }
     for (layouts.structs) |*layout| {
         try emitStruct(allocator, &out, file, layout);
@@ -2527,13 +2567,26 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
     , .{});
 }
 
-fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const InterfaceDecl) LayoutError!void {
+fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const InterfaceDecl) LayoutError!void {
     const interface_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(interface_name);
     try appendFmt(allocator, out,
         \\pub const {s} = struct {{
         \\
     , .{interface_name});
+    for (decl.superclasses, 0..) |superclass, index| {
+        switch (resolveType(file, superclass)) {
+            .named => |type_name| {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\    pub const Superclass{} = {s};
+                    \\
+                , .{ index, zig_type });
+            },
+            else => return error.UnsupportedType,
+        }
+    }
     for (decl.methods) |method| {
         const method_name = try zigIdentAlloc(allocator, method.name);
         defer allocator.free(method_name);

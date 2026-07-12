@@ -1248,6 +1248,8 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
 test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.Service.call);
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
+    try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
+    try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);
 }
 
 test "generated interface capability accessors round-trip" {
