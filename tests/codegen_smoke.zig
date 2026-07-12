@@ -27,9 +27,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqualSlices(u8, "Ada", try person.name());
     try std.testing.expectEqual(generated.Color.blue, person.favorite());
     const read_scores = try person.scores();
-    try std.testing.expectEqual(@as(u32, 20), read_scores.getUInt32(1));
+    try std.testing.expectEqual(@as(u32, 20), read_scores.get(1));
     const read_children = try person.children();
-    const read_child = generated.Person.fromReader(try read_children.getStructElement(0));
+    const read_child = try read_children.get(0);
     try std.testing.expectEqual(@as(u32, 99), read_child.id());
     try std.testing.expectEqualSlices(u8, "Grace", try read_child.name());
 }

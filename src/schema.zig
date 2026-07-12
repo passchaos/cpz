@@ -707,7 +707,12 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     , .{ layout.decl.name, layout.data_words, layout.pointer_count, layout.decl.name });
 
     for (layout.fields) |field_layout| {
-        try emitFieldGetter(allocator, out, file, field_layout);
+        try emitFieldGetter(allocator, out, file, layout.decl.name, field_layout);
+    }
+    for (layout.fields) |field_layout| {
+        if (field_layout.field.ty == .list) {
+            try emitListWrapper(allocator, out, file, layout.decl.name, field_layout.field);
+        }
     }
 
     try appendFmt(allocator, out,
@@ -737,7 +742,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try appendFmt(allocator, out, "}};\n\n", .{});
 }
 
-fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field_layout: FieldLayout) LayoutError!void {
+fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field_layout: FieldLayout) LayoutError!void {
     const field = field_layout.field;
     switch (field_layout.slot) {
         .void => try appendFmt(allocator, out,
@@ -753,7 +758,7 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{ field.name, bit, try defaultBoolLiteral(field) }),
         .data_byte => |byte| try emitDataGetter(allocator, out, file, field, byte),
-        .pointer => |index| try emitPointerGetter(allocator, out, file, field, index),
+        .pointer => |index| try emitPointerGetter(allocator, out, file, owner_name, field, index),
     }
 }
 
@@ -791,7 +796,7 @@ fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
     , .{ name, zig_type, method, byte, default });
 }
 
-fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field: *const Field, index: usize) LayoutError!void {
+fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field: *const Field, index: usize) LayoutError!void {
     switch (field.ty) {
         .text => try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) ![]const u8 {{
@@ -806,11 +811,11 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
             \\
         , .{ field.name, index }),
         .list => |child| try appendFmt(allocator, out,
-            \\    pub fn {s}(self: @This()) !cpz.ListReader {{
-            \\        return self.reader.getPointerField({}).getList({s});
+            \\    pub fn {s}(self: @This()) !{s}_{s}_List {{
+            \\        return .{{ .list = try self.reader.getPointerField({}).getList({s}) }};
             \\    }}
             \\
-        , .{ field.name, index, try listElementSizeLiteral(file, child.*) }),
+        , .{ field.name, owner_name, field.name, index, try listElementSizeLiteral(file, child.*) }),
         .named => |type_name| try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) !{s} {{
             \\        return {s}.fromReader(try self.reader.getPointerField({}).getStruct(null));
@@ -819,6 +824,81 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         , .{ field.name, type_name, type_name, index }),
         else => return error.UnsupportedType,
     }
+}
+
+fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, field: *const Field) LayoutError!void {
+    const child = field.ty.list.*;
+    try appendFmt(allocator, out,
+        \\
+        \\    pub const {s}_{s}_List = struct {{
+        \\        list: cpz.ListReader,
+        \\
+        \\        pub fn len(self: @This()) usize {{
+        \\            return self.list.len();
+        \\        }}
+        \\
+    , .{ owner_name, field.name });
+
+    switch (child) {
+        .bool => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) bool {{
+            \\            return self.list.getBool(index);
+            \\        }}
+            \\
+        , .{}),
+        .uint8 => try listScalarGetter(allocator, out, "u8", "getUInt8"),
+        .uint16 => try listScalarGetter(allocator, out, "u16", "getUInt16"),
+        .uint32 => try listScalarGetter(allocator, out, "u32", "getUInt32"),
+        .uint64 => try listScalarGetter(allocator, out, "u64", "getUInt64"),
+        .int8 => try listScalarGetter(allocator, out, "i8", "getInt8"),
+        .int16 => try listScalarGetter(allocator, out, "i16", "getInt16"),
+        .int32 => try listScalarGetter(allocator, out, "i32", "getInt32"),
+        .int64 => try listScalarGetter(allocator, out, "i64", "getInt64"),
+        .float32 => try listScalarGetter(allocator, out, "f32", "getFloat32"),
+        .float64 => try listScalarGetter(allocator, out, "f64", "getFloat64"),
+        .text => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getText();
+            \\        }}
+            \\
+        , .{}),
+        .data => try appendFmt(allocator, out,
+            \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
+            \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+        , .{}),
+        .named => |type_name| if (findEnum(file, type_name) != null) {
+            try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) {s} {{
+                \\            return @enumFromInt(self.list.getUInt16(index));
+                \\        }}
+                \\
+            , .{type_name});
+        } else {
+            try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), index: usize) !{s} {{
+                \\            return {s}.fromReader(try self.list.getStructElement(index));
+                \\        }}
+                \\
+            , .{ type_name, type_name });
+        },
+        .void, .list => {},
+    }
+
+    try appendFmt(allocator, out,
+        \\    }};
+        \\
+    , .{});
+}
+
+fn listScalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_type: []const u8, method: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn get(self: @This(), index: usize) {s} {{
+        \\            return self.list.{s}(index);
+        \\        }}
+        \\
+    , .{ zig_type, method });
 }
 
 fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, field_layout: FieldLayout) LayoutError!void {
@@ -982,7 +1062,10 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getText()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "getList(.four_bytes)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "!Person_scores_List") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(index);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "!Person_children_List") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return Person.fromReader(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Builder = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, value: u32) !void") != null);
