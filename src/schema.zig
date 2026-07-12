@@ -1538,18 +1538,52 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     , .{ field_name, index, field_name, index });
 
     switch (field.ty) {
-        .text => try appendFmt(allocator, out,
-            \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
-            \\            return self.builder.setText({}, value);
-            \\        }}
-            \\
-        , .{ field_name, index }),
-        .data => try appendFmt(allocator, out,
-            \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
-            \\            return self.builder.setData({}, value);
-            \\        }}
-            \\
-        , .{ field_name, index }),
+        .text => {
+            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            defer if (default_literal) |literal| allocator.free(literal);
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\        pub fn get_{s}(self: Builder) ![]const u8 {{
+                    \\            return (try self.builder.getPointerField({})).getTextDefault({s});
+                    \\        }}
+                    \\
+                , .{ field_name, index, literal });
+            } else try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) ![]const u8 {{
+                \\            return (try self.builder.getPointerField({})).getText();
+                \\        }}
+                \\
+            , .{ field_name, index });
+            try appendFmt(allocator, out,
+                \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+                \\            return self.builder.setText({}, value);
+                \\        }}
+                \\
+            , .{ field_name, index });
+        },
+        .data => {
+            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            defer if (default_literal) |literal| allocator.free(literal);
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\        pub fn get_{s}(self: Builder) ![]const u8 {{
+                    \\            return (try self.builder.getPointerField({})).getDataDefault({s});
+                    \\        }}
+                    \\
+                , .{ field_name, index, literal });
+            } else try appendFmt(allocator, out,
+                \\        pub fn get_{s}(self: Builder) ![]const u8 {{
+                \\            return (try self.builder.getPointerField({})).getData();
+                \\        }}
+                \\
+            , .{ field_name, index });
+            try appendFmt(allocator, out,
+                \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+                \\            return self.builder.setData({}, value);
+                \\        }}
+                \\
+            , .{ field_name, index });
+        },
         .list => |child| if (isStructListElement(file, child.*)) |type_name| {
             const zig_type = try zigIdentAlloc(allocator, type_name);
             defer allocator.free(zig_type);
@@ -1793,6 +1827,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setUInt32(0, value, 42);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setBool(32, value, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn has_name(self: Builder) !bool") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_name(self: Builder) ![]const u8") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_name(self: Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_friend(self: Builder) !void") != null);

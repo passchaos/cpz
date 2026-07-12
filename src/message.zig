@@ -432,6 +432,16 @@ pub const PointerBuilder = struct {
         }).getText();
     }
 
+    pub fn getTextDefault(self: PointerBuilder, default_value: []const u8) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getTextDefault(default_value);
+    }
+
     pub fn getData(self: PointerBuilder) Error![]const u8 {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return (PointerReader{
@@ -440,6 +450,16 @@ pub const PointerBuilder = struct {
             .word_index = self.word_index,
             .nesting_left = reader.options.nesting_limit,
         }).getData();
+    }
+
+    pub fn getDataDefault(self: PointerBuilder, default_value: []const u8) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getDataDefault(default_value);
     }
 
     pub fn setCapability(self: PointerBuilder, index: u32) void {

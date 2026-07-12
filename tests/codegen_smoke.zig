@@ -12,8 +12,10 @@ test "generated reader and builder accessors compile and round-trip" {
     try person_builder.set_active(false);
     try std.testing.expectEqual(false, try person_builder.get_active());
     try std.testing.expectEqual(false, try person_builder.has_name());
+    try std.testing.expectEqualSlices(u8, "anon", try person_builder.get_nickname());
     try person_builder.set_name("Ada");
     try std.testing.expectEqual(true, try person_builder.has_name());
+    try std.testing.expectEqualSlices(u8, "Ada", try person_builder.get_name());
     try person_builder.set_favorite(.blue);
     try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
