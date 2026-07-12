@@ -28,6 +28,9 @@ test "generated reader and builder accessors compile and round-trip" {
     var name_view_reader = try builder.asReader(.{});
     const name_pointer_view = try person_builder.get_nameAsReader(&name_view_reader);
     try std.testing.expectEqualSlices(u8, "Ada", try name_pointer_view.getText());
+    try std.testing.expectEqual(cpz.wire.PointerType.list, (try person_builder.get_namePointerKind()).?);
+    const name_decoded = (try person_builder.get_nameDecodedPointer()).?.list;
+    try std.testing.expectEqual(cpz.ElementSize.byte, name_decoded.element_size);
     try person_builder.set_favorite(.blue);
     try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());

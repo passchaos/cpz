@@ -3218,6 +3218,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.builder.getPointerField({})).asReader(message_reader);
         \\        }}
         \\
+        \\        pub fn get_{s}PointerKind(self: Builder) !?cpz.wire.PointerType {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).pointerType();
+        \\        }}
+        \\
+        \\        pub fn get_{s}DecodedPointer(self: Builder) !?cpz.wire.DecodedPointer {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).decode();
+        \\        }}
+        \\
     , .{index});
 
     switch (resolveType(file, field.ty)) {
