@@ -2999,36 +2999,36 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    reader: cpz.StructReader,
         \\
-        \\    pub fn initRoot(builder: *cpz.MessageBuilder) !cpz.StructBuilder {{
-        \\        return builder.initRoot(size);
+        \\    pub fn initRoot(@"cpz.builder": *cpz.MessageBuilder) !cpz.StructBuilder {{
+        \\        return @"cpz.builder".initRoot(size);
         \\    }}
         \\
-        \\    pub fn getRoot(reader: *cpz.MessageReader) !{s} {{
-        \\        return fromReader(try reader.getRoot());
+        \\    pub fn getRoot(@"cpz.reader": *cpz.MessageReader) !{s} {{
+        \\        return fromReader(try @"cpz.reader".getRoot());
         \\    }}
         \\
-        \\    pub fn getRootTyped(builder: *cpz.MessageBuilder) !Builder {{
-        \\        return Builder.fromBuilder(try builder.getRoot());
+        \\    pub fn getRootTyped(@"cpz.builder": *cpz.MessageBuilder) !Builder {{
+        \\        return Builder.fromBuilder(try @"cpz.builder".getRoot());
         \\    }}
         \\
-        \\    pub fn newOrphan(builder: *cpz.MessageBuilder) !Orphan {{
-        \\        return Orphan.fromOrphan(try builder.newOrphanStruct(size));
+        \\    pub fn newOrphan(@"cpz.builder": *cpz.MessageBuilder) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanStruct(size));
         \\    }}
         \\
-        \\    pub fn newOrphanIn(orphanage: cpz.Orphanage) !Orphan {{
-        \\        return Orphan.fromOrphan(try orphanage.newStruct(size));
+        \\    pub fn newOrphanIn(@"cpz.orphanage": cpz.Orphanage) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.orphanage".newStruct(size));
         \\    }}
         \\
-        \\    pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": @This()) !Orphan {{
-        \\        return Orphan.fromOrphan(try builder.newOrphanCopyStruct(@"cpz.value".reader));
+        \\    pub fn newOrphanCopy(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": @This()) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanCopyStruct(@"cpz.value".reader));
         \\    }}
         \\
-        \\    pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": @This()) !Orphan {{
-        \\        return Orphan.fromOrphan(try orphanage.newCopyStruct(@"cpz.value".reader));
+        \\    pub fn newOrphanCopyIn(@"cpz.orphanage": cpz.Orphanage, @"cpz.value": @This()) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.orphanage".newCopyStruct(@"cpz.value".reader));
         \\    }}
         \\
-        \\    pub fn fromReader(reader: cpz.StructReader) {s} {{
-        \\        return .{{ .reader = reader }};
+        \\    pub fn fromReader(@"cpz.reader": cpz.StructReader) {s} {{
+        \\        return .{{ .reader = @"cpz.reader" }};
         \\    }}
         \\
         \\    pub fn totalSize(self: @This()) !cpz.MessageSize {{
@@ -3062,15 +3062,15 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
 
     try appendFmt(allocator, out,
         \\
-        \\    pub fn initRootTyped(message: *cpz.MessageBuilder) !Builder {{
-        \\        return Builder.fromBuilder(try message.initRoot(size));
+        \\    pub fn initRootTyped(@"cpz.message": *cpz.MessageBuilder) !Builder {{
+        \\        return Builder.fromBuilder(try @"cpz.message".initRoot(size));
         \\    }}
         \\
         \\    pub const Builder = struct {{
         \\        builder: cpz.StructBuilder,
         \\
-        \\        pub fn fromBuilder(builder: cpz.StructBuilder) Builder {{
-        \\            return .{{ .builder = builder }};
+        \\        pub fn fromBuilder(@"cpz.builder": cpz.StructBuilder) Builder {{
+        \\            return .{{ .builder = @"cpz.builder" }};
         \\        }}
         \\
         \\        pub fn asReader(self: Builder, message_reader: *cpz.MessageReader) {s} {{

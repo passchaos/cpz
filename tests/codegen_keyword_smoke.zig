@@ -64,3 +64,15 @@ test "generated code sanitizes primitive and literal names" {
     try std.testing.expectEqual(@as(u32, 42), value.null_());
     try std.testing.expectEqualSlices(u8, "literal", try value.true_());
 }
+
+test "generated helper parameter names do not shadow fields" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const value_builder = try generated.HelperClash.initRootTyped(&builder);
+    try value_builder.set_message("no shadow");
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const value = generated.HelperClash.fromReader(try reader.getRoot());
+    try std.testing.expectEqualSlices(u8, "no shadow", try value.message());
+}
