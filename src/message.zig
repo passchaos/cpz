@@ -1063,6 +1063,20 @@ fn copyPrimitiveList(dst: ListBuilder, source: ListReader) Error!void {
     }
 }
 
+fn copyPrimitiveBuilderList(dst: ListBuilder, source: ListBuilder, start_index: usize) Error!void {
+    if (dst.element_size != source.element_size) return error.IncompatibleListShape;
+    if (start_index > source.element_count or source.element_count - start_index < dst.element_count) return error.PointerOutOfBounds;
+    switch (source.element_size) {
+        .void => {},
+        .bit => for (0..dst.element_count) |i| try dst.setBool(i, try source.getBool(start_index + i)),
+        .byte => for (0..dst.element_count) |i| try dst.setUInt8(i, try source.getUInt8(start_index + i)),
+        .two_bytes => for (0..dst.element_count) |i| try dst.setUInt16(i, try source.getUInt16(start_index + i)),
+        .four_bytes => for (0..dst.element_count) |i| try dst.setUInt32(i, try source.getUInt32(start_index + i)),
+        .eight_bytes => for (0..dst.element_count) |i| try dst.setUInt64(i, try source.getUInt64(start_index + i)),
+        .pointer, .composite => return error.IncompatibleListShape,
+    }
+}
+
 pub const PointerReader = struct {
     message: *MessageReader,
     segment_id: u32,
@@ -1676,11 +1690,14 @@ pub const ListBuilder = struct {
 
     pub fn slice(self: ListBuilder, start_index: usize, count: usize) Error!ListBuilder {
         if (start_index > self.element_count or self.element_count - start_index < count) return error.PointerOutOfBounds;
-        if (self.element_size == .bit) {
-            const copy = try self.orphanage().newList(.bit, count);
-            const list = try copy.getList(.bit);
-            for (0..count) |i| try list.setBool(i, try self.getBool(start_index + i));
-            return list;
+        if (self.element_size != .pointer and self.element_size != .composite) {
+            const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
+            if (start_bits % wire.bits_per_word != 0) {
+                const copy = try self.orphanage().newList(self.element_size, count);
+                const list = try copy.getList(self.element_size);
+                try copyPrimitiveBuilderList(list, self, start_index);
+                return list;
+            }
         }
         const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
         if (start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
@@ -2395,6 +2412,10 @@ test "primitive and struct lists" {
 
     const nums_builder_tail = try nums.slice(0, 2);
     try nums_builder_tail.setUInt16(1, 44);
+    try testing.expectEqual(@as(u16, 44), try nums.getUInt16(1));
+    const nums_builder_copy = try nums.slice(1, 2);
+    try testing.expectEqual(@as(u16, 44), try nums_builder_copy.getUInt16(0));
+    try nums_builder_copy.setUInt16(0, 55);
     try testing.expectEqual(@as(u16, 44), try nums.getUInt16(1));
 }
 

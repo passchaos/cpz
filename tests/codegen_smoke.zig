@@ -74,7 +74,10 @@ test "generated reader and builder accessors compile and round-trip" {
     const scores_prefix = try scores.slice(0, 1);
     try std.testing.expectEqual(@as(usize, 1), scores_prefix.len());
     try std.testing.expectEqual(@as(u32, 10), try scores_prefix.get(0));
-    try std.testing.expectError(error.UnsupportedElementSize, scores.slice(1, 1));
+    const scores_tail_copy = try scores.slice(1, 1);
+    try std.testing.expectEqual(@as(u32, 20), try scores_tail_copy.get(0));
+    try scores_tail_copy.set(0, 99);
+    try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
     var score_list_orphan = try generated.Person.Person_scores_Orphan.newOrphanIn(scores.orphanage(), 1);
     score_list_orphan.release();
     try std.testing.expect(score_list_orphan.isNull());
