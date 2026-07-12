@@ -29,6 +29,10 @@ test "generated reader and builder accessors compile and round-trip" {
     try aliases.set(1, "Lovelace");
     const payloads = try person_builder.init_payloads(1);
     try payloads.set(0, &[_]u8{ 4, 5, 6 });
+    const flags = try person_builder.init_flags(3);
+    try flags.set(0, true);
+    try flags.set(1, false);
+    try flags.set(2, true);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try reader.getRoot();
@@ -54,6 +58,10 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.get(1));
     const read_payloads = try person.payloads();
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try read_payloads.get(0));
+    const read_flags = try person.flags();
+    try std.testing.expectEqual(true, read_flags.get(0));
+    try std.testing.expectEqual(false, read_flags.get(1));
+    try std.testing.expectEqual(true, read_flags.get(2));
 }
 
 test "generated accessors honor scalar defaults" {

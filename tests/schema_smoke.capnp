@@ -18,4 +18,5 @@ struct Person {
   nickname @8 :Text = "anon";
   aliases @9 :TextList;
   payloads @10 :DataList;
+  flags @11 :BoolList;
 }
