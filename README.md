@@ -9,7 +9,7 @@
 - packed stream codec compatible with Cap'n Proto packing, including allocation-free pack/unpack helpers.
 - one-call flat/packed stream framing helpers (`messageToFlatBytes`, `writeMessageToWriter`, `messageToPackedBytes`, `writePackedMessageToWriter`, `readMessageFromReader`, `readPackedMessage`) plus builder convenience methods.
 - single-segment normalization helper for deterministic flat output (`toSingleSegmentFlatBytes`) and schema-less canonical segment bytes (`toCanonicalSegmentBytes`).
-- initial `.capnp` schema parser, ordinal-aware layout planner, and Zig typed reader/builder/nested-struct/list-reader/list-builder accessor skeleton generator with scalar default values for structs, enums, scalar fields, typed scalar/enum/struct lists, named types, string literals, skipped using/const declarations and annotations, and file IDs.
+- initial `.capnp` schema parser, ordinal-aware compact layout planner, and Zig typed reader/builder/nested-struct/list-reader/list-builder accessor skeleton generator with scalar default values for structs, enums, scalar fields, typed scalar/enum/struct lists, named types, string literals, skipped using/const declarations and annotations, and file IDs.
 
 The long-term target is to grow into a full schema/compiler/RPC stack while keeping Zig-friendly APIs and predictable performance.
 

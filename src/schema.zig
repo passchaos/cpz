@@ -461,8 +461,10 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
     var assigned = try allocator.alloc(bool, decl.fields.len);
     defer allocator.free(assigned);
     @memset(assigned, false);
+    var data_ranges = std.ArrayList(BitRange).empty;
+    defer data_ranges.deinit(allocator);
 
-    var next_bit: usize = 0;
+    var data_end_bit: usize = 0;
     var next_pointer: usize = 0;
 
     for (decl.fields) |*field| {
@@ -478,10 +480,10 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
         const slot: FieldSlot = switch (try classify(file, field.ty)) {
             .void => .void,
             .data => |bits| blk: {
-                const aligned = alignForward(usize, next_bit, bits);
-                next_bit = aligned + bits;
-                if (bits == 1) break :blk .{ .data_bit = aligned };
-                break :blk .{ .data_byte = aligned / 8 };
+                const start = try allocateDataBits(allocator, &data_ranges, bits);
+                data_end_bit = @max(data_end_bit, start + bits);
+                if (bits == 1) break :blk .{ .data_bit = start };
+                break :blk .{ .data_byte = start / 8 };
             },
             .pointer => blk: {
                 const index = next_pointer;
@@ -492,15 +494,44 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
         fields[field_index] = .{ .field = field, .slot = slot };
     }
 
-    if (next_bit > @as(usize, std.math.maxInt(u16)) * 64) return error.InvalidOrdinal;
+    if (data_end_bit > @as(usize, std.math.maxInt(u16)) * 64) return error.InvalidOrdinal;
     if (next_pointer > std.math.maxInt(u16)) return error.InvalidOrdinal;
 
     return .{
         .decl = decl,
-        .data_words = @intCast((next_bit + 63) / 64),
+        .data_words = @intCast((data_end_bit + 63) / 64),
         .pointer_count = @intCast(next_pointer),
         .fields = fields,
     };
+}
+
+const BitRange = struct {
+    start: usize,
+    end: usize,
+};
+
+fn allocateDataBits(allocator: std.mem.Allocator, ranges: *std.ArrayList(BitRange), bits: usize) LayoutError!usize {
+    var start: usize = 0;
+    while (true) {
+        start = alignForward(usize, start, bits);
+        const end = std.math.add(usize, start, bits) catch return error.InvalidOrdinal;
+        var advanced = false;
+        for (ranges.items) |range| {
+            if (rangesOverlap(start, end, range.start, range.end)) {
+                start = range.end;
+                advanced = true;
+                break;
+            }
+        }
+        if (!advanced) {
+            try ranges.append(allocator, .{ .start = start, .end = end });
+            return start;
+        }
+    }
+}
+
+fn rangesOverlap(a_start: usize, a_end: usize, b_start: usize, b_end: usize) bool {
+    return a_start < b_end and b_start < a_end;
 }
 
 fn nextOrdinalFieldIndex(fields: []const Field, assigned: []const bool) ?usize {
@@ -698,6 +729,25 @@ test "schema layout planner allocates slots by ordinal not declaration order" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, fields[2].slot);
     try std.testing.expectEqualStrings("ptrFirst", fields[3].field.name);
     try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, fields[3].slot);
+}
+
+test "schema layout planner reuses alignment padding holes" {
+    var file = try parse(std.testing.allocator,
+        \\struct Compact {
+        \\  byte @0 :UInt8;
+        \\  word @1 :UInt64;
+        \\  small @2 :UInt16;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const layout = layouts.structs[0];
+    try std.testing.expectEqual(@as(u16, 2), layout.data_words);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 0 }, layout.fields[0].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[1].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 2 }, layout.fields[2].slot);
 }
 
 pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
