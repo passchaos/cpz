@@ -113,6 +113,13 @@ pub const MessageBuilder = struct {
         return self.getRoot();
     }
 
+    pub fn copyRootCanonicalFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
+        const dst_root = PointerBuilder{ .message = self, .segment_id = 0, .word_index = 0 };
+        const src_root = PointerReader{ .message = source, .segment_id = 0, .word_index = 0, .nesting_left = source.options.nesting_limit };
+        try dst_root.copyFromCanonical(src_root);
+        return self.getRoot();
+    }
+
     pub fn getRoot(self: *MessageBuilder) Error!StructBuilder {
         var reader = MessageReader.init(try self.segmentsConst(), .{});
         const root = try reader.getRoot();
@@ -269,6 +276,29 @@ pub fn toSingleSegmentFlatBytes(allocator: std.mem.Allocator, source: *const Mes
     return serialize.messageToFlatBytes(allocator, segments);
 }
 
+/// Copy a message into a single segment in preorder while applying basic
+/// schema-less canonicalization rules: far pointers are removed and trailing
+/// zero-valued words in standalone struct data/pointer sections are truncated.
+/// The returned bytes are the canonical segment payload; no stream segment
+/// table is included.
+pub fn toCanonicalSegmentBytes(allocator: std.mem.Allocator, source: *const MessageReader) Error![]u8 {
+    var stats_reader = MessageReader.init(source.segments, source.options);
+    const stats = try stats_reader.validate();
+    const capacity = std.math.add(usize, stats.total_words, 1) catch return error.SerializedSizeOverflow;
+
+    var copy_reader = MessageReader.init(source.segments, source.options);
+    var builder = try MessageBuilder.init(allocator, .{
+        .first_segment_words = @max(capacity, 1),
+        .next_segment_min_words = @max(capacity, 1),
+    });
+    defer builder.deinit();
+
+    _ = try builder.copyRootCanonicalFrom(&copy_reader);
+    const segments = try builder.segmentsConst();
+    std.debug.assert(segments.len == 1);
+    return allocator.dupe(u8, segments[0]);
+}
+
 pub const PointerBuilder = struct {
     message: *MessageBuilder,
     segment_id: u32,
@@ -366,6 +396,14 @@ pub const PointerBuilder = struct {
     }
 
     pub fn copyFrom(self: PointerBuilder, source: PointerReader) Error!void {
+        try self.copyFromMode(source, false);
+    }
+
+    pub fn copyFromCanonical(self: PointerBuilder, source: PointerReader) Error!void {
+        try self.copyFromMode(source, true);
+    }
+
+    fn copyFromMode(self: PointerBuilder, source: PointerReader, canonical: bool) Error!void {
         const resolved = try source.resolve();
         if (resolved.raw == 0) {
             self.message.writePtr(self.segment_id, self.word_index, 0);
@@ -375,13 +413,22 @@ pub const PointerBuilder = struct {
         switch (wire.pointerType(resolved.raw)) {
             .struct_ptr => {
                 const src = try source.getStruct(null);
-                const dst = try self.initStruct(.{
+                const dst_size = if (canonical) try canonicalStructSize(src) else wire.StructSize{
                     .data_words = src.data_words,
                     .pointer_count = src.pointer_count,
+                };
+                const dst = try self.initStruct(.{
+                    .data_words = dst_size.data_words,
+                    .pointer_count = dst_size.pointer_count,
                 });
-                @memcpy(dst.dataBytes(), src.dataBytes());
-                for (0..src.pointer_count) |i| {
-                    try (try dst.getPointerField(i)).copyFrom(src.getPointerField(i));
+                @memcpy(dst.dataBytes(), src.dataBytes()[0..dst.dataBytes().len]);
+                for (0..dst_size.pointer_count) |i| {
+                    const dst_ptr = try dst.getPointerField(i);
+                    if (canonical) {
+                        try dst_ptr.copyFromCanonical(src.getPointerField(i));
+                    } else {
+                        try dst_ptr.copyFrom(src.getPointerField(i));
+                    }
                 }
             },
             .list => {
@@ -396,14 +443,25 @@ pub const PointerBuilder = struct {
                         const dst_element = try dst.getStructElement(i);
                         @memcpy(dst_element.dataBytes(), src_element.dataBytes());
                         for (0..src_element.pointer_count) |j| {
-                            try (try dst_element.getPointerField(j)).copyFrom(src_element.getPointerField(j));
+                            const dst_ptr = try dst_element.getPointerField(j);
+                            if (canonical) {
+                                try dst_ptr.copyFromCanonical(src_element.getPointerField(j));
+                            } else {
+                                try dst_ptr.copyFrom(src_element.getPointerField(j));
+                            }
                         }
                     }
                 } else {
                     const dst = try self.initList(src.element_size, src.element_count);
                     if (src.element_size == .pointer) {
                         for (0..src.element_count) |i| {
-                            try (try dst.getPointerElement(i)).copyFrom(try src.getPointerElement(i));
+                            const dst_ptr = try dst.getPointerElement(i);
+                            const src_ptr = try src.getPointerElement(i);
+                            if (canonical) {
+                                try dst_ptr.copyFromCanonical(src_ptr);
+                            } else {
+                                try dst_ptr.copyFrom(src_ptr);
+                            }
                         }
                     } else {
                         @memcpy(dst.bytes(), src.bytes());
@@ -1099,6 +1157,27 @@ fn addStat(target: *usize, amount: usize) Error!void {
     target.* = std.math.add(usize, target.*, amount) catch return error.SerializedSizeOverflow;
 }
 
+fn canonicalStructSize(s: StructReader) Error!wire.StructSize {
+    var data_words: usize = s.data_words;
+    while (data_words > 0) {
+        const word = try s.message.readWord(s.segment_id, s.data_start + data_words - 1);
+        if (word != 0) break;
+        data_words -= 1;
+    }
+
+    var pointer_count: usize = s.pointer_count;
+    while (pointer_count > 0) {
+        const word = try s.message.readWord(s.segment_id, s.pointer_start + pointer_count - 1);
+        if (word != 0) break;
+        pointer_count -= 1;
+    }
+
+    return .{
+        .data_words = @intCast(data_words),
+        .pointer_count = @intCast(pointer_count),
+    };
+}
+
 fn listByteLen(element_count: usize, step_bits: usize) usize {
     const bits = std.math.mul(usize, element_count, step_bits) catch @panic("list byte length overflow");
     return (bits + 7) / 8;
@@ -1360,6 +1439,31 @@ test "single-segment normalization removes far pointers while preserving data" {
     const read_names = try read_root.getPointerField(1).getList(.pointer);
     try testing.expectEqualSlices(u8, "a", try (try read_names.getPointerElement(0)).getText());
     try testing.expectEqualSlices(u8, "b", try (try read_names.getPointerElement(1)).getText());
+}
+
+test "canonical segment bytes truncate trailing zero struct sections" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 2, .pointer_count = 2 });
+    try root.setUInt32(0, 99, 0);
+    try root.setText(0, "kept");
+
+    var source = MessageReader.init(try builder.segmentsConst(), .{});
+    const canonical = try toCanonicalSegmentBytes(testing.allocator, &source);
+    defer testing.allocator.free(canonical);
+
+    const root_ptr = wire.decodeStruct(try wire.readWord(canonical, 0));
+    try testing.expectEqual(@as(u16, 1), root_ptr.data_words);
+    try testing.expectEqual(@as(u16, 1), root_ptr.pointer_count);
+
+    const segments = [_]serialize.ConstSegment{canonical};
+    var reader = MessageReader.init(&segments, .{});
+    const read_root = try reader.getRoot();
+    try testing.expectEqual(@as(u32, 99), read_root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "kept", try read_root.getPointerField(0).getText());
+    try testing.expect(read_root.getPointerField(1).isNull());
 }
 
 test "capability pointers round-trip and validate" {
