@@ -18,6 +18,7 @@ The long-term target is to grow into a full schema/compiler/RPC stack while keep
 ```sh
 zig build test
 zig build run
+zig build cpzc -- --check schema.capnp
 zig build cpzc -- --runtime-import cpz --namespace api --emit-raw-schema-comments schema.capnp generated/generated.zig
 ```
 
