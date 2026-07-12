@@ -1132,6 +1132,10 @@ pub const StructBuilder = struct {
         return self.asReader(&reader).totalSize();
     }
 
+    pub fn size(self: StructBuilder) wire.StructSize {
+        return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
+    }
+
     pub fn orphanage(self: StructBuilder) Orphanage {
         return Orphanage.init(self.message);
     }
@@ -1460,6 +1464,10 @@ pub const StructReader = struct {
         try collectStructStats(self, &stats);
         return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
     }
+
+    pub fn size(self: StructReader) wire.StructSize {
+        return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
+    }
 };
 
 pub const ListBuilder = struct {
@@ -1474,6 +1482,14 @@ pub const ListBuilder = struct {
 
     pub fn len(self: ListBuilder) usize {
         return self.element_count;
+    }
+
+    pub fn elementSize(self: ListBuilder) wire.ElementSize {
+        return self.element_size;
+    }
+
+    pub fn structElementSize(self: ListBuilder) wire.StructSize {
+        return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
     }
 
     /// Return a sub-list view. The current representation is word-addressed, so
@@ -1689,6 +1705,14 @@ pub const ListReader = struct {
 
     pub fn len(self: ListReader) usize {
         return self.element_count;
+    }
+
+    pub fn elementSize(self: ListReader) wire.ElementSize {
+        return self.element_size;
+    }
+
+    pub fn structElementSize(self: ListReader) wire.StructSize {
+        return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
     }
 
     /// Return a sub-list view. The current representation is word-addressed, so
@@ -2116,12 +2140,16 @@ test "primitive and struct lists" {
     defer builder.deinit();
 
     const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    try testing.expectEqual(wire.StructSize{ .data_words = 0, .pointer_count = 2 }, root.size());
     const nums = try (try root.getPointerField(0)).initList(.two_bytes, 3);
+    try testing.expectEqual(wire.ElementSize.two_bytes, nums.elementSize());
     try nums.setUInt16(0, 10);
     try nums.setUInt16(1, 20);
     try nums.setUInt16(2, 30);
 
     const people = try (try root.getPointerField(1)).initStructList(2, .{ .data_words = 1, .pointer_count = 1 });
+    try testing.expectEqual(wire.ElementSize.composite, people.elementSize());
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, people.structElementSize());
     const p0 = try people.getStructElement(0);
     try p0.setUInt32(0, 1, 0);
     try p0.setText(0, "a");
@@ -2131,8 +2159,10 @@ test "primitive and struct lists" {
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const r = try reader.getRoot();
+    try testing.expectEqual(wire.StructSize{ .data_words = 0, .pointer_count = 2 }, r.size());
     const read_nums = try r.getPointerField(0).getList(.two_bytes);
     try testing.expectEqual(@as(usize, 3), read_nums.len());
+    try testing.expectEqual(wire.ElementSize.two_bytes, read_nums.elementSize());
     try testing.expectEqual(@as(u16, 20), read_nums.getUInt16(1));
     const nums_prefix = try read_nums.slice(0, 2);
     try testing.expectEqual(@as(usize, 2), nums_prefix.len());
@@ -2143,6 +2173,7 @@ test "primitive and struct lists" {
 
     const read_people = try r.getPointerField(1).getList(.composite);
     try testing.expectEqual(@as(usize, 2), read_people.len());
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, read_people.structElementSize());
     const read_p1 = try read_people.getStructElement(1);
     try testing.expectEqual(@as(u32, 2), read_p1.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "bb", try read_p1.getPointerField(0).getText());
