@@ -3316,7 +3316,19 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initStructList(count, struct_size);
                 \\        }}
                 \\
-            , .{index});
+                \\        pub fn new_{s}_structOrphan(self: Builder, struct_size: cpz.StructSize) !cpz.Orphan {{
+                \\            return self.orphanage().newStruct(struct_size);
+                \\        }}
+                \\
+                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.Orphan {{
+                \\            return self.orphanage().newList(element_size, count);
+                \\        }}
+                \\
+                \\        pub fn new_{s}_structListOrphan(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
+                \\            return self.orphanage().newStructList(count, struct_size);
+                \\        }}
+                \\
+            , .{ index, field_name, field_name, field_name });
         },
         .any_struct => {
             try appendFmt(allocator, out,
