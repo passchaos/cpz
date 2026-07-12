@@ -868,6 +868,7 @@ pub const PointerBuilder = struct {
     }
 
     pub fn setText(self: PointerBuilder, text: []const u8) Error!void {
+        if (std.mem.indexOfScalar(u8, text, 0) != null) return error.TextContainsInteriorNul;
         if (!std.unicode.utf8ValidateSlice(text)) return error.Utf8Invalid;
         const list = try self.initList(.byte, text.len + 1);
         const bytes = list.bytes();
@@ -2249,6 +2250,7 @@ test "builder rejects invalid UTF-8 text" {
 
     const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
     try testing.expectError(error.Utf8Invalid, root.setText(0, &[_]u8{ 0xff, 0xfe }));
+    try testing.expectError(error.TextContainsInteriorNul, root.setText(0, "bad\x00text"));
 }
 
 test "pointer reader returns caller defaults for null text and data" {
