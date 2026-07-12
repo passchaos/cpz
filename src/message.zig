@@ -222,6 +222,18 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).initStructList(element_count, size);
     }
 
+    pub fn setRootText(self: *MessageBuilder, text: []const u8) Error!void {
+        return (try self.getRootPointer()).setText(text);
+    }
+
+    pub fn setRootData(self: *MessageBuilder, data: []const u8) Error!void {
+        return (try self.getRootPointer()).setData(data);
+    }
+
+    pub fn setRootCapability(self: *MessageBuilder, index: u32) Error!void {
+        (try self.getRootPointer()).setCapability(index);
+    }
+
     pub fn newOrphanStruct(self: *MessageBuilder, size: wire.StructSize) Error!Orphan {
         const slot = try self.newOrphanPointer();
         _ = try slot.initStruct(size);
@@ -300,6 +312,18 @@ pub const MessageBuilder = struct {
     pub fn getRootPointer(self: *MessageBuilder) Error!PointerBuilder {
         if (self.segments.items.len == 0) return error.SegmentOutOfBounds;
         return .{ .message = self, .segment_id = 0, .word_index = 0 };
+    }
+
+    pub fn getRootText(self: *MessageBuilder) Error![]const u8 {
+        return (try self.getRootPointer()).getText();
+    }
+
+    pub fn getRootData(self: *MessageBuilder) Error![]const u8 {
+        return (try self.getRootPointer()).getData();
+    }
+
+    pub fn getRootCapability(self: *MessageBuilder) Error!u32 {
+        return (try self.getRootPointer()).getCapabilityIndex();
     }
 
     fn newOrphanPointer(self: *MessageBuilder) Error!PointerBuilder {
@@ -424,6 +448,18 @@ pub const MessageReader = struct {
     pub fn getRootPointer(self: *MessageReader) Error!PointerReader {
         if (self.segments.len == 0) return error.SegmentOutOfBounds;
         return .{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
+    }
+
+    pub fn getRootText(self: *MessageReader) Error![]const u8 {
+        return (try self.getRootPointer()).getText();
+    }
+
+    pub fn getRootData(self: *MessageReader) Error![]const u8 {
+        return (try self.getRootPointer()).getData();
+    }
+
+    pub fn getRootCapability(self: *MessageReader) Error!u32 {
+        return (try self.getRootPointer()).getCapabilityIndex();
     }
 
     /// Lazily traverses every reachable pointer without schema knowledge.
@@ -2631,6 +2667,31 @@ test "message builder copies arbitrary root pointers" {
     var canonical_reader = MessageReader.init(try canonical_copy.segmentsConst(), .{});
     const canonical_list = try (try canonical_reader.getRootPointer()).getList(.pointer);
     try testing.expectEqualSlices(u8, "root pointer copy", try (try canonical_list.getPointerElement(0)).getText());
+}
+
+test "message builder and reader expose scalar root pointer helpers" {
+    const testing = std.testing;
+
+    var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
+    defer text_builder.deinit();
+    try text_builder.setRootText("root text");
+    try testing.expectEqualSlices(u8, "root text", try text_builder.getRootText());
+    var text_reader = MessageReader.init(try text_builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, "root text", try text_reader.getRootText());
+
+    var data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
+    defer data_builder.deinit();
+    try data_builder.setRootData(&[_]u8{ 3, 1, 4 });
+    try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_builder.getRootData());
+    var data_reader = MessageReader.init(try data_builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_reader.getRootData());
+
+    var cap_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer cap_builder.deinit();
+    try cap_builder.setRootCapability(4242);
+    try testing.expectEqual(@as(u32, 4242), try cap_builder.getRootCapability());
+    var cap_reader = MessageReader.init(try cap_builder.segmentsConst(), .{});
+    try testing.expectEqual(@as(u32, 4242), try cap_reader.getRootCapability());
 }
 
 test "struct builder copyFromReader safely handles self-copy" {
