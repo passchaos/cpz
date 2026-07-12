@@ -174,6 +174,10 @@ pub const Orphanage = struct {
     pub fn newCopyList(self: Orphanage, source: ListReader) Error!Orphan {
         return self.message.newOrphanCopyList(source);
     }
+
+    pub fn newCopyPointer(self: Orphanage, source: PointerReader) Error!Orphan {
+        return self.message.newOrphanCopyPointer(source);
+    }
 };
 
 pub const MessageBuilder = struct {
@@ -245,6 +249,12 @@ pub const MessageBuilder = struct {
     pub fn newOrphanCopyList(self: *MessageBuilder, source: ListReader) Error!Orphan {
         const slot = try self.newOrphanPointer();
         try slot.copyListFrom(source);
+        return slot.disown();
+    }
+
+    pub fn newOrphanCopyPointer(self: *MessageBuilder, source: PointerReader) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyFrom(source);
         return slot.disown();
     }
 
@@ -2377,6 +2387,13 @@ test "message builder allocates orphan copies from readers" {
     const target_list = try (try target_list_reader.getRootPointer()).getList(.four_bytes);
     try testing.expectEqual(@as(u32, 11), target_list.getUInt32(0));
     try testing.expectEqual(@as(u32, 22), target_list.getUInt32(1));
+
+    var pointer_copy_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer pointer_copy_builder.deinit();
+    var pointer_orphan = try pointer_copy_builder.newOrphanCopyPointer(source_struct.getPointerField(0));
+    try (try pointer_copy_builder.getRootPointer()).adopt(&pointer_orphan);
+    var pointer_copy_reader = MessageReader.init(try pointer_copy_builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, "copy orphan", try (try pointer_copy_reader.getRootPointer()).getText());
 }
 
 test "orphanage facade allocates and copies orphans" {

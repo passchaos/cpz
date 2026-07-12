@@ -3342,7 +3342,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.orphanage().newStructList(count, struct_size);
                 \\        }}
                 \\
-            , .{ index, field_name, field_name, field_name });
+                \\        pub fn new_{s}_copyOrphan(self: Builder, new_value: cpz.PointerReader) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyPointer(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name, field_name, field_name, field_name });
         },
         .any_struct => {
             try appendFmt(allocator, out,

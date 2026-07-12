@@ -820,6 +820,15 @@ test "generated builtin any and capability accessors round-trip" {
     const orphan_any = try (try orphan_box.any()).getStruct(null);
     try std.testing.expectEqual(@as(u32, 0xfeedface), orphan_any.getUInt32(0, 0));
     try std.testing.expectEqualSlices(u8, "orphan any", try orphan_any.getPointerField(0).getText());
+
+    var copy_orphan_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer copy_orphan_builder_message.deinit();
+    const copy_orphan_box_builder = try generated.DynamicBox.initRootTyped(&copy_orphan_builder_message);
+    var copy_orphan = try copy_orphan_box_builder.new_any_copyOrphan(source_struct.getPointerField(0));
+    try copy_orphan_box_builder.adopt_any(&copy_orphan);
+    var copy_orphan_reader = cpz.MessageReader.init(try copy_orphan_builder_message.segmentsConst(), .{});
+    const copy_orphan_box = generated.DynamicBox.fromReader(try copy_orphan_reader.getRoot());
+    try std.testing.expectEqualSlices(u8, "dynamic", try (try copy_orphan_box.any()).getText());
 }
 
 test "generated using aliases resolve for layout and accessors" {
