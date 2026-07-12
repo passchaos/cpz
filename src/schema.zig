@@ -687,7 +687,7 @@ fn isIdentContinue(c: u8) bool {
 
 fn isNumberContinue(c: u8) bool {
     return switch (c) {
-        '0'...'9', 'a'...'f', 'A'...'F', 'x', 'X', '.' => true,
+        '0'...'9', 'a'...'f', 'A'...'F', 'x', 'X', '.', '+', '-' => true,
         else => false,
     };
 }
@@ -806,17 +806,23 @@ test "schema parser and codegen accept plus-prefixed numeric defaults" {
         \\struct Numbers {
         \\  ratio @0 :Float32 = +1.5;
         \\  count @1 :Int32 = +7;
+        \\  tiny @2 :Float64 = 1e-3;
+        \\  huge @3 :Float64 = +2.5E+4;
         \\}
     );
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqualStrings("+1.5", file.structs[0].fields[0].default_literal.?);
     try std.testing.expectEqualStrings("+7", file.structs[0].fields[1].default_literal.?);
+    try std.testing.expectEqualStrings("1e-3", file.structs[0].fields[2].default_literal.?);
+    try std.testing.expectEqualStrings("+2.5E+4", file.structs[0].fields[3].default_literal.?);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(0, 1.5)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getInt32(4, 7)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(8, 1e-3)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(16, 2.5E+4)") != null);
 }
 
 test "schema parser tolerates union and group blocks inside structs" {
