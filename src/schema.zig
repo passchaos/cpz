@@ -1779,11 +1779,19 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return builder.initRoot(size);
         \\    }}
         \\
+        \\    pub fn getRoot(reader: *cpz.MessageReader) !{s} {{
+        \\        return fromReader(try reader.getRoot());
+        \\    }}
+        \\
+        \\    pub fn getRootTyped(builder: *cpz.MessageBuilder) !Builder {{
+        \\        return Builder.fromBuilder(try builder.getRoot());
+        \\    }}
+        \\
         \\    pub fn fromReader(reader: cpz.StructReader) {s} {{
         \\        return .{{ .reader = reader }};
         \\    }}
         \\
-    , .{ struct_name, layout.data_words, layout.pointer_count, struct_name });
+    , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name });
 
     try emitUnionDeclarations(allocator, out, layout);
 

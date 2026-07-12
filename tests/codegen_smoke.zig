@@ -9,6 +9,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const person_builder = try generated.Person.initRootTyped(&builder);
     try person_builder.set_id(7);
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
+    const root_builder = try generated.Person.getRootTyped(&builder);
+    try std.testing.expectEqual(@as(u32, 7), try root_builder.get_id());
     try person_builder.set_active(false);
     try std.testing.expectEqual(false, try person_builder.get_active());
     try std.testing.expectEqual(false, try person_builder.has_name());
@@ -74,8 +76,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try maybe_friend.set_id(64);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
-    const root = try reader.getRoot();
-    const person = generated.Person.fromReader(root);
+    const person = try generated.Person.getRoot(&reader);
     try std.testing.expectEqual(@as(u32, 7), person.id());
     try std.testing.expectEqual(false, person.active());
     try std.testing.expect(person.has_name());
