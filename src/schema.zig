@@ -1284,6 +1284,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return self.list.setUInt16(index, @intFromEnum(value));
                 \\        }}
                 \\
+                \\        pub fn setRaw(self: @This(), index: usize, value: u16) !void {{
+                \\            return self.list.setUInt16(index, value);
+                \\        }}
+                \\
             , .{zig_type});
         } else {
             const zig_type = try zigIdentAlloc(allocator, type_name);
@@ -1373,7 +1377,11 @@ fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
                 \\            return self.builder.setUInt16({}, @intFromEnum(value), {});
                 \\        }}
                 \\
-            , .{ field_name, zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+                \\        pub fn set_{s}_raw(self: Builder, value: u16) !void {{
+                \\            return self.builder.setUInt16({}, value, {});
+                \\        }}
+                \\
+            , .{ field_name, zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
         },
         else => return error.UnsupportedType,
     }
@@ -1616,6 +1624,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "std.enums.fromInt(Color, self.reader.getUInt16(6, 1))") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn favorite_raw(self: @This()) u16") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_favorite_raw(self: Builder, value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getTextDefault(\"Anon\")") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "!Person_scores_List") != null);
@@ -1634,6 +1643,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return std.enums.fromInt(Color, self.list.getUInt16(index)) orelse error.InvalidEnumValue;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) u16") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setRaw(self: @This(), index: usize, value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(value));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, Person.size)") != null);

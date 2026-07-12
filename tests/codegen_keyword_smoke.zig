@@ -38,3 +38,15 @@ test "generated enum getters reject unknown ordinals" {
     try std.testing.expectError(error.InvalidEnumValue, value.enum_());
     try std.testing.expectEqual(@as(u16, 99), value.enum__raw());
 }
+
+test "generated keyword enum raw setter preserves unknown ordinals" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const value_builder = try generated.fn_.initRootTyped(&builder);
+    try value_builder.set_enum__raw(77);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const value = generated.fn_.fromReader(try reader.getRoot());
+    try std.testing.expectError(error.InvalidEnumValue, value.enum_());
+    try std.testing.expectEqual(@as(u16, 77), value.enum__raw());
+}

@@ -183,3 +183,20 @@ test "generated list builders can clear pointer-backed and struct elements" {
     try std.testing.expectEqual(@as(u32, 42), read_child.id());
     try std.testing.expectError(error.NullPointer, read_child.name());
 }
+
+test "generated enum raw setters preserve unknown ordinals" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    try person_builder.set_favorite_raw(77);
+    const palette = try person_builder.init_palette(1);
+    try palette.setRaw(0, 88);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    try std.testing.expectError(error.InvalidEnumValue, person.favorite());
+    try std.testing.expectEqual(@as(u16, 77), person.favorite_raw());
+    const read_palette = try person.palette();
+    try std.testing.expectError(error.InvalidEnumValue, read_palette.get(0));
+    try std.testing.expectEqual(@as(u16, 88), read_palette.getRaw(0));
+}
