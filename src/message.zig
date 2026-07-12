@@ -462,7 +462,11 @@ pub const PointerReader = struct {
         if (resolved.raw == 0) return error.NullPointer;
         if (wire.pointerType(resolved.raw) != .list) return error.InvalidPointerKind;
         const l = try wire.decodeList(resolved.raw);
-        if (expected) |exp| if (exp != l.element_size) return error.IncompatibleListShape;
+        const struct_list_upgrade = if (expected) |exp| blk: {
+            if (exp == l.element_size) break :blk false;
+            if (exp != .composite or l.element_size == .bit) return error.IncompatibleListShape;
+            break :blk true;
+        } else false;
         const target = try wire.targetWordIndex(resolved.pointer_word_index, l.offset_words);
 
         if (l.element_size == .composite) {
@@ -489,6 +493,20 @@ pub const PointerReader = struct {
         const words = try wire.wordsForList(l.element_size, l.element_count_or_words);
         try self.boundsCheck(resolved.segment_id, target, words);
         try self.descend(@max(words, @as(usize, l.element_count_or_words)));
+        if (struct_list_upgrade) {
+            const shape = try upgradedStructListShape(l.element_size);
+            return .{
+                .message = self.message,
+                .segment_id = resolved.segment_id,
+                .start = target,
+                .element_count = l.element_count_or_words,
+                .element_size = .composite,
+                .data_words = shape.data_words,
+                .pointer_count = shape.pointer_count,
+                .step_bits = wire.bitsPerElement(l.element_size),
+                .nesting_left = self.nesting_left - 1,
+            };
+        }
         return .{
             .message = self.message,
             .segment_id = resolved.segment_id,
@@ -1004,6 +1022,20 @@ fn primitivePointerCount(size: wire.ElementSize) u16 {
     return if (size == .pointer) 1 else 0;
 }
 
+fn upgradedStructListShape(size: wire.ElementSize) Error!struct { data_words: u16, pointer_count: u16 } {
+    return switch (size) {
+        .void => .{ .data_words = 0, .pointer_count = 0 },
+        .eight_bytes => .{ .data_words = 1, .pointer_count = 0 },
+        .pointer => .{ .data_words = 0, .pointer_count = 1 },
+        // Smaller primitive lists can be interpreted as struct lists by the
+        // Cap'n Proto spec, but this runtime's StructReader currently addresses
+        // data sections at word granularity. Return an explicit error rather
+        // than manufacturing a misleading view.
+        .byte, .two_bytes, .four_bytes => error.UnsupportedElementSize,
+        .bit, .composite => error.IncompatibleListShape,
+    };
+}
+
 fn validatePointer(ptr: PointerReader, stats: *MessageStats) Error!void {
     try addStat(&stats.pointer_slots, 1);
 
@@ -1339,4 +1371,41 @@ test "capability pointers round-trip and validate" {
     var validating = MessageReader.init(try builder.segmentsConst(), .{});
     const stats = try validating.validate();
     try testing.expectEqual(@as(usize, 2), stats.capabilities);
+}
+
+test "non-bit pointer and eight-byte lists can be read as struct lists" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 24 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+
+    const ptrs = try (try root.getPointerField(0)).initList(.pointer, 2);
+    try (try ptrs.getPointerElement(0)).setText("zero");
+    try (try ptrs.getPointerElement(1)).setText("one");
+
+    const words = try (try root.getPointerField(1)).initList(.eight_bytes, 2);
+    try words.setUInt64(0, 0x1111_2222_3333_4444);
+    try words.setUInt64(1, 0x5555_6666_7777_8888);
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+
+    const ptr_structs = try read_root.getPointerField(0).getList(.composite);
+    try testing.expectEqual(@as(usize, 2), ptr_structs.len());
+    const second = try ptr_structs.getStructElement(1);
+    try testing.expectEqualSlices(u8, "one", try second.getPointerField(0).getText());
+
+    const word_structs = try read_root.getPointerField(1).getList(.composite);
+    try testing.expectEqual(@as(usize, 2), word_structs.len());
+    const first_word = try word_structs.getStructElement(0);
+    const second_word = try word_structs.getStructElement(1);
+    try testing.expectEqual(@as(u64, 0x1111_2222_3333_4444), first_word.getUInt64(0, 0));
+    try testing.expectEqual(@as(u64, 0x5555_6666_7777_8888), second_word.getUInt64(0, 0));
+
+    const bytes = try (try root.getPointerField(1)).initList(.byte, 1);
+    _ = bytes;
+    var unsupported_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const unsupported_root = try unsupported_reader.getRoot();
+    try testing.expectError(error.UnsupportedElementSize, unsupported_root.getPointerField(1).getList(.composite));
 }
