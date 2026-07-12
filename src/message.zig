@@ -265,11 +265,23 @@ pub const MessageBuilder = struct {
         return self.getRoot();
     }
 
+    pub fn copyRootPointerFrom(self: *MessageBuilder, source: PointerReader) Error!PointerBuilder {
+        const dst_root = try self.getRootPointer();
+        try dst_root.copyFrom(source);
+        return dst_root;
+    }
+
     pub fn copyRootCanonicalFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
         const dst_root = try self.getRootPointer();
         const src_root = try source.getRootPointer();
         try dst_root.copyFromCanonical(src_root);
         return self.getRoot();
+    }
+
+    pub fn copyRootPointerCanonicalFrom(self: *MessageBuilder, source: PointerReader) Error!PointerBuilder {
+        const dst_root = try self.getRootPointer();
+        try dst_root.copyFromCanonical(source);
+        return dst_root;
     }
 
     pub fn getRoot(self: *MessageBuilder) Error!StructBuilder {
@@ -2588,6 +2600,37 @@ test "message builder deep-copies from a reader" {
 
     var validating = MessageReader.init(try copy.segmentsConst(), .{});
     _ = try validating.validate();
+}
+
+test "message builder copies arbitrary root pointers" {
+    const testing = std.testing;
+    var source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer source.deinit();
+
+    const root_list = try source.initRootList(.pointer, 2);
+    try (try root_list.getPointerElement(0)).setText("root pointer copy");
+    try (try root_list.getPointerElement(1)).setData(&[_]u8{ 1, 2, 3 });
+
+    var source_reader = MessageReader.init(try source.segmentsConst(), .{});
+    const source_root = try source_reader.getRootPointer();
+
+    var copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer copy.deinit();
+    const copied_root_ptr = try copy.copyRootPointerFrom(source_root);
+    try testing.expectEqual(wire.ElementSize.pointer, (try copied_root_ptr.decode()).?.list.element_size);
+
+    var copy_reader = MessageReader.init(try copy.segmentsConst(), .{});
+    const copied_list = try (try copy_reader.getRootPointer()).getList(.pointer);
+    try testing.expectEqualSlices(u8, "root pointer copy", try (try copied_list.getPointerElement(0)).getText());
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 2, 3 }, try (try copied_list.getPointerElement(1)).getData());
+
+    var canonical_copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer canonical_copy.deinit();
+    const canonical_root_ptr = try canonical_copy.copyRootPointerCanonicalFrom(source_root);
+    try testing.expectEqual(wire.ElementSize.pointer, (try canonical_root_ptr.decode()).?.list.element_size);
+    var canonical_reader = MessageReader.init(try canonical_copy.segmentsConst(), .{});
+    const canonical_list = try (try canonical_reader.getRootPointer()).getList(.pointer);
+    try testing.expectEqualSlices(u8, "root pointer copy", try (try canonical_list.getPointerElement(0)).getText());
 }
 
 test "struct builder copyFromReader safely handles self-copy" {
