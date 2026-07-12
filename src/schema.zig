@@ -1930,6 +1930,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return {s}.fromReader(try self.orphan.asReader(message_reader).getStruct(null));
         \\        }}
         \\
+        \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
+        \\            return self.getReader(message_reader);
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.orphan.totalSize();
         \\        }}
@@ -1981,7 +1985,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return self.reader.size();
         \\    }}
         \\
-    , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name, struct_name, struct_name });
+    , .{ struct_name, layout.data_words, layout.pointer_count, struct_name, struct_name, struct_name, struct_name, struct_name });
 
     try emitUnionDeclarations(allocator, out, layout);
 
@@ -2692,6 +2696,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return .{{ .list = try self.orphan.asReader(message_reader).getList({s}) }};
         \\        }}
         \\
+        \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) !{s}_{s}_List {{
+        \\            return self.getReader(message_reader);
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.orphan.totalSize();
         \\        }}
@@ -2701,7 +2709,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\        }}
         \\    }};
         \\
-    , .{ owner_name, field_name, list_orphan_new, owner_name, field_name, try listElementSizeLiteral(file, child), owner_name, field_name, try listElementSizeLiteral(file, child) });
+    , .{ owner_name, field_name, list_orphan_new, owner_name, field_name, try listElementSizeLiteral(file, child), owner_name, field_name, try listElementSizeLiteral(file, child), owner_name, field_name });
 
     try appendFmt(allocator, out,
         \\

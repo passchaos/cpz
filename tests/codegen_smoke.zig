@@ -240,6 +240,9 @@ test "generated builders can disown and adopt pointer fields" {
     var orphan_reader = try builder.asReader(.{});
     const orphan_view = try typed_orphan.getReader(&orphan_reader);
     try std.testing.expectEqual(@as(u32, 3030), orphan_view.id());
+    var orphan_reader_alias = try builder.asReader(.{});
+    const orphan_view_alias = try typed_orphan.asReader(&orphan_reader_alias);
+    try std.testing.expectEqual(@as(u32, 3030), orphan_view_alias.id());
     const orphan_size = try typed_orphan.totalSize();
     try std.testing.expect(orphan_size.word_count > 0);
     try person_builder.adopt_maybeFriend_typed(&typed_orphan);
@@ -452,6 +455,9 @@ test "generated builders can use typed list field orphans" {
     var orphan_reader = try builder.asReader(.{});
     const orphan_scores_reader = try scores_orphan.getReader(&orphan_reader);
     try std.testing.expectEqual(@as(u32, 42), orphan_scores_reader.get(1));
+    var orphan_reader_alias = try builder.asReader(.{});
+    const orphan_scores_reader_alias = try scores_orphan.asReader(&orphan_reader_alias);
+    try std.testing.expectEqual(@as(u32, 42), orphan_scores_reader_alias.get(1));
     try person_builder.adopt_scores_typed(&scores_orphan);
     try std.testing.expect(scores_orphan.isNull());
 
