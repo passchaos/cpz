@@ -349,10 +349,14 @@ pub const Parser = struct {
         errdefer values.deinit(self.allocator);
         var occupied_ordinals = std.AutoHashMap(u16, void).init(self.allocator);
         defer occupied_ordinals.deinit();
+        var value_names = std.StringHashMap(void).init(self.allocator);
+        defer value_names.deinit();
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             const value_name = try self.expectIdentifier();
+            const name_entry = try value_names.getOrPut(value_name);
+            if (name_entry.found_existing) return error.NameCollision;
             try self.expect(.at);
             const ordinal_u64 = try self.expectInteger();
             if (ordinal_u64 > std.math.maxInt(u16)) return error.InvalidOrdinal;
@@ -757,6 +761,15 @@ test "schema parser rejects duplicate enum ordinals" {
         \\enum Bad {
         \\  a @0;
         \\  b @0;
+        \\}
+    ));
+}
+
+test "schema parser rejects duplicate enum value names" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\enum Bad {
+        \\  value @0;
+        \\  value @1;
         \\}
     ));
 }
