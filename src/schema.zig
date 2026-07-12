@@ -4,6 +4,7 @@ pub const Error = error{
     UnexpectedToken,
     InvalidToken,
     InvalidOrdinal,
+    OrdinalCollision,
     UnsupportedType,
 } || std.mem.Allocator.Error || std.fmt.ParseIntError;
 
@@ -91,7 +92,6 @@ pub const File = struct {
 };
 
 pub const LayoutError = Error || error{
-    OrdinalCollision,
     UnsupportedInlineComposite,
 };
 
@@ -338,6 +338,8 @@ pub const Parser = struct {
 
         var values = std.ArrayList(EnumValue).empty;
         errdefer values.deinit(self.allocator);
+        var occupied_ordinals = std.AutoHashMap(u16, void).init(self.allocator);
+        defer occupied_ordinals.deinit();
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
@@ -345,8 +347,11 @@ pub const Parser = struct {
             try self.expect(.at);
             const ordinal_u64 = try self.expectInteger();
             if (ordinal_u64 > std.math.maxInt(u16)) return error.InvalidOrdinal;
+            const ordinal: u16 = @intCast(ordinal_u64);
+            const entry = try occupied_ordinals.getOrPut(ordinal);
+            if (entry.found_existing) return error.OrdinalCollision;
             try self.skipUntilSemicolon();
-            try values.append(self.allocator, .{ .name = value_name, .ordinal = @intCast(ordinal_u64) });
+            try values.append(self.allocator, .{ .name = value_name, .ordinal = ordinal });
         }
         try self.expect(.r_brace);
         return .{ .name = name, .values = try values.toOwnedSlice(self.allocator) };
@@ -736,6 +741,15 @@ test "schema parser handles structs, file ids, lists, comments" {
 test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 UInt32; }"));
     try std.testing.expectError(error.InvalidToken, parse(std.testing.allocator, "@!;"));
+}
+
+test "schema parser rejects duplicate enum ordinals" {
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\enum Bad {
+        \\  a @0;
+        \\  b @0;
+        \\}
+    ));
 }
 
 test "schema parser skips common top-level using and const declarations" {
