@@ -749,11 +749,14 @@ test "generated pointer list builders can disown and adopt elements" {
     var alias_orphan = try aliases.disown(0);
     try aliases.adopt(1, &alias_orphan);
     try std.testing.expectEqual(@as(u64, 0), alias_orphan.raw);
+    var new_alias_orphan = try aliases.newOrphan("new alias");
+    try aliases.adopt(0, &new_alias_orphan);
+    try std.testing.expect(new_alias_orphan.isNull());
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     const read_aliases = try person.aliases();
-    try std.testing.expectError(error.NullPointer, read_aliases.get(0));
+    try std.testing.expectEqualSlices(u8, "new alias", try read_aliases.get(0));
     try std.testing.expectEqualSlices(u8, "move alias", try read_aliases.get(1));
 
     var cap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -763,11 +766,13 @@ test "generated pointer list builders can disown and adopt elements" {
     try caps.set(1, 2000);
     var cap_orphan = try caps.disown(0);
     try caps.adopt(1, &cap_orphan);
+    var new_cap_orphan = try caps.newOrphan(3000);
+    try caps.adopt(0, &new_cap_orphan);
 
     var cap_reader = cpz.MessageReader.init(try cap_builder.segmentsConst(), .{});
     const box = generated.DynamicBox.fromReader(try cap_reader.getRoot());
     const read_caps = try box.capList();
-    try std.testing.expectError(error.NullPointer, read_caps.get(0));
+    try std.testing.expectEqual(@as(u32, 3000), try read_caps.get(0));
     try std.testing.expectEqual(@as(u32, 1000), try read_caps.get(1));
 }
 
