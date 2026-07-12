@@ -73,3 +73,24 @@ test "generated builders can clear pointer fields" {
     try std.testing.expectError(error.NullPointer, person.name());
     try std.testing.expectError(error.NullPointer, person.friend());
 }
+
+test "generated builders can copy nested struct fields from readers" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer source_builder.deinit();
+    const source_person_builder = try generated.Person.initRootTyped(&source_builder);
+    try source_person_builder.set_id(888);
+    try source_person_builder.set_name("Copied");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_person = generated.Person.fromReader(try source_reader.getRoot());
+
+    var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer target_builder.deinit();
+    const target_person_builder = try generated.Person.initRootTyped(&target_builder);
+    try target_person_builder.set_friend_from(source_person);
+
+    var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
+    const target_person = generated.Person.fromReader(try target_reader.getRoot());
+    const friend = try target_person.friend();
+    try std.testing.expectEqual(@as(u32, 888), friend.id());
+    try std.testing.expectEqualSlices(u8, "Copied", try friend.name());
+}

@@ -1291,7 +1291,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
                 \\        }}
                 \\
-            , .{ field_name, zig_type, zig_type, index, zig_type });
+                \\        pub fn set_{s}_from(self: Builder, value: {s}) !void {{
+                \\            return (try self.builder.getPointerField({})).copyStructFrom(value.reader);
+                \\        }}
+                \\
+            , .{ field_name, zig_type, zig_type, index, zig_type, field_name, zig_type, index });
         },
         else => return error.UnsupportedType,
     }
@@ -1439,6 +1443,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_name(self: Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_friend(self: Builder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, value: Person) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
 }
 

@@ -432,6 +432,17 @@ pub const PointerBuilder = struct {
         try self.copyFromMode(source, true);
     }
 
+    pub fn copyStructFrom(self: PointerBuilder, source: StructReader) Error!void {
+        const dst = try self.initStruct(.{
+            .data_words = source.data_words,
+            .pointer_count = source.pointer_count,
+        });
+        @memcpy(dst.dataBytes(), source.dataBytes());
+        for (0..source.pointer_count) |i| {
+            try (try dst.getPointerField(i)).copyFrom(source.getPointerField(i));
+        }
+    }
+
     fn copyFromMode(self: PointerBuilder, source: PointerReader, canonical: bool) Error!void {
         const resolved = try source.resolve();
         if (resolved.raw == 0) {
