@@ -374,6 +374,13 @@ pub const Parser = struct {
             try self.expect(.r_paren);
             return .{ .list = child };
         }
+        if (std.mem.endsWith(u8, name, "List") and name.len > "List".len) {
+            const base_name = name[0 .. name.len - "List".len];
+            const child = try self.allocator.create(Type);
+            errdefer self.allocator.destroy(child);
+            child.* = scalarOrNamed(base_name);
+            return .{ .list = child };
+        }
         var end = first.end;
         while (self.lookahead.tag == .dot) {
             try self.expect(.dot);
@@ -752,6 +759,27 @@ test "schema parser skips top-level annotations and interfaces" {
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Payload", file.structs[0].name);
     try std.testing.expectEqual(@as(usize, 1), file.structs[0].fields.len);
+}
+
+test "schema parser accepts TypeList shorthand" {
+    var file = try parse(std.testing.allocator,
+        \\struct Lists {
+        \\  ids @0 :UInt32List;
+        \\  names @1 :TextList;
+        \\  children @2 :ChildList;
+        \\}
+        \\struct Child {
+        \\  id @0 :UInt32;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expect(file.structs[0].fields[0].ty == .list);
+    try std.testing.expectEqual(Type.uint32, file.structs[0].fields[0].ty.list.*);
+    try std.testing.expect(file.structs[0].fields[1].ty == .list);
+    try std.testing.expectEqual(Type.text, file.structs[0].fields[1].ty.list.*);
+    try std.testing.expect(file.structs[0].fields[2].ty == .list);
+    try std.testing.expect(file.structs[0].fields[2].ty.list.* == .named);
+    try std.testing.expectEqualStrings("Child", file.structs[0].fields[2].ty.list.*.named);
 }
 
 test "schema parser tolerates union and group blocks inside structs" {
