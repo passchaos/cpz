@@ -360,6 +360,10 @@ pub const PointerBuilder = struct {
         @memcpy(list.bytes(), data);
     }
 
+    pub fn setCapability(self: PointerBuilder, index: u32) void {
+        self.message.writePtr(self.segment_id, self.word_index, wire.encodeCapability(index));
+    }
+
     pub fn copyFrom(self: PointerBuilder, source: PointerReader) Error!void {
         const resolved = try source.resolve();
         if (resolved.raw == 0) {
@@ -510,6 +514,13 @@ pub const PointerReader = struct {
 
     pub fn getData(self: PointerReader) Error![]const u8 {
         return (try self.getList(.byte)).bytes();
+    }
+
+    pub fn getCapabilityIndex(self: PointerReader) Error!u32 {
+        const resolved = try self.resolve();
+        if (resolved.raw == 0) return error.NullPointer;
+        if (wire.pointerType(resolved.raw) != .other) return error.InvalidPointerKind;
+        return (try wire.decodeOther(resolved.raw)).index;
     }
 
     fn descend(self: PointerReader, words: usize) Error!void {
@@ -1307,4 +1318,25 @@ test "single-segment normalization removes far pointers while preserving data" {
     const read_names = try read_root.getPointerField(1).getList(.pointer);
     try testing.expectEqualSlices(u8, "a", try (try read_names.getPointerElement(0)).getText());
     try testing.expectEqualSlices(u8, "b", try (try read_names.getPointerElement(1)).getText());
+}
+
+test "capability pointers round-trip and validate" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    (try root.getPointerField(0)).setCapability(123);
+    const caps = try (try root.getPointerField(1)).initList(.pointer, 1);
+    (try caps.getPointerElement(0)).setCapability(456);
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    try testing.expectEqual(@as(u32, 123), try read_root.getPointerField(0).getCapabilityIndex());
+    const read_caps = try read_root.getPointerField(1).getList(.pointer);
+    try testing.expectEqual(@as(u32, 456), try (try read_caps.getPointerElement(0)).getCapabilityIndex());
+
+    var validating = MessageReader.init(try builder.segmentsConst(), .{});
+    const stats = try validating.validate();
+    try testing.expectEqual(@as(usize, 2), stats.capabilities);
 }
