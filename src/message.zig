@@ -606,8 +606,20 @@ pub const StructBuilder = struct {
         try self.setInt(u64, byte_offset, value, default_value);
     }
 
+    pub fn setInt8(self: StructBuilder, byte_offset: usize, value: i8, default_value: i8) Error!void {
+        try self.setInt(i8, byte_offset, value, default_value);
+    }
+
+    pub fn setInt16(self: StructBuilder, byte_offset: usize, value: i16, default_value: i16) Error!void {
+        try self.setInt(i16, byte_offset, value, default_value);
+    }
+
     pub fn setInt32(self: StructBuilder, byte_offset: usize, value: i32, default_value: i32) Error!void {
         try self.setInt(i32, byte_offset, value, default_value);
+    }
+
+    pub fn setInt64(self: StructBuilder, byte_offset: usize, value: i64, default_value: i64) Error!void {
+        try self.setInt(i64, byte_offset, value, default_value);
     }
 
     pub fn setFloat32(self: StructBuilder, byte_offset: usize, value: f32, default_value: f32) Error!void {
@@ -688,8 +700,20 @@ pub const StructReader = struct {
         return self.getInt(u64, byte_offset, default_value);
     }
 
+    pub fn getInt8(self: StructReader, byte_offset: usize, default_value: i8) i8 {
+        return self.getInt(i8, byte_offset, default_value);
+    }
+
+    pub fn getInt16(self: StructReader, byte_offset: usize, default_value: i16) i16 {
+        return self.getInt(i16, byte_offset, default_value);
+    }
+
     pub fn getInt32(self: StructReader, byte_offset: usize, default_value: i32) i32 {
         return self.getInt(i32, byte_offset, default_value);
+    }
+
+    pub fn getInt64(self: StructReader, byte_offset: usize, default_value: i64) i64 {
+        return self.getInt(i64, byte_offset, default_value);
     }
 
     pub fn getFloat32(self: StructReader, byte_offset: usize, default_value: f32) f32 {
@@ -742,6 +766,34 @@ pub const ListBuilder = struct {
 
     pub fn setUInt32(self: ListBuilder, index: usize, value: u32) Error!void {
         try self.setPrimitive(u32, index, value);
+    }
+
+    pub fn setUInt64(self: ListBuilder, index: usize, value: u64) Error!void {
+        try self.setPrimitive(u64, index, value);
+    }
+
+    pub fn setInt8(self: ListBuilder, index: usize, value: i8) Error!void {
+        try self.setPrimitive(i8, index, value);
+    }
+
+    pub fn setInt16(self: ListBuilder, index: usize, value: i16) Error!void {
+        try self.setPrimitive(i16, index, value);
+    }
+
+    pub fn setInt32(self: ListBuilder, index: usize, value: i32) Error!void {
+        try self.setPrimitive(i32, index, value);
+    }
+
+    pub fn setInt64(self: ListBuilder, index: usize, value: i64) Error!void {
+        try self.setPrimitive(i64, index, value);
+    }
+
+    pub fn setFloat32(self: ListBuilder, index: usize, value: f32) Error!void {
+        try self.setPrimitive(u32, index, @bitCast(value));
+    }
+
+    pub fn setFloat64(self: ListBuilder, index: usize, value: f64) Error!void {
+        try self.setPrimitive(u64, index, @bitCast(value));
     }
 
     pub fn setBool(self: ListBuilder, index: usize, value: bool) Error!void {
@@ -825,6 +877,34 @@ pub const ListReader = struct {
 
     pub fn getUInt32(self: ListReader, index: usize) u32 {
         return self.getPrimitive(u32, index) catch 0;
+    }
+
+    pub fn getUInt64(self: ListReader, index: usize) u64 {
+        return self.getPrimitive(u64, index) catch 0;
+    }
+
+    pub fn getInt8(self: ListReader, index: usize) i8 {
+        return self.getPrimitive(i8, index) catch 0;
+    }
+
+    pub fn getInt16(self: ListReader, index: usize) i16 {
+        return self.getPrimitive(i16, index) catch 0;
+    }
+
+    pub fn getInt32(self: ListReader, index: usize) i32 {
+        return self.getPrimitive(i32, index) catch 0;
+    }
+
+    pub fn getInt64(self: ListReader, index: usize) i64 {
+        return self.getPrimitive(i64, index) catch 0;
+    }
+
+    pub fn getFloat32(self: ListReader, index: usize) f32 {
+        return @bitCast(self.getPrimitive(u32, index) catch 0);
+    }
+
+    pub fn getFloat64(self: ListReader, index: usize) f64 {
+        return @bitCast(self.getPrimitive(u64, index) catch 0);
     }
 
     pub fn getPointerElement(self: ListReader, index: usize) Error!PointerReader {
@@ -1112,4 +1192,67 @@ test "message builder deep-copies from a reader" {
 
     var validating = MessageReader.init(try copy.segmentsConst(), .{});
     _ = try validating.validate();
+}
+
+test "signed integer and floating-point scalar accessors" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 4, .pointer_count = 5 });
+    try root.setInt8(0, -5, 1);
+    try root.setInt16(2, -1234, 22);
+    try root.setInt32(4, -123456, 10);
+    try root.setInt64(8, -1_234_567_890_123, 7);
+    try root.setFloat32(16, 1.25, 2.5);
+    try root.setFloat64(24, -123.5, 4.0);
+
+    const i8s = try (try root.getPointerField(0)).initList(.byte, 2);
+    try i8s.setInt8(0, -1);
+    try i8s.setInt8(1, 2);
+
+    const i16s = try (try root.getPointerField(1)).initList(.two_bytes, 2);
+    try i16s.setInt16(0, -300);
+    try i16s.setInt16(1, 301);
+
+    const i32s = try (try root.getPointerField(2)).initList(.four_bytes, 2);
+    try i32s.setInt32(0, -70_000);
+    try i32s.setInt32(1, 70_001);
+
+    const f32s = try (try root.getPointerField(3)).initList(.four_bytes, 2);
+    try f32s.setFloat32(0, 3.5);
+    try f32s.setFloat32(1, -4.25);
+
+    const f64s = try (try root.getPointerField(4)).initList(.eight_bytes, 2);
+    try f64s.setFloat64(0, 99.125);
+    try f64s.setFloat64(1, -0.5);
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    try testing.expectEqual(@as(i8, -5), read_root.getInt8(0, 1));
+    try testing.expectEqual(@as(i16, -1234), read_root.getInt16(2, 22));
+    try testing.expectEqual(@as(i32, -123456), read_root.getInt32(4, 10));
+    try testing.expectEqual(@as(i64, -1_234_567_890_123), read_root.getInt64(8, 7));
+    try testing.expectEqual(@as(f32, 1.25), read_root.getFloat32(16, 2.5));
+    try testing.expectEqual(@as(f64, -123.5), read_root.getFloat64(24, 4.0));
+
+    const read_i8s = try read_root.getPointerField(0).getList(.byte);
+    try testing.expectEqual(@as(i8, -1), read_i8s.getInt8(0));
+    try testing.expectEqual(@as(i8, 2), read_i8s.getInt8(1));
+
+    const read_i16s = try read_root.getPointerField(1).getList(.two_bytes);
+    try testing.expectEqual(@as(i16, -300), read_i16s.getInt16(0));
+    try testing.expectEqual(@as(i16, 301), read_i16s.getInt16(1));
+
+    const read_i32s = try read_root.getPointerField(2).getList(.four_bytes);
+    try testing.expectEqual(@as(i32, -70_000), read_i32s.getInt32(0));
+    try testing.expectEqual(@as(i32, 70_001), read_i32s.getInt32(1));
+
+    const read_f32s = try read_root.getPointerField(3).getList(.four_bytes);
+    try testing.expectEqual(@as(f32, 3.5), read_f32s.getFloat32(0));
+    try testing.expectEqual(@as(f32, -4.25), read_f32s.getFloat32(1));
+
+    const read_f64s = try read_root.getPointerField(4).getList(.eight_bytes);
+    try testing.expectEqual(@as(f64, 99.125), read_f64s.getFloat64(0));
+    try testing.expectEqual(@as(f64, -0.5), read_f64s.getFloat64(1));
 }
