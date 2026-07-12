@@ -41,6 +41,7 @@ pub const Field = struct {
     name: []const u8,
     ordinal: u32,
     ty: Type,
+    default_literal: ?[]const u8 = null,
 
     pub fn deinit(self: *Field, allocator: std.mem.Allocator) void {
         self.ty.deinit(allocator);
@@ -148,7 +149,12 @@ const Lexer = struct {
             ')' => .{ .tag = .r_paren, .lexeme = self.source[start..self.index] },
             '=' => .{ .tag = .equal, .lexeme = self.source[start..self.index] },
             '0'...'9' => blk: {
-                while (self.index < self.source.len and isDigitOrHex(self.source[self.index])) self.index += 1;
+                while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
+                break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
+            },
+            '-' => blk: {
+                if (self.index >= self.source.len or !std.ascii.isDigit(self.source[self.index])) return error.InvalidToken;
+                while (self.index < self.source.len and isNumberContinue(self.source[self.index])) self.index += 1;
                 break :blk .{ .tag = .integer, .lexeme = self.source[start..self.index] };
             },
             'A'...'Z', 'a'...'z', '_' => blk: {
@@ -242,8 +248,12 @@ pub const Parser = struct {
         if (ordinal_u64 > std.math.maxInt(u32)) return error.InvalidOrdinal;
         try self.expect(.colon);
         const ty = try self.parseType();
+        const default_literal = if (self.lookahead.tag == .equal) blk: {
+            try self.expect(.equal);
+            break :blk try self.expectDefaultLiteral();
+        } else null;
         try self.expect(.semicolon);
-        return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = ty };
+        return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = ty, .default_literal = default_literal };
     }
 
     fn parseType(self: *Parser) Error!Type {
@@ -297,6 +307,17 @@ pub const Parser = struct {
         const value = try parseInteger(self.lookahead.lexeme);
         try self.advance();
         return value;
+    }
+
+    fn expectDefaultLiteral(self: *Parser) Error![]const u8 {
+        switch (self.lookahead.tag) {
+            .identifier, .integer => {
+                const value = self.lookahead.lexeme;
+                try self.advance();
+                return value;
+            },
+            else => return error.UnexpectedToken,
+        }
     }
 
     fn expect(self: *Parser, tag: TokenTag) Error!void {
@@ -406,9 +427,9 @@ fn isIdentContinue(c: u8) bool {
     };
 }
 
-fn isDigitOrHex(c: u8) bool {
+fn isNumberContinue(c: u8) bool {
     return switch (c) {
-        '0'...'9', 'a'...'f', 'A'...'F', 'x', 'X' => true,
+        '0'...'9', 'a'...'f', 'A'...'F', 'x', 'X', '.' => true,
         else => false,
     };
 }
@@ -418,7 +439,7 @@ test "schema parser handles structs, file ids, lists, comments" {
         \\@0xabcdef;
         \\# a comment
         \\struct Person {
-        \\  id @0 :UInt32;
+        \\  id @0 :UInt32 = 123;
         \\  name @1 :Text;
         \\  scores @2 :List(Int32);
         \\  bestFriend @3 :Person;
@@ -435,6 +456,7 @@ test "schema parser handles structs, file ids, lists, comments" {
     try std.testing.expectEqualStrings("id", file.structs[0].fields[0].name);
     try std.testing.expectEqual(@as(u32, 0), file.structs[0].fields[0].ordinal);
     try std.testing.expectEqual(Type.uint32, file.structs[0].fields[0].ty);
+    try std.testing.expectEqualStrings("123", file.structs[0].fields[0].default_literal.?);
     try std.testing.expectEqual(Type.text, file.structs[0].fields[1].ty);
     try std.testing.expect(file.structs[0].fields[2].ty == .list);
     try std.testing.expectEqual(Type.int32, file.structs[0].fields[2].ty.list.*);
@@ -535,10 +557,10 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_
         , .{ field.name, "@This()" }),
         .data_bit => |bit| try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) bool {{
-            \\        return self.reader.getBool({}, false);
+            \\        return self.reader.getBool({}, {s});
             \\    }}
             \\
-        , .{ field.name, bit }),
+        , .{ field.name, bit, try defaultBoolLiteral(field) }),
         .data_byte => |byte| try emitDataGetter(allocator, out, field, byte),
         .pointer => |index| try emitPointerGetter(allocator, out, field, index),
     }
@@ -546,16 +568,16 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_
 
 fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field, byte: usize) LayoutError!void {
     switch (field.ty) {
-        .int8 => try scalarGetter(allocator, out, field.name, "i8", "getInt8", byte, "0"),
-        .int16 => try scalarGetter(allocator, out, field.name, "i16", "getInt16", byte, "0"),
-        .int32 => try scalarGetter(allocator, out, field.name, "i32", "getInt32", byte, "0"),
-        .int64 => try scalarGetter(allocator, out, field.name, "i64", "getInt64", byte, "0"),
-        .uint8 => try scalarGetter(allocator, out, field.name, "u8", "getUInt8", byte, "0"),
-        .uint16 => try scalarGetter(allocator, out, field.name, "u16", "getUInt16", byte, "0"),
-        .uint32 => try scalarGetter(allocator, out, field.name, "u32", "getUInt32", byte, "0"),
-        .uint64 => try scalarGetter(allocator, out, field.name, "u64", "getUInt64", byte, "0"),
-        .float32 => try scalarGetter(allocator, out, field.name, "f32", "getFloat32", byte, "0"),
-        .float64 => try scalarGetter(allocator, out, field.name, "f64", "getFloat64", byte, "0"),
+        .int8 => try scalarGetter(allocator, out, field.name, "i8", "getInt8", byte, defaultScalarLiteral(field)),
+        .int16 => try scalarGetter(allocator, out, field.name, "i16", "getInt16", byte, defaultScalarLiteral(field)),
+        .int32 => try scalarGetter(allocator, out, field.name, "i32", "getInt32", byte, defaultScalarLiteral(field)),
+        .int64 => try scalarGetter(allocator, out, field.name, "i64", "getInt64", byte, defaultScalarLiteral(field)),
+        .uint8 => try scalarGetter(allocator, out, field.name, "u8", "getUInt8", byte, defaultScalarLiteral(field)),
+        .uint16 => try scalarGetter(allocator, out, field.name, "u16", "getUInt16", byte, defaultScalarLiteral(field)),
+        .uint32 => try scalarGetter(allocator, out, field.name, "u32", "getUInt32", byte, defaultScalarLiteral(field)),
+        .uint64 => try scalarGetter(allocator, out, field.name, "u64", "getUInt64", byte, defaultScalarLiteral(field)),
+        .float32 => try scalarGetter(allocator, out, field.name, "f32", "getFloat32", byte, defaultScalarLiteral(field)),
+        .float64 => try scalarGetter(allocator, out, field.name, "f64", "getFloat64", byte, defaultScalarLiteral(field)),
         else => return error.UnsupportedType,
     }
 }
@@ -605,11 +627,21 @@ fn appendFmt(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt
     try out.appendSlice(allocator, text);
 }
 
+fn defaultScalarLiteral(field: *const Field) []const u8 {
+    return field.default_literal orelse "0";
+}
+
+fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
+    const literal = field.default_literal orelse return "false";
+    if (std.mem.eql(u8, literal, "true") or std.mem.eql(u8, literal, "false")) return literal;
+    return error.InvalidToken;
+}
+
 test "schema code generator emits Zig accessor skeletons" {
     const source =
         \\struct Person {
-        \\  id @0 :UInt32;
-        \\  active @1 :Bool;
+        \\  id @0 :UInt32 = 42;
+        \\  active @1 :Bool = true;
         \\  name @2 :Text;
         \\  friend @3 :Person;
         \\}
@@ -625,7 +657,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "data_words = 1") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pointer_count = 2") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, false);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 42);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getText()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
 }
