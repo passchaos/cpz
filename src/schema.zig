@@ -484,3 +484,148 @@ test "schema layout planner rejects duplicate ordinals" {
     defer file.deinit(std.testing.allocator);
     try std.testing.expectError(error.OrdinalCollision, planLayouts(std.testing.allocator, &file));
 }
+
+pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+    try out.appendSlice(allocator,
+        \\const cpz = @import("cpz");
+        \\
+        \\
+    );
+    for (layouts.structs) |*layout| {
+        try emitStruct(allocator, &out, file, layout);
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
+    _ = file;
+    try appendFmt(allocator, out,
+        \\pub const {s} = struct {{
+        \\    pub const size: cpz.StructSize = .{{ .data_words = {}, .pointer_count = {} }};
+        \\
+        \\    reader: cpz.StructReader,
+        \\
+        \\    pub fn initRoot(builder: *cpz.MessageBuilder) !cpz.StructBuilder {{
+        \\        return builder.initRoot(size);
+        \\    }}
+        \\
+        \\    pub fn fromReader(reader: cpz.StructReader) {s} {{
+        \\        return .{{ .reader = reader }};
+        \\    }}
+        \\
+    , .{ layout.decl.name, layout.data_words, layout.pointer_count, layout.decl.name });
+
+    for (layout.fields) |field_layout| {
+        try emitFieldGetter(allocator, out, field_layout);
+    }
+
+    try appendFmt(allocator, out, "}};\n\n", .{});
+}
+
+fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_layout: FieldLayout) LayoutError!void {
+    const field = field_layout.field;
+    switch (field_layout.slot) {
+        .void => try appendFmt(allocator, out,
+            \\    pub fn {s}(self: {s}) void {{
+            \\        _ = self;
+            \\    }}
+            \\
+        , .{ field.name, "@This()" }),
+        .data_bit => |bit| try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) bool {{
+            \\        return self.reader.getBool({}, false);
+            \\    }}
+            \\
+        , .{ field.name, bit }),
+        .data_byte => |byte| try emitDataGetter(allocator, out, field, byte),
+        .pointer => |index| try emitPointerGetter(allocator, out, field, index),
+    }
+}
+
+fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field, byte: usize) LayoutError!void {
+    switch (field.ty) {
+        .int8 => try scalarGetter(allocator, out, field.name, "i8", "getInt8", byte, "0"),
+        .int16 => try scalarGetter(allocator, out, field.name, "i16", "getInt16", byte, "0"),
+        .int32 => try scalarGetter(allocator, out, field.name, "i32", "getInt32", byte, "0"),
+        .int64 => try scalarGetter(allocator, out, field.name, "i64", "getInt64", byte, "0"),
+        .uint8 => try scalarGetter(allocator, out, field.name, "u8", "getUInt8", byte, "0"),
+        .uint16 => try scalarGetter(allocator, out, field.name, "u16", "getUInt16", byte, "0"),
+        .uint32 => try scalarGetter(allocator, out, field.name, "u32", "getUInt32", byte, "0"),
+        .uint64 => try scalarGetter(allocator, out, field.name, "u64", "getUInt64", byte, "0"),
+        .float32 => try scalarGetter(allocator, out, field.name, "f32", "getFloat32", byte, "0"),
+        .float64 => try scalarGetter(allocator, out, field.name, "f64", "getFloat64", byte, "0"),
+        else => return error.UnsupportedType,
+    }
+}
+
+fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, method: []const u8, byte: usize, default: []const u8) !void {
+    try appendFmt(allocator, out,
+        \\    pub fn {s}(self: @This()) {s} {{
+        \\        return self.reader.{s}({}, {s});
+        \\    }}
+        \\
+    , .{ name, zig_type, method, byte, default });
+}
+
+fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field, index: usize) LayoutError!void {
+    switch (field.ty) {
+        .text => try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) ![]const u8 {{
+            \\        return self.reader.getPointerField({}).getText();
+            \\    }}
+            \\
+        , .{ field.name, index }),
+        .data => try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) ![]const u8 {{
+            \\        return self.reader.getPointerField({}).getData();
+            \\    }}
+            \\
+        , .{ field.name, index }),
+        .list => try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) !cpz.ListReader {{
+            \\        return self.reader.getPointerField({}).getList(null);
+            \\    }}
+            \\
+        , .{ field.name, index }),
+        .named => |type_name| try appendFmt(allocator, out,
+            \\    pub fn {s}(self: @This()) !{s} {{
+            \\        return {s}.fromReader(try self.reader.getPointerField({}).getStruct(null));
+            \\    }}
+            \\
+        , .{ field.name, type_name, type_name, index }),
+        else => return error.UnsupportedType,
+    }
+}
+
+fn appendFmt(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt: []const u8, args: anytype) std.mem.Allocator.Error!void {
+    const text = try std.fmt.allocPrint(allocator, fmt, args);
+    defer allocator.free(text);
+    try out.appendSlice(allocator, text);
+}
+
+test "schema code generator emits Zig accessor skeletons" {
+    const source =
+        \\struct Person {
+        \\  id @0 :UInt32;
+        \\  active @1 :Bool;
+        \\  name @2 :Text;
+        \\  friend @3 :Person;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const Person = struct") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "data_words = 1") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pointer_count = 2") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, false);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getText()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
+}
