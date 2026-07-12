@@ -979,8 +979,10 @@ test "generated builtin any and capability accessors round-trip" {
     const any_item_list_builder = try any_item_list_orphan.getList(.four_bytes);
     try any_item_list_builder.setUInt32(0, 5151);
     try any_items.adopt(4, &any_item_list_orphan);
+    var any_item_copy_orphan = try any_items.newCopyOrphan(source_struct.getPointerField(0));
+    try any_items.adopt(1, &any_item_copy_orphan);
     try std.testing.expectEqualSlices(u8, "list any text", try (try any_items.get(0)).getText());
-    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5 }, try (try any_items.get(1)).getData());
+    try std.testing.expectEqualSlices(u8, "dynamic", try (try any_items.get(1)).getText());
     try std.testing.expectEqual(@as(u32, 6060), try (try any_items.get(2)).getCapabilityIndex());
     try std.testing.expectEqual(@as(u32, 0x7777), try (try (try any_items.get(3)).getStruct()).getUInt32(0, 0));
     try std.testing.expectEqual(@as(u32, 5151), try (try (try any_items.get(4)).getList(.four_bytes)).getUInt32(0));

@@ -3363,6 +3363,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newCapability(new_value);
             \\        }}
             \\
+            \\        pub fn newCopyOrphan(self: @This(), new_value: cpz.PointerReader) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyPointer(new_value);
+            \\        }}
+            \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
             \\            return self.list.clearPointerElement(index);
             \\        }}
