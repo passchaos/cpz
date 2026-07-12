@@ -1161,6 +1161,49 @@ test "generated using aliases resolve for layout and accessors" {
     try std.testing.expectEqual(@as(u32, 701), try read_caps.get(1));
 }
 
+test "generated scoped using aliases resolve for fields, consts, lists, and unions" {
+    try std.testing.expectEqual(@as(u32, 77), generated.ScopedAliasBox.defaultLocalId);
+    try std.testing.expectEqualSlices(u8, "aliases", generated.ScopedAliasBox.defaultLocalNames[1]);
+    try std.testing.expectEqual(@as(u32, 4), generated.ScopedAliasBox.defaultLocalScores[1]);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const box_builder = try generated.ScopedAliasBox.initRootTyped(&builder);
+    try std.testing.expectEqual(@as(u32, 21), try box_builder.get_id());
+    try std.testing.expectEqualSlices(u8, "local", try box_builder.get_name());
+    try box_builder.set_id(202);
+    try box_builder.set_name("scoped");
+    try box_builder.set_shade(.blue);
+    const names = try box_builder.init_names(2);
+    try names.set(0, "nested");
+    try names.set(1, "alias");
+    const friend = try box_builder.init_friend();
+    try friend.set_id(404);
+    try friend.set_name("friend");
+    try box_builder.set_aliasId(909);
+    try std.testing.expectEqual(generated.ScopedAliasBox.Union0.aliasId, (try box_builder.which()).?);
+    try std.testing.expectEqual(@as(u32, 909), try box_builder.get_aliasId());
+    try std.testing.expectError(error.InactiveUnionField, box_builder.get_aliasName());
+    try box_builder.set_aliasName("union alias");
+    try std.testing.expectEqual(generated.ScopedAliasBox.Union0.aliasName, (try box_builder.which()).?);
+    try std.testing.expectError(error.InactiveUnionField, box_builder.get_aliasId());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const box = generated.ScopedAliasBox.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(@as(u32, 202), box.id());
+    try std.testing.expectEqualSlices(u8, "scoped", try box.name());
+    try std.testing.expectEqual(generated.Color.blue, try box.shade());
+    const read_names = try box.names();
+    try std.testing.expectEqualSlices(u8, "alias", try read_names.get(1));
+    const read_friend = try box.friend();
+    try std.testing.expectEqual(@as(u32, 404), read_friend.id());
+    try std.testing.expectEqualSlices(u8, "friend", try read_friend.name());
+    try std.testing.expectEqual(generated.ScopedAliasBox.Union0.aliasName, box.which().?);
+    try std.testing.expectError(error.InactiveUnionField, box.aliasId());
+    try std.testing.expectEqualSlices(u8, "union alias", try box.aliasName());
+}
+
 test "generated interface capability accessors round-trip" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

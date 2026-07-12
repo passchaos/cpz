@@ -81,6 +81,29 @@ struct AliasBox {
   caps @4 :List(CapAlias);
 }
 
+struct ScopedAliasBox {
+  using LocalId = Id;
+  using LocalName = Name;
+  using LocalNames = List(LocalName);
+  using LocalShade = Shade;
+  using LocalFriend = Person;
+  using LocalScores = List(LocalId);
+
+  const defaultLocalId :LocalId = 77;
+  const defaultLocalNames :LocalNames = ["local", "aliases"];
+  const defaultLocalScores :LocalScores = [3, 4];
+
+  id @0 :LocalId = 21;
+  name @1 :LocalName = "local";
+  names @2 :LocalNames;
+  shade @3 :LocalShade = red;
+  friend @4 :LocalFriend;
+  union {
+    aliasId @5 :LocalId;
+    aliasName @6 :LocalName;
+  }
+}
+
 interface Service {
   call @0 () -> ();
 }
