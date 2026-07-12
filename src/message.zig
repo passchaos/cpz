@@ -165,6 +165,11 @@ pub const MessageBuilder = struct {
         return messageToCanonicalSegmentBytes(self.allocator, &reader);
     }
 
+    pub fn totalSize(self: *MessageBuilder) Error!MessageSize {
+        var reader = MessageReader.init(try self.segmentsConst(), .{});
+        return reader.totalSize();
+    }
+
     pub fn segmentsConst(self: *MessageBuilder) ![]const serialize.ConstSegment {
         self.const_segments_cache.items.len = 0;
         try self.const_segments_cache.ensureTotalCapacity(self.allocator, self.segments.items.len);
@@ -261,6 +266,11 @@ pub const MessageReader = struct {
         const root = PointerReader{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
         try validatePointer(root, &stats);
         return stats;
+    }
+
+    pub fn totalSize(self: *MessageReader) Error!MessageSize {
+        const stats = try self.validate();
+        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
     }
 
     fn segmentWords(self: *const MessageReader, segment_id: u32) Error!usize {
@@ -1776,6 +1786,14 @@ test "primitive and struct lists" {
     const people_size = try read_people.totalSize();
     try testing.expectEqual(@as(usize, 7), people_size.word_count);
     try testing.expectEqual(@as(usize, 0), people_size.cap_count);
+
+    var message_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const reader_size = try message_reader.totalSize();
+    try testing.expectEqual(@as(usize, 10), reader_size.word_count);
+    try testing.expectEqual(@as(usize, 0), reader_size.cap_count);
+    const builder_size = try builder.totalSize();
+    try testing.expectEqual(@as(usize, 10), builder_size.word_count);
+    try testing.expectEqual(@as(usize, 0), builder_size.cap_count);
 }
 
 test "pointer lists hold nested text values" {
