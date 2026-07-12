@@ -112,3 +112,19 @@ struct InterfaceBox {
   service @0 :Service;
   services @1 :List(Service);
 }
+
+struct NestedBox {
+  struct Item {
+    value @0 :UInt32;
+    label @1 :Text;
+  }
+
+  enum Status {
+    unknown @0;
+    ready @1;
+  }
+
+  item @0 :Item;
+  items @1 :List(Item);
+  status @2 :Status = ready;
+}

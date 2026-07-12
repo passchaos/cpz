@@ -1224,3 +1224,30 @@ test "generated interface capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 2345), try read_services.get(0));
     try std.testing.expectEqual(@as(u32, 3456), try read_services.get(1));
 }
+
+test "generated nested declarations use qualified Zig names and local aliases" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const box_builder = try generated.NestedBox.initRootTyped(&builder);
+    const item_builder = try box_builder.init_item();
+    try item_builder.set_value(42);
+    try item_builder.set_label("nested item");
+    const items_builder = try box_builder.init_items(1);
+    const list_item = try items_builder.get(0);
+    try list_item.set_value(77);
+    try list_item.set_label("nested list item");
+    try box_builder.set_status(.ready);
+    try std.testing.expectEqual(generated.NestedBox_Status.ready, try box_builder.get_status());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const box = generated.NestedBox.fromReader(try reader.getRoot());
+    const item = try box.item();
+    try std.testing.expectEqual(@as(u32, 42), item.value());
+    try std.testing.expectEqualSlices(u8, "nested item", try item.label());
+    const items = try box.items();
+    const read_item = try items.get(0);
+    try std.testing.expectEqual(@as(u32, 77), read_item.value());
+    try std.testing.expectEqualSlices(u8, "nested list item", try read_item.label());
+    try std.testing.expectEqual(generated.NestedBox_Status.ready, try box.status());
+}

@@ -112,6 +112,7 @@ const UnionBuilder = struct {
 
 pub const Struct = struct {
     name: []const u8,
+    owns_name: bool = false,
     fields: []Field,
     consts: []ConstDecl,
     aliases: []AliasDecl,
@@ -123,6 +124,7 @@ pub const Struct = struct {
         allocator.free(self.consts);
         for (self.aliases) |*a| a.deinit(allocator);
         allocator.free(self.aliases);
+        if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
 };
@@ -134,16 +136,24 @@ pub const EnumValue = struct {
 
 pub const EnumDecl = struct {
     name: []const u8,
+    owns_name: bool = false,
     values: []EnumValue,
 
     pub fn deinit(self: *EnumDecl, allocator: std.mem.Allocator) void {
         allocator.free(self.values);
+        if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
 };
 
 pub const InterfaceDecl = struct {
     name: []const u8,
+    owns_name: bool = false,
+
+    pub fn deinit(self: *InterfaceDecl, allocator: std.mem.Allocator) void {
+        if (self.owns_name) allocator.free(self.name);
+        self.* = undefined;
+    }
 };
 
 pub const File = struct {
@@ -165,6 +175,7 @@ pub const File = struct {
         for (self.consts) |*c| c.deinit(allocator);
         allocator.free(self.consts);
         allocator.free(self.imports);
+        for (self.interfaces) |*i| i.deinit(allocator);
         allocator.free(self.interfaces);
         self.* = undefined;
     }
@@ -358,6 +369,10 @@ pub const Parser = struct {
     allocator: std.mem.Allocator,
     lexer: Lexer,
     lookahead: Token,
+    parsed_structs: ?*std.ArrayList(Struct) = null,
+    parsed_enums: ?*std.ArrayList(EnumDecl) = null,
+    parsed_interfaces: ?*std.ArrayList(InterfaceDecl) = null,
+    parsed_decl_names: ?*std.StringHashMap(void) = null,
 
     pub fn init(allocator: std.mem.Allocator, source: []const u8) Error!Parser {
         var lexer: Lexer = .{ .source = source };
@@ -389,33 +404,43 @@ pub const Parser = struct {
         var imports = std.ArrayList(ImportDecl).empty;
         errdefer imports.deinit(self.allocator);
         var interfaces = std.ArrayList(InterfaceDecl).empty;
-        errdefer interfaces.deinit(self.allocator);
+        errdefer {
+            for (interfaces.items) |*i| i.deinit(self.allocator);
+            interfaces.deinit(self.allocator);
+        }
         var decl_names = std.StringHashMap(void).init(self.allocator);
         defer decl_names.deinit();
         var file_id: ?u64 = null;
+        self.parsed_structs = &structs;
+        self.parsed_enums = &enums;
+        self.parsed_interfaces = &interfaces;
+        self.parsed_decl_names = &decl_names;
+        defer {
+            self.parsed_structs = null;
+            self.parsed_enums = null;
+            self.parsed_interfaces = null;
+            self.parsed_decl_names = null;
+        }
 
         while (self.lookahead.tag != .eof) {
             if (self.eatKeyword("struct")) {
-                var decl = try self.parseStruct();
-                const entry = try decl_names.getOrPut(decl.name);
-                if (entry.found_existing) {
-                    decl.deinit(self.allocator);
-                    return error.NameCollision;
-                }
-                try structs.append(self.allocator, decl);
+                var decl = try self.parseStruct(null);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.appendParsedStruct(decl);
+                keep = true;
             } else if (self.eatKeyword("enum")) {
-                var decl = try self.parseEnum();
-                const entry = try decl_names.getOrPut(decl.name);
-                if (entry.found_existing) {
-                    decl.deinit(self.allocator);
-                    return error.NameCollision;
-                }
-                try enums.append(self.allocator, decl);
+                var decl = try self.parseEnum(null);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.appendParsedEnum(decl);
+                keep = true;
             } else if (self.eatKeyword("interface")) {
-                const name = try self.parseInterfaceDeclaration();
-                const entry = try decl_names.getOrPut(name);
-                if (entry.found_existing) return error.NameCollision;
-                try interfaces.append(self.allocator, .{ .name = name });
+                var decl = try self.parseInterfaceDeclaration(null);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.appendParsedInterface(decl);
+                keep = true;
             } else if (self.eatKeyword("using")) {
                 try self.parseUsingOrSkip(&aliases, &imports, &decl_names);
             } else if (self.eatKeyword("const")) {
@@ -440,10 +465,57 @@ pub const Parser = struct {
         };
     }
 
-    fn parseInterfaceDeclaration(self: *Parser) Error![]const u8 {
-        const name = try self.expectIdentifier();
+    const QualifiedName = struct {
+        name: []const u8,
+        owns_name: bool = false,
+    };
+
+    fn parseInterfaceDeclaration(self: *Parser, name_prefix: ?[]const u8) Error!InterfaceDecl {
+        const local_name = try self.expectIdentifier();
+        const qualified = try self.qualifiedDeclName(name_prefix, local_name);
+        errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         try self.skipBracedDeclaration();
-        return name;
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name };
+    }
+
+    fn qualifiedDeclName(self: *Parser, prefix: ?[]const u8, local_name: []const u8) std.mem.Allocator.Error!QualifiedName {
+        if (prefix) |parent| {
+            return .{
+                .name = try std.fmt.allocPrint(self.allocator, "{s}.{s}", .{ parent, local_name }),
+                .owns_name = true,
+            };
+        }
+        return .{ .name = local_name };
+    }
+
+    fn appendParsedStruct(self: *Parser, decl: Struct) Error!void {
+        const structs = self.parsed_structs.?;
+        const decl_names = self.parsed_decl_names.?;
+        const entry = try decl_names.getOrPut(decl.name);
+        if (entry.found_existing) return error.NameCollision;
+        try structs.append(self.allocator, decl);
+    }
+
+    fn appendParsedEnum(self: *Parser, decl: EnumDecl) Error!void {
+        const enums = self.parsed_enums.?;
+        const decl_names = self.parsed_decl_names.?;
+        const entry = try decl_names.getOrPut(decl.name);
+        if (entry.found_existing) return error.NameCollision;
+        try enums.append(self.allocator, decl);
+    }
+
+    fn appendParsedInterface(self: *Parser, decl: InterfaceDecl) Error!void {
+        const interfaces = self.parsed_interfaces.?;
+        const decl_names = self.parsed_decl_names.?;
+        const entry = try decl_names.getOrPut(decl.name);
+        if (entry.found_existing) return error.NameCollision;
+        try interfaces.append(self.allocator, decl);
+    }
+
+    fn addLocalTypeAlias(self: *Parser, aliases: *std.ArrayList(AliasDecl), decl_names: *std.StringHashMap(void), local_name: []const u8, target_name: []const u8) Error!void {
+        const entry = try decl_names.getOrPut(local_name);
+        if (entry.found_existing) return error.NameCollision;
+        try aliases.append(self.allocator, .{ .name = local_name, .target = .{ .named = target_name } });
     }
 
     fn parseConstOrSkip(self: *Parser, consts: *std.ArrayList(ConstDecl), decl_names: *std.StringHashMap(void)) Error!void {
@@ -616,24 +688,23 @@ pub const Parser = struct {
                 try self.skipRawUntilSemicolon();
                 return;
             };
-            errdefer target.deinit(self.allocator);
+            var keep_target = false;
+            defer if (!keep_target) target.deinit(self.allocator);
             if (self.lookahead.tag != .semicolon) {
-                target.deinit(self.allocator);
                 try self.skipRawUntilSemicolon();
                 return;
             }
             try self.expect(.semicolon);
 
             const name = anonymousAliasName(target) orelse {
-                target.deinit(self.allocator);
                 return;
             };
             const entry = try decl_names.getOrPut(name);
             if (entry.found_existing) {
-                target.deinit(self.allocator);
                 return error.NameCollision;
             }
             try aliases.append(self.allocator, .{ .name = name, .target = target });
+            keep_target = true;
             return;
         }
 
@@ -677,9 +748,9 @@ pub const Parser = struct {
             try self.skipRawUntilSemicolon();
             return;
         };
-        errdefer target.deinit(self.allocator);
+        var keep_target = false;
+        defer if (!keep_target) target.deinit(self.allocator);
         if (self.lookahead.tag != .semicolon) {
-            target.deinit(self.allocator);
             try self.skipRawUntilSemicolon();
             return;
         }
@@ -688,6 +759,7 @@ pub const Parser = struct {
         const entry = try decl_names.getOrPut(name);
         if (entry.found_existing) return error.NameCollision;
         try aliases.append(self.allocator, .{ .name = name, .target = target });
+        keep_target = true;
     }
 
     fn parseAnonymousImport(self: *Parser, imports: *std.ArrayList(ImportDecl), decl_names: *std.StringHashMap(void)) Error!void {
@@ -732,8 +804,10 @@ pub const Parser = struct {
         return id;
     }
 
-    fn parseStruct(self: *Parser) Error!Struct {
-        const name = try self.expectIdentifier();
+    fn parseStruct(self: *Parser, name_prefix: ?[]const u8) Error!Struct {
+        const local_name = try self.expectIdentifier();
+        const qualified = try self.qualifiedDeclName(name_prefix, local_name);
+        errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
@@ -764,9 +838,34 @@ pub const Parser = struct {
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
-            if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
+            if (self.isKeyword("struct") and (try self.peekNext()).tag == .identifier) {
                 try self.advance();
-                try self.skipBracedDeclaration();
+                var decl = try self.parseStruct(qualified.name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(&aliases, &member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedStruct(decl);
+                keep = true;
+                continue;
+            }
+            if (self.isKeyword("enum") and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                var decl = try self.parseEnum(qualified.name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(&aliases, &member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedEnum(decl);
+                keep = true;
+                continue;
+            }
+            if (self.isKeyword("interface") and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                var decl = try self.parseInterfaceDeclaration(qualified.name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(&aliases, &member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedInterface(decl);
+                keep = true;
                 continue;
             }
             if (try self.isNamedAggregateStart()) {
@@ -809,7 +908,8 @@ pub const Parser = struct {
         for (unions.items) |*u| u.deinit(self.allocator);
         unions.deinit(self.allocator);
         return .{
-            .name = name,
+            .name = qualified.name,
+            .owns_name = qualified.owns_name,
             .fields = try fields.toOwnedSlice(self.allocator),
             .consts = try consts.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
@@ -902,8 +1002,10 @@ pub const Parser = struct {
         }
     }
 
-    fn parseEnum(self: *Parser) Error!EnumDecl {
-        const name = try self.expectIdentifier();
+    fn parseEnum(self: *Parser, name_prefix: ?[]const u8) Error!EnumDecl {
+        const local_name = try self.expectIdentifier();
+        const qualified = try self.qualifiedDeclName(name_prefix, local_name);
+        errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
@@ -929,7 +1031,7 @@ pub const Parser = struct {
             try values.append(self.allocator, .{ .name = value_name, .ordinal = ordinal });
         }
         try self.expect(.r_brace);
-        return .{ .name = name, .values = try values.toOwnedSlice(self.allocator) };
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .values = try values.toOwnedSlice(self.allocator) };
     }
 
     fn parseField(self: *Parser) Error!Field {
@@ -1922,38 +2024,49 @@ test "schema parser tolerates nested declarations and dotted type names" {
         \\    ready @0;
         \\  }
         \\  using LocalName = Text;
-        \\  using Outer.Inner;
         \\  child @0 :Outer.Inner;
-        \\  state @1 :Outer.State;
+        \\  state @1 :State;
         \\  aliasName @2 :LocalName;
         \\  anonymousAlias @3 :Inner;
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
-    try std.testing.expectEqual(@as(usize, 1), file.structs.len);
-    try std.testing.expectEqual(@as(usize, 4), file.structs[0].fields.len);
-    try std.testing.expectEqual(@as(usize, 2), file.structs[0].aliases.len);
-    try std.testing.expectEqualStrings("LocalName", file.structs[0].aliases[0].name);
-    try std.testing.expectEqualStrings("Inner", file.structs[0].aliases[1].name);
-    try std.testing.expect(file.structs[0].aliases[1].target == .named);
-    try std.testing.expectEqualStrings("Outer.Inner", file.structs[0].aliases[1].target.named);
-    try std.testing.expect(file.structs[0].fields[0].ty == .named);
-    try std.testing.expectEqualStrings("Outer.Inner", file.structs[0].fields[0].ty.named);
-    try std.testing.expect(file.structs[0].fields[1].ty == .named);
-    try std.testing.expectEqualStrings("Outer.State", file.structs[0].fields[1].ty.named);
-    try std.testing.expect(file.structs[0].fields[2].ty == .named);
-    try std.testing.expectEqualStrings("LocalName", file.structs[0].fields[2].ty.named);
-    try std.testing.expectEqual(Type.text, resolveTypeScoped(&file, &file.structs[0], file.structs[0].fields[2].ty));
-    try std.testing.expect(file.structs[0].fields[3].ty == .named);
-    try std.testing.expectEqualStrings("Inner", file.structs[0].fields[3].ty.named);
-    const resolved_anonymous = resolveTypeScoped(&file, &file.structs[0], file.structs[0].fields[3].ty);
+    try std.testing.expectEqual(@as(usize, 2), file.structs.len);
+    try std.testing.expectEqualStrings("Outer.Inner", file.structs[0].name);
+    try std.testing.expectEqualStrings("Outer", file.structs[1].name);
+    try std.testing.expectEqual(@as(usize, 1), file.enums.len);
+    try std.testing.expectEqualStrings("Outer.State", file.enums[0].name);
+
+    const outer = &file.structs[1];
+    try std.testing.expectEqual(@as(usize, 4), outer.fields.len);
+    try std.testing.expectEqual(@as(usize, 3), outer.aliases.len);
+    try std.testing.expectEqualStrings("Inner", outer.aliases[0].name);
+    try std.testing.expect(outer.aliases[0].target == .named);
+    try std.testing.expectEqualStrings("Outer.Inner", outer.aliases[0].target.named);
+    try std.testing.expectEqualStrings("State", outer.aliases[1].name);
+    try std.testing.expect(outer.aliases[1].target == .named);
+    try std.testing.expectEqualStrings("Outer.State", outer.aliases[1].target.named);
+    try std.testing.expectEqualStrings("LocalName", outer.aliases[2].name);
+    try std.testing.expect(outer.fields[0].ty == .named);
+    try std.testing.expectEqualStrings("Outer.Inner", outer.fields[0].ty.named);
+    try std.testing.expect(outer.fields[1].ty == .named);
+    try std.testing.expectEqualStrings("State", outer.fields[1].ty.named);
+    const resolved_state = resolveTypeScoped(&file, outer, outer.fields[1].ty);
+    try std.testing.expect(resolved_state == .named);
+    try std.testing.expectEqualStrings("Outer.State", resolved_state.named);
+    try std.testing.expect(outer.fields[2].ty == .named);
+    try std.testing.expectEqualStrings("LocalName", outer.fields[2].ty.named);
+    try std.testing.expectEqual(Type.text, resolveTypeScoped(&file, outer, outer.fields[2].ty));
+    try std.testing.expect(outer.fields[3].ty == .named);
+    try std.testing.expectEqualStrings("Inner", outer.fields[3].ty.named);
+    const resolved_anonymous = resolveTypeScoped(&file, outer, outer.fields[3].ty);
     try std.testing.expect(resolved_anonymous == .named);
     try std.testing.expectEqualStrings("Outer.Inner", resolved_anonymous.named);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
-    try std.testing.expectEqual(FieldSlot{ .pointer = 2 }, layouts.structs[0].fields[2].slot);
-    try std.testing.expectEqual(FieldSlot{ .pointer = 3 }, layouts.structs[0].fields[3].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, layouts.structs[1].fields[2].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 2 }, layouts.structs[1].fields[3].slot);
 }
 
 test "schema layout planner assigns data and pointer slots" {
