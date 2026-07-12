@@ -972,13 +972,10 @@ pub const PointerReader = struct {
     }
 
     fn resolve(self: PointerReader) Error!ResolvedPointer {
-        if (self.raw_override) |raw_value| {
-            return .{ .segment_id = self.segment_id, .pointer_word_index = self.word_index, .raw = raw_value };
-        }
         if (self.null_override) {
             return .{ .segment_id = self.segment_id, .pointer_word_index = self.word_index, .raw = 0 };
         }
-        const raw_value = try self.message.readWord(self.segment_id, self.word_index);
+        const raw_value = if (self.raw_override) |raw_override| raw_override else try self.message.readWord(self.segment_id, self.word_index);
         if (raw_value == 0 or wire.pointerType(raw_value) != .far) {
             return .{ .segment_id = self.segment_id, .pointer_word_index = self.word_index, .raw = raw_value };
         }

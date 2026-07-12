@@ -1920,6 +1920,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Builder.fromBuilder(try builder.getRoot());
         \\    }}
         \\
+        \\    pub fn newOrphan(builder: *cpz.MessageBuilder) !Orphan {{
+        \\        return Orphan.fromOrphan(try builder.newOrphanStruct(size));
+        \\    }}
+        \\
         \\    pub fn fromReader(reader: cpz.StructReader) {s} {{
         \\        return .{{ .reader = reader }};
         \\    }}

@@ -236,6 +236,31 @@ test "generated builders can disown and adopt pointer fields" {
     try std.testing.expectEqualSlices(u8, "Typed orphan", try read_maybe_friend.name());
 }
 
+test "generated structs can allocate typed orphans" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const person_builder = try generated.Person.initRootTyped(&builder);
+    var orphan = try generated.Person.newOrphan(&builder);
+    const orphan_builder = try orphan.get();
+    try orphan_builder.set_id(5150);
+    try orphan_builder.set_name("Allocated orphan");
+
+    var orphan_reader = try builder.asReader(.{});
+    const orphan_view = try orphan.getReader(&orphan_reader);
+    try std.testing.expectEqual(@as(u32, 5150), orphan_view.id());
+    try std.testing.expectEqualSlices(u8, "Allocated orphan", try orphan_view.name());
+
+    try person_builder.adopt_friend_typed(&orphan);
+    try std.testing.expect(orphan.isNull());
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const person = generated.Person.fromReader(try reader.getRoot());
+    const friend = try person.friend();
+    try std.testing.expectEqual(@as(u32, 5150), friend.id());
+    try std.testing.expectEqualSlices(u8, "Allocated orphan", try friend.name());
+}
+
 test "generated builders can copy nested struct fields from readers" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();
