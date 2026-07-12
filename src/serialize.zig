@@ -113,6 +113,26 @@ pub fn messageToFlatBytes(allocator: std.mem.Allocator, segments: []const ConstS
     return out;
 }
 
+/// Write standard stream framing directly to an Io writer without first
+/// allocating a complete flat message buffer.
+pub fn writeMessageToWriter(writer: *std.Io.Writer, segments: []const ConstSegment) (Error || std.Io.Writer.Error)!void {
+    _ = try computeSerializedSize(segments);
+
+    var word_buf: [4]u8 = undefined;
+    writeU32(&word_buf, @intCast(segments.len - 1));
+    try writer.writeAll(&word_buf);
+    for (segments) |segment| {
+        writeU32(&word_buf, @intCast(segment.len / wire.bytes_per_word));
+        try writer.writeAll(&word_buf);
+    }
+    if (segments.len % 2 == 0) {
+        try writer.writeAll(&[_]u8{0} ** 4);
+    }
+    for (segments) |segment| {
+        try writer.writeAll(segment);
+    }
+}
+
 /// Serialize segments using standard stream framing, then apply Cap'n Proto
 /// packing to the framed bytes. This is the format used by C++'s packed
 /// stream helpers.
@@ -282,6 +302,27 @@ test "standard stream framing serializes even segment count with padding" {
     try testing.expectEqualSlices(u8, &s0, bytes[16..24]);
     try testing.expectEqualSlices(u8, &s1, bytes[24..40]);
     try testing.expectEqual(@as(usize, 40), try expectedSize(bytes[0..16]));
+}
+
+test "standard stream framing writes directly to Io writer" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const s0 = [_]u8{0xaa} ** 8;
+    const s1 = [_]u8{0xbb} ** 16;
+    const segments = [_]ConstSegment{ &s0, &s1 };
+
+    const expected = try messageToFlatBytes(allocator, &segments);
+    defer allocator.free(expected);
+
+    var buffer: [64]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    try writeMessageToWriter(&writer, &segments);
+    try testing.expectEqualSlices(u8, expected, std.Io.Writer.buffered(&writer));
+
+    var small: [8]u8 = undefined;
+    var small_writer = std.Io.Writer.fixed(&small);
+    try testing.expectError(error.WriteFailed, writeMessageToWriter(&small_writer, &segments));
 }
 
 test "segment table rejects excessive segment counts before allocation" {
