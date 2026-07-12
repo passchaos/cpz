@@ -1904,6 +1904,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.orphan.totalSize();
         \\        }}
+        \\
+        \\        pub fn release(self: *@This()) void {{
+        \\            self.orphan.release();
+        \\        }}
         \\    }};
         \\
         \\    reader: cpz.StructReader,
@@ -2511,6 +2515,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.orphan.totalSize();
+        \\        }}
+        \\
+        \\        pub fn release(self: *@This()) void {{
+        \\            self.orphan.release();
         \\        }}
         \\    }};
         \\

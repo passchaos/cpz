@@ -142,6 +142,10 @@ pub const Orphan = struct {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return self.asReader(&reader).totalSize();
     }
+
+    pub fn release(self: *Orphan) void {
+        self.raw = 0;
+    }
 };
 
 pub const MessageBuilder = struct {
@@ -2259,6 +2263,11 @@ test "message builder allocates new orphan structs and lists" {
     const root_list = try (try list_reader.getRootPointer()).getList(.two_bytes);
     try testing.expectEqual(@as(u16, 77), root_list.getUInt16(0));
     try testing.expectEqual(@as(u16, 88), root_list.getUInt16(1));
+
+    var dropped = try list_builder.newOrphanList(.byte, 1);
+    dropped.release();
+    try testing.expect(dropped.isNull());
+    try testing.expectError(error.NullPointer, dropped.totalSize());
 }
 
 test "message builder allocates orphan copies from readers" {

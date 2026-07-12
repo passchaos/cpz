@@ -254,6 +254,10 @@ test "generated structs can allocate typed orphans" {
     try person_builder.adopt_friend_typed(&orphan);
     try std.testing.expect(orphan.isNull());
 
+    var dropped = try generated.Person.newOrphan(&builder);
+    dropped.release();
+    try std.testing.expect(dropped.isNull());
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
     const friend = try person.friend();
@@ -410,6 +414,10 @@ test "generated list orphan wrappers can allocate new orphans" {
     try child.set_id(654);
     try child.set_name("List orphan child");
     try person_builder.adopt_children_typed(&children_orphan);
+
+    var dropped_scores = try generated.Person.Person_scores_Orphan.newOrphan(&builder, 1);
+    dropped_scores.release();
+    try std.testing.expect(dropped_scores.isNull());
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
