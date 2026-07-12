@@ -70,6 +70,45 @@ pub const File = struct {
     }
 };
 
+pub const LayoutError = Error || error{
+    OrdinalCollision,
+    UnsupportedInlineComposite,
+};
+
+pub const FieldSlot = union(enum) {
+    void,
+    data_bit: usize,
+    data_byte: usize,
+    pointer: usize,
+};
+
+pub const FieldLayout = struct {
+    field: *const Field,
+    slot: FieldSlot,
+};
+
+pub const StructLayout = struct {
+    decl: *const Struct,
+    data_words: u16,
+    pointer_count: u16,
+    fields: []FieldLayout,
+
+    pub fn deinit(self: *StructLayout, allocator: std.mem.Allocator) void {
+        allocator.free(self.fields);
+        self.* = undefined;
+    }
+};
+
+pub const LayoutFile = struct {
+    structs: []StructLayout,
+
+    pub fn deinit(self: *LayoutFile, allocator: std.mem.Allocator) void {
+        for (self.structs) |*layout| layout.deinit(allocator);
+        allocator.free(self.structs);
+        self.* = undefined;
+    }
+};
+
 const TokenTag = enum {
     identifier,
     at,
@@ -275,6 +314,84 @@ pub fn parse(allocator: std.mem.Allocator, source: []const u8) Error!File {
     return parser.parse();
 }
 
+pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!LayoutFile {
+    var layouts = std.ArrayList(StructLayout).empty;
+    errdefer {
+        for (layouts.items) |*layout| layout.deinit(allocator);
+        layouts.deinit(allocator);
+    }
+
+    for (file.structs) |*decl| {
+        try layouts.append(allocator, try planStructLayout(allocator, decl));
+    }
+    return .{ .structs = try layouts.toOwnedSlice(allocator) };
+}
+
+pub fn planStructLayout(allocator: std.mem.Allocator, decl: *const Struct) LayoutError!StructLayout {
+    var fields = try std.ArrayList(FieldLayout).initCapacity(allocator, decl.fields.len);
+    errdefer fields.deinit(allocator);
+
+    var occupied_ordinals = std.AutoHashMap(u32, void).init(allocator);
+    defer occupied_ordinals.deinit();
+
+    var next_bit: usize = 0;
+    var next_pointer: usize = 0;
+
+    for (decl.fields) |*field| {
+        const entry = try occupied_ordinals.getOrPut(field.ordinal);
+        if (entry.found_existing) return error.OrdinalCollision;
+
+        const slot: FieldSlot = switch (try classify(field.ty)) {
+            .void => .void,
+            .data => |bits| blk: {
+                const aligned = alignForward(usize, next_bit, bits);
+                next_bit = aligned + bits;
+                if (bits == 1) break :blk .{ .data_bit = aligned };
+                break :blk .{ .data_byte = aligned / 8 };
+            },
+            .pointer => blk: {
+                const index = next_pointer;
+                next_pointer += 1;
+                break :blk .{ .pointer = index };
+            },
+        };
+        fields.appendAssumeCapacity(.{ .field = field, .slot = slot });
+    }
+
+    if (next_bit > @as(usize, std.math.maxInt(u16)) * 64) return error.InvalidOrdinal;
+    if (next_pointer > std.math.maxInt(u16)) return error.InvalidOrdinal;
+
+    return .{
+        .decl = decl,
+        .data_words = @intCast((next_bit + 63) / 64),
+        .pointer_count = @intCast(next_pointer),
+        .fields = try fields.toOwnedSlice(allocator),
+    };
+}
+
+const TypeClass = union(enum) {
+    void,
+    data: usize,
+    pointer,
+};
+
+fn classify(ty: Type) LayoutError!TypeClass {
+    return switch (ty) {
+        .void => .void,
+        .bool => .{ .data = 1 },
+        .int8, .uint8 => .{ .data = 8 },
+        .int16, .uint16 => .{ .data = 16 },
+        .int32, .uint32, .float32 => .{ .data = 32 },
+        .int64, .uint64, .float64 => .{ .data = 64 },
+        .text, .data, .list, .named => .pointer,
+    };
+}
+
+fn alignForward(comptime T: type, value: T, alignment: T) T {
+    if (alignment == 0) return value;
+    return ((value + alignment - 1) / alignment) * alignment;
+}
+
 fn parseInteger(text: []const u8) (std.fmt.ParseIntError || error{InvalidToken})!u64 {
     if (text.len > 2 and text[0] == '0' and (text[1] == 'x' or text[1] == 'X')) {
         return std.fmt.parseInt(u64, text[2..], 16);
@@ -328,4 +445,42 @@ test "schema parser handles structs, file ids, lists, comments" {
 test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 UInt32; }"));
     try std.testing.expectError(error.InvalidToken, parse(std.testing.allocator, "@!;"));
+}
+
+test "schema layout planner assigns data and pointer slots" {
+    const source =
+        \\struct Sample {
+        \\  enabled @0 :Bool;
+        \\  count @1 :UInt16;
+        \\  name @2 :Text;
+        \\  value @3 :Float64;
+        \\  children @4 :List(Sample);
+        \\}
+    ;
+
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), layouts.structs.len);
+    const layout = layouts.structs[0];
+    try std.testing.expectEqual(@as(u16, 2), layout.data_words);
+    try std.testing.expectEqual(@as(u16, 2), layout.pointer_count);
+    try std.testing.expectEqual(FieldSlot{ .data_bit = 0 }, layout.fields[0].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 2 }, layout.fields[1].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, layout.fields[2].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[3].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, layout.fields[4].slot);
+}
+
+test "schema layout planner rejects duplicate ordinals" {
+    var file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  a @0 :UInt32;
+        \\  b @0 :UInt32;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.OrdinalCollision, planLayouts(std.testing.allocator, &file));
 }

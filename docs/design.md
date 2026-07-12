@@ -8,7 +8,7 @@ The implementation follows Cap'n Proto's published encoding and the C++ runtime 
 - `serialize.zig` implements the standard stream segment table (`segment count - 1`, segment word sizes, padding, segment bytes) and packed stream framing helpers layered on `packing.zig`.
 - `packing.zig` implements Cap'n Proto packing/unpacking with the `0x00` zero-run and `0xff` raw-run special cases.
 - `message.zig` provides arena-backed builders and lazy-validating readers for structs, scalar fields/lists, pointer lists, composite lists, text/data, far pointers, and recursive copy-from-reader operations.
-- `schema.zig` is the start of the compiler layer: it parses a practical subset of `.capnp` declarations into a small AST suitable for layout/codegen work.
+- `schema.zig` is the start of the compiler layer: it parses a practical subset of `.capnp` declarations into a small AST and plans field data/pointer slots for layout/codegen work.
 
 ## Performance direction
 
