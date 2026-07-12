@@ -11,7 +11,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
     try person_builder.set_active(false);
     try std.testing.expectEqual(false, try person_builder.get_active());
+    try std.testing.expectEqual(false, try person_builder.has_name());
     try person_builder.set_name("Ada");
+    try std.testing.expectEqual(true, try person_builder.has_name());
     try person_builder.set_favorite(.blue);
     try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
@@ -106,8 +108,12 @@ test "generated builders can clear pointer fields" {
     const person_builder = try generated.Person.initRootTyped(&builder);
     try person_builder.set_name("Temporary");
     _ = try person_builder.init_friend();
+    try std.testing.expectEqual(true, try person_builder.has_name());
     try person_builder.clear_name();
+    try std.testing.expectEqual(false, try person_builder.has_name());
+    try std.testing.expectEqual(true, try person_builder.has_friend());
     try person_builder.clear_friend();
+    try std.testing.expectEqual(false, try person_builder.has_friend());
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const person = generated.Person.fromReader(try reader.getRoot());
