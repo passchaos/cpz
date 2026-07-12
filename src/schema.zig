@@ -543,6 +543,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         try emitFieldGetter(allocator, out, field_layout);
     }
 
+    try appendFmt(allocator, out,
+        \\
+        \\    pub fn initRootTyped(message: *cpz.MessageBuilder) !Builder {{
+        \\        return Builder.fromBuilder(try message.initRoot(size));
+        \\    }}
+        \\
+        \\    pub const Builder = struct {{
+        \\        builder: cpz.StructBuilder,
+        \\
+        \\        pub fn fromBuilder(builder: cpz.StructBuilder) Builder {{
+        \\            return .{{ .builder = builder }};
+        \\        }}
+        \\
+    , .{});
+
+    for (layout.fields) |field_layout| {
+        try emitFieldBuilderMethod(allocator, out, field_layout);
+    }
+
+    try appendFmt(allocator, out,
+        \\    }};
+        \\
+    , .{});
+
     try appendFmt(allocator, out, "}};\n\n", .{});
 }
 
@@ -621,6 +645,81 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fiel
     }
 }
 
+fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_layout: FieldLayout) LayoutError!void {
+    const field = field_layout.field;
+    switch (field_layout.slot) {
+        .void => try appendFmt(allocator, out,
+            \\        pub fn set_{s}(self: Builder) void {{
+            \\            _ = self;
+            \\        }}
+            \\
+        , .{field.name}),
+        .data_bit => |bit| try appendFmt(allocator, out,
+            \\        pub fn set_{s}(self: Builder, value: bool) !void {{
+            \\            return self.builder.setBool({}, value, {s});
+            \\        }}
+            \\
+        , .{ field.name, bit, try defaultBoolLiteral(field) }),
+        .data_byte => |byte| try emitDataBuilderMethod(allocator, out, field, byte),
+        .pointer => |index| try emitPointerBuilderMethod(allocator, out, field, index),
+    }
+}
+
+fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field, byte: usize) LayoutError!void {
+    switch (field.ty) {
+        .int8 => try scalarSetter(allocator, out, field.name, "i8", "setInt8", byte, defaultScalarLiteral(field)),
+        .int16 => try scalarSetter(allocator, out, field.name, "i16", "setInt16", byte, defaultScalarLiteral(field)),
+        .int32 => try scalarSetter(allocator, out, field.name, "i32", "setInt32", byte, defaultScalarLiteral(field)),
+        .int64 => try scalarSetter(allocator, out, field.name, "i64", "setInt64", byte, defaultScalarLiteral(field)),
+        .uint8 => try scalarSetter(allocator, out, field.name, "u8", "setUInt8", byte, defaultScalarLiteral(field)),
+        .uint16 => try scalarSetter(allocator, out, field.name, "u16", "setUInt16", byte, defaultScalarLiteral(field)),
+        .uint32 => try scalarSetter(allocator, out, field.name, "u32", "setUInt32", byte, defaultScalarLiteral(field)),
+        .uint64 => try scalarSetter(allocator, out, field.name, "u64", "setUInt64", byte, defaultScalarLiteral(field)),
+        .float32 => try scalarSetter(allocator, out, field.name, "f32", "setFloat32", byte, defaultScalarLiteral(field)),
+        .float64 => try scalarSetter(allocator, out, field.name, "f64", "setFloat64", byte, defaultScalarLiteral(field)),
+        else => return error.UnsupportedType,
+    }
+}
+
+fn scalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []const u8, zig_type: []const u8, method: []const u8, byte: usize, default: []const u8) !void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, value: {s}) !void {{
+        \\            return self.builder.{s}({}, value, {s});
+        \\        }}
+        \\
+    , .{ name, zig_type, method, byte, default });
+}
+
+fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field: *const Field, index: usize) LayoutError!void {
+    switch (field.ty) {
+        .text => try appendFmt(allocator, out,
+            \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+            \\            return self.builder.setText({}, value);
+            \\        }}
+            \\
+        , .{ field.name, index }),
+        .data => try appendFmt(allocator, out,
+            \\        pub fn set_{s}(self: Builder, value: []const u8) !void {{
+            \\            return self.builder.setData({}, value);
+            \\        }}
+            \\
+        , .{ field.name, index }),
+        .list => try appendFmt(allocator, out,
+            \\        pub fn init_{s}(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
+            \\            return (try self.builder.getPointerField({})).initList(element_size, count);
+            \\        }}
+            \\
+        , .{ field.name, index }),
+        .named => try appendFmt(allocator, out,
+            \\        pub fn init_{s}(self: Builder, size: cpz.StructSize) !cpz.StructBuilder {{
+            \\            return (try self.builder.getPointerField({})).initStruct(size);
+            \\        }}
+            \\
+        , .{ field.name, index }),
+        else => return error.UnsupportedType,
+    }
+}
+
 fn appendFmt(allocator: std.mem.Allocator, out: *std.ArrayList(u8), comptime fmt: []const u8, args: anytype) std.mem.Allocator.Error!void {
     const text = try std.fmt.allocPrint(allocator, fmt, args);
     defer allocator.free(text);
@@ -661,4 +760,9 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getBool(32, true);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getText()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person.fromReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const Builder = struct") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, value: u32) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setUInt32(0, value, 42);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.setBool(32, value, true);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_name(self: Builder, value: []const u8) !void") != null);
 }
