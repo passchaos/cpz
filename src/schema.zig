@@ -3287,6 +3287,27 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
                 \\        }}
                 \\
+                \\        pub fn init_{s}_struct(self: Builder, struct_size: cpz.StructSize) !cpz.StructBuilder {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).initStruct(struct_size);
+                \\        }}
+                \\
+                \\        pub fn init_{s}_list(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).initList(element_size, count);
+                \\        }}
+                \\
+                \\        pub fn init_{s}_structList(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).initStructList(count, struct_size);
+                \\        }}
+                \\
             , .{index});
         },
         .any_struct => {
