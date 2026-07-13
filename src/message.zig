@@ -72,6 +72,46 @@ pub const MessageStats = struct {
         return self.total_words != 0;
     }
 
+    pub fn pointerSlotCount(self: MessageStats) usize {
+        return self.pointer_slots;
+    }
+
+    pub fn nonNullPointerCount(self: MessageStats) usize {
+        return self.non_null_pointers;
+    }
+
+    pub fn structCount(self: MessageStats) usize {
+        return self.structs;
+    }
+
+    pub fn listCount(self: MessageStats) usize {
+        return self.lists;
+    }
+
+    pub fn dataWordCount(self: MessageStats) usize {
+        return self.data_words;
+    }
+
+    pub fn pointerWordCount(self: MessageStats) usize {
+        return self.pointer_words;
+    }
+
+    pub fn wordCount(self: MessageStats) usize {
+        return self.total_words;
+    }
+
+    pub fn capabilityCount(self: MessageStats) usize {
+        return self.capabilities;
+    }
+
+    pub fn matchesWords(self: MessageStats, count: usize) bool {
+        return self.total_words == count;
+    }
+
+    pub fn matchesCapabilities(self: MessageStats, count: usize) bool {
+        return self.capabilities == count;
+    }
+
     pub fn maxCapabilityIndex(self: MessageStats) ?u32 {
         return self.max_capability_index;
     }

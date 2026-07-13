@@ -792,6 +792,16 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(validation_stats.hasDataWords());
     try std.testing.expect(validation_stats.hasPointerWords());
     try std.testing.expect(validation_stats.hasWords());
+    try std.testing.expectEqual(validation_stats.pointer_slots, validation_stats.pointerSlotCount());
+    try std.testing.expectEqual(validation_stats.non_null_pointers, validation_stats.nonNullPointerCount());
+    try std.testing.expectEqual(validation_stats.structs, validation_stats.structCount());
+    try std.testing.expectEqual(validation_stats.lists, validation_stats.listCount());
+    try std.testing.expectEqual(validation_stats.data_words, validation_stats.dataWordCount());
+    try std.testing.expectEqual(validation_stats.pointer_words, validation_stats.pointerWordCount());
+    try std.testing.expectEqual(validation_stats.total_words, validation_stats.wordCount());
+    try std.testing.expectEqual(validation_stats.capabilities, validation_stats.capabilityCount());
+    try std.testing.expect(validation_stats.matchesWords(validation_stats.total_words));
+    try std.testing.expect(validation_stats.matchesCapabilities(0));
     try std.testing.expect(!validation_stats.hasCapabilities());
     try std.testing.expect(validation_stats.maxCapabilityIndex() == null);
     try std.testing.expectEqual(@as(usize, 0), validation_stats.maxCapabilityCount());
