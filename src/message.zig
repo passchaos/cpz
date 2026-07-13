@@ -607,6 +607,14 @@ pub const MessageReader = struct {
         return serialize.writePackedMessageToWriter(allocator, writer, self.segments);
     }
 
+    pub fn toCanonicalSegmentBytes(self: *const MessageReader, allocator: std.mem.Allocator) Error![]u8 {
+        return messageToCanonicalSegmentBytes(allocator, self);
+    }
+
+    pub fn toSingleSegmentFlatBytes(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return messageToSingleSegmentFlatBytes(allocator, self);
+    }
+
     fn segmentWords(self: *const MessageReader, segment_id: u32) Error!usize {
         if (segment_id >= self.segments.len) return error.SegmentOutOfBounds;
         const segment = self.segments[segment_id];

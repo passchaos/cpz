@@ -5290,11 +5290,11 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\    }}
         \\
         \\    pub fn @"cpz.root.toCanonicalSegmentBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader) ![]u8 {{
-        \\        return cpz.toCanonicalSegmentBytes(@"cpz.allocator", @"cpz.reader");
+        \\        return @"cpz.reader".toCanonicalSegmentBytes(@"cpz.allocator");
         \\    }}
         \\
         \\    pub fn @"cpz.root.toSingleSegmentFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader) ![]u8 {{
-        \\        return cpz.toSingleSegmentFlatBytes(@"cpz.allocator", @"cpz.reader");
+        \\        return @"cpz.reader".toSingleSegmentFlatBytes(@"cpz.allocator");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.pointerKind"(@"cpz.builder": *cpz.MessageBuilder) !?cpz.wire.PointerType {{
