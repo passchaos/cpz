@@ -4005,8 +4005,9 @@ fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.Array
             \\{s}pub const @"cpz.superclass.{}.index": usize = {};
             \\{s}pub const @"cpz.superclass.{}.name": []const u8 = {s};
             \\{s}pub const @"cpz.superclass.{}.resolvedName": []const u8 = {s};
+            \\{s}pub const @"cpz.superclass.{}.metadata": cpz.schema.InterfaceSuperclassMetadata = @This().@"cpz.superclasses"[{}];
             \\
-        , .{ indent, index, index, indent, index, superclass_literal, indent, index, resolved_superclass_literal });
+        , .{ indent, index, index, indent, index, superclass_literal, indent, index, resolved_superclass_literal, indent, index, index });
     }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.superclasses\": []const cpz.schema.InterfaceSuperclassMetadata = &[_]cpz.schema.InterfaceSuperclassMetadata{{", .{indent});
     const owner_name = if (scope) |decl| decl.name else null;

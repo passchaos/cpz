@@ -2150,6 +2150,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.superclass.0.index");
     try std.testing.expectEqualStrings("ServiceAlias", generated.ExtendedService.@"cpz.superclass.0.name");
     try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclass.0.resolvedName");
+    try std.testing.expectEqualStrings("ServiceAlias", generated.ExtendedService.@"cpz.superclass.0.metadata".name);
+    try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclass.0.metadata".resolved_name);
     try std.testing.expectEqualStrings("ServiceAlias", generated.ExtendedService.@"cpz.superclassByName"("ServiceAlias").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceSuperclassMetadata, null), generated.ExtendedService.@"cpz.superclassByName"("Service"));
     try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclassByResolvedName"("Service").?.resolved_name);
