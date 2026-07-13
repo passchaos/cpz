@@ -10,6 +10,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.file_annotations"[0].raw);
     try std.testing.expectEqual(@as(usize, 24), generated.@"cpz.declarations".len);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.declarations"[0].name);
+    try std.testing.expectEqualStrings("Color", generated.@"cpz.declarationByName"("Color").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByName"("Missing"));
+    try std.testing.expectEqualStrings("Color", generated.@"cpz.declarationById"(0xc010).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationById"(0xdead));
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declarations"[0].kind);
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.@"cpz.declarations"[0].annotations);
     try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declarations"[10].name);

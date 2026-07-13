@@ -4171,6 +4171,18 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         count += 1;
     }
     try out.appendSlice(allocator, "};\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.declarationByName"(@"cpz.name": []const u8) ?cpz.schema.DeclarationMetadata {{
+        \\{s}    for (@This().@"cpz.declarations") |@"cpz.decl"| if (std.mem.eql(u8, @"cpz.decl".name, @"cpz.name")) return @"cpz.decl";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.declarationById"(@"cpz.id": u64) ?cpz.schema.DeclarationMetadata {{
+        \\{s}    for (@This().@"cpz.declarations") |@"cpz.decl"| if (@"cpz.decl".id != null and @"cpz.decl".id.? == @"cpz.id") return @"cpz.decl";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (count != 0) try out.append(allocator, '\n');
 }
 
