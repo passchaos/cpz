@@ -28,6 +28,10 @@ test "generated code sanitizes keyword defaults" {
 }
 
 test "generated enum getters reject unknown ordinals" {
+    try std.testing.expectEqual(generated.error_.ok, generated.@"cpz.enum.error_.fromRaw"(1).?);
+    try std.testing.expectEqual(@as(?generated.error_, null), generated.@"cpz.enum.error_.fromRaw"(99));
+    try std.testing.expectEqual(@as(u16, 0), generated.@"cpz.enum.error_.toRaw"(.test_));
+
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
     const raw = try builder.initRoot(generated.fn_.size);

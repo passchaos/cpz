@@ -74,6 +74,9 @@ test "generated annotation declarations expose ids types and targets" {
 test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$schemaNote(\"global-id\")", generated.@"cpz.const.globalId.annotations");
     try std.testing.expectEqualStrings("$enumNote(\"palette\")", generated.Color.@"cpz.annotations");
+    try std.testing.expectEqual(generated.Color.green, generated.@"cpz.enum.Color.fromRaw"(1).?);
+    try std.testing.expectEqual(@as(?generated.Color, null), generated.@"cpz.enum.Color.fromRaw"(99));
+    try std.testing.expectEqual(@as(u16, 2), generated.@"cpz.enum.Color.toRaw"(.blue));
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.enum.Color.values".len);
     try std.testing.expectEqualStrings("green", generated.@"cpz.enum.Color.values"[1].name);
     try std.testing.expectEqual(@as(u16, 1), generated.@"cpz.enum.Color.values"[1].ordinal);

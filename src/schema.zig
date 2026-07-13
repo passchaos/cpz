@@ -3731,6 +3731,16 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\
     , .{});
     try appendFmt(allocator, out,
+        \\pub fn @"cpz.enum.{s}.fromRaw"(raw: u16) ?{s} {{
+        \\    return std.enums.fromInt({s}, raw);
+        \\}}
+        \\
+        \\pub fn @"cpz.enum.{s}.toRaw"(value: {s}) u16 {{
+        \\    return @intFromEnum(value);
+        \\}}
+        \\
+    , .{ enum_name, enum_name, enum_name, enum_name, enum_name });
+    try appendFmt(allocator, out,
         \\pub const @"cpz.enum.{s}.values": []const cpz.schema.EnumValueMetadata = &[_]cpz.schema.EnumValueMetadata{{
     , .{enum_name});
     for (decl.values, 0..) |value, index| {
