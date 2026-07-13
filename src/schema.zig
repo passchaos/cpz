@@ -367,6 +367,26 @@ pub const MethodField = struct {
     default_is_hex_data: bool = false,
     has_explicit_default: bool = false,
     annotations: []const u8 = "",
+
+    pub fn matchesName(self: MethodField, field_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, field_name);
+    }
+
+    pub fn matchesType(self: MethodField, field_type: []const u8) bool {
+        return std.mem.eql(u8, self.ty, field_type);
+    }
+
+    pub fn matchesResolvedType(self: MethodField, field_type: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_ty, field_type);
+    }
+
+    pub fn matchesDefault(self: MethodField, default_value: []const u8) bool {
+        return self.default_literal != null and std.mem.eql(u8, self.default_literal.?, default_value);
+    }
+
+    pub fn matchesAnnotations(self: MethodField, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
+    }
 };
 
 pub const InterfaceMethod = struct {

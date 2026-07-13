@@ -2242,6 +2242,12 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("request", ping_metadata.paramFieldByType("Req").?.name);
     try std.testing.expectEqualStrings("attempts", ping_metadata.paramFieldByResolvedType("UInt32").?.name);
     try std.testing.expectEqualStrings("attempts", ping_metadata.paramFieldByDefault("3").?.name);
+    try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesName("attempts"));
+    try std.testing.expect(ping_metadata.paramFieldByName("request").?.matchesType("Req"));
+    try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesResolvedType("UInt32"));
+    try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesDefault("3"));
+    try std.testing.expect(!ping_metadata.paramFieldByName("request").?.matchesDefault("3"));
+    try std.testing.expect(ping_metadata.paramFieldByName("request").?.matchesAnnotations("$schemaNote(\"request\")"));
     try std.testing.expectEqualStrings("attempts", ping_metadata.paramFieldByExplicitDefault(true).?.name);
     try std.testing.expectEqualStrings("request", ping_metadata.paramFieldByHexDefault(false).?.name);
     try std.testing.expectEqualStrings("request", ping_metadata.paramFieldByAnnotations("$schemaNote(\"request\")").?.name);
