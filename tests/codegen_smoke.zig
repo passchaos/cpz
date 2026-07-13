@@ -695,6 +695,10 @@ test "generated scalar root helpers work" {
     defer cap_builder.deinit();
     try generated.Person.@"cpz.builderRoot.setCapability"(&cap_builder, 7777);
     try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.builderRoot.capability"(&cap_builder));
+    try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.builderRoot.statsWithOptions"(&cap_builder, .{ .capability_count_limit = 1 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.builderRoot.totalSizeWithOptions"(&cap_builder, .{ .capability_count_limit = 1 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.builderRoot.validateWithOptions"(&cap_builder, .{ .capability_count_limit = 1 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, cap_builder.totalSizeWithOptions(.{ .capability_count_limit = 1 }));
     var cap_reader = cpz.MessageReader.init(try cap_builder.segmentsConst(), .{});
     try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.root.capability"(&cap_reader));
 }
@@ -1575,6 +1579,10 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 7070), try cap_orphan_for_field.getCapabilityIndex());
     try box_builder.adopt_cap(&cap_orphan_for_field);
     try std.testing.expectEqual(@as(u32, 7070), try box_builder.get_cap());
+    try std.testing.expectError(error.InvalidCapabilityPointer, box_builder.validateWithOptions(.{ .capability_count_limit = 100 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, box_builder.totalSizeWithOptions(.{ .capability_count_limit = 100 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, box_builder.get_capStatsWithOptions(.{ .capability_count_limit = 100 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, box_builder.get_capTotalSizeWithOptions(.{ .capability_count_limit = 100 }));
     var blob_orphan = try box_builder.new_blob_orphan(&[_]u8{ 5, 6, 7 });
     try std.testing.expectEqualSlices(u8, &[_]u8{ 5, 6, 7 }, try blob_orphan.getData());
     try box_builder.adopt_blob(&blob_orphan);
@@ -1587,6 +1595,10 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(cap_element_raw));
     try std.testing.expectEqual(@as(u32, 88), (try caps.elementDecodedPointer(0)).?.other.index);
     try std.testing.expectEqual(@as(u32, 99), try caps.elementAsCapability(1));
+    try std.testing.expectError(error.InvalidCapabilityPointer, caps.validateWithOptions(.{ .capability_count_limit = 90 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, caps.totalSizeWithOptions(.{ .capability_count_limit = 90 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, caps.elementStatsWithOptions(1, .{ .capability_count_limit = 90 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, caps.elementTotalSizeWithOptions(1, .{ .capability_count_limit = 90 }));
     try std.testing.expectEqual(@as(u32, 7070), try box_builder.get_cap());
     try std.testing.expectEqual(@as(u32, 99), try caps.get(1));
 
@@ -1609,14 +1621,20 @@ test "generated builtin any and capability accessors round-trip" {
     const read_list = try dynamic_box.anyList();
     try std.testing.expectEqual(@as(u16, 222), read_list.getUInt16(1));
     try std.testing.expectEqual(@as(u32, 7070), try dynamic_box.cap());
+    try std.testing.expectError(error.InvalidCapabilityPointer, dynamic_box.capStatsWithOptions(.{ .capability_count_limit = 100 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, dynamic_box.capTotalSizeWithOptions(.{ .capability_count_limit = 100 }));
     try std.testing.expectEqualSlices(u8, &[_]u8{ 5, 6, 7 }, try dynamic_box.blob());
     const read_caps = try dynamic_box.capList();
     try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));
     try std.testing.expectEqual(@as(u32, 99), try read_caps.get(1));
+    try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.validateWithOptions(.{ .capability_count_limit = 90 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.totalSizeWithOptions(.{ .capability_count_limit = 90 }));
     try std.testing.expectEqual(cpz.wire.PointerType.other, (try read_caps.elementPointerKind(1)).?);
     const read_cap_element_raw = try read_caps.elementRawPointer(1);
     try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(read_cap_element_raw));
     try std.testing.expectEqual(@as(u32, 99), (try read_caps.elementDecodedPointer(1)).?.other.index);
+    try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.elementStatsWithOptions(1, .{ .capability_count_limit = 90 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.elementTotalSizeWithOptions(1, .{ .capability_count_limit = 90 }));
     try std.testing.expectEqual(@as(u32, 88), try read_caps.elementAsCapability(0));
 
     const any_items = try box_builder.init_anyListItems(5);
@@ -1708,6 +1726,7 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 7, 8, 9 }, try orphan_box_builder.get_anyAsData());
     var cap_orphan = try orphan_box_builder.new_any_capabilityOrphan(2468);
     try std.testing.expectEqual(@as(u32, 2468), try cap_orphan.getCapabilityIndex());
+    try std.testing.expectError(error.InvalidCapabilityPointer, cap_orphan.validateWithOptions(.{ .capability_count_limit = 100 }));
     try orphan_box_builder.adopt_any(&cap_orphan);
     try std.testing.expectEqual(@as(u32, 2468), try orphan_box_builder.get_anyAsCapability());
 

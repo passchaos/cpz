@@ -5225,8 +5225,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.validate();
         \\        }}
         \\
+        \\        pub fn validateWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\            return self.orphan.validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.orphan.totalSize();
+        \\        }}
+        \\
+        \\        pub fn totalSizeWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\            return self.orphan.totalSizeWithOptions(options);
         \\        }}
         \\
         \\        pub fn release(self: *@This()) void {{
@@ -5384,8 +5392,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".getRootPointerStats();
         \\    }}
         \\
+        \\    pub fn @"cpz.builderRoot.statsWithOptions"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\        return @"cpz.builder".getRootPointerStatsWithOptions(@"cpz.options");
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.totalSize"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageSize {{
         \\        return @"cpz.builder".getRootPointerTotalSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.totalSizeWithOptions"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+        \\        return @"cpz.builder".getRootPointerTotalSizeWithOptions(@"cpz.options");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.asMessageReader"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageReader {{
@@ -5450,6 +5466,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.validate"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageStats {{
         \\        return @"cpz.builder".validate(.{{}});
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.validateWithOptions"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\        return @"cpz.builder".validate(@"cpz.options");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.toFlatBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{
@@ -5584,8 +5604,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return self.reader.validate();
         \\    }}
         \\
+        \\    pub fn validateWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\        return self.reader.validateWithOptions(options);
+        \\    }}
+        \\
         \\    pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\        return self.reader.totalSize();
+        \\    }}
+        \\
+        \\    pub fn totalSizeWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\        return self.reader.totalSizeWithOptions(options);
         \\    }}
         \\
         \\    pub fn actualSize(self: @This()) cpz.StructSize {{
@@ -5634,8 +5662,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.builder.validate();
         \\        }}
         \\
+        \\        pub fn validateWithOptions(self: Builder, options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\            return self.builder.validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn totalSize(self: Builder) !cpz.MessageSize {{
         \\            return self.builder.totalSize();
+        \\        }}
+        \\
+        \\        pub fn totalSizeWithOptions(self: Builder, options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\            return self.builder.totalSizeWithOptions(options);
         \\        }}
         \\
         \\        pub fn actualSize(self: Builder) cpz.StructSize {{
@@ -5954,11 +5990,25 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).validate();
         \\    }}
         \\
+        \\    pub fn {s}StatsWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageStats {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).validateWithOptions(options);
+        \\    }}
+        \\
         \\    pub fn {s}TotalSize(self: @This()) !cpz.MessageSize {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\        return self.reader.getPointerField({}).totalSize();
+        \\    }}
+        \\
+        \\    pub fn {s}TotalSizeWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageSize {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).totalSizeWithOptions(options);
         \\    }}
         \\
     , .{index});
@@ -6206,8 +6256,16 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.validate();
         \\        }}
         \\
+        \\        pub fn validateWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\            return self.list.validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.list.totalSize();
+        \\        }}
+        \\
+        \\        pub fn totalSizeWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\            return self.list.totalSizeWithOptions(options);
         \\        }}
         \\
         \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
@@ -6466,8 +6524,16 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.orphan.validate();
         \\        }}
         \\
+        \\        pub fn validateWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\            return self.orphan.validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.orphan.totalSize();
+        \\        }}
+        \\
+        \\        pub fn totalSizeWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\            return self.orphan.totalSizeWithOptions(options);
         \\        }}
         \\
         \\        pub fn release(self: *@This()) void {{
@@ -6510,8 +6576,16 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.validate();
         \\        }}
         \\
+        \\        pub fn validateWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\            return self.list.validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.list.totalSize();
+        \\        }}
+        \\
+        \\        pub fn totalSizeWithOptions(self: @This(), options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\            return self.list.totalSizeWithOptions(options);
         \\        }}
         \\
         \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
@@ -7064,8 +7138,16 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).validate();
         \\        }}
         \\
+        \\        pub fn elementStatsWithOptions(self: @This(), index: usize, options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\            return (try self.list.getPointerElement(index)).validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn elementTotalSize(self: @This(), index: usize) !cpz.MessageSize {{
         \\            return (try self.list.getPointerElement(index)).totalSize();
+        \\        }}
+        \\
+        \\        pub fn elementTotalSizeWithOptions(self: @This(), index: usize, options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\            return (try self.list.getPointerElement(index)).totalSizeWithOptions(options);
         \\        }}
         \\
         \\        pub fn elementAsStruct(self: @This(), index: usize) !cpz.StructReader {{
@@ -7121,8 +7203,16 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).validate();
         \\        }}
         \\
+        \\        pub fn elementStatsWithOptions(self: @This(), index: usize, options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\            return (try self.list.getPointerElement(index)).validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn elementTotalSize(self: @This(), index: usize) !cpz.MessageSize {{
         \\            return (try self.list.getPointerElement(index)).totalSize();
+        \\        }}
+        \\
+        \\        pub fn elementTotalSizeWithOptions(self: @This(), index: usize, options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\            return (try self.list.getPointerElement(index)).totalSizeWithOptions(options);
         \\        }}
         \\
         \\        pub fn elementAsStruct(self: @This(), index: usize) !cpz.StructBuilder {{
@@ -7413,11 +7503,25 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.builder.getPointerField({})).validate();
         \\        }}
         \\
+        \\        pub fn get_{s}StatsWithOptions(self: Builder, options: cpz.ReaderOptions) !cpz.MessageStats {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).validateWithOptions(options);
+        \\        }}
+        \\
         \\        pub fn get_{s}TotalSize(self: Builder) !cpz.MessageSize {{
     , .{ index, field_name });
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).totalSize();
+        \\        }}
+        \\
+        \\        pub fn get_{s}TotalSizeWithOptions(self: Builder, options: cpz.ReaderOptions) !cpz.MessageSize {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).totalSizeWithOptions(options);
         \\        }}
         \\
     , .{index});

@@ -172,10 +172,18 @@ pub const Orphan = struct {
         return self.asReader(&reader).getCapabilityIndex();
     }
 
-    pub fn validate(self: Orphan) Error!MessageStats {
+    pub fn validateWithOptions(self: Orphan, options: ReaderOptions) Error!MessageStats {
         if (self.raw == 0) return error.NullPointer;
-        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        var reader = MessageReader.init(try self.message.segmentsConst(), options);
         return self.asReader(&reader).validate();
+    }
+
+    pub fn validate(self: Orphan) Error!MessageStats {
+        return self.validateWithOptions(.{});
+    }
+
+    pub fn totalSizeWithOptions(self: Orphan, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 
     pub fn totalSize(self: Orphan) Error!MessageSize {
@@ -417,8 +425,16 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).decode();
     }
 
+    pub fn getRootPointerStatsWithOptions(self: *MessageBuilder, options: ReaderOptions) Error!MessageStats {
+        return (try self.getRootPointer()).validateWithOptions(options);
+    }
+
     pub fn getRootPointerStats(self: *MessageBuilder) Error!MessageStats {
-        return (try self.getRootPointer()).validate();
+        return self.getRootPointerStatsWithOptions(.{});
+    }
+
+    pub fn getRootPointerTotalSizeWithOptions(self: *MessageBuilder, options: ReaderOptions) Error!MessageSize {
+        return (try self.getRootPointerStatsWithOptions(options)).size();
     }
 
     pub fn getRootPointerTotalSize(self: *MessageBuilder) Error!MessageSize {
@@ -536,7 +552,11 @@ pub const MessageBuilder = struct {
     }
 
     pub fn totalSize(self: *MessageBuilder) Error!MessageSize {
-        const stats = try self.validate(.{});
+        return self.totalSizeWithOptions(.{});
+    }
+
+    pub fn totalSizeWithOptions(self: *MessageBuilder, options: ReaderOptions) Error!MessageSize {
+        const stats = try self.validate(options);
         return stats.size();
     }
 
@@ -871,14 +891,22 @@ pub const PointerBuilder = struct {
         }).decode();
     }
 
-    pub fn validate(self: PointerBuilder) Error!MessageStats {
-        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+    pub fn validateWithOptions(self: PointerBuilder, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(try self.message.segmentsConst(), options);
         return (PointerReader{
             .message = &reader,
             .segment_id = self.segment_id,
             .word_index = self.word_index,
             .nesting_left = reader.options.nesting_limit,
         }).validate();
+    }
+
+    pub fn validate(self: PointerBuilder) Error!MessageStats {
+        return self.validateWithOptions(.{});
+    }
+
+    pub fn totalSizeWithOptions(self: PointerBuilder, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 
     pub fn totalSize(self: PointerBuilder) Error!MessageSize {
@@ -1294,8 +1322,24 @@ pub const PointerReader = struct {
         return stats;
     }
 
+    pub fn validateWithOptions(self: PointerReader, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(self.message.segments, options);
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+            .null_override = self.null_override,
+            .raw_override = self.raw_override,
+        }).validate();
+    }
+
     pub fn totalSize(self: PointerReader) Error!MessageSize {
         return (try self.validate()).size();
+    }
+
+    pub fn totalSizeWithOptions(self: PointerReader, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 
     pub fn getStruct(self: PointerReader, default_value: ?StructReader) Error!StructReader {
@@ -1499,9 +1543,17 @@ pub const StructBuilder = struct {
         };
     }
 
-    pub fn validate(self: StructBuilder) Error!MessageStats {
-        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+    pub fn validateWithOptions(self: StructBuilder, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(try self.message.segmentsConst(), options);
         return self.asReader(&reader).validate();
+    }
+
+    pub fn validate(self: StructBuilder) Error!MessageStats {
+        return self.validateWithOptions(.{});
+    }
+
+    pub fn totalSizeWithOptions(self: StructBuilder, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 
     pub fn totalSize(self: StructBuilder) Error!MessageSize {
@@ -1841,8 +1893,25 @@ pub const StructReader = struct {
         return stats;
     }
 
+    pub fn validateWithOptions(self: StructReader, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(self.message.segments, options);
+        return (StructReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .data_start = self.data_start,
+            .pointer_start = self.pointer_start,
+            .data_words = self.data_words,
+            .pointer_count = self.pointer_count,
+            .nesting_left = reader.options.nesting_limit,
+        }).validate();
+    }
+
     pub fn totalSize(self: StructReader) Error!MessageSize {
         return (try self.validate()).size();
+    }
+
+    pub fn totalSizeWithOptions(self: StructReader, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 
     pub fn size(self: StructReader) wire.StructSize {
@@ -1924,9 +1993,17 @@ pub const ListBuilder = struct {
         };
     }
 
-    pub fn validate(self: ListBuilder) Error!MessageStats {
-        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+    pub fn validateWithOptions(self: ListBuilder, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(try self.message.segmentsConst(), options);
         return self.asReader(&reader).validate();
+    }
+
+    pub fn validate(self: ListBuilder) Error!MessageStats {
+        return self.validateWithOptions(.{});
+    }
+
+    pub fn totalSizeWithOptions(self: ListBuilder, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 
     pub fn totalSize(self: ListBuilder) Error!MessageSize {
@@ -2262,8 +2339,28 @@ pub const ListReader = struct {
         return stats;
     }
 
+    pub fn validateWithOptions(self: ListReader, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(self.message.segments, options);
+        return (ListReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .start = self.start,
+            .element_count = self.element_count,
+            .element_size = self.element_size,
+            .data_words = self.data_words,
+            .pointer_count = self.pointer_count,
+            .step_bits = self.step_bits,
+            .nesting_left = reader.options.nesting_limit,
+            .bit_offset = self.bit_offset,
+        }).validate();
+    }
+
     pub fn totalSize(self: ListReader) Error!MessageSize {
         return (try self.validate()).size();
+    }
+
+    pub fn totalSizeWithOptions(self: ListReader, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 };
 
