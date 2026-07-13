@@ -4395,6 +4395,18 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
+    try appendFmt(allocator, out,
+        \\    pub const @"cpz.field.{s}.ordinal": u32 = {};
+        \\
+    , .{ field_name, field.ordinal });
+    const type_name = try schemaTypeNameAlloc(allocator, field.ty);
+    defer allocator.free(type_name);
+    const type_literal = try zigStringLiteralAlloc(allocator, type_name);
+    defer allocator.free(type_literal);
+    try appendFmt(allocator, out,
+        \\    pub const @"cpz.field.{s}.type": []const u8 = {s};
+        \\
+    , .{ field_name, type_literal });
     if (field.default_expression.len != 0) {
         const default_expression_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
         defer allocator.free(default_expression_literal);
@@ -6672,6 +6684,40 @@ fn isZigKeyword(name: []const u8) bool {
 fn defaultScalarLiteral(field: *const Field) []const u8 {
     const literal = field.default_literal orelse return "0";
     return if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal;
+}
+
+fn schemaTypeNameAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError![]u8 {
+    return switch (ty) {
+        .void => allocator.dupe(u8, "Void"),
+        .bool => allocator.dupe(u8, "Bool"),
+        .int8 => allocator.dupe(u8, "Int8"),
+        .int16 => allocator.dupe(u8, "Int16"),
+        .int32 => allocator.dupe(u8, "Int32"),
+        .int64 => allocator.dupe(u8, "Int64"),
+        .uint8 => allocator.dupe(u8, "UInt8"),
+        .uint16 => allocator.dupe(u8, "UInt16"),
+        .uint32 => allocator.dupe(u8, "UInt32"),
+        .uint64 => allocator.dupe(u8, "UInt64"),
+        .float32 => allocator.dupe(u8, "Float32"),
+        .float64 => allocator.dupe(u8, "Float64"),
+        .text => allocator.dupe(u8, "Text"),
+        .data => allocator.dupe(u8, "Data"),
+        .any_pointer => allocator.dupe(u8, "AnyPointer"),
+        .any_struct => allocator.dupe(u8, "AnyStruct"),
+        .any_list => allocator.dupe(u8, "AnyList"),
+        .capability => allocator.dupe(u8, "Capability"),
+        .named => |name| allocator.dupe(u8, name),
+        .list => |child| {
+            const child_name = try schemaTypeNameAlloc(allocator, child.*);
+            defer allocator.free(child_name);
+            return std.fmt.allocPrint(allocator, "List({s})", .{child_name});
+        },
+        .optional => |child| {
+            const child_name = try schemaTypeNameAlloc(allocator, child.*);
+            defer allocator.free(child_name);
+            return std.fmt.allocPrint(allocator, "?{s}", .{child_name});
+        },
+    };
 }
 
 fn defaultFloatLiteral(field: *const Field, comptime zig_type: []const u8) []const u8 {

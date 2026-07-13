@@ -41,9 +41,14 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$labels([\"cool\", \"primary\"])", generated.@"cpz.enumerant.Color.blue.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.Person.@"cpz.annotations");
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.annotations");
+    try std.testing.expectEqual(@as(u32, 2), generated.Person.@"cpz.field.name.ordinal");
+    try std.testing.expectEqualStrings("Text", generated.Person.@"cpz.field.name.type");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");
+    try std.testing.expectEqual(@as(u32, 4), generated.Person.@"cpz.field.scores.ordinal");
+    try std.testing.expectEqualStrings("List(UInt32)", generated.Person.@"cpz.field.scores.type");
     try std.testing.expectEqualStrings("Color.green", generated.Person.@"cpz.field.favorite.default");
     try std.testing.expectEqualStrings("[1, 2, 3]", generated.Person.@"cpz.field.scores.default");
+    try std.testing.expectEqualStrings("?Text", generated.Person.@"cpz.field.maybeName.type");
 }
 
 test "generated simple constants compile" {
