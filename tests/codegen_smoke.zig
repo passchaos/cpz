@@ -1682,6 +1682,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.fields"[4].union_discriminant);
     try std.testing.expect(!generated.Choice.@"cpz.fields"[0].is_union_member);
     try std.testing.expect(generated.Choice.@"cpz.fields"[4].is_union_member);
+    try std.testing.expectEqualStrings("before", generated.Choice.@"cpz.fieldByUnionMember"(false).?.name);
+    try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.fieldByUnionMember"(true).?.name);
     try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.field.before.metadata".union_index);
     try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.field.before.unionIndex");
     try std.testing.expect(!generated.Choice.@"cpz.field.before.isUnionMember");
