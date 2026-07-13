@@ -83,6 +83,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("Names", generated.@"cpz.aliasByName"("Names").?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.aliasByName"("Names").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.@"cpz.aliasByName"("Missing"));
+    try std.testing.expectEqualStrings("Id", generated.@"cpz.aliasByTarget"("UInt32").?.name);
+    try std.testing.expectEqualStrings("Names", generated.@"cpz.aliasByResolvedTarget"("List(Text)").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.@"cpz.aliasByTarget"("Missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.@"cpz.aliasByResolvedTarget"("Missing"));
     try std.testing.expectEqualStrings("Names", generated.@"cpz.aliasByIndex"(2).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.@"cpz.aliasByIndex"(99));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].target);
@@ -1945,6 +1949,8 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliasByName"("LocalNames").?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.ScopedAliasBox.@"cpz.aliasByName"("LocalNames").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.ScopedAliasBox.@"cpz.aliasByName"("Missing"));
+    try std.testing.expectEqualStrings("LocalId", generated.ScopedAliasBox.@"cpz.aliasByTarget"("Id").?.name);
+    try std.testing.expectEqualStrings("LocalId", generated.ScopedAliasBox.@"cpz.aliasByResolvedTarget"("UInt32").?.name);
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliasByIndex"(2).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.ScopedAliasBox.@"cpz.aliasByIndex"(99));
     try std.testing.expectEqualStrings("Id", generated.ScopedAliasBox.@"cpz.aliases"[0].target);

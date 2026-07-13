@@ -4888,12 +4888,22 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.aliasByTarget"(@"cpz.target": []const u8) ?cpz.schema.AliasMetadata {{
+        \\{s}    for (@This().@"cpz.aliases") |@"cpz.alias"| if (std.mem.eql(u8, @"cpz.alias".target, @"cpz.target")) return @"cpz.alias";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.aliasByResolvedTarget"(@"cpz.target": []const u8) ?cpz.schema.AliasMetadata {{
+        \\{s}    for (@This().@"cpz.aliases") |@"cpz.alias"| if (std.mem.eql(u8, @"cpz.alias".resolved_target, @"cpz.target")) return @"cpz.alias";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.aliasByIndex"(@"cpz.index": usize) ?cpz.schema.AliasMetadata {{
         \\{s}    if (@"cpz.index" >= @This().@"cpz.aliases".len) return null;
         \\{s}    return @This().@"cpz.aliases"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (aliases.len != 0) try out.append(allocator, '\n');
 }
 
