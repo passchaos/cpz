@@ -4346,6 +4346,23 @@ fn appendDeclarationMetadataLiteral(
 }
 
 fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), imports: []const ImportDecl, indent: []const u8) LayoutError!void {
+    for (imports, 0..) |import_decl, index| {
+        const name_literal = try zigStringLiteralAlloc(allocator, import_decl.name);
+        defer allocator.free(name_literal);
+        const path_literal = try zigStringLiteralAlloc(allocator, import_decl.path);
+        defer allocator.free(path_literal);
+        const member_literal = try zigStringLiteralAlloc(allocator, import_decl.member orelse "");
+        defer allocator.free(member_literal);
+        const import_name = try zigIdentAlloc(allocator, import_decl.name);
+        defer allocator.free(import_name);
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.import.{s}.index": usize = {};
+            \\{s}pub const @"cpz.import.{s}.name": []const u8 = {s};
+            \\{s}pub const @"cpz.import.{s}.path": []const u8 = {s};
+            \\{s}pub const @"cpz.import.{s}.member": []const u8 = {s};
+            \\
+        , .{ indent, import_name, index, indent, import_name, name_literal, indent, import_name, path_literal, indent, import_name, member_literal });
+    }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.imports\": []const cpz.schema.ImportMetadata = &[_]cpz.schema.ImportMetadata{{", .{indent});
     for (imports, 0..) |import_decl, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
@@ -4353,10 +4370,10 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(name_literal);
         const path_literal = try zigStringLiteralAlloc(allocator, import_decl.path);
         defer allocator.free(path_literal);
+        const member_literal = try zigStringLiteralAlloc(allocator, import_decl.member orelse "");
+        defer allocator.free(member_literal);
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .path = {s}", .{ index, name_literal, path_literal });
-        if (import_decl.member) |member| {
-            const member_literal = try zigStringLiteralAlloc(allocator, member);
-            defer allocator.free(member_literal);
+        if (import_decl.member != null) {
             try appendFmt(allocator, out, ", .member = {s}", .{member_literal});
         }
         try out.appendSlice(allocator, " }");
