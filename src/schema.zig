@@ -6118,15 +6118,18 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
+    const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
+    defer allocator.free(field_name_literal);
     const field_index = fieldIndex(layout, field);
     const slot = fieldSlotMetadata(field_layout.slot);
     const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
     defer allocator.free(slot_literal);
     try appendFmt(allocator, out,
         \\    pub const @"cpz.field.{s}.index": usize = {};
+        \\    pub const @"cpz.field.{s}.name": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.ordinal": u32 = {};
         \\
-    , .{ field_name, field_index, field_name, field.ordinal });
+    , .{ field_name, field_index, field_name, field_name_literal, field_name, field.ordinal });
     const type_name = try schemaTypeNameAlloc(allocator, field.ty);
     defer allocator.free(type_name);
     const type_literal = try zigStringLiteralAlloc(allocator, type_name);
