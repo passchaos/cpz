@@ -290,6 +290,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(builder_root_size.word_count > 0);
     var builder_message_reader = try generated.Person.@"cpz.builderRoot.asMessageReader"(&builder, .{});
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.root.pointerKind"(&builder_message_reader)).?);
+    try std.testing.expectEqual(@as(usize, 64), generated.Person.@"cpz.builderRoot.firstSegmentWords"(&builder));
+    try std.testing.expectEqual(@as(usize, 1024), generated.Person.@"cpz.builderRoot.nextSegmentMinWords"(&builder));
     const builder_segments = try generated.Person.@"cpz.builderRoot.segments"(&builder);
     try std.testing.expect(builder_segments.len > 0);
     try std.testing.expectEqual(builder_segments.len, generated.Person.@"cpz.builderRoot.segmentCount"(&builder));

@@ -438,6 +438,14 @@ pub const MessageBuilder = struct {
         return MessageReader.init(try self.segmentsConst(), options);
     }
 
+    pub fn firstSegmentWords(self: *const MessageBuilder) usize {
+        return self.options.first_segment_words;
+    }
+
+    pub fn nextSegmentMinWords(self: *const MessageBuilder) usize {
+        return self.options.next_segment_min_words;
+    }
+
     pub fn segmentCount(self: *MessageBuilder) usize {
         return self.segments.items.len;
     }
