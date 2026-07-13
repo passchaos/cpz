@@ -9154,11 +9154,25 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}_canonicalFrom(self: Builder, new_value: cpz.PointerReader) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyFromCanonical(new_value);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: cpz.PointerBuilder) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyFromBuilder(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_canonicalFromBuilder(self: Builder, new_value: cpz.PointerBuilder) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyFromCanonicalBuilder(new_value);
                 \\        }}
                 \\
                 \\        pub fn set_{s}_text(self: Builder, new_value: []const u8) !void {{
@@ -9260,11 +9274,25 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}_canonicalFrom(self: Builder, new_value: cpz.StructReader) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyStructFromCanonical(new_value);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: cpz.StructBuilder) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyStructFromBuilder(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_canonicalFromBuilder(self: Builder, new_value: cpz.StructBuilder) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyStructFromCanonicalBuilder(new_value);
                 \\        }}
                 \\
                 \\        pub fn get_{s}PointerSection(self: Builder) !cpz.ListBuilder {{
@@ -9341,11 +9369,25 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}_canonicalFrom(self: Builder, new_value: cpz.ListReader) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyListFromCanonical(new_value);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: cpz.ListBuilder) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyListFromBuilder(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_canonicalFromBuilder(self: Builder, new_value: cpz.ListBuilder) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyListFromCanonicalBuilder(new_value);
                 \\        }}
                 \\
             , .{index});
@@ -10019,14 +10061,26 @@ test "schema code generator emits builtin any builder copy helpers" {
 
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_any_fromBuilder(self: Builder, new_value: cpz.PointerBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_any_canonicalFrom(self: Builder, new_value: cpz.PointerReader) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_any_canonicalFromBuilder(self: Builder, new_value: cpz.PointerBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromCanonicalBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_any_copyOrphanFromBuilder(self: Builder, new_value: cpz.PointerBuilder) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyStruct_fromBuilder(self: Builder, new_value: cpz.StructBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyStruct_canonicalFrom(self: Builder, new_value: cpz.StructReader) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyStruct_canonicalFromBuilder(self: Builder, new_value: cpz.StructBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromCanonicalBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_anyStruct_copyOrphanFromBuilder(self: Builder, new_value: cpz.StructBuilder) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyList_fromBuilder(self: Builder, new_value: cpz.ListBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyList_canonicalFrom(self: Builder, new_value: cpz.ListReader) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyList_canonicalFromBuilder(self: Builder, new_value: cpz.ListBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromCanonicalBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_anyList_copyOrphanFromBuilder(self: Builder, new_value: cpz.ListBuilder) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyListFromBuilder(new_value)") != null);
 }

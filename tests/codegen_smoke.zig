@@ -2533,6 +2533,64 @@ test "generated builtin any builders copy from builders" {
     try std.testing.expectEqual(@as(u16, 2222), any_list.getUInt16(1));
 }
 
+test "generated builtin any builders canonical-copy from readers and builders" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer source_builder.deinit();
+    const source_root = try source_builder.initRoot(.{ .data_words = 2, .pointer_count = 2 });
+    const source_struct_list = try (try source_root.getPointerField(1)).initStructList(1, .{ .data_words = 2, .pointer_count = 2 });
+    const source_struct_item = try source_struct_list.getStructElement(0);
+    try source_struct_item.setUInt32(0, 0x1111, 0);
+    try source_struct_item.setText(0, "canonical list");
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_root_reader = try source_reader.getRoot();
+    const source_list_reader = try source_root_reader.getPointerField(1).getList(.composite);
+
+    var wide_source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer wide_source_builder.deinit();
+    const wide_source_root = try wide_source_builder.initRoot(.{ .data_words = 2, .pointer_count = 2 });
+    try wide_source_root.setUInt32(0, 0x2468ace0, 0);
+    try wide_source_root.setText(0, "canonical any");
+    var wide_source_reader = cpz.MessageReader.init(try wide_source_builder.segmentsConst(), .{});
+    const wide_source_root_reader = try wide_source_reader.getRoot();
+    const wide_source_root_pointer = try wide_source_reader.getRootPointer();
+
+    var reader_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer reader_target.deinit();
+    const reader_box_builder = try generated.DynamicBox.initRootTyped(&reader_target);
+    try reader_box_builder.set_any_canonicalFrom(wide_source_root_pointer);
+    try reader_box_builder.set_anyStruct_canonicalFrom(wide_source_root_reader);
+    try reader_box_builder.set_anyList_canonicalFrom(source_list_reader);
+
+    var reader_target_reader = cpz.MessageReader.init(try reader_target.segmentsConst(), .{});
+    const reader_box = generated.DynamicBox.fromReader(try reader_target_reader.getRoot());
+    const any_pointer_struct = try (try reader_box.any()).getStruct(null);
+    try std.testing.expectEqual(@as(u16, 1), any_pointer_struct.pointer_count);
+    try std.testing.expectEqual(@as(u32, 0x2468ace0), any_pointer_struct.getUInt32(0, 0));
+    const any_struct = try reader_box.anyStruct();
+    try std.testing.expectEqual(@as(u16, 1), any_struct.pointer_count);
+    try std.testing.expectEqualSlices(u8, "canonical any", try any_struct.getPointerField(0).getText());
+    const any_list = try reader_box.anyList();
+    try std.testing.expectEqual(cpz.ElementSize.composite, any_list.elementSize());
+    try std.testing.expectEqual(@as(u16, 1), any_list.structElementSize().pointer_count);
+    try std.testing.expectEqualSlices(u8, "canonical list", try (try any_list.getStructElement(0)).getPointerField(0).getText());
+
+    var builder_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder_target.deinit();
+    const builder_box_builder = try generated.DynamicBox.initRootTyped(&builder_target);
+    try builder_box_builder.set_any_canonicalFromBuilder(try wide_source_builder.getRootPointer());
+    try builder_box_builder.set_anyStruct_canonicalFromBuilder(wide_source_root);
+    try builder_box_builder.set_anyList_canonicalFromBuilder(source_struct_list);
+
+    var builder_target_reader = cpz.MessageReader.init(try builder_target.segmentsConst(), .{});
+    const builder_box = generated.DynamicBox.fromReader(try builder_target_reader.getRoot());
+    const builder_any_pointer_struct = try (try builder_box.any()).getStruct(null);
+    try std.testing.expectEqual(@as(u16, 1), builder_any_pointer_struct.pointer_count);
+    const builder_any_struct = try builder_box.anyStruct();
+    try std.testing.expectEqual(@as(u16, 1), builder_any_struct.pointer_count);
+    const builder_any_list = try builder_box.anyList();
+    try std.testing.expectEqual(@as(u16, 1), builder_any_list.structElementSize().pointer_count);
+}
+
 test "generated using aliases resolve for layout and accessors" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();
