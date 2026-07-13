@@ -205,6 +205,7 @@ pub const DeclarationKind = enum {
 };
 
 pub const DeclarationMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     kind: DeclarationKind,
     id: ?u64 = null,
@@ -4256,22 +4257,22 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
     var count: usize = 0;
     for (file.structs) |decl| {
         if (count != 0) try out.appendSlice(allocator, ", ");
-        try appendDeclarationMetadataLiteral(allocator, out, decl.name, "struct_decl", decl.id, decl.annotations, decl.parameters);
+        try appendDeclarationMetadataLiteral(allocator, out, count, decl.name, "struct_decl", decl.id, decl.annotations, decl.parameters);
         count += 1;
     }
     for (file.enums) |decl| {
         if (count != 0) try out.appendSlice(allocator, ", ");
-        try appendDeclarationMetadataLiteral(allocator, out, decl.name, "enum_decl", decl.id, decl.annotations, &.{});
+        try appendDeclarationMetadataLiteral(allocator, out, count, decl.name, "enum_decl", decl.id, decl.annotations, &.{});
         count += 1;
     }
     for (file.interfaces) |decl| {
         if (count != 0) try out.appendSlice(allocator, ", ");
-        try appendDeclarationMetadataLiteral(allocator, out, decl.name, "interface_decl", decl.id, decl.annotations, decl.parameters);
+        try appendDeclarationMetadataLiteral(allocator, out, count, decl.name, "interface_decl", decl.id, decl.annotations, decl.parameters);
         count += 1;
     }
     for (file.annotations) |decl| {
         if (count != 0) try out.appendSlice(allocator, ", ");
-        try appendDeclarationMetadataLiteral(allocator, out, decl.name, "annotation_decl", decl.id, "", &.{});
+        try appendDeclarationMetadataLiteral(allocator, out, count, decl.name, "annotation_decl", decl.id, "", &.{});
         count += 1;
     }
     try out.appendSlice(allocator, "};\n");
@@ -4286,13 +4287,19 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+        \\{s}pub fn @"cpz.declarationByIndex"(@"cpz.index": usize) ?cpz.schema.DeclarationMetadata {{
+        \\{s}    if (@"cpz.index" >= @This().@"cpz.declarations".len) return null;
+        \\{s}    return @This().@"cpz.declarations"[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (count != 0) try out.append(allocator, '\n');
 }
 
 fn appendDeclarationMetadataLiteral(
     allocator: std.mem.Allocator,
     out: *std.ArrayList(u8),
+    index: usize,
     name: []const u8,
     kind: []const u8,
     id: ?u64,
@@ -4303,7 +4310,7 @@ fn appendDeclarationMetadataLiteral(
     defer allocator.free(name_literal);
     const annotations_literal = try zigStringLiteralAlloc(allocator, annotations);
     defer allocator.free(annotations_literal);
-    try appendFmt(allocator, out, ".{{ .name = {s}, .kind = .{s}", .{ name_literal, kind });
+    try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .kind = .{s}", .{ index, name_literal, kind });
     if (id) |value| try appendFmt(allocator, out, ", .id = 0x{x}", .{value});
     if (annotations.len != 0) try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
     if (parameters.len != 0) {
