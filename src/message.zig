@@ -3041,6 +3041,25 @@ pub const ListBuilder = struct {
         }
     }
 
+    pub fn copyElementFromCanonical(self: ListBuilder, index: usize, source: ListReader, source_index: usize) Error!void {
+        if (index >= self.element_count or source_index >= source.element_count) return error.PointerOutOfBounds;
+        if (self.element_size != source.element_size) return error.IncompatibleListShape;
+        switch (self.element_size) {
+            .void => {},
+            .bit => try self.setBool(index, source.getBool(source_index)),
+            .byte => try self.setUInt8(index, source.getUInt8(source_index)),
+            .two_bytes => try self.setUInt16(index, source.getUInt16(source_index)),
+            .four_bytes => try self.setUInt32(index, source.getUInt32(source_index)),
+            .eight_bytes => try self.setUInt64(index, source.getUInt64(source_index)),
+            .pointer => try (try self.getPointerElement(index)).copyFromCanonical(try source.getPointerElement(source_index)),
+            .composite => {
+                const dst = try self.getStructElement(index);
+                const src = try source.getStructElement(source_index);
+                try dst.copyFromReader(src);
+            },
+        }
+    }
+
     pub fn copyElementsFrom(self: ListBuilder, index: usize, source: ListReader, source_index: usize, count: usize) Error!void {
         if (index > self.element_count or self.element_count - index < count) return error.PointerOutOfBounds;
         if (source_index > source.element_count or source.element_count - source_index < count) return error.PointerOutOfBounds;
@@ -3063,9 +3082,29 @@ pub const ListBuilder = struct {
         }
     }
 
+    pub fn copyElementsFromCanonical(self: ListBuilder, index: usize, source: ListReader, source_index: usize, count: usize) Error!void {
+        if (index > self.element_count or self.element_count - index < count) return error.PointerOutOfBounds;
+        if (source_index > source.element_count or source.element_count - source_index < count) return error.PointerOutOfBounds;
+        if (self.element_size != source.element_size) return error.IncompatibleListShape;
+        switch (self.element_size) {
+            .byte, .two_bytes, .four_bytes, .eight_bytes => {
+                return self.copyElementsFrom(index, source, source_index, count);
+            },
+            else => {},
+        }
+        for (0..count) |offset| {
+            try self.copyElementFromCanonical(index + offset, source, source_index + offset);
+        }
+    }
+
     pub fn copyElementFromBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize) Error!void {
         var reader = MessageReader.init(try source.message.segmentsConst(), .{});
         return self.copyElementFrom(index, source.asReader(&reader), source_index);
+    }
+
+    pub fn copyElementFromCanonicalBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyElementFromCanonical(index, source.asReader(&reader), source_index);
     }
 
     pub fn copyElementsFromBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize, count: usize) Error!void {
@@ -3087,6 +3126,20 @@ pub const ListBuilder = struct {
         }
         var reader = MessageReader.init(try source.message.segmentsConst(), .{});
         return self.copyElementsFrom(index, source.asReader(&reader), source_index, count);
+    }
+
+    pub fn copyElementsFromCanonicalBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize, count: usize) Error!void {
+        if (index > self.element_count or self.element_count - index < count) return error.PointerOutOfBounds;
+        if (source_index > source.element_count or source.element_count - source_index < count) return error.PointerOutOfBounds;
+        if (self.element_size != source.element_size) return error.IncompatibleListShape;
+        switch (self.element_size) {
+            .byte, .two_bytes, .four_bytes, .eight_bytes => {
+                return self.copyElementsFromBuilder(index, source, source_index, count);
+            },
+            else => {},
+        }
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyElementsFromCanonical(index, source.asReader(&reader), source_index, count);
     }
 
     fn setPrimitive(self: ListBuilder, comptime T: type, index: usize, value: T) Error!void {
