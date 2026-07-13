@@ -4661,12 +4661,17 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.declarationByParameter"(@"cpz.parameter": []const u8) ?cpz.schema.DeclarationMetadata {{
+        \\{s}    for (@This().@"cpz.declarations") |@"cpz.decl"| for (@"cpz.decl".parameters) |@"cpz.declParam"| if (std.mem.eql(u8, @"cpz.declParam", @"cpz.parameter")) return @"cpz.decl";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.declarationByIndex"(@"cpz.index": usize) ?cpz.schema.DeclarationMetadata {{
         \\{s}    if (@"cpz.index" >= @This().@"cpz.declarations".len) return null;
         \\{s}    return @This().@"cpz.declarations"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (count != 0) try out.append(allocator, '\n');
 }
 
