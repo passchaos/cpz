@@ -137,6 +137,9 @@ struct NestedBox {
     ready @1;
   }
 
+  annotation itemNote(field) :Item;
+  annotation statusLabels(enumerant) :List(Status);
+
   item @0 :Item;
   items @1 :List(Item);
   status @2 :Status = ready;

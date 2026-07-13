@@ -1083,6 +1083,15 @@ pub const Parser = struct {
                 keep = true;
                 continue;
             }
+            if (self.eatKeyword("annotation")) {
+                var decl = try self.parseAnnotationDeclaration(qualified.name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(&aliases, &member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedAnnotation(decl);
+                keep = true;
+                continue;
+            }
             if (try self.isNamedAggregateStart()) {
                 try self.parseNamedAggregate(&fields, &field_names, &unions);
                 continue;
@@ -1102,7 +1111,7 @@ pub const Parser = struct {
                 try self.parseUsingOrSkip(&aliases, self.parsed_imports, &member_names);
                 continue;
             }
-            if (self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            if (self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
@@ -2843,7 +2852,8 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {
     const annotation_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(annotation_name);
-    const zig_type = try annotationTypeNameAlloc(allocator, file, decl.ty);
+    const scope = annotationScope(file, decl.name);
+    const zig_type = try annotationTypeNameAlloc(allocator, file, scope, decl.ty);
     defer allocator.free(zig_type);
     try appendFmt(allocator, out,
         \\pub const {s} = struct {{
@@ -2891,8 +2901,13 @@ fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
     });
 }
 
-fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, ty: Type) LayoutError![]u8 {
-    return switch (resolveType(file, ty)) {
+fn annotationScope(file: *const File, annotation_name: []const u8) ?*const Struct {
+    const dot = lastTopLevelDot(annotation_name) orelse return null;
+    return findStructDirect(file, annotation_name[0..dot]);
+}
+
+fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError![]u8 {
+    return switch (resolveTypeScoped(file, scope, ty)) {
         .void => allocator.dupe(u8, "void"),
         .bool => allocator.dupe(u8, "bool"),
         .int8 => allocator.dupe(u8, "i8"),
@@ -2910,13 +2925,18 @@ fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, ty: 
         .any_struct => allocator.dupe(u8, "cpz.StructReader"),
         .any_list => allocator.dupe(u8, "cpz.ListReader"),
         .capability => allocator.dupe(u8, "u32"),
-        .named => |type_name| zigTypeRefAlloc(allocator, file, type_name),
+        .named => |type_name| {
+            if (findEnum(file, type_name) != null or findInterface(file, type_name) != null or isStructLikeName(file, type_name)) {
+                return zigTypeRefAlloc(allocator, file, type_name);
+            }
+            return allocator.dupe(u8, "cpz.PointerReader");
+        },
         .list => |child| {
-            const child_type = try annotationTypeNameAlloc(allocator, file, child.*);
+            const child_type = try annotationTypeNameAlloc(allocator, file, scope, child.*);
             defer allocator.free(child_type);
             return std.fmt.allocPrint(allocator, "[]const {s}", .{child_type});
         },
-        .optional => |child| annotationTypeNameAlloc(allocator, file, child.*),
+        .optional => |child| annotationTypeNameAlloc(allocator, file, scope, child.*),
     };
 }
 

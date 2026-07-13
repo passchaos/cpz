@@ -27,6 +27,11 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expect(generated.marker.targets.method);
     try std.testing.expect(generated.labels.Type == []const []const u8);
     try std.testing.expect(generated.labels.targets.enumerant);
+    try std.testing.expect(generated.NestedBox_itemNote.@"cpz.annotation");
+    try std.testing.expect(generated.NestedBox_itemNote.Type == generated.NestedBox_Item);
+    try std.testing.expect(generated.NestedBox_itemNote.targets.field);
+    try std.testing.expect(generated.NestedBox_statusLabels.Type == []const generated.NestedBox_Status);
+    try std.testing.expect(generated.NestedBox_statusLabels.targets.enumerant);
 }
 
 test "generated simple constants compile" {
