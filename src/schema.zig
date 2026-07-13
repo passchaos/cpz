@@ -159,11 +159,14 @@ pub const InterfaceDecl = struct {
     id: ?u64 = null,
     methods: []InterfaceMethod = &.{},
     superclasses: []Type = &.{},
+    aliases: []AliasDecl = &.{},
 
     pub fn deinit(self: *InterfaceDecl, allocator: std.mem.Allocator) void {
         allocator.free(self.methods);
         for (self.superclasses) |*superclass| superclass.deinit(allocator);
         allocator.free(self.superclasses);
+        for (self.aliases) |*a| a.deinit(allocator);
+        allocator.free(self.aliases);
         if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
@@ -543,9 +546,24 @@ pub const Parser = struct {
             for (superclasses) |*superclass| superclass.deinit(self.allocator);
             self.allocator.free(superclasses);
         }
-        const methods = try self.parseInterfaceBody();
+        var aliases = std.ArrayList(AliasDecl).empty;
+        errdefer {
+            for (aliases.items) |*a| a.deinit(self.allocator);
+            aliases.deinit(self.allocator);
+        }
+        var member_names = std.StringHashMap(void).init(self.allocator);
+        defer member_names.deinit();
+
+        const methods = try self.parseInterfaceBody(qualified.name, &aliases, &member_names);
         errdefer self.allocator.free(methods);
-        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .methods = methods, .superclasses = superclasses };
+        return .{
+            .name = qualified.name,
+            .owns_name = qualified.owns_name,
+            .id = decl_id,
+            .methods = methods,
+            .superclasses = superclasses,
+            .aliases = try aliases.toOwnedSlice(self.allocator),
+        };
     }
 
     fn parseAnnotationDeclaration(self: *Parser, name_prefix: ?[]const u8) Error!AnnotationDecl {
@@ -627,7 +645,7 @@ pub const Parser = struct {
         return superclasses.toOwnedSlice(self.allocator);
     }
 
-    fn parseInterfaceBody(self: *Parser) Error![]InterfaceMethod {
+    fn parseInterfaceBody(self: *Parser, interface_name: []const u8, aliases: *std.ArrayList(AliasDecl), member_names: *std.StringHashMap(void)) Error![]InterfaceMethod {
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
@@ -640,12 +658,55 @@ pub const Parser = struct {
 
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            if (self.isKeyword("struct") and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                var decl = try self.parseStruct(interface_name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(aliases, member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedStruct(decl);
+                keep = true;
+                continue;
+            }
+            if (self.isKeyword("enum") and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                var decl = try self.parseEnum(interface_name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(aliases, member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedEnum(decl);
+                keep = true;
+                continue;
+            }
+            if (self.isKeyword("interface") and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                var decl = try self.parseInterfaceDeclaration(interface_name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(aliases, member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedInterface(decl);
+                keep = true;
+                continue;
+            }
+            if (self.eatKeyword("annotation")) {
+                var decl = try self.parseAnnotationDeclaration(interface_name);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.addLocalTypeAlias(aliases, member_names, anonymousAliasName(.{ .named = decl.name }).?, decl.name);
+                try self.appendParsedAnnotation(decl);
+                keep = true;
+                continue;
+            }
             if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
                 try self.advance();
                 try self.skipBracedDeclaration();
                 continue;
             }
-            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            if (self.eatKeyword("using")) {
+                try self.parseUsingOrSkip(aliases, self.parsed_imports, member_names);
+                continue;
+            }
+            if (self.eatKeyword("const") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
@@ -658,6 +719,8 @@ pub const Parser = struct {
             const ordinal_u64 = try self.expectInteger();
             if (ordinal_u64 > std.math.maxInt(u16)) return error.InvalidOrdinal;
             const ordinal: u16 = @intCast(ordinal_u64);
+            const member_entry = try member_names.getOrPut(name);
+            if (member_entry.found_existing) return error.NameCollision;
             const name_entry = try method_names.getOrPut(name);
             if (name_entry.found_existing) return error.NameCollision;
             const ordinal_entry = try occupied_ordinals.getOrPut(ordinal);
@@ -2769,6 +2832,14 @@ fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, decl: *const In
         for (decl.methods[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (decl.aliases) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+    for (decl.aliases, 0..) |lhs, i| {
+        for (decl.aliases[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
 }
 
@@ -2833,6 +2904,17 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             },
             else => return error.UnsupportedType,
         }
+    }
+    var empty_fields: [0]Field = .{};
+    var empty_consts: [0]ConstDecl = .{};
+    var alias_scope = Struct{
+        .name = decl.name,
+        .fields = empty_fields[0..],
+        .consts = empty_consts[0..],
+        .aliases = decl.aliases,
+    };
+    for (decl.aliases) |*alias| {
+        try emitAlias(allocator, out, file, &alias_scope, alias, "    ");
     }
     for (decl.methods) |method| {
         const method_name = try zigIdentAlloc(allocator, method.name);

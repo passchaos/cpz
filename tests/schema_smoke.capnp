@@ -118,6 +118,16 @@ interface Service {
 }
 
 interface ExtendedService @0xe57e0001 extends(Service) {
+  struct Details {
+    message @0 :Text;
+  }
+
+  interface Callback {
+    done @0 (details :Details) -> ();
+  }
+
+  using DetailsAlias = Details;
+
   pong @0 () -> ();
 }
 
