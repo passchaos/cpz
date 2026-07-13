@@ -231,6 +231,10 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByName"("name").?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByName"("name").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByName"("missing"));
+    try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByType"("UInt32").?.name);
+    try std.testing.expectEqualStrings("children", generated.Person.@"cpz.fieldByResolvedType"("List(Person)").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByType"("Missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByResolvedType"("Missing"));
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByOrdinal"(2).?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByOrdinal"(2).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByOrdinal"(999));
@@ -1942,6 +1946,8 @@ test "generated using aliases resolve for layout and accessors" {
     try std.testing.expectEqualStrings("List(CapAlias)", generated.AliasBox.@"cpz.field.caps.type");
     try std.testing.expectEqualStrings("List(Capability)", generated.AliasBox.@"cpz.field.caps.resolvedType");
     try std.testing.expectEqualStrings("UInt32", generated.AliasBox.@"cpz.fieldByName"("id").?.resolved_ty);
+    try std.testing.expectEqualStrings("id", generated.AliasBox.@"cpz.fieldByType"("Id").?.name);
+    try std.testing.expectEqualStrings("id", generated.AliasBox.@"cpz.fieldByResolvedType"("UInt32").?.name);
     try std.testing.expectEqual(@as(u32, 123), box.id());
     try std.testing.expectEqual(generated.Color.green, try box.shade());
     const read_names = try box.names();
