@@ -1289,7 +1289,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.Service.call);
     try std.testing.expectEqualStrings("() -> ()", generated.Service.@"cpz.method.call.signature");
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
-    try std.testing.expectEqualStrings("(request :Text) -> (response :Text)", generated.Service.@"cpz.method.ping.signature");
+    try std.testing.expectEqualStrings("[Req, Resp] (request :Req) -> (response :Resp)", generated.Service.@"cpz.method.ping.signature");
+    try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.method.ping.parameters");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);

@@ -156,6 +156,7 @@ pub const InterfaceMethod = struct {
     name: []const u8,
     ordinal: u16,
     signature: []const u8 = "",
+    parameters: []const []const u8 = &.{},
 };
 
 pub const InterfaceDecl = struct {
@@ -169,6 +170,7 @@ pub const InterfaceDecl = struct {
     aliases: []AliasDecl = &.{},
 
     pub fn deinit(self: *InterfaceDecl, allocator: std.mem.Allocator) void {
+        for (self.methods) |method| allocator.free(method.parameters);
         allocator.free(self.methods);
         for (self.superclasses) |*superclass| superclass.deinit(allocator);
         allocator.free(self.superclasses);
@@ -692,7 +694,10 @@ pub const Parser = struct {
         try self.expect(.l_brace);
 
         var methods = std.ArrayList(InterfaceMethod).empty;
-        errdefer methods.deinit(self.allocator);
+        errdefer {
+            for (methods.items) |method| self.allocator.free(method.parameters);
+            methods.deinit(self.allocator);
+        }
         var method_names = std.StringHashMap(void).init(self.allocator);
         defer method_names.deinit();
         var occupied_ordinals = std.AutoHashMap(u16, void).init(self.allocator);
@@ -772,10 +777,49 @@ pub const Parser = struct {
             const ordinal_entry = try occupied_ordinals.getOrPut(ordinal);
             if (ordinal_entry.found_existing) return error.OrdinalCollision;
             const signature = try self.takeRawUntilSemicolon();
-            try methods.append(self.allocator, .{ .name = name, .ordinal = ordinal, .signature = signature });
+            const parameters = try self.parseMethodSignatureParameters(signature);
+            var keep_parameters = false;
+            errdefer if (!keep_parameters) self.allocator.free(parameters);
+            try methods.append(self.allocator, .{ .name = name, .ordinal = ordinal, .signature = signature, .parameters = parameters });
+            keep_parameters = true;
         }
         try self.expect(.r_brace);
         return methods.toOwnedSlice(self.allocator);
+    }
+
+    fn parseMethodSignatureParameters(self: *Parser, signature: []const u8) Error![]const []const u8 {
+        if (signature.len == 0 or signature[0] != '[') return try self.allocator.alloc([]const u8, 0);
+        var parameters = std.ArrayList([]const u8).empty;
+        errdefer parameters.deinit(self.allocator);
+        var names = std.StringHashMap(void).init(self.allocator);
+        defer names.deinit();
+
+        var index: usize = 1;
+        while (true) {
+            while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+            if (index >= signature.len) return error.UnexpectedToken;
+            if (signature[index] == ']') {
+                return parameters.toOwnedSlice(self.allocator);
+            }
+            if (!isIdentStart(signature[index])) return error.UnexpectedToken;
+            const start = index;
+            index += 1;
+            while (index < signature.len and isIdentContinue(signature[index])) index += 1;
+            const name = signature[start..index];
+            const entry = try names.getOrPut(name);
+            if (entry.found_existing) return error.NameCollision;
+            try parameters.append(self.allocator, name);
+            while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+            if (index >= signature.len) return error.UnexpectedToken;
+            if (signature[index] == ',') {
+                index += 1;
+                continue;
+            }
+            if (signature[index] == ']') {
+                return parameters.toOwnedSlice(self.allocator);
+            }
+            return error.UnexpectedToken;
+        }
     }
 
     fn qualifiedDeclName(self: *Parser, prefix: ?[]const u8, local_name: []const u8) std.mem.Allocator.Error!QualifiedName {
@@ -3133,6 +3177,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.signature": []const u8 = {s};
             \\
         , .{ method_name, signature_literal });
+        try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
     }
     try appendFmt(allocator, out,
         \\}};
@@ -3142,17 +3187,27 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
 }
 
 fn emitParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8, indent: []const u8) LayoutError!void {
-    try appendFmt(allocator, out,
-        \\{s}pub const @"cpz.parameters": []const []const u8 = &[_][]const u8{{
-    , .{indent});
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.parameters\": []const []const u8 = ", .{indent});
+    try appendParameterListLiteral(allocator, out, parameters);
+    try out.appendSlice(allocator, ";\n");
+    if (parameters.len != 0) try out.append(allocator, '\n');
+}
+
+fn appendParameterListLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8) LayoutError!void {
+    try out.appendSlice(allocator, "&[_][]const u8{");
     for (parameters, 0..) |parameter, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
         const literal = try zigStringLiteralAlloc(allocator, parameter);
         defer allocator.free(literal);
         try out.appendSlice(allocator, literal);
     }
-    try out.appendSlice(allocator, "};\n");
-    if (parameters.len != 0) try out.append(allocator, '\n');
+    try out.appendSlice(allocator, "}");
+}
+
+fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.parameters\": []const []const u8 = ", .{ indent, method_name });
+    try appendParameterListLiteral(allocator, out, parameters);
+    try out.appendSlice(allocator, ";\n");
 }
 
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {

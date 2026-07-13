@@ -118,7 +118,7 @@ struct ScopedAliasBox {
 
 interface Service {
   call @0 () -> ();
-  ping @1 (request :Text) -> (response :Text);
+  ping @1 [Req, Resp] (request :Req) -> (response :Resp);
 }
 
 interface ExtendedService @0xe57e0001(Req, Resp) extends(Service) {
