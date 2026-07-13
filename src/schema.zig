@@ -3873,13 +3873,18 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     try emitConstMetadataTable(allocator, out, decl.consts, "    ");
     try emitScopedAnnotationMetadataTable(allocator, out, file, decl.name, "    ");
     try appendInterfaceMethodTable(allocator, out, decl.methods, "    ");
-    for (decl.methods) |method| {
+    for (decl.methods, 0..) |method, method_index| {
         const method_name = try zigIdentAlloc(allocator, method.name);
         defer allocator.free(method_name);
+        const method_name_literal = try zigStringLiteralAlloc(allocator, method.name);
+        defer allocator.free(method_name_literal);
         try appendFmt(allocator, out,
             \\    pub const {s}: u16 = {};
+            \\    pub const @"cpz.method.{s}.index": usize = {};
+            \\    pub const @"cpz.method.{s}.name": []const u8 = {s};
+            \\    pub const @"cpz.method.{s}.ordinal": u16 = {};
             \\
-        , .{ method_name, method.ordinal });
+        , .{ method_name, method.ordinal, method_name, method_index, method_name, method_name_literal, method_name, method.ordinal });
         const signature_literal = try zigStringLiteralAlloc(allocator, method.signature);
         defer allocator.free(signature_literal);
         try appendFmt(allocator, out,
