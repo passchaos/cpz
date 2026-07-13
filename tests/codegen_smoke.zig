@@ -1913,6 +1913,7 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
 
 test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.Service.call);
+    try std.testing.expectEqual(@as(usize, 4), generated.Service.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 4), generated.Service.@"cpz.methods".len);
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methods"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.methods"[0].index);
@@ -1996,6 +1997,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resultsType");
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.params.fields".len);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fields".len);
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.methodCount");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.parameter.Req.index");

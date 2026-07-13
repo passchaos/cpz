@@ -3980,6 +3980,10 @@ fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.Array
 }
 
 fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), methods: []const InterfaceMethod, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.methodCount": usize = {};
+        \\
+    , .{ indent, methods.len });
     try appendFmt(allocator, out, "{s}pub const @\"cpz.methods\": []const cpz.schema.InterfaceMethodMetadata = &[_]cpz.schema.InterfaceMethodMetadata{{", .{indent});
     for (methods, 0..) |method, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
