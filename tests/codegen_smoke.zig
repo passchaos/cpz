@@ -112,6 +112,7 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.annotations");
     try std.testing.expectEqual(@as(usize, 21), generated.Person.@"cpz.fields".len);
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fields"[0].name);
+    try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[0].index);
     try std.testing.expectEqual(@as(u32, 0), generated.Person.@"cpz.fields"[0].ordinal);
     try std.testing.expectEqualStrings("UInt32", generated.Person.@"cpz.fields"[0].ty);
     try std.testing.expectEqualStrings("data_byte", generated.Person.@"cpz.fields"[0].slot);
@@ -119,9 +120,13 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("42", generated.Person.@"cpz.fields"[0].default);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fields"[2].name);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByName"("name").?.name);
+    try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByName"("name").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByName"("missing"));
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByOrdinal"(2).?.name);
+    try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByOrdinal"(2).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByOrdinal"(999));
+    try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByIndex"(2).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByIndex"(999));
     try std.testing.expectEqualStrings("pointer", generated.Person.@"cpz.fields"[2].slot);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[2].offset);
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.fields"[2].annotations);

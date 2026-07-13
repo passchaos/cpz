@@ -175,6 +175,7 @@ pub const EnumValueMetadata = struct {
 };
 
 pub const FieldMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     ordinal: u32,
     ty: []const u8,
@@ -4784,7 +4785,7 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         const slot = fieldSlotMetadata(field_layout.slot);
         const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
         defer allocator.free(slot_literal);
-        try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {}, .ty = {s}, .slot = {s}, .offset = {}", .{ field_name, field.ordinal, type_literal, slot_literal, slot.offset });
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .ty = {s}, .slot = {s}, .offset = {}", .{ index, field_name, field.ordinal, type_literal, slot_literal, slot.offset });
         if (field.default_expression.len != 0) {
             try appendFmt(allocator, out, ", .default = {s}", .{default_literal});
         }
@@ -4806,6 +4807,11 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\    pub fn @"cpz.fieldByOrdinal"(@"cpz.ordinal": u32) ?cpz.schema.FieldMetadata {
         \\        for (@"cpz.fields") |@"cpz.field"| if (@"cpz.field".ordinal == @"cpz.ordinal") return @"cpz.field";
         \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.fieldByIndex"(@"cpz.index": usize) ?cpz.schema.FieldMetadata {
+        \\        if (@"cpz.index" >= @"cpz.fields".len) return null;
+        \\        return @"cpz.fields"[@"cpz.index"];
         \\    }
         \\
     );
