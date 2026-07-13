@@ -78,6 +78,7 @@ pub const segmentTableByteLen = serialize.segmentTableByteLen;
 pub const writeSegmentTable = serialize.writeSegmentTable;
 pub const serializeSegmentTable = serialize.serializeSegmentTable;
 pub const messageToFlatBytes = serialize.messageToFlatBytes;
+pub const messageToFlatBytesInto = serialize.messageToFlatBytesInto;
 pub const writeMessageToWriter = serialize.writeMessageToWriter;
 pub const messageToPackedBytes = serialize.messageToPackedBytes;
 pub const writePackedMessageToWriter = serialize.writePackedMessageToWriter;
@@ -109,6 +110,9 @@ test "top-level stream framing helpers round-trip" {
     try testing.expectEqual(flat.len / wire.bytes_per_word, try computeSerializedSizeInWords(segments));
     try testing.expectEqual(flat.len, try expectedSize(flat[0..wire.bytes_per_word]));
     try testing.expectEqual(flat.len / wire.bytes_per_word, try expectedSizeInWordsFromPrefix(flat[0..wire.bytes_per_word]));
+    var flat_into_buffer: [128]u8 = undefined;
+    const flat_into_len = try messageToFlatBytesInto(&flat_into_buffer, segments);
+    try testing.expectEqualSlices(u8, flat, flat_into_buffer[0..flat_into_len]);
 
     var parsed = try readFlatMessage(testing.allocator, flat);
     defer parsed.deinit(testing.allocator);

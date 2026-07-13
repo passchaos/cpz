@@ -14,6 +14,7 @@ pub const Error = error{
     MessageTruncated,
     SegmentTableTruncated,
     SegmentTableOverflow,
+    SerializedOutputTooSmall,
     SerializedSizeOverflow,
     MessageNotWordAligned,
 } || packing.Error || std.mem.Allocator.Error;
@@ -122,13 +123,24 @@ pub fn messageToFlatBytes(allocator: std.mem.Allocator, segments: []const ConstS
     const out = try allocator.alloc(u8, total_len);
     errdefer allocator.free(out);
 
-    const table_len = try writeSegmentTable(out, segments);
+    _ = try messageToFlatBytesInto(out, segments);
+    return out;
+}
+
+/// Serialize segments into a caller-provided buffer using Cap'n Proto's
+/// standard stream framing. Returns the number of bytes written. This avoids
+/// allocating a complete flat message buffer on hot paths.
+pub fn messageToFlatBytesInto(dest: []u8, segments: []const ConstSegment) Error!usize {
+    const total_len = try computeSerializedSize(segments);
+    if (dest.len < total_len) return error.SerializedOutputTooSmall;
+
+    const table_len = try writeSegmentTable(dest[0..total_len], segments);
     var off = table_len;
     for (segments) |segment| {
-        @memcpy(out[off .. off + segment.len], segment);
+        @memcpy(dest[off .. off + segment.len], segment);
         off += segment.len;
     }
-    return out;
+    return total_len;
 }
 
 /// Write standard stream framing directly to an Io writer without first
@@ -440,6 +452,11 @@ test "standard stream framing serializes single segment" {
     try testing.expectEqual(@as(usize, 24), bytes.len);
     try testing.expectEqualSlices(u8, &[_]u8{ 0, 0, 0, 0, 2, 0, 0, 0 }, bytes[0..8]);
     try testing.expectEqualSlices(u8, &segment, bytes[8..]);
+    var stack_bytes: [24]u8 = undefined;
+    try testing.expectEqual(bytes.len, try messageToFlatBytesInto(&stack_bytes, &segments));
+    try testing.expectEqualSlices(u8, bytes, &stack_bytes);
+    var short_stack: [23]u8 = undefined;
+    try testing.expectError(error.SerializedOutputTooSmall, messageToFlatBytesInto(&short_stack, &segments));
 
     var flat = try readFlatMessage(allocator, combined);
     defer flat.deinit(allocator);
