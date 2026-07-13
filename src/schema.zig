@@ -6852,16 +6852,33 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Builder.fromBuilder(try @"cpz.builder".copyRootFrom(@"cpz.source"));
         \\    }}
         \\
+        \\    pub fn @"cpz.root.copyFromBuilder"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": Builder) !Builder {{
+        \\        return Builder.fromBuilder(try @"cpz.builder".copyRootFromBuilder(@"cpz.source".builder));
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.copyPointerFrom"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": cpz.PointerReader) !cpz.PointerBuilder {{
         \\        return @"cpz.builder".copyRootPointerFrom(@"cpz.source");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.copyPointerFromBuilder"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": cpz.PointerBuilder) !cpz.PointerBuilder {{
+        \\        return @"cpz.builder".copyRootPointerFromBuilder(@"cpz.source");
         \\    }}
         \\
         \\    pub fn @"cpz.root.copyTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !cpz.PointerBuilder {{
         \\        return @"cpz.source".copyRootTo(@"cpz.target");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.copyToBuilder"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !cpz.PointerBuilder {{
+        \\        return @"cpz.source".copyRootToBuilder(@"cpz.target");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.copyTypedTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !Builder {{
         \\        _ = try @"cpz.source".copyRootTo(@"cpz.target");
+        \\        return getRootTyped(@"cpz.target");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.copyTypedToBuilder"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !Builder {{
+        \\        _ = try @"cpz.source".copyRootToBuilder(@"cpz.target");
         \\        return getRootTyped(@"cpz.target");
         \\    }}
         \\
@@ -9905,6 +9922,13 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_friend_copyOrphanFromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !@\"cpz.schema\".Person.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructFromBuilder(new_value.builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyFromBuilder(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Builder) !Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyFromBuilder\"(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.source\": Builder) !Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyRootFromBuilder(@\"cpz.source\".builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyPointerFromBuilder\"(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.source\": cpz.PointerBuilder) !cpz.PointerBuilder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyRootPointerFromBuilder(@\"cpz.source\")") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyToBuilder\"(@\"cpz.source\": *cpz.MessageBuilder, @\"cpz.target\": *cpz.MessageBuilder) !cpz.PointerBuilder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyRootToBuilder(@\"cpz.target\")") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyTypedToBuilder\"(@\"cpz.source\": *cpz.MessageBuilder, @\"cpz.target\": *cpz.MessageBuilder) !Builder") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn copyFromBuilder(self: Builder, @\"cpz.value\": Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.copyFromBuilder(@\"cpz.value\".builder);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);

@@ -1151,6 +1151,19 @@ test "generated root move and copy helpers work" {
     const ptr_copied_person = try generated.Person.getRoot(&ptr_copy_reader);
     try std.testing.expectEqual(@as(u32, 2024), ptr_copied_person.id());
 
+    var builder_source_copy = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_source_copy.deinit();
+    const builder_source_copied = try generated.Person.@"cpz.root.copyFromBuilder"(&builder_source_copy, source_person);
+    try std.testing.expectEqual(@as(u32, 2024), try builder_source_copied.get_id());
+    try std.testing.expectEqualSlices(u8, "root helper", try builder_source_copied.get_name());
+
+    var builder_pointer_copy = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_pointer_copy.deinit();
+    _ = try generated.Person.@"cpz.root.copyPointerFromBuilder"(&builder_pointer_copy, try source_builder.getRootPointer());
+    var builder_pointer_copy_reader = cpz.MessageReader.init(try builder_pointer_copy.segmentsConst(), .{});
+    const builder_pointer_copied_person = try generated.Person.getRoot(&builder_pointer_copy_reader);
+    try std.testing.expectEqualSlices(u8, "root helper", try builder_pointer_copied_person.name());
+
     var builder_to_builder_copy = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
     defer builder_to_builder_copy.deinit();
     _ = try generated.Person.@"cpz.root.copyTo"(&source_builder, &builder_to_builder_copy);
@@ -1159,11 +1172,23 @@ test "generated root move and copy helpers work" {
     try std.testing.expectEqual(@as(u32, 2024), builder_to_builder_person.id());
     try std.testing.expectEqualSlices(u8, "root helper", try builder_to_builder_person.name());
 
+    var direct_builder_to_builder_copy = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer direct_builder_to_builder_copy.deinit();
+    _ = try generated.Person.@"cpz.root.copyToBuilder"(&source_builder, &direct_builder_to_builder_copy);
+    var direct_builder_to_builder_reader = cpz.MessageReader.init(try direct_builder_to_builder_copy.segmentsConst(), .{});
+    const direct_builder_to_builder_person = try generated.Person.getRoot(&direct_builder_to_builder_reader);
+    try std.testing.expectEqual(@as(u32, 2024), direct_builder_to_builder_person.id());
+
     var typed_copy_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
     defer typed_copy_target.deinit();
     const typed_copy_builder = try generated.Person.@"cpz.root.copyTypedTo"(&source_builder, &typed_copy_target);
     try std.testing.expectEqual(@as(u32, 2024), try typed_copy_builder.get_id());
     try std.testing.expectEqualSlices(u8, "root helper", try typed_copy_builder.get_name());
+
+    var direct_typed_copy_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer direct_typed_copy_target.deinit();
+    const direct_typed_copy_builder = try generated.Person.@"cpz.root.copyTypedToBuilder"(&source_builder, &direct_typed_copy_target);
+    try std.testing.expectEqual(@as(u32, 2024), try direct_typed_copy_builder.get_id());
 
     var canonical_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
     defer canonical_builder.deinit();

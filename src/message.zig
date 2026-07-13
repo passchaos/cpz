@@ -946,15 +946,31 @@ pub const MessageBuilder = struct {
         return self.getRoot();
     }
 
+    pub fn copyRootFromBuilder(self: *MessageBuilder, source: StructBuilder) Error!StructBuilder {
+        const dst_root = try self.getRootPointer();
+        try dst_root.copyStructFromBuilder(source);
+        return self.getRoot();
+    }
+
     pub fn copyRootPointerFrom(self: *MessageBuilder, source: PointerReader) Error!PointerBuilder {
         const dst_root = try self.getRootPointer();
         try dst_root.copyFrom(source);
         return dst_root;
     }
 
+    pub fn copyRootPointerFromBuilder(self: *MessageBuilder, source: PointerBuilder) Error!PointerBuilder {
+        const dst_root = try self.getRootPointer();
+        try dst_root.copyFromBuilder(source);
+        return dst_root;
+    }
+
     pub fn copyRootTo(self: *MessageBuilder, target: *MessageBuilder) Error!PointerBuilder {
         var reader = MessageReader.init(try self.segmentsConst(), .{});
         return target.copyRootPointerFrom(try reader.getRootPointer());
+    }
+
+    pub fn copyRootToBuilder(self: *MessageBuilder, target: *MessageBuilder) Error!PointerBuilder {
+        return target.copyRootPointerFromBuilder(try self.getRootPointer());
     }
 
     pub fn copyRootCanonicalFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
@@ -4547,6 +4563,13 @@ test "message builder deep-copies from a reader" {
 
     var validating = MessageReader.init(try copy.segmentsConst(), .{});
     _ = try validating.validate();
+
+    var builder_copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2, .next_segment_min_words = 2 });
+    defer builder_copy.deinit();
+    const copied_builder_root = try builder_copy.copyRootFromBuilder(root);
+    try testing.expectEqual(@as(u32, 77), try copied_builder_root.getUInt32(0, 0));
+    const copied_builder_names = try (try copied_builder_root.getPointerField(0)).getList(.pointer);
+    try testing.expectEqualSlices(u8, "left", try (try copied_builder_names.getPointerElement(0)).getText());
 }
 
 test "message builder copies arbitrary root pointers" {
@@ -4570,6 +4593,20 @@ test "message builder copies arbitrary root pointers" {
     const copied_list = try (try copy_reader.getRootPointer()).getList(.pointer);
     try testing.expectEqualSlices(u8, "root pointer copy", try (try copied_list.getPointerElement(0)).getText());
     try testing.expectEqualSlices(u8, &[_]u8{ 1, 2, 3 }, try (try copied_list.getPointerElement(1)).getData());
+
+    var builder_pointer_copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_pointer_copy.deinit();
+    _ = try builder_pointer_copy.copyRootPointerFromBuilder(try source.getRootPointer());
+    var builder_pointer_copy_reader = MessageReader.init(try builder_pointer_copy.segmentsConst(), .{});
+    const builder_copied_list = try (try builder_pointer_copy_reader.getRootPointer()).getList(.pointer);
+    try testing.expectEqualSlices(u8, "root pointer copy", try (try builder_copied_list.getPointerElement(0)).getText());
+
+    var builder_target_copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_target_copy.deinit();
+    _ = try source.copyRootToBuilder(&builder_target_copy);
+    var builder_target_copy_reader = MessageReader.init(try builder_target_copy.segmentsConst(), .{});
+    const builder_target_list = try (try builder_target_copy_reader.getRootPointer()).getList(.pointer);
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 2, 3 }, try (try builder_target_list.getPointerElement(1)).getData());
 
     var canonical_copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
     defer canonical_copy.deinit();
