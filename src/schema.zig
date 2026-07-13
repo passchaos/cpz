@@ -434,6 +434,10 @@ pub const UnionMetadata = struct {
         return self.fields[field_index];
     }
 
+    pub fn matchesFieldCount(self: UnionMetadata, count: usize) bool {
+        return self.field_count == count;
+    }
+
     pub fn hasPointer(self: UnionMetadata, pointer_index: usize) bool {
         return self.pointer != null and self.pointer.? == pointer_index;
     }
@@ -6331,6 +6335,11 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\
         \\    pub fn @"cpz.unionByDataRange"(@"cpz.bit": usize, @"cpz.bits": usize) ?cpz.schema.UnionMetadata {
         \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".data_bits == @"cpz.bits" and @"cpz.union".data_bit == @"cpz.bit") return @"cpz.union";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.unionByFieldCount"(@"cpz.count": usize) ?cpz.schema.UnionMetadata {
+        \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".field_count == @"cpz.count") return @"cpz.union";
         \\        return null;
         \\    }
         \\
