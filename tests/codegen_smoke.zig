@@ -13,6 +13,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.fileAnnotationByIndex"(0).?.raw);
     try std.testing.expectEqual(@as(?cpz.schema.FileAnnotationMetadata, null), generated.@"cpz.fileAnnotationByIndex"(99));
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.file_annotations"[0].raw);
+    try std.testing.expect(generated.@"cpz.file_annotations"[0].matchesRaw("$schemaNote(\"file-level\")"));
+    try std.testing.expect(!generated.@"cpz.file_annotations"[0].matchesRaw("missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.fileAnnotationByRaw"("$schemaNote(\"file-level\")").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FileAnnotationMetadata, null), generated.@"cpz.fileAnnotationByRaw"("missing"));
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.structCount");
@@ -152,6 +154,11 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotation_decls"[1].target_count);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotationDecl.schemaNote.targetCount");
     try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.targets".file);
+    try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesName("schemaNote"));
+    try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesId(0xa110ca110c));
+    try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesType("Text"));
+    try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesResolvedType("Text"));
+    try std.testing.expect(!generated.@"cpz.annotation_decls"[1].matchesName("missing"));
     try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.targets".hasTarget("file"));
     try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.metadata".hasTarget("struct"));
     try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.metadata".hasTarget("struct_decl"));

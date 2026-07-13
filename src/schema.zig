@@ -726,11 +726,31 @@ pub const AnnotationMetadata = struct {
     pub fn computedTargetCount(self: AnnotationMetadata) usize {
         return self.targets.count();
     }
+
+    pub fn matchesName(self: AnnotationMetadata, annotation_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, annotation_name);
+    }
+
+    pub fn matchesId(self: AnnotationMetadata, annotation_id: u64) bool {
+        return self.id != null and self.id.? == annotation_id;
+    }
+
+    pub fn matchesType(self: AnnotationMetadata, annotation_type: []const u8) bool {
+        return std.mem.eql(u8, self.ty, annotation_type);
+    }
+
+    pub fn matchesResolvedType(self: AnnotationMetadata, annotation_type: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_ty, annotation_type);
+    }
 };
 
 pub const FileAnnotationMetadata = struct {
     index: usize,
     raw: []const u8,
+
+    pub fn matchesRaw(self: FileAnnotationMetadata, annotation_raw: []const u8) bool {
+        return std.mem.eql(u8, self.raw, annotation_raw);
+    }
 };
 
 pub const File = struct {
