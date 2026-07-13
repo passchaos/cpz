@@ -152,6 +152,9 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.fields"[2].annotations);
     try std.testing.expectEqual(@as(u32, 2), generated.Person.@"cpz.field.name.ordinal");
     try std.testing.expectEqualStrings("Text", generated.Person.@"cpz.field.name.type");
+    try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.field.name.index");
+    try std.testing.expectEqualStrings("pointer", generated.Person.@"cpz.field.name.slot");
+    try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.field.name.offset");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");
     try std.testing.expectEqualStrings("data_bit", generated.Person.@"cpz.fields"[1].slot);
     try std.testing.expectEqual(@as(usize, 32), generated.Person.@"cpz.fields"[1].offset);

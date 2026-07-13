@@ -4872,6 +4872,13 @@ fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize }
     };
 }
 
+fn fieldIndex(layout: *const StructLayout, target: *const Field) usize {
+    for (layout.fields, 0..) |field_layout, index| {
+        if (field_layout.field == target) return index;
+    }
+    unreachable;
+}
+
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
     const struct_name = try zigIdentAlloc(allocator, layout.decl.name);
     defer allocator.free(struct_name);
@@ -5272,18 +5279,25 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
+    const field_index = fieldIndex(layout, field);
+    const slot = fieldSlotMetadata(field_layout.slot);
+    const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
+    defer allocator.free(slot_literal);
     try appendFmt(allocator, out,
+        \\    pub const @"cpz.field.{s}.index": usize = {};
         \\    pub const @"cpz.field.{s}.ordinal": u32 = {};
         \\
-    , .{ field_name, field.ordinal });
+    , .{ field_name, field_index, field_name, field.ordinal });
     const type_name = try schemaTypeNameAlloc(allocator, field.ty);
     defer allocator.free(type_name);
     const type_literal = try zigStringLiteralAlloc(allocator, type_name);
     defer allocator.free(type_literal);
     try appendFmt(allocator, out,
         \\    pub const @"cpz.field.{s}.type": []const u8 = {s};
+        \\    pub const @"cpz.field.{s}.slot": []const u8 = {s};
+        \\    pub const @"cpz.field.{s}.offset": usize = {};
         \\
-    , .{ field_name, type_literal });
+    , .{ field_name, type_literal, field_name, slot_literal, field_name, slot.offset });
     if (field.default_expression.len != 0) {
         const default_expression_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
         defer allocator.free(default_expression_literal);
