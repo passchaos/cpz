@@ -383,6 +383,38 @@ pub fn readMessageFromReader(allocator: std.mem.Allocator, reader: *std.Io.Reade
     return readOwnedFlatMessageWithSourceConsumedLen(allocator, owned, expected_len);
 }
 
+/// Read one standard stream-framed message from an Io reader into caller-owned
+/// storage, returning a zero-copy view over `flat_buffer[0..consumed_len]`.
+/// `segment_table` receives the parsed segment slices and must outlive the
+/// returned view. Any following bytes remain buffered in `reader`.
+pub fn readMessageViewFromReaderInto(segment_table: []ConstSegment, flat_buffer: []u8, reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!FlatMessageView {
+    var first_word: [wire.bytes_per_word]u8 = undefined;
+    reader.readSliceAll(&first_word) catch |err| switch (err) {
+        error.EndOfStream => return error.MessageTruncated,
+        else => |e| return e,
+    };
+
+    const table_len = try expectedSize(&first_word);
+    if (flat_buffer.len < table_len) return error.SerializedOutputTooSmall;
+    @memcpy(flat_buffer[0..wire.bytes_per_word], &first_word);
+    if (table_len > wire.bytes_per_word) {
+        reader.readSliceAll(flat_buffer[wire.bytes_per_word..table_len]) catch |err| switch (err) {
+            error.EndOfStream => return error.MessageTruncated,
+            else => |e| return e,
+        };
+    }
+
+    const expected_len = try expectedSize(flat_buffer[0..table_len]);
+    if (flat_buffer.len < expected_len) return error.SerializedOutputTooSmall;
+    if (expected_len > table_len) {
+        reader.readSliceAll(flat_buffer[table_len..expected_len]) catch |err| switch (err) {
+            error.EndOfStream => return error.MessageTruncated,
+            else => |e| return e,
+        };
+    }
+    return readFlatMessageViewInto(segment_table, flat_buffer[0..expected_len]);
+}
+
 fn takePackedByte(reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!u8 {
     return reader.takeByte() catch |err| switch (err) {
         error.EndOfStream => error.MessageTruncated,
@@ -622,6 +654,26 @@ test "standard stream framing reads one message from Io reader" {
     try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
     try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
     try testing.expectEqualSlices(u8, &trailer, reader.buffered());
+
+    var view_reader = std.Io.Reader.fixed(with_trailer);
+    var view_segments: [2]ConstSegment = undefined;
+    var view_buffer: [64]u8 = undefined;
+    var parsed_view = try readMessageViewFromReaderInto(&view_segments, &view_buffer, &view_reader);
+    defer parsed_view.deinit(allocator);
+    try testing.expect(!parsed_view.owns_segments);
+    try testing.expectEqual(flat.len, parsed_view.consumed_len);
+    try testing.expectEqualSlices(u8, flat, parsed_view.consumedBytes());
+    try testing.expectEqualSlices(u8, &s0, parsed_view.segments[0]);
+    try testing.expectEqualSlices(u8, &s1, parsed_view.segments[1]);
+    try testing.expectEqualSlices(u8, &trailer, view_reader.buffered());
+    var small_view_reader = std.Io.Reader.fixed(with_trailer);
+    var small_view_segments: [2]ConstSegment = undefined;
+    var small_view_buffer: [8]u8 = undefined;
+    try testing.expectError(error.SerializedOutputTooSmall, readMessageViewFromReaderInto(&small_view_segments, &small_view_buffer, &small_view_reader));
+    var short_view_reader = std.Io.Reader.fixed(with_trailer);
+    var short_view_segments: [1]ConstSegment = undefined;
+    var short_view_buffer: [64]u8 = undefined;
+    try testing.expectError(error.SegmentTableTruncated, readMessageViewFromReaderInto(&short_view_segments, &short_view_buffer, &short_view_reader));
 
     var truncated_reader = std.Io.Reader.fixed(flat[0 .. flat.len - 1]);
     try testing.expectError(error.MessageTruncated, readMessageFromReader(allocator, &truncated_reader));

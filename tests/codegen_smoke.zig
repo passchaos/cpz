@@ -1015,6 +1015,14 @@ test "generated scalar root helpers work" {
     try std.testing.expectEqual(flat_text_bytes.len, generated.Person.@"cpz.view.consumedLen"(&viewed_text_reader_no_alloc));
     try std.testing.expectEqualSlices(u8, flat_text_bytes, generated.Person.@"cpz.view.bytes"(&viewed_text_reader_no_alloc));
     try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(viewed_text_reader_no_alloc.asReader()));
+    var viewed_text_stream = std.Io.Reader.fixed(flat_text_bytes);
+    var viewed_text_stream_segments: [4]cpz.serialize.ConstSegment = undefined;
+    var viewed_text_stream_buffer: [128]u8 = undefined;
+    var viewed_text_stream_reader = try generated.Person.@"cpz.root.viewFromReaderInto"(&viewed_text_stream_segments, &viewed_text_stream_buffer, &viewed_text_stream, .{});
+    defer viewed_text_stream_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqual(flat_text_bytes.len, generated.Person.@"cpz.view.consumedLen"(&viewed_text_stream_reader));
+    try std.testing.expectEqualSlices(u8, flat_text_bytes, generated.Person.@"cpz.view.bytes"(&viewed_text_stream_reader));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(viewed_text_stream_reader.asReader()));
     const packed_text_bytes = try generated.Person.@"cpz.builderRoot.toPackedBytes"(&text_builder);
     defer std.testing.allocator.free(packed_text_bytes);
     var owned_packed_text_reader = try generated.Person.@"cpz.root.fromPackedBytes"(std.testing.allocator, packed_text_bytes, .{});
