@@ -422,6 +422,16 @@ pub const MessageBuilder = struct {
         return self.segments.items.len;
     }
 
+    pub fn segmentByteLen(self: *MessageBuilder, index: usize) Error!usize {
+        if (index >= self.segments.items.len) return error.SegmentOutOfBounds;
+        return self.segments.items[index].used * wire.bytes_per_word;
+    }
+
+    pub fn segmentWordLen(self: *MessageBuilder, index: usize) Error!usize {
+        if (index >= self.segments.items.len) return error.SegmentOutOfBounds;
+        return self.segments.items[index].used;
+    }
+
     pub fn serializedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
         return serialize.computeSerializedSize(try self.segmentsConst());
     }
@@ -609,6 +619,17 @@ pub const MessageReader = struct {
 
     pub fn segmentCount(self: *const MessageReader) usize {
         return self.segments.len;
+    }
+
+    pub fn segmentByteLen(self: *const MessageReader, index: usize) Error!usize {
+        if (index >= self.segments.len) return error.SegmentOutOfBounds;
+        return self.segments[index].len;
+    }
+
+    pub fn segmentWordLen(self: *const MessageReader, index: usize) (Error || serialize.Error)!usize {
+        if (index >= self.segments.len) return error.SegmentOutOfBounds;
+        if (self.segments[index].len % wire.bytes_per_word != 0) return error.SegmentNotWordAligned;
+        return self.segments[index].len / wire.bytes_per_word;
     }
 
     pub fn serializedSize(self: *const MessageReader) (Error || serialize.Error)!usize {

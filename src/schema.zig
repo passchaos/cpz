@@ -5265,6 +5265,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".segmentCount();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.segmentByteLen"(@"cpz.reader": *cpz.MessageReader, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.reader".segmentByteLen(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.segmentWordLen"(@"cpz.reader": *cpz.MessageReader, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.reader".segmentWordLen(@"cpz.index");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.serializedSize"(@"cpz.reader": *cpz.MessageReader) !usize {{
         \\        return @"cpz.reader".serializedSize();
         \\    }}
@@ -5335,6 +5343,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.segmentCount"(@"cpz.builder": *cpz.MessageBuilder) usize {{
         \\        return @"cpz.builder".segmentCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.segmentByteLen"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.builder".segmentByteLen(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.segmentWordLen"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.builder".segmentWordLen(@"cpz.index");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.serializedSize"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
