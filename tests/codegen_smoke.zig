@@ -400,6 +400,51 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(usize, 0), person_size.cap_count);
 }
 
+test "generated root move and copy helpers work" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 64 });
+    defer source_builder.deinit();
+    const source_person = try generated.Person.initRootTyped(&source_builder);
+    try source_person.set_id(2024);
+    try source_person.set_name("root helper");
+
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    var copy_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer copy_builder.deinit();
+    const copied_builder = try generated.Person.@"cpz.root.copyFrom"(&copy_builder, &source_reader);
+    try std.testing.expectEqual(@as(u32, 2024), try copied_builder.get_id());
+
+    var copy_reader = cpz.MessageReader.init(try copy_builder.segmentsConst(), .{});
+    const copied_person = try generated.Person.getRoot(&copy_reader);
+    try std.testing.expectEqual(@as(u32, 2024), copied_person.id());
+    try std.testing.expectEqualSlices(u8, "root helper", try copied_person.name());
+
+    var ptr_copy_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer ptr_copy_builder.deinit();
+    const source_ptr = try source_reader.getRootPointer();
+    _ = try generated.Person.@"cpz.root.copyPointerFrom"(&ptr_copy_builder, source_ptr);
+    var ptr_copy_reader = cpz.MessageReader.init(try ptr_copy_builder.segmentsConst(), .{});
+    const ptr_copied_person = try generated.Person.getRoot(&ptr_copy_reader);
+    try std.testing.expectEqual(@as(u32, 2024), ptr_copied_person.id());
+
+    var canonical_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer canonical_builder.deinit();
+    _ = try generated.Person.@"cpz.root.copyCanonicalFrom"(&canonical_builder, &source_reader);
+    var canonical_reader = cpz.MessageReader.init(try canonical_builder.segmentsConst(), .{});
+    const canonical_person = try generated.Person.getRoot(&canonical_reader);
+    try std.testing.expectEqualSlices(u8, "root helper", try canonical_person.name());
+
+    var move_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer move_builder.deinit();
+    const move_person = try generated.Person.initRootTyped(&move_builder);
+    try move_person.set_id(3030);
+    var orphan = try generated.Person.@"cpz.root.disown"(&move_builder);
+    try std.testing.expect(try generated.Person.@"cpz.root.isNull"(&move_builder));
+    _ = try generated.Person.@"cpz.root.adopt"(&move_builder, &orphan);
+    try std.testing.expect(orphan.isNull());
+    const moved_person = try generated.Person.getRootTyped(&move_builder);
+    try std.testing.expectEqual(@as(u32, 3030), try moved_person.get_id());
+}
+
 test "generated accessors honor scalar defaults" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
