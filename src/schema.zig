@@ -4471,6 +4471,10 @@ fn appendDeclarationMetadataLiteral(
 }
 
 fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), imports: []const ImportDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.importCount": usize = {};
+        \\
+    , .{ indent, imports.len });
     for (imports, 0..) |import_decl, index| {
         const name_literal = try zigStringLiteralAlloc(allocator, import_decl.name);
         defer allocator.free(name_literal);

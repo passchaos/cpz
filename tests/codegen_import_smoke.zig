@@ -4,6 +4,7 @@ const Base = @import("Base");
 const generated = @import("generated_import_use");
 
 test "generated schemas reference imported modules" {
+    try std.testing.expectEqual(@as(usize, 4), generated.@"cpz.importCount");
     try std.testing.expectEqual(@as(usize, 4), generated.@"cpz.imports".len);
     try std.testing.expectEqualStrings("Base", generated.@"cpz.imports"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.imports"[0].index);
