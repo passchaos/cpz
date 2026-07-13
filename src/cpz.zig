@@ -31,6 +31,11 @@ pub const ReaderOptions = message.ReaderOptions;
 pub const BuilderOptions = message.BuilderOptions;
 pub const MessageStats = message.MessageStats;
 pub const MessageSize = message.MessageSize;
+pub const pack = packing.pack;
+pub const packInto = packing.packInto;
+pub const packToWriter = packing.packToWriter;
+pub const unpack = packing.unpack;
+pub const unpackInto = packing.unpackInto;
 pub const Segment = serialize.Segment;
 pub const ConstSegment = serialize.ConstSegment;
 pub const FlatMessage = serialize.FlatMessage;
@@ -90,6 +95,22 @@ test "top-level stream framing helpers round-trip" {
     defer parsed_packed.deinit(testing.allocator);
     var packed_reader = MessageReader.init(parsed_packed.segments, .{});
     try testing.expectEqualSlices(u8, "top-level", try (try packed_reader.getRoot()).getPointerField(0).getText());
+
+    const packed_flat = try pack(testing.allocator, flat);
+    defer testing.allocator.free(packed_flat);
+    const unpacked_flat = try unpack(testing.allocator, packed_flat);
+    defer testing.allocator.free(unpacked_flat);
+    try testing.expectEqualSlices(u8, flat, unpacked_flat);
+    var packed_flat_buffer: [256]u8 = undefined;
+    const packed_flat_len = try packInto(&packed_flat_buffer, flat);
+    try testing.expectEqualSlices(u8, packed_flat, packed_flat_buffer[0..packed_flat_len]);
+    var unpacked_flat_buffer: [256]u8 = undefined;
+    const unpacked_flat_len = try unpackInto(&unpacked_flat_buffer, packed_flat);
+    try testing.expectEqualSlices(u8, flat, unpacked_flat_buffer[0..unpacked_flat_len]);
+    var packed_flat_writer_buffer: [256]u8 = undefined;
+    var packed_flat_writer = std.Io.Writer.fixed(&packed_flat_writer_buffer);
+    try packToWriter(&packed_flat_writer, flat);
+    try testing.expectEqualSlices(u8, packed_flat, std.Io.Writer.buffered(&packed_flat_writer));
 
     var flat_buffer: [128]u8 = undefined;
     var flat_writer = std.Io.Writer.fixed(&flat_buffer);
