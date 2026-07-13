@@ -439,6 +439,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const alias_element_pointer = try aliases.elementAsReader(1, &alias_element_reader);
     try std.testing.expectEqualSlices(u8, "Lovelace", try alias_element_pointer.getText());
     try std.testing.expectEqualSlices(u8, "A", try aliases.elementAsText(0));
+    const alias_element_stats = try alias_element_pointer.validate();
+    try std.testing.expect(alias_element_stats.total_words > 0);
     const alias_element_size = try aliases.elementTotalSize(0);
     try std.testing.expect(alias_element_size.word_count > 0);
     try std.testing.expectEqualSlices(u8, "Lovelace", try aliases.get(1));
@@ -608,6 +610,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.ElementSize.byte, read_alias_decoded.element_size);
     try std.testing.expectEqualSlices(u8, "A", try (try read_aliases.elementAsPointer(0)).getText());
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.elementAsText(1));
+    const read_alias_element_stats = try read_aliases.elementStats(1);
+    try std.testing.expect(read_alias_element_stats.total_words > 0);
     const read_alias_element_size = try read_aliases.elementTotalSize(1);
     try std.testing.expect(read_alias_element_size.word_count > 0);
     const read_payloads = try person.payloads();

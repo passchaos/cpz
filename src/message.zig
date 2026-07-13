@@ -1272,10 +1272,14 @@ pub const PointerReader = struct {
         return try wire.decode(resolved.raw);
     }
 
-    pub fn totalSize(self: PointerReader) Error!MessageSize {
+    pub fn validate(self: PointerReader) Error!MessageStats {
         var stats: MessageStats = .{};
         try validatePointer(self, &stats);
-        return stats.size();
+        return stats;
+    }
+
+    pub fn totalSize(self: PointerReader) Error!MessageSize {
+        return (try self.validate()).size();
     }
 
     pub fn getStruct(self: PointerReader, default_value: ?StructReader) Error!StructReader {

@@ -6999,6 +6999,10 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).decode();
         \\        }}
         \\
+        \\        pub fn elementStats(self: @This(), index: usize) !cpz.MessageStats {{
+        \\            return (try self.list.getPointerElement(index)).validate();
+        \\        }}
+        \\
         \\        pub fn elementTotalSize(self: @This(), index: usize) !cpz.MessageSize {{
         \\            return (try self.list.getPointerElement(index)).totalSize();
         \\        }}
