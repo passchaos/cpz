@@ -4479,9 +4479,10 @@ fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Array
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
             \\{s}pub const @"cpz.fileAnnotation.{}.index": usize = {};
+            \\{s}pub const @"cpz.fileAnnotation.{}.metadata": cpz.schema.FileAnnotationMetadata = @This().@"cpz.file_annotations"[{}];
             \\{s}pub const @"cpz.fileAnnotation.{}.raw": []const u8 = {s};
             \\
-        , .{ indent, index, index, indent, index, annotation_literal });
+        , .{ indent, index, index, indent, index, index, indent, index, annotation_literal });
     }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.file_annotations\": []const cpz.schema.FileAnnotationMetadata = &[_]cpz.schema.FileAnnotationMetadata{{", .{indent});
     for (annotations_raw, 0..) |annotation_raw, index| {
