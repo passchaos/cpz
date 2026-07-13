@@ -97,6 +97,8 @@ pub const ConstDecl = struct {
     ty: Type,
     literal: []const u8,
     is_hex_data: bool = false,
+    is_embed: bool = false,
+    embed_path: []const u8 = "",
     emit_value: bool = true,
     annotations: []const u8 = "",
     list_items: ?[]ConstListItem = null,
@@ -134,6 +136,8 @@ pub const ConstMetadata = struct {
     resolved_ty: []const u8 = "",
     literal: []const u8 = "",
     is_hex_data: bool = false,
+    is_embed: bool = false,
+    embed_path: []const u8 = "",
     emitted: bool = true,
     annotations: []const u8 = "",
     list_item_count: usize = 0,
@@ -161,6 +165,14 @@ pub const ConstMetadata = struct {
 
     pub fn matchesHexData(self: ConstMetadata, is_hex: bool) bool {
         return self.is_hex_data == is_hex;
+    }
+
+    pub fn matchesEmbed(self: ConstMetadata, is_embed: bool) bool {
+        return self.is_embed == is_embed;
+    }
+
+    pub fn matchesEmbedPath(self: ConstMetadata, path: []const u8) bool {
+        return std.mem.eql(u8, self.embed_path, path);
     }
 
     pub fn matchesEmitted(self: ConstMetadata, is_emitted: bool) bool {
@@ -1799,6 +1811,8 @@ pub const Parser = struct {
             try self.expect(.equal);
             const raw_tail = try self.takeRawUntilSemicolon();
             const split = splitDefaultExpressionAndAnnotations(raw_tail);
+            const is_embed = std.mem.startsWith(u8, split.default_expression, "embed");
+            const embed_path = if (is_embed) embedPathFromExpression(split.default_expression) orelse "" else "";
             const entry = try decl_names.getOrPut(name);
             if (entry.found_existing) {
                 ty.deinit(self.allocator);
@@ -1808,6 +1822,8 @@ pub const Parser = struct {
                 .name = name,
                 .ty = ty,
                 .literal = split.default_expression,
+                .is_embed = is_embed,
+                .embed_path = embed_path,
                 .emit_value = false,
                 .annotations = split.annotations,
             });
@@ -1978,6 +1994,19 @@ pub const Parser = struct {
         if (!std.mem.eql(u8, source[start .. start + keyword.len], keyword)) return false;
         const end = start + keyword.len;
         return end == source.len or !isIdentContinue(source[end]);
+    }
+
+    fn embedPathFromExpression(expression: []const u8) ?[]const u8 {
+        const first_quote = std.mem.indexOfScalar(u8, expression, '"') orelse return null;
+        var index = first_quote + 1;
+        while (index < expression.len) : (index += 1) {
+            if (expression[index] == '\\') {
+                index += 1;
+            } else if (expression[index] == '"') {
+                return expression[first_quote + 1 .. index];
+            }
+        }
+        return null;
     }
 
     fn constLiteralStartIndex(self: *const Parser) ?usize {
@@ -3636,6 +3665,8 @@ test "schema parser skips common top-level using and const declarations" {
     try std.testing.expectEqualStrings("defaultName", file.consts[0].name);
     try std.testing.expectEqualStrings("embeddedText", file.consts[1].name);
     try std.testing.expectEqualStrings("embed \"testdata/short.txt\"", file.consts[1].literal);
+    try std.testing.expect(file.consts[1].is_embed);
+    try std.testing.expectEqualStrings("testdata/short.txt", file.consts[1].embed_path);
     try std.testing.expect(!file.consts[1].emit_value);
     try std.testing.expectEqualStrings("rawPerson", file.consts[2].name);
     try std.testing.expectEqualStrings("(name = \"Raw\")", file.consts[2].literal);
@@ -5653,6 +5684,18 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return null;
         \\{s}}}
         \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.constByEmbed"(@"cpz.isEmbed": bool) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (@"cpz.const".is_embed == @"cpz.isEmbed") return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.constByEmbedPath"(@"cpz.path": []const u8) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (std.mem.eql(u8, @"cpz.const".embed_path, @"cpz.path")) return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.constByEmitted"(@"cpz.emitted": bool) ?cpz.schema.ConstMetadata {{
         \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (@"cpz.const".emitted == @"cpz.emitted") return @"cpz.const";
         \\{s}    return null;
@@ -5668,7 +5711,7 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return @This().@"cpz.consts"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (consts.len != 0) try out.append(allocator, '\n');
 }
 
@@ -5693,6 +5736,11 @@ fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
     }
     if (decl.is_hex_data) {
         try out.appendSlice(allocator, ", .is_hex_data = true");
+    }
+    if (decl.is_embed) {
+        const embed_path_literal = try zigStringLiteralAlloc(allocator, decl.embed_path);
+        defer allocator.free(embed_path_literal);
+        try appendFmt(allocator, out, ", .is_embed = true, .embed_path = {s}", .{embed_path_literal});
     }
     if (!decl.emit_value) {
         try out.appendSlice(allocator, ", .emitted = false");
@@ -5830,6 +5878,8 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
     defer allocator.free(resolved_type_literal);
     const literal_value = try zigStringLiteralAlloc(allocator, decl.literal);
     defer allocator.free(literal_value);
+    const embed_path_literal = try zigStringLiteralAlloc(allocator, decl.embed_path);
+    defer allocator.free(embed_path_literal);
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.const.{s}.index": usize = {};
         \\{s}pub const @"cpz.const.{s}.name": []const u8 = {s};
@@ -5838,10 +5888,14 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}pub const @"cpz.const.{s}.resolvedType": []const u8 = {s};
         \\{s}pub const @"cpz.const.{s}.literal": []const u8 = {s};
         \\{s}pub const @"cpz.const.{s}.isHexData": bool = {};
+    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, index, indent, const_name, type_literal, indent, const_name, resolved_type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data });
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.const.{s}.isEmbed": bool = {};
+        \\{s}pub const @"cpz.const.{s}.embedPath": []const u8 = {s};
         \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
         \\{s}pub const @"cpz.const.{s}.listItemCount": usize = {};
         \\{s}pub const @"cpz.const.{s}.listItems": []const cpz.schema.ConstListItem = 
-    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, index, indent, const_name, type_literal, indent, const_name, resolved_type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data, indent, const_name, decl.emit_value, indent, const_name, if (decl.list_items) |items| items.len else 0, indent, const_name });
+    , .{ indent, const_name, decl.is_embed, indent, const_name, embed_path_literal, indent, const_name, decl.emit_value, indent, const_name, if (decl.list_items) |items| items.len else 0, indent, const_name });
     if (decl.list_items) |items| {
         try appendConstListItemsLiteral(allocator, out, items);
     } else {

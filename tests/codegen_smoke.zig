@@ -455,6 +455,12 @@ test "generated simple constants compile" {
     try std.testing.expect(!generated.@"cpz.consts"[12].emitted);
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.const.globalEmbeddedData.index");
     try std.testing.expectEqualStrings("embed \"fixtures/raw.bin\"", generated.@"cpz.const.globalEmbeddedData.literal");
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.isEmbed");
+    try std.testing.expectEqualStrings("fixtures/raw.bin", generated.@"cpz.const.globalEmbeddedData.embedPath");
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".matchesEmbed(true));
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".matchesEmbedPath("fixtures/raw.bin"));
+    try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.constByEmbed"(true).?.name);
+    try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.constByEmbedPath"("fixtures/raw.bin").?.name);
     try std.testing.expect(!generated.@"cpz.const.globalEmbeddedData.emitted");
     try std.testing.expectEqualStrings("", generated.@"cpz.const.globalEmbeddedData.annotations");
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
