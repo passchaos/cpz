@@ -224,6 +224,7 @@ pub const EnumDecl = struct {
 };
 
 pub const MethodField = struct {
+    index: usize = 0,
     name: []const u8,
     ty: []const u8,
     default_literal: ?[]const u8 = null,
@@ -1107,7 +1108,7 @@ pub const Parser = struct {
                 }
                 annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
             }
-            try fields.append(self.allocator, .{ .name = field_name, .ty = field_type, .default_literal = default_literal, .annotations = annotations });
+            try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .annotations = annotations });
             if (index < end and trimmed[index] == ',') index += 1;
         }
         return fields.toOwnedSlice(self.allocator);
@@ -4058,11 +4059,11 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
-            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}, .default_literal = {s}, .annotations = {s} }}", .{ name_literal, type_literal, default_literal, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .default_literal = {s}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, default_literal, annotations_literal });
         } else if (field.annotations.len != 0) {
-            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}, .annotations = {s} }}", .{ name_literal, type_literal, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, annotations_literal });
         } else {
-            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s} }}", .{ name_literal, type_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s} }}", .{ field.index, name_literal, type_literal });
         }
     }
     try out.appendSlice(allocator, "};\n");

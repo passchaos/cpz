@@ -1582,9 +1582,12 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Service.@"cpz.method.ping.parameters.parameterByIndex"(9));
     try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.method.ping.params.fields".len);
     try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields"[0].name);
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.params.fields"[0].index);
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByName"("attempts").?.name);
+    try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.params.fields.fieldByName"("attempts").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByName"("missing"));
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(1).?.name);
+    try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(1).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(99));
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.fields"[0].ty);
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Service.@"cpz.method.ping.params.fields"[0].default_literal);
@@ -1595,6 +1598,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("$schemaNote(\"attempts\")", generated.Service.@"cpz.method.ping.params.fields"[1].annotations);
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.results.fields".len);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields"[0].name);
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.results.fields"[0].index);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByName"("response").?.name);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByIndex"(0).?.name);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.results.fields"[0].ty);
