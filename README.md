@@ -3,7 +3,7 @@
 `cpz` is a Zig implementation of the Cap'n Proto wire format. The first milestone focuses on the runtime layer that must be fast, safe, and compatible with the C++ implementation:
 
 - zero-copy readers and flat-message views over caller-owned byte slices;
-- segmented stream framing compatible with `capnp::serialize`, with bounded segment-count validation;
+- segmented stream framing compatible with `capnp::serialize`, with bounded segment-count validation and allocation-free segment-table sizing/writing;
 - C++-style stream prefix sizing via `expectedSizeInWordsFromPrefix`;
 - word/pointer/capability encoding with low-level pointer kind/decode/asReader/total-size inspection, lazy pointer validation, and schema-agnostic full-message validation/total-size stats with capability index limits;
 - arena-backed builders for structs and arbitrary root pointers with list/text/data/capability root helpers and root pointer introspection/null-checking/clearing and in-progress scalar reads, scalar fields and plus-prefixed/scientific numeric defaults/lists, data-section/pointer-section/shape views, pointer lists, UTF-8 text/data blobs with reader defaults, composite struct lists, schema-evolution bidirectional primitive/pointer list upgrades, list slicing/isEmpty/hasIndex/firstIndex/lastIndex/raw primitive byte views including unaligned primitive reader/builder slices, same-message pointer/root disown/adopt moves with orphanage/orphan allocation/scalar-allocation/copy/scalar-accessors/accessors/release including raw pointer orphan copies, whole-list/struct/pointer/root-pointer deep-copying from readers including bit lists, and explicit pointer clearing;

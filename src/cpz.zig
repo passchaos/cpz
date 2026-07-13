@@ -46,6 +46,8 @@ pub const max_segment_count = serialize.max_segment_count;
 pub const computeSerializedSize = serialize.computeSerializedSize;
 pub const computeSerializedSizeInWords = serialize.computeSerializedSizeInWords;
 pub const segmentTableWords = serialize.segmentTableWords;
+pub const segmentTableByteLen = serialize.segmentTableByteLen;
+pub const writeSegmentTable = serialize.writeSegmentTable;
 pub const serializeSegmentTable = serialize.serializeSegmentTable;
 pub const messageToFlatBytes = serialize.messageToFlatBytes;
 pub const writeMessageToWriter = serialize.writeMessageToWriter;
@@ -136,6 +138,11 @@ test "top-level stream framing helpers round-trip" {
     const table = try serializeSegmentTable(testing.allocator, segments);
     defer testing.allocator.free(table);
     try testing.expectEqual(segmentTableWords(segments.len) * wire.bytes_per_word, table.len);
+    try testing.expectEqual(table.len, try segmentTableByteLen(segments.len));
+    var stack_table: [16]u8 = undefined;
+    const stack_table_len = try writeSegmentTable(&stack_table, segments);
+    try testing.expectEqual(table.len, stack_table_len);
+    try testing.expectEqualSlices(u8, table, stack_table[0..stack_table_len]);
 }
 
 test {

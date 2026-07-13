@@ -339,7 +339,7 @@ pub fn parseSegmentTable(bytes: []const u8) Error!struct { segment_count: usize,
     return .{ .segment_count = segment_count, .table_len = table_len };
 }
 
-fn segmentTableByteLen(segment_count: usize) Error!usize {
+pub fn segmentTableByteLen(segment_count: usize) Error!usize {
     if (segment_count == 0) return error.EmptyMessage;
     if (segment_count > max_segment_count) return error.TooManySegments;
     const size_words_bytes = std.math.mul(usize, segment_count, 4) catch return error.SegmentTableOverflow;
