@@ -7896,6 +7896,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            if (index >= self.list.len()) return error.PointerOutOfBounds;
             \\        }}
             \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearElement(index);
+            \\        }}
+            \\
         , .{}),
         .bool => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) !bool {{
@@ -7904,6 +7908,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn set(self: @This(), index: usize, new_value: bool) !void {{
             \\            return self.list.setBool(index, new_value);
+            \\        }}
+            \\
+            \\        pub fn clear(self: @This(), index: usize) !void {{
+            \\            return self.list.clearElement(index);
             \\        }}
             \\
         , .{}),
@@ -8241,6 +8249,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return self.list.setUInt16(index, new_value);
                 \\        }}
                 \\
+                \\        pub fn clear(self: @This(), index: usize) !void {{
+                \\            return self.list.clearElement(index);
+                \\        }}
+                \\
             , .{ zig_type, zig_type, zig_type });
         } else if (findInterface(file, type_name) != null) {
             try appendFmt(allocator, out,
@@ -8569,6 +8581,10 @@ fn listScalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_t
         \\
         \\        pub fn set(self: @This(), index: usize, new_value: {s}) !void {{
         \\            return self.list.{s}(index, new_value);
+        \\        }}
+        \\
+        \\        pub fn clear(self: @This(), index: usize) !void {{
+        \\            return self.list.clearElement(index);
         \\        }}
         \\
     , .{ zig_type, method["set".len..], zig_type, method });
@@ -9702,6 +9718,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setRaw(self: @This(), index: usize, new_value: u16) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(new_value));") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElement(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @\"cpz.schema\".Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Builder = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_id(self: Builder) !u32") != null);

@@ -675,6 +675,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const palette = try person_builder.init_palette(2);
     try palette.set(0, .red);
     try palette.set(1, .green);
+    try palette.clear(1);
+    try std.testing.expectEqual(@as(u16, 0), try palette.getRaw(1));
+    try palette.set(1, .green);
     try std.testing.expectEqual(generated.Color.green, try palette.get(1));
     try std.testing.expectEqual(@as(u16, 1), try palette.getRaw(1));
     const aliases = try person_builder.init_aliases(2);
@@ -708,9 +711,15 @@ test "generated reader and builder accessors compile and round-trip" {
     try flags.set(0, true);
     try flags.set(1, false);
     try flags.set(2, true);
+    try flags.clear(2);
+    try std.testing.expectEqual(false, try flags.get(2));
+    try flags.set(2, true);
     try std.testing.expectEqual(true, try flags.get(2));
     const ratios = try person_builder.init_ratios(2);
     try ratios.set(0, 1.5);
+    try ratios.set(1, -2.25);
+    try ratios.clear(1);
+    try std.testing.expectEqual(@as(f32, 0), try ratios.get(1));
     try ratios.set(1, -2.25);
     try std.testing.expectEqual(@as(f32, -2.25), try ratios.get(1));
     const weights = try person_builder.init_weights(2);
