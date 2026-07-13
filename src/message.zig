@@ -142,6 +142,14 @@ pub const OwnedMessageReader = struct {
         return self.reader.getRootData();
     }
 
+    pub fn getRootTextDefault(self: *OwnedMessageReader, default_value: []const u8) Error![]const u8 {
+        return self.reader.getRootTextDefault(default_value);
+    }
+
+    pub fn getRootDataDefault(self: *OwnedMessageReader, default_value: []const u8) Error![]const u8 {
+        return self.reader.getRootDataDefault(default_value);
+    }
+
     pub fn getRootCapability(self: *OwnedMessageReader) Error!u32 {
         return self.reader.getRootCapability();
     }
@@ -295,6 +303,14 @@ pub const MessageReaderView = struct {
 
     pub fn getRootData(self: *MessageReaderView) Error![]const u8 {
         return self.reader.getRootData();
+    }
+
+    pub fn getRootTextDefault(self: *MessageReaderView, default_value: []const u8) Error![]const u8 {
+        return self.reader.getRootTextDefault(default_value);
+    }
+
+    pub fn getRootDataDefault(self: *MessageReaderView, default_value: []const u8) Error![]const u8 {
+        return self.reader.getRootDataDefault(default_value);
     }
 
     pub fn getRootCapability(self: *MessageReaderView) Error!u32 {
@@ -3123,6 +3139,33 @@ test "owned message readers parse flat and packed bytes" {
     try testing.expectEqual(flat.len, owned_packed.consumedLen());
     try testing.expectEqual(@as(u32, 5150), (try owned_packed.asReader().getRoot()).getUInt32(0, 0));
 
+    var empty_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_builder.deinit();
+    const empty_flat = try empty_builder.toFlatBytes();
+    defer testing.allocator.free(empty_flat);
+    var empty_owned = try OwnedMessageReader.initFlat(testing.allocator, empty_flat, .{});
+    defer empty_owned.deinit(testing.allocator);
+    try testing.expectEqualSlices(u8, "owned default", try empty_owned.getRootTextDefault("owned default"));
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, try empty_owned.getRootDataDefault(&[_]u8{ 1, 2 }));
+
+    var data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
+    defer data_builder.deinit();
+    try data_builder.setRootData(&[_]u8{ 4, 5 });
+    const data_flat = try data_builder.toFlatBytes();
+    defer testing.allocator.free(data_flat);
+    var data_owned = try OwnedMessageReader.initFlat(testing.allocator, data_flat, .{});
+    defer data_owned.deinit(testing.allocator);
+    try testing.expectEqualSlices(u8, &[_]u8{ 4, 5 }, try data_owned.getRootDataDefault(&[_]u8{ 1, 2 }));
+
+    var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
+    defer text_builder.deinit();
+    try text_builder.setRootText("owned root text");
+    const text_flat = try text_builder.toFlatBytes();
+    defer testing.allocator.free(text_flat);
+    var text_owned = try OwnedMessageReader.initFlat(testing.allocator, text_flat, .{});
+    defer text_owned.deinit(testing.allocator);
+    try testing.expectEqualSlices(u8, "owned root text", try text_owned.getRootTextDefault("ignored"));
+
     const trailer = [_]u8{ 0xde, 0xad };
     const flat_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ flat, &trailer });
     defer testing.allocator.free(flat_with_trailer);
@@ -3198,6 +3241,23 @@ test "message reader views parse flat bytes without copying message data" {
     const flat_addr = @intFromPtr(flat_with_trailer.ptr);
     try testing.expect(segment0_addr >= flat_addr);
     try testing.expect(segment0_addr < flat_addr + flat_with_trailer.len);
+
+    var empty_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_builder.deinit();
+    const empty_flat = try empty_builder.toFlatBytes();
+    defer testing.allocator.free(empty_flat);
+    var empty_view = try MessageReaderView.initFlat(testing.allocator, empty_flat, .{});
+    defer empty_view.deinit(testing.allocator);
+    try testing.expectEqualSlices(u8, "view default", try empty_view.getRootTextDefault("view default"));
+
+    var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
+    defer text_builder.deinit();
+    try text_builder.setRootText("view root text");
+    const text_flat = try text_builder.toFlatBytes();
+    defer testing.allocator.free(text_flat);
+    var text_view = try MessageReaderView.initFlat(testing.allocator, text_flat, .{});
+    defer text_view.deinit(testing.allocator);
+    try testing.expectEqualSlices(u8, "view root text", try text_view.getRootTextDefault("ignored"));
 }
 
 test "message builder writes flat and packed streams directly" {
