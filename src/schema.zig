@@ -4317,6 +4317,14 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
     defer allocator.free(by_name);
     const by_name_ident = try zigStringLiteralAlloc(allocator, by_name);
     defer allocator.free(by_name_ident);
+    const by_type = try std.fmt.allocPrint(allocator, "{s}.fieldByType", .{metadata_name});
+    defer allocator.free(by_type);
+    const by_type_ident = try zigStringLiteralAlloc(allocator, by_type);
+    defer allocator.free(by_type_ident);
+    const by_resolved_type = try std.fmt.allocPrint(allocator, "{s}.fieldByResolvedType", .{metadata_name});
+    defer allocator.free(by_resolved_type);
+    const by_resolved_type_ident = try zigStringLiteralAlloc(allocator, by_resolved_type);
+    defer allocator.free(by_resolved_type_ident);
     const by_index = try std.fmt.allocPrint(allocator, "{s}.fieldByIndex", .{metadata_name});
     defer allocator.free(by_index);
     const by_index_ident = try zigStringLiteralAlloc(allocator, by_index);
@@ -4327,12 +4335,22 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @{s}(@"cpz.type": []const u8) ?cpz.schema.MethodField {{
+        \\{s}    for (@This().@{s}) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".ty, @"cpz.type")) return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @{s}(@"cpz.type": []const u8) ?cpz.schema.MethodField {{
+        \\{s}    for (@This().@{s}) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".resolved_ty, @"cpz.type")) return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @{s}(@"cpz.index": usize) ?cpz.schema.MethodField {{
         \\{s}    if (@"cpz.index" >= @This().@{s}.len) return null;
         \\{s}    return @This().@{s}[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, by_name_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
+    , .{ indent, by_name_ident, indent, metadata_ident, indent, indent, indent, by_type_ident, indent, metadata_ident, indent, indent, indent, by_resolved_type_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
 }
 
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {

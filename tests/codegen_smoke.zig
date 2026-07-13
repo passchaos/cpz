@@ -2090,10 +2090,14 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.params.fields"[0].index);
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByName"("attempts").?.name);
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.params.fields.fieldByName"("attempts").?.index);
+    try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields.fieldByType"("Req").?.name);
+    try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByResolvedType"("UInt32").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByName"("missing"));
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(1).?.name);
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(1).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(99));
+    try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByType"("Missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByResolvedType"("Missing"));
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.fields"[0].ty);
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.fields"[0].resolved_ty);
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.field.request.resolvedType");
@@ -2120,6 +2124,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.results.fields"[0].index);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByName"("response").?.name);
+    try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByType"("Resp").?.name);
+    try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByResolvedType"("Resp").?.name);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByIndex"(0).?.name);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.field.response.metadata".name);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.results.field.response.metadata".resolved_ty);
@@ -2254,6 +2260,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("(details :Details) -> ()", generated.ExtendedService.Callback.@"cpz.method.done.signature");
     try std.testing.expectEqualStrings("(details :Details)", generated.ExtendedService.Callback.@"cpz.method.done.params");
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.Callback.@"cpz.method.done.params.fields"[0].resolved_ty);
+    try std.testing.expectEqualStrings("details", generated.ExtendedService.Callback.@"cpz.method.done.params.fields.fieldByResolvedType"("ExtendedService.Details").?.name);
     try std.testing.expectEqualStrings("details", generated.ExtendedService.Callback.@"cpz.method.done.params.field.details.metadata".name);
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.Callback.@"cpz.method.done.params.field.details.metadata".resolved_ty);
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.Callback.@"cpz.method.done.params.field.details.resolvedType");
