@@ -417,6 +417,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try maybe_friend.set_id(64);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    try std.testing.expect(!try generated.Person.@"cpz.root.isNull"(&reader));
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.root.pointerKind"(&reader)).?);
     const reader_root_pointer = try generated.Person.@"cpz.root.pointer"(&reader);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try reader_root_pointer.pointerType()).?);

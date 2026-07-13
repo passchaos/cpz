@@ -5229,8 +5229,8 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Builder.fromBuilder(try @"cpz.builder".getRoot());
         \\    }}
         \\
-        \\    pub fn @"cpz.root.isNull"(@"cpz.builder": *cpz.MessageBuilder) !bool {{
-        \\        return @"cpz.builder".isRootNull();
+        \\    pub fn @"cpz.root.isNull"(@"cpz.root": anytype) !bool {{
+        \\        return @"cpz.root".isRootNull();
         \\    }}
         \\
         \\    pub fn @"cpz.root.clear"(@"cpz.builder": *cpz.MessageBuilder) !void {{
