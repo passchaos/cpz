@@ -1634,10 +1634,13 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByAnnotations"("missing"));
     try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByDiscriminant"(0).?.name);
     try std.testing.expectEqualStrings("id", generated.Choice.@"cpz.union.0.fieldByDiscriminant"(1).?.name);
+    try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByOrdinal"(1).?.name);
+    try std.testing.expectEqualStrings("id", generated.Choice.@"cpz.union.0.fieldByOrdinal"(2).?.name);
     try std.testing.expectEqualStrings("id", generated.Choice.@"cpz.union.0.fieldByIndex"(1).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByName"("missing"));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByIndex"(99));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByDiscriminant"(99));
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByOrdinal"(99));
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[1].field_count);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[1].fields.len);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.union.1.fields".len);
@@ -1649,6 +1652,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqualStrings("selected_code", generated.Choice.@"cpz.union.1.fieldBySlot"("data_byte", 16).?.name);
     try std.testing.expectEqualStrings("selected_text", generated.Choice.@"cpz.union.1.fieldByAnnotations"("").?.name);
     try std.testing.expectEqualStrings("selected_code", generated.Choice.@"cpz.union.1.fieldByDiscriminant"(1).?.name);
+    try std.testing.expectEqualStrings("selected_text", generated.Choice.@"cpz.union.1.fieldByOrdinal"(6).?.name);
+    try std.testing.expectEqualStrings("selected_code", generated.Choice.@"cpz.union.1.fieldByOrdinal"(7).?.name);
     try std.testing.expectEqualStrings("selected_code", generated.Choice.@"cpz.union.1.fieldByIndex"(1).?.name);
     try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByIndex"(1).?.index);
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unionByDiscriminantByte"(0).?.index);
