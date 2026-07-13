@@ -635,6 +635,14 @@ pub const InterfaceSuperclassMetadata = struct {
     index: usize,
     name: []const u8,
     resolved_name: []const u8 = "",
+
+    pub fn matchesName(self: InterfaceSuperclassMetadata, superclass_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, superclass_name);
+    }
+
+    pub fn matchesResolvedName(self: InterfaceSuperclassMetadata, superclass_name: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_name, superclass_name);
+    }
 };
 
 pub const InterfaceDecl = struct {
