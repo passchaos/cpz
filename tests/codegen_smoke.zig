@@ -287,6 +287,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(generated.Person.size.pointer_count, builder_root_decoded.pointer_count);
     const builder_root_size = try generated.Person.@"cpz.builderRoot.totalSize"(&builder);
     try std.testing.expect(builder_root_size.word_count > 0);
+    const builder_validation_stats = try generated.Person.@"cpz.builderRoot.validate"(&builder);
+    try std.testing.expect(builder_validation_stats.total_words >= builder_root_size.word_count);
     try person_builder.set_id(7);
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
     try std.testing.expectEqual(generated.Person.size, person_builder.actualSize());
