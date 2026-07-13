@@ -184,6 +184,7 @@ struct GenericBox(T) {
   }
 
   value @0 :T;
+  items @1 :List(T);
 }
 
 struct GenericUseBox {
