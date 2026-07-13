@@ -4860,11 +4860,7 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         defer allocator.free(resolved_target_name);
         const resolved_target_literal = try zigStringLiteralAlloc(allocator, resolved_target_name);
         defer allocator.free(resolved_target_literal);
-        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .target = {s}", .{ index, name_literal, target_literal });
-        if (!std.mem.eql(u8, target_name, resolved_target_name)) {
-            try appendFmt(allocator, out, ", .resolved_target = {s}", .{resolved_target_literal});
-        }
-        try out.appendSlice(allocator, " }");
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .target = {s}, .resolved_target = {s} }}", .{ index, name_literal, target_literal, resolved_target_literal });
     }
     try out.appendSlice(allocator, "};\n");
     try appendFmt(allocator, out,
