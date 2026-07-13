@@ -3756,7 +3756,21 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\    return null;
         \\}}
         \\
-    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
+        \\
+        \\pub fn @"cpz.enum.{s}.valueByMetadata"(metadata: cpz.schema.EnumValueMetadata) ?{s} {{
+        \\    return @"cpz.enum.{s}.fromRaw"(metadata.ordinal);
+        \\}}
+        \\
+        \\pub fn @"cpz.enum.{s}.metadataByName"(@"cpz.name": []const u8) ?cpz.schema.EnumValueMetadata {{
+        \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.name, @"cpz.name")) return item;
+        \\    return null;
+        \\}}
+        \\
+        \\pub fn @"cpz.enum.{s}.metadataByRaw"(raw: u16) ?cpz.schema.EnumValueMetadata {{
+        \\    for (@"cpz.enum.{s}.values") |item| if (item.ordinal == raw) return item;
+        \\    return null;
+        \\}}
+    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
     try appendFmt(allocator, out,
         \\pub const @"cpz.enum.{s}.values": []const cpz.schema.EnumValueMetadata = &[_]cpz.schema.EnumValueMetadata{{
     , .{enum_name});

@@ -35,6 +35,8 @@ test "generated enum getters reject unknown ordinals" {
     try std.testing.expectEqualStrings("ok", generated.@"cpz.enum.error_.nameFromRaw"(1).?);
     try std.testing.expectEqual(generated.error_.test_, generated.@"cpz.enum.error_.valueByName"("test").?);
     try std.testing.expectEqual(@as(?generated.error_, null), generated.@"cpz.enum.error_.valueByName"("test_"));
+    try std.testing.expectEqualStrings("test", generated.@"cpz.enum.error_.metadataByName"("test").?.name);
+    try std.testing.expectEqual(generated.error_.test_, generated.@"cpz.enum.error_.valueByMetadata"(generated.@"cpz.enum.error_.metadataByName"("test").?).?);
 
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

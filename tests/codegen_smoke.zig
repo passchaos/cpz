@@ -94,6 +94,11 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqual(@as(?[]const u8, null), generated.@"cpz.enum.Color.nameFromRaw"(99));
     try std.testing.expectEqual(generated.Color.red, generated.@"cpz.enum.Color.valueByName"("red").?);
     try std.testing.expectEqual(@as(?generated.Color, null), generated.@"cpz.enum.Color.valueByName"("missing"));
+    try std.testing.expectEqualStrings("red", generated.@"cpz.enum.Color.metadataByName"("red").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.EnumValueMetadata, null), generated.@"cpz.enum.Color.metadataByName"("missing"));
+    try std.testing.expectEqualStrings("blue", generated.@"cpz.enum.Color.metadataByRaw"(2).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.EnumValueMetadata, null), generated.@"cpz.enum.Color.metadataByRaw"(99));
+    try std.testing.expectEqual(generated.Color.green, generated.@"cpz.enum.Color.valueByMetadata"(generated.@"cpz.enum.Color.values"[1]).?);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.enum.Color.values".len);
     try std.testing.expectEqualStrings("green", generated.@"cpz.enum.Color.values"[1].name);
     try std.testing.expectEqual(@as(u16, 1), generated.@"cpz.enum.Color.values"[1].ordinal);
