@@ -78,6 +78,18 @@ pub const AliasMetadata = struct {
     name: []const u8,
     target: []const u8,
     resolved_target: []const u8 = "",
+
+    pub fn matchesName(self: AliasMetadata, alias_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, alias_name);
+    }
+
+    pub fn matchesTarget(self: AliasMetadata, target: []const u8) bool {
+        return std.mem.eql(u8, self.target, target);
+    }
+
+    pub fn matchesResolvedTarget(self: AliasMetadata, target: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_target, target);
+    }
 };
 
 pub const ConstDecl = struct {

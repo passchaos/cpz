@@ -107,6 +107,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.@"cpz.aliasByIndex"(99));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].target);
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].resolved_target);
+    try std.testing.expect(generated.@"cpz.aliases"[0].matchesName("Id"));
+    try std.testing.expect(generated.@"cpz.aliases"[0].matchesTarget("UInt32"));
+    try std.testing.expect(generated.@"cpz.aliases"[2].matchesResolvedTarget("List(Text)"));
+    try std.testing.expect(!generated.@"cpz.aliases"[0].matchesName("Missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.alias.Id.index");
     try std.testing.expectEqualStrings("Id", generated.@"cpz.alias.Id.metadata".name);
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.alias.Id.metadata".resolved_target);
