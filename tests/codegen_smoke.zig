@@ -41,6 +41,9 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declarations"[10].parameters);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.declaration.GenericBox.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declaration.GenericBox.parameters");
+    try std.testing.expectEqualStrings("T", generated.@"cpz.declaration.GenericBox.parameters.parameterByName"("T").?);
+    try std.testing.expectEqualStrings("T", generated.@"cpz.declaration.GenericBox.parameters.parameterByIndex"(0).?);
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.@"cpz.declaration.GenericBox.parameters.parameterByName"("Missing"));
     try std.testing.expectEqualStrings("Color", generated.@"cpz.declarations"[12].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.declarations"[12].parameter_count);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.declaration.Color.parameterCount");
@@ -54,6 +57,9 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.@"cpz.declarations"[16].parameters);
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.declaration.ExtendedService.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.@"cpz.declaration.ExtendedService.parameters");
+    try std.testing.expectEqualStrings("Req", generated.@"cpz.declaration.ExtendedService.parameters.parameterByName"("Req").?);
+    try std.testing.expectEqualStrings("Resp", generated.@"cpz.declaration.ExtendedService.parameters.parameterByIndex"(1).?);
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.@"cpz.declaration.ExtendedService.parameters.parameterByIndex"(99));
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.declarations"[18].name);
     try std.testing.expectEqual(.annotation_decl, generated.@"cpz.declarations"[18].kind);
     try std.testing.expectEqual(@as(?u64, 0xa110ca110c), generated.@"cpz.declarations"[18].id);

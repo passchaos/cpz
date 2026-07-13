@@ -4608,7 +4608,11 @@ fn emitDeclarationMetadataConstants(
         \\{s}pub const @"cpz.declaration.{s}.parameters": []const []const u8 = 
     , .{ indent, decl_name, annotations_literal, indent, decl_name, parameters.len, indent, decl_name });
     try appendParameterListLiteral(allocator, out, parameters);
-    try out.appendSlice(allocator, ";\n\n");
+    try out.appendSlice(allocator, ";\n");
+    const declaration_parameters_name = try std.fmt.allocPrint(allocator, "cpz.declaration.{s}.parameters", .{decl_name});
+    defer allocator.free(declaration_parameters_name);
+    try emitParameterLookupHelpers(allocator, out, declaration_parameters_name, indent);
+    try out.append(allocator, '\n');
 }
 
 fn appendDeclarationMetadataLiteral(
