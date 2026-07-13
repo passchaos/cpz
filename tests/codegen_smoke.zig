@@ -429,6 +429,29 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(usize, 0), person_size.cap_count);
 }
 
+test "generated scalar root helpers work" {
+    var text_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer text_builder.deinit();
+    try generated.Person.@"cpz.builderRoot.setText"(&text_builder, "schema root text");
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.builderRoot.text"(&text_builder));
+    var text_reader = cpz.MessageReader.init(try text_builder.segmentsConst(), .{});
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(&text_reader));
+
+    var data_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer data_builder.deinit();
+    try generated.Person.@"cpz.builderRoot.setData"(&data_builder, &[_]u8{ 4, 2, 0 });
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.builderRoot.data"(&data_builder));
+    var data_reader = cpz.MessageReader.init(try data_builder.segmentsConst(), .{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.root.data"(&data_reader));
+
+    var cap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer cap_builder.deinit();
+    try generated.Person.@"cpz.builderRoot.setCapability"(&cap_builder, 7777);
+    try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.builderRoot.capability"(&cap_builder));
+    var cap_reader = cpz.MessageReader.init(try cap_builder.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.root.capability"(&cap_reader));
+}
+
 test "generated root move and copy helpers work" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 64 });
     defer source_builder.deinit();

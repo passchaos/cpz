@@ -4957,6 +4957,42 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".getRootPointerTotalSize();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.text"(@"cpz.reader": *cpz.MessageReader) ![]const u8 {{
+        \\        return @"cpz.reader".getRootText();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.data"(@"cpz.reader": *cpz.MessageReader) ![]const u8 {{
+        \\        return @"cpz.reader".getRootData();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.capability"(@"cpz.reader": *cpz.MessageReader) !u32 {{
+        \\        return @"cpz.reader".getRootCapability();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.setText"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": []const u8) !void {{
+        \\        return @"cpz.builder".setRootText(@"cpz.value");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.text"(@"cpz.builder": *cpz.MessageBuilder) ![]const u8 {{
+        \\        return @"cpz.builder".getRootText();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.setData"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": []const u8) !void {{
+        \\        return @"cpz.builder".setRootData(@"cpz.value");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.data"(@"cpz.builder": *cpz.MessageBuilder) ![]const u8 {{
+        \\        return @"cpz.builder".getRootData();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.setCapability"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": u32) !void {{
+        \\        return @"cpz.builder".setRootCapability(@"cpz.value");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.capability"(@"cpz.builder": *cpz.MessageBuilder) !u32 {{
+        \\        return @"cpz.builder".getRootCapability();
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.disown"(@"cpz.builder": *cpz.MessageBuilder) !cpz.Orphan {{
         \\        return @"cpz.builder".disownRoot();
         \\    }}
