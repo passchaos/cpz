@@ -4170,6 +4170,18 @@ fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Array
         try appendFmt(allocator, out, ".{{ .index = {}, .raw = {s} }}", .{ index, annotation_literal });
     }
     try out.appendSlice(allocator, "};\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.fileAnnotationByIndex"(@"cpz.index": usize) ?cpz.schema.FileAnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.file_annotations") |@"cpz.annotation"| if (@"cpz.annotation".index == @"cpz.index") return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.fileAnnotationByRaw"(@"cpz.raw": []const u8) ?cpz.schema.FileAnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.file_annotations") |@"cpz.annotation"| if (std.mem.eql(u8, @"cpz.annotation".raw, @"cpz.raw")) return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (annotations_raw.len != 0) try out.append(allocator, '\n');
 }
 
