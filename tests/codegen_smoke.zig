@@ -301,6 +301,10 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(flat_root_bytes.len, try generated.Person.@"cpz.builderRoot.serializedSize"(&builder));
     try std.testing.expectEqual(flat_root_bytes.len / @sizeOf(cpz.Word), try builder.serializedSizeInWords());
     try std.testing.expectEqual(flat_root_bytes.len / @sizeOf(cpz.Word), try generated.Person.@"cpz.builderRoot.serializedSizeInWords"(&builder));
+    const builder_segment_table = try generated.Person.@"cpz.builderRoot.segmentTable"(&builder);
+    defer std.testing.allocator.free(builder_segment_table);
+    try std.testing.expect(builder_segment_table.len > 0);
+    try std.testing.expect(std.mem.startsWith(u8, flat_root_bytes, builder_segment_table));
     var flat_writer_buffer: [256]u8 = undefined;
     var flat_writer = std.Io.Writer.fixed(&flat_writer_buffer);
     try generated.Person.@"cpz.builderRoot.writeToWriter"(&builder, &flat_writer);
@@ -468,6 +472,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(reader_serialized_size, try reader.serializedSize());
     try std.testing.expectEqual(reader_serialized_size / @sizeOf(cpz.Word), try reader.serializedSizeInWords());
     try std.testing.expectEqual(reader_serialized_size / @sizeOf(cpz.Word), try generated.Person.@"cpz.root.serializedSizeInWords"(&reader));
+    const reader_segment_table = try generated.Person.@"cpz.root.segmentTable"(std.testing.allocator, &reader);
+    defer std.testing.allocator.free(reader_segment_table);
+    try std.testing.expect(reader_segment_table.len > 0);
     const reader_flat_bytes = try generated.Person.@"cpz.root.toFlatBytes"(std.testing.allocator, &reader);
     defer std.testing.allocator.free(reader_flat_bytes);
     try std.testing.expectEqual(reader_serialized_size, reader_flat_bytes.len);

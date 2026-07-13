@@ -426,6 +426,10 @@ pub const MessageBuilder = struct {
         return serialize.computeSerializedSizeInWords(try self.segmentsConst());
     }
 
+    pub fn serializeSegmentTable(self: *MessageBuilder) (Error || serialize.Error)![]u8 {
+        return serialize.serializeSegmentTable(self.allocator, try self.segmentsConst());
+    }
+
     pub fn toFlatBytes(self: *MessageBuilder) (Error || serialize.Error)![]u8 {
         return serialize.messageToFlatBytes(self.allocator, try self.segmentsConst());
     }
@@ -605,6 +609,10 @@ pub const MessageReader = struct {
 
     pub fn serializedSizeInWords(self: *const MessageReader) (Error || serialize.Error)!usize {
         return serialize.computeSerializedSizeInWords(self.segments);
+    }
+
+    pub fn serializeSegmentTable(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return serialize.serializeSegmentTable(allocator, self.segments);
     }
 
     pub fn toFlatBytes(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
