@@ -4627,6 +4627,18 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         try out.appendSlice(allocator, " }");
     }
     try out.appendSlice(allocator, "};\n\n");
+    try out.appendSlice(allocator,
+        \\    pub fn @"cpz.fieldByName"(@"cpz.name": []const u8) ?cpz.schema.FieldMetadata {
+        \\        for (@"cpz.fields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.fieldByOrdinal"(@"cpz.ordinal": u32) ?cpz.schema.FieldMetadata {
+        \\        for (@"cpz.fields") |@"cpz.field"| if (@"cpz.field".ordinal == @"cpz.ordinal") return @"cpz.field";
+        \\        return null;
+        \\    }
+        \\
+    );
 }
 
 fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize } {
