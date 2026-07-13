@@ -238,6 +238,7 @@ pub const MethodField = struct {
     name: []const u8,
     ty: []const u8,
     default_literal: ?[]const u8 = null,
+    has_explicit_default: bool = false,
     annotations: []const u8 = "",
 };
 
@@ -1050,6 +1051,7 @@ pub const Parser = struct {
             }
             const field_type_end = index;
             var default_literal: ?[]const u8 = null;
+            var has_explicit_default = false;
             var annotations: []const u8 = "";
             if (index < end and trimmed[index] != ',' and trimmed[index] != '=') {
                 const annotation_start = index;
@@ -1074,6 +1076,7 @@ pub const Parser = struct {
             }
             const field_type = std.mem.trim(u8, trimmed[type_start..field_type_end], " \t\r\n");
             if (index < end and trimmed[index] == '=') {
+                has_explicit_default = true;
                 index += 1;
                 while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
                 const default_start = index;
@@ -1120,7 +1123,7 @@ pub const Parser = struct {
                 }
                 annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
             }
-            try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .annotations = annotations });
+            try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .has_explicit_default = has_explicit_default, .annotations = annotations });
             if (index < end and trimmed[index] == ',') index += 1;
         }
         return fields.toOwnedSlice(self.allocator);
@@ -4133,9 +4136,10 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.hasExplicitDefault": bool = {};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.annotations": []const u8 = {s};
             \\
-        , .{ indent, method_name, kind, field_name, annotations_literal });
+        , .{ indent, method_name, kind, field_name, field.has_explicit_default, indent, method_name, kind, field_name, annotations_literal });
     }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.{s}.fields\": []const cpz.schema.MethodField = &[_]cpz.schema.MethodField{{", .{ indent, method_name, kind });
     for (fields, 0..) |field, index| {
@@ -4149,11 +4153,11 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .default_literal = {s}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, default_literal, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .default_literal = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, default_literal, field.has_explicit_default, annotations_literal });
         } else if (field.annotations.len != 0) {
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, field.has_explicit_default, annotations_literal });
         } else {
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s} }}", .{ field.index, name_literal, type_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .has_explicit_default = {} }}", .{ field.index, name_literal, type_literal, field.has_explicit_default });
         }
     }
     try out.appendSlice(allocator, "};\n");
