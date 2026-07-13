@@ -308,6 +308,10 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByResolvedType"("Missing"));
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.constByLiteral"("12345").?.name);
     try std.testing.expectEqualStrings("globalScores", generated.@"cpz.constByLiteral"("[10, 20, 30]").?.name);
+    try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByHexData"(true).?.name);
+    try std.testing.expectEqualStrings("globalId", generated.@"cpz.constByHexData"(false).?.name);
+    try std.testing.expectEqualStrings("globalId", generated.@"cpz.constByEmitted"(true).?.name);
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByEmitted"(false).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByLiteral"("missing"));
     try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByIndex"(3).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByIndex"(99));
@@ -380,6 +384,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByType"("UInt16").?.name);
     try std.testing.expectEqualStrings("defaultScores", generated.Person.@"cpz.constByResolvedType"("List(UInt16)").?.name);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByLiteral"("99").?.name);
+    try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByEmitted"(true).?.name);
+    try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByHexData"(false).?.name);
     try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByIndex"(2).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.consts"[0].ty);
