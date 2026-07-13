@@ -49,6 +49,7 @@ pub const FlatMessageView = struct {
     bytes: []const u8,
     segments: []ConstSegment,
     owns_segments: bool = true,
+    source_consumed_len: usize = 0,
     consumed_len: usize,
 
     pub fn deinit(self: *FlatMessageView, allocator: std.mem.Allocator) void {
@@ -61,7 +62,7 @@ pub const FlatMessageView = struct {
     }
 
     pub fn sourceConsumedLen(self: FlatMessageView) usize {
-        return self.consumed_len;
+        return if (self.source_consumed_len != 0) self.source_consumed_len else self.consumed_len;
     }
 };
 
@@ -257,7 +258,7 @@ pub fn readFlatMessageViewInto(segment_table: []ConstSegment, bytes: []const u8)
         off += len;
     }
 
-    return .{ .bytes = bytes, .segments = segment_table[0..table.segment_count], .owns_segments = false, .consumed_len = expected_len };
+    return .{ .bytes = bytes, .segments = segment_table[0..table.segment_count], .owns_segments = false, .source_consumed_len = expected_len, .consumed_len = expected_len };
 }
 
 /// Parse one packed Cap'n Proto stream message from a byte slice. Decoding
@@ -345,6 +346,51 @@ pub fn readPackedMessageFromReader(allocator: std.mem.Allocator, reader: *std.Io
                 if (unpacked.items.len != expected_len) return error.PackedOutputLengthMismatch;
                 const owned = try unpacked.toOwnedSlice(allocator);
                 return readOwnedFlatMessageWithSourceConsumedLen(allocator, owned, source_consumed_len);
+            }
+        }
+    }
+}
+
+/// Read one packed stream-framed message from an Io reader into caller-owned
+/// flat-message storage, returning a zero-copy view over the unpacked message.
+/// Decoding stops exactly when the unpacked stream framing says the message is
+/// complete, leaving following bytes buffered in `reader`.
+pub fn readPackedMessageViewFromReaderInto(segment_table: []ConstSegment, flat_buffer: []u8, reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!FlatMessageView {
+    var out_i: usize = 0;
+    var source_consumed_len: usize = 0;
+
+    while (true) {
+        const tag = try takePackedByteCount(reader, &source_consumed_len);
+        if (flat_buffer.len - out_i < wire.bytes_per_word) return error.PackedOutputTooSmall;
+        @memset(flat_buffer[out_i .. out_i + wire.bytes_per_word], 0);
+        inline for (0..wire.bytes_per_word) |j| {
+            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                flat_buffer[out_i + j] = try takePackedByteCount(reader, &source_consumed_len);
+            }
+        }
+        out_i += wire.bytes_per_word;
+
+        if (tag == 0x00) {
+            const additional_words = @as(usize, try takePackedByteCount(reader, &source_consumed_len));
+            const additional_bytes = additional_words * wire.bytes_per_word;
+            if (flat_buffer.len - out_i < additional_bytes) return error.PackedOutputTooSmall;
+            @memset(flat_buffer[out_i .. out_i + additional_bytes], 0);
+            out_i += additional_bytes;
+        } else if (tag == 0xff) {
+            const raw_words = @as(usize, try takePackedByteCount(reader, &source_consumed_len));
+            const raw_bytes = raw_words * wire.bytes_per_word;
+            if (flat_buffer.len - out_i < raw_bytes) return error.PackedOutputTooSmall;
+            try readPackedExactCount(reader, flat_buffer[out_i .. out_i + raw_bytes], &source_consumed_len);
+            out_i += raw_bytes;
+        }
+
+        if (out_i >= wire.bytes_per_word) {
+            const expected_len = try expectedSize(flat_buffer[0..out_i]);
+            if (out_i >= expected_len) {
+                if (out_i != expected_len) return error.PackedOutputLengthMismatch;
+                var view = try readFlatMessageViewInto(segment_table, flat_buffer[0..expected_len]);
+                view.source_consumed_len = source_consumed_len;
+                return view;
             }
         }
     }
@@ -797,6 +843,27 @@ test "packed stream framing reads one message from Io reader" {
     try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
     try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
     try testing.expectEqualSlices(u8, &trailer, reader.buffered());
+
+    var view_reader = std.Io.Reader.fixed(with_trailer);
+    var view_segments: [2]ConstSegment = undefined;
+    var view_buffer: [128]u8 = undefined;
+    var parsed_view = try readPackedMessageViewFromReaderInto(&view_segments, &view_buffer, &view_reader);
+    defer parsed_view.deinit(allocator);
+    try testing.expect(!parsed_view.owns_segments);
+    try testing.expectEqual(parsed.bytes.len, parsed_view.consumed_len);
+    try testing.expectEqual(packed_bytes.len, parsed_view.sourceConsumedLen());
+    try testing.expectEqualSlices(u8, parsed.bytes, parsed_view.consumedBytes());
+    try testing.expectEqualSlices(u8, &s0, parsed_view.segments[0]);
+    try testing.expectEqualSlices(u8, &s1, parsed_view.segments[1]);
+    try testing.expectEqualSlices(u8, &trailer, view_reader.buffered());
+    var small_view_reader = std.Io.Reader.fixed(with_trailer);
+    var small_view_segments: [2]ConstSegment = undefined;
+    var small_view_buffer: [8]u8 = undefined;
+    try testing.expectError(error.PackedOutputTooSmall, readPackedMessageViewFromReaderInto(&small_view_segments, &small_view_buffer, &small_view_reader));
+    var short_view_reader = std.Io.Reader.fixed(with_trailer);
+    var short_view_segments: [1]ConstSegment = undefined;
+    var short_view_buffer: [128]u8 = undefined;
+    try testing.expectError(error.SegmentTableTruncated, readPackedMessageViewFromReaderInto(&short_view_segments, &short_view_buffer, &short_view_reader));
 
     var truncated_reader = std.Io.Reader.fixed(packed_bytes[0 .. packed_bytes.len - 1]);
     try testing.expectError(error.MessageTruncated, readPackedMessageFromReader(allocator, &truncated_reader));

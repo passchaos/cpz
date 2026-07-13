@@ -91,6 +91,7 @@ pub const readPackedMessage = serialize.readPackedMessage;
 pub const readMessageFromReader = serialize.readMessageFromReader;
 pub const readMessageViewFromReaderInto = serialize.readMessageViewFromReaderInto;
 pub const readPackedMessageFromReader = serialize.readPackedMessageFromReader;
+pub const readPackedMessageViewFromReaderInto = serialize.readPackedMessageViewFromReaderInto;
 pub const toSingleSegmentFlatBytes = message.toSingleSegmentFlatBytes;
 pub const toCanonicalSegmentBytes = message.toCanonicalSegmentBytes;
 pub const expectedSize = serialize.expectedSize;
