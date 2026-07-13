@@ -32,7 +32,7 @@ annotation labels(enumerant) :List(Text);
 struct Person {
   id @0 :UInt32 = 42;
   active @1 :Bool = true;
-  name @2 :Text;
+  name @2 :Text $schemaNote("person-name");
   favorite @3 :Color = Color.green;
   scores @4 :List(UInt32);
   children @5 :List(Person);

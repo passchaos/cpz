@@ -51,6 +51,7 @@ pub const Field = struct {
     ty: Type,
     default_literal: ?[]const u8 = null,
     default_is_hex_data: bool = false,
+    annotations: []const u8 = "",
     union_index: ?u32 = null,
     union_discriminant: u16 = 0,
 
@@ -1741,8 +1742,15 @@ pub const Parser = struct {
             }
             break :blk try self.expectDefaultLiteral();
         } else null;
-        try self.skipUntilSemicolon();
-        return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = ty, .default_literal = default_literal, .default_is_hex_data = default_is_hex_data };
+        const annotations = try self.takeRawUntilSemicolon();
+        return .{
+            .name = name,
+            .ordinal = @intCast(ordinal_u64),
+            .ty = ty,
+            .default_literal = default_literal,
+            .default_is_hex_data = default_is_hex_data,
+            .annotations = annotations,
+        };
     }
 
     fn parseType(self: *Parser) Error!Type {
@@ -4134,6 +4142,14 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
+    if (field.annotations.len != 0) {
+        const annotation_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.field.{s}.annotations": []const u8 = {s};
+            \\
+        , .{ field_name, annotation_literal });
+    }
     switch (field_layout.slot) {
         .void => if (unionLayoutForField(layout, field)) |union_layout| try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) !void {{

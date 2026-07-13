@@ -34,6 +34,10 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expect(generated.NestedBox_statusLabels.targets.enumerant);
 }
 
+test "generated field annotation metadata compiles" {
+    try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");
+}
+
 test "generated simple constants compile" {
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
