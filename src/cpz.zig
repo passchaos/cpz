@@ -93,6 +93,8 @@ pub const toSingleSegmentFlatBytes = message.toSingleSegmentFlatBytes;
 pub const toCanonicalSegmentBytes = message.toCanonicalSegmentBytes;
 pub const expectedSize = serialize.expectedSize;
 pub const expectedSizeInWordsFromPrefix = serialize.expectedSizeInWordsFromPrefix;
+pub const segmentWordLenFromPrefix = serialize.segmentWordLenFromPrefix;
+pub const segmentByteLenFromPrefix = serialize.segmentByteLenFromPrefix;
 
 test "top-level stream framing helpers round-trip" {
     const std = @import("std");
@@ -112,6 +114,8 @@ test "top-level stream framing helpers round-trip" {
     try testing.expectEqual(flat.len / wire.bytes_per_word, try computeSerializedSizeInWords(segments));
     try testing.expectEqual(flat.len, try expectedSize(flat[0..wire.bytes_per_word]));
     try testing.expectEqual(flat.len / wire.bytes_per_word, try expectedSizeInWordsFromPrefix(flat[0..wire.bytes_per_word]));
+    try testing.expectEqual(try builder.segmentWordLen(0), try segmentWordLenFromPrefix(flat[0..wire.bytes_per_word], 0));
+    try testing.expectEqual(try builder.segmentByteLen(0), try segmentByteLenFromPrefix(flat[0..wire.bytes_per_word], 0));
     var flat_into_buffer: [128]u8 = undefined;
     const flat_into_len = try messageToFlatBytesInto(&flat_into_buffer, segments);
     try testing.expectEqualSlices(u8, flat, flat_into_buffer[0..flat_into_len]);
