@@ -73,6 +73,64 @@ pub const MessageSize = struct {
     }
 };
 
+pub const OwnedMessageReader = struct {
+    flat: serialize.FlatMessage,
+    reader: MessageReader,
+
+    pub fn initFlat(allocator: std.mem.Allocator, flat_bytes: []const u8, options: ReaderOptions) (Error || serialize.Error)!OwnedMessageReader {
+        var flat = try serialize.readFlatMessage(allocator, flat_bytes);
+        errdefer flat.deinit(allocator);
+        return .{
+            .reader = MessageReader.init(flat.segments, options),
+            .flat = flat,
+        };
+    }
+
+    pub fn initPacked(allocator: std.mem.Allocator, packed_bytes: []const u8, options: ReaderOptions) (Error || serialize.Error)!OwnedMessageReader {
+        var flat = try serialize.readPackedMessage(allocator, packed_bytes);
+        errdefer flat.deinit(allocator);
+        return .{
+            .reader = MessageReader.init(flat.segments, options),
+            .flat = flat,
+        };
+    }
+
+    pub fn initFromReader(allocator: std.mem.Allocator, source: *std.Io.Reader, options: ReaderOptions) (Error || serialize.Error || std.Io.Reader.Error)!OwnedMessageReader {
+        var flat = try serialize.readMessageFromReader(allocator, source);
+        errdefer flat.deinit(allocator);
+        return .{
+            .reader = MessageReader.init(flat.segments, options),
+            .flat = flat,
+        };
+    }
+
+    pub fn initPackedFromReader(allocator: std.mem.Allocator, source: *std.Io.Reader, options: ReaderOptions) (Error || serialize.Error || std.Io.Reader.Error)!OwnedMessageReader {
+        var flat = try serialize.readPackedMessageFromReader(allocator, source);
+        errdefer flat.deinit(allocator);
+        return .{
+            .reader = MessageReader.init(flat.segments, options),
+            .flat = flat,
+        };
+    }
+
+    pub fn deinit(self: *OwnedMessageReader, allocator: std.mem.Allocator) void {
+        self.flat.deinit(allocator);
+        self.reader = undefined;
+    }
+
+    pub fn asReader(self: *OwnedMessageReader) *MessageReader {
+        return &self.reader;
+    }
+
+    pub fn consumedLen(self: *const OwnedMessageReader) usize {
+        return self.flat.consumed_len;
+    }
+
+    pub fn bytes(self: *const OwnedMessageReader) []const u8 {
+        return self.flat.bytes;
+    }
+};
+
 pub const BuilderOptions = struct {
     first_segment_words: usize = 1024,
     next_segment_min_words: usize = 1024,
@@ -2643,6 +2701,49 @@ test "message builder serializes flat, packed, and canonical bytes directly" {
     defer testing.allocator.free(canonical);
     const root_ptr = wire.decodeStruct(try wire.readWord(canonical, 0));
     try testing.expectEqual(@as(u16, 1), root_ptr.data_words);
+}
+
+test "owned message readers parse flat and packed bytes" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try root.setUInt32(0, 5150, 0);
+    try root.setText(0, "owned");
+
+    const flat = try builder.toFlatBytes();
+    defer testing.allocator.free(flat);
+    var owned_flat = try OwnedMessageReader.initFlat(testing.allocator, flat, .{});
+    defer owned_flat.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_flat.consumedLen());
+    try testing.expectEqual(flat.len, owned_flat.bytes().len);
+    try testing.expectEqual(@as(u32, 5150), (try owned_flat.asReader().getRoot()).getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "owned", try (try owned_flat.asReader().getRoot()).getPointerField(0).getText());
+
+    const packed_bytes = try builder.toPackedBytes();
+    defer testing.allocator.free(packed_bytes);
+    var owned_packed = try OwnedMessageReader.initPacked(testing.allocator, packed_bytes, .{});
+    defer owned_packed.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_packed.consumedLen());
+    try testing.expectEqual(@as(u32, 5150), (try owned_packed.asReader().getRoot()).getUInt32(0, 0));
+
+    const trailer = [_]u8{ 0xde, 0xad };
+    const flat_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ flat, &trailer });
+    defer testing.allocator.free(flat_with_trailer);
+    var flat_stream = std.Io.Reader.fixed(flat_with_trailer);
+    var owned_from_reader = try OwnedMessageReader.initFromReader(testing.allocator, &flat_stream, .{});
+    defer owned_from_reader.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_from_reader.consumedLen());
+    try testing.expectEqualSlices(u8, &trailer, flat_stream.buffered());
+
+    const packed_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ packed_bytes, &trailer });
+    defer testing.allocator.free(packed_with_trailer);
+    var packed_stream = std.Io.Reader.fixed(packed_with_trailer);
+    var owned_packed_from_reader = try OwnedMessageReader.initPackedFromReader(testing.allocator, &packed_stream, .{});
+    defer owned_packed_from_reader.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_packed_from_reader.consumedLen());
+    try testing.expectEqualSlices(u8, &trailer, packed_stream.buffered());
 }
 
 test "message builder writes flat and packed streams directly" {
