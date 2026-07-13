@@ -6486,6 +6486,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return cpz.MessageReaderView.initFlat(@"cpz.allocator", @"cpz.bytes", @"cpz.options");
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.consumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
+        \\        return @"cpz.reader".consumedLen();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.sourceConsumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
+        \\        return @"cpz.reader".sourceConsumedLen();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.bytes"(@"cpz.reader": *const cpz.OwnedMessageReader) []const u8 {{
+        \\        return @"cpz.reader".bytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.consumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
+        \\        return @"cpz.view".consumedLen();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.sourceConsumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
+        \\        return @"cpz.view".sourceConsumedLen();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.bytes"(@"cpz.view": *const cpz.MessageReaderView) []const u8 {{
+        \\        return @"cpz.view".bytes();
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.traversalLimitWords"(@"cpz.reader": *cpz.MessageReader) usize {{
         \\        return @"cpz.reader".traversalLimitWords();
         \\    }}
