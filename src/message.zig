@@ -2735,6 +2735,10 @@ pub const ListBuilder = struct {
         };
     }
 
+    pub fn clearStructElement(self: ListBuilder, index: usize) Error!void {
+        return (try self.getStructElement(index)).clear();
+    }
+
     fn setPrimitive(self: ListBuilder, comptime T: type, index: usize, value: T) Error!void {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
@@ -3724,6 +3728,26 @@ test "builders can clear pointer fields and elements" {
     const read_names = try read_root.getPointerField(1).getList(.pointer);
     try testing.expectEqualSlices(u8, "keep", try (try read_names.getPointerElement(0)).getText());
     try testing.expect((try read_names.getPointerElement(1)).isNull());
+}
+
+test "builders can clear struct list elements" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const people = try builder.initRootStructList(1, .{ .data_words = 1, .pointer_count = 1 });
+    const person = try people.getStructElement(0);
+    try person.setUInt32(0, 123, 42);
+    try person.setText(0, "drop struct element");
+    try people.clearStructElement(0);
+    try testing.expectError(error.PointerOutOfBounds, people.clearStructElement(1));
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_people = try reader.getRootList(.composite);
+    const read_person = try read_people.getStructElement(0);
+    try testing.expectEqual(@as(u32, 42), read_person.getUInt32(0, 42));
+    try testing.expect(read_person.getPointerField(0).isNull());
+    try testing.expectError(error.NullPointer, read_person.getPointerField(0).getText());
 }
 
 test "pointer builders can disown and adopt within a message" {

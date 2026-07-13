@@ -8301,7 +8301,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
                 \\        pub fn clear(self: @This(), index: usize) !void {{
-                \\            return (try self.list.getStructElement(index)).clear();
+                \\            return self.list.clearStructElement(index);
                 \\        }}
                 \\
             , .{ zig_type, zig_type, zig_type });
@@ -9694,7 +9694,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getPointerElement(index)).getText();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearPointerElement(index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getStructElement(index)).clear();") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearStructElement(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_List") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return std.enums.fromInt(@\"cpz.schema\".Color, self.list.getUInt16(index)) orelse error.InvalidEnumValue;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(self: @This(), index: usize) u16") != null);
