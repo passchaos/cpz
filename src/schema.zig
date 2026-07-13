@@ -361,6 +361,120 @@ pub const InterfaceMethodMetadata = struct {
     parameters: []const []const u8 = &.{},
     param_fields: []const MethodField = &.{},
     result_fields: []const MethodField = &.{},
+
+    pub fn parameterByName(self: InterfaceMethodMetadata, parameter: []const u8) ?[]const u8 {
+        for (self.parameters) |item| if (std.mem.eql(u8, item, parameter)) return item;
+        return null;
+    }
+
+    pub fn parameterByIndex(self: InterfaceMethodMetadata, parameter_index: usize) ?[]const u8 {
+        if (parameter_index >= self.parameters.len) return null;
+        return self.parameters[parameter_index];
+    }
+
+    pub fn paramFieldByName(self: InterfaceMethodMetadata, field_name: []const u8) ?MethodField {
+        return methodFieldByName(self.param_fields, field_name);
+    }
+
+    pub fn paramFieldByType(self: InterfaceMethodMetadata, ty: []const u8) ?MethodField {
+        return methodFieldByType(self.param_fields, ty);
+    }
+
+    pub fn paramFieldByResolvedType(self: InterfaceMethodMetadata, ty: []const u8) ?MethodField {
+        return methodFieldByResolvedType(self.param_fields, ty);
+    }
+
+    pub fn paramFieldByDefault(self: InterfaceMethodMetadata, default_value: []const u8) ?MethodField {
+        return methodFieldByDefault(self.param_fields, default_value);
+    }
+
+    pub fn paramFieldByExplicitDefault(self: InterfaceMethodMetadata, has_default: bool) ?MethodField {
+        return methodFieldByExplicitDefault(self.param_fields, has_default);
+    }
+
+    pub fn paramFieldByHexDefault(self: InterfaceMethodMetadata, is_hex: bool) ?MethodField {
+        return methodFieldByHexDefault(self.param_fields, is_hex);
+    }
+
+    pub fn paramFieldByAnnotations(self: InterfaceMethodMetadata, annotations: []const u8) ?MethodField {
+        return methodFieldByAnnotations(self.param_fields, annotations);
+    }
+
+    pub fn paramFieldByIndex(self: InterfaceMethodMetadata, field_index: usize) ?MethodField {
+        return methodFieldByIndex(self.param_fields, field_index);
+    }
+
+    pub fn resultFieldByName(self: InterfaceMethodMetadata, field_name: []const u8) ?MethodField {
+        return methodFieldByName(self.result_fields, field_name);
+    }
+
+    pub fn resultFieldByType(self: InterfaceMethodMetadata, ty: []const u8) ?MethodField {
+        return methodFieldByType(self.result_fields, ty);
+    }
+
+    pub fn resultFieldByResolvedType(self: InterfaceMethodMetadata, ty: []const u8) ?MethodField {
+        return methodFieldByResolvedType(self.result_fields, ty);
+    }
+
+    pub fn resultFieldByDefault(self: InterfaceMethodMetadata, default_value: []const u8) ?MethodField {
+        return methodFieldByDefault(self.result_fields, default_value);
+    }
+
+    pub fn resultFieldByExplicitDefault(self: InterfaceMethodMetadata, has_default: bool) ?MethodField {
+        return methodFieldByExplicitDefault(self.result_fields, has_default);
+    }
+
+    pub fn resultFieldByHexDefault(self: InterfaceMethodMetadata, is_hex: bool) ?MethodField {
+        return methodFieldByHexDefault(self.result_fields, is_hex);
+    }
+
+    pub fn resultFieldByAnnotations(self: InterfaceMethodMetadata, annotations: []const u8) ?MethodField {
+        return methodFieldByAnnotations(self.result_fields, annotations);
+    }
+
+    pub fn resultFieldByIndex(self: InterfaceMethodMetadata, field_index: usize) ?MethodField {
+        return methodFieldByIndex(self.result_fields, field_index);
+    }
+
+    fn methodFieldByName(fields: []const MethodField, field_name: []const u8) ?MethodField {
+        for (fields) |field| if (std.mem.eql(u8, field.name, field_name)) return field;
+        return null;
+    }
+
+    fn methodFieldByType(fields: []const MethodField, ty: []const u8) ?MethodField {
+        for (fields) |field| if (std.mem.eql(u8, field.ty, ty)) return field;
+        return null;
+    }
+
+    fn methodFieldByResolvedType(fields: []const MethodField, ty: []const u8) ?MethodField {
+        for (fields) |field| if (std.mem.eql(u8, field.resolved_ty, ty)) return field;
+        return null;
+    }
+
+    fn methodFieldByDefault(fields: []const MethodField, default_value: []const u8) ?MethodField {
+        for (fields) |field| if (field.default_literal != null and std.mem.eql(u8, field.default_literal.?, default_value)) return field;
+        return null;
+    }
+
+    fn methodFieldByExplicitDefault(fields: []const MethodField, has_default: bool) ?MethodField {
+        for (fields) |field| if (field.has_explicit_default == has_default) return field;
+        return null;
+    }
+
+    fn methodFieldByHexDefault(fields: []const MethodField, is_hex: bool) ?MethodField {
+        for (fields) |field| if (field.default_is_hex_data == is_hex) return field;
+        return null;
+    }
+
+    fn methodFieldByAnnotations(fields: []const MethodField, annotations: []const u8) ?MethodField {
+        for (fields) |field| if (std.mem.eql(u8, field.annotations, annotations)) return field;
+        return null;
+    }
+
+    fn methodFieldByIndex(fields: []const MethodField, field_index: usize) ?MethodField {
+        if (field_index >= fields.len) return null;
+        return fields[field_index];
+    }
 };
 
 pub const InterfaceSuperclassMetadata = struct {
