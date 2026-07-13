@@ -428,6 +428,10 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(generated.Person.size.pointer_count, reader_root_decoded.pointer_count);
     const reader_root_size = try generated.Person.@"cpz.root.totalSize"(&reader);
     try std.testing.expect(reader_root_size.word_count > 0);
+    var validating_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const validation_stats = try generated.Person.@"cpz.root.validate"(&validating_reader);
+    try std.testing.expect(validation_stats.pointer_slots >= generated.Person.size.pointer_count);
+    try std.testing.expect(validation_stats.total_words >= reader_root_size.word_count);
     const person = try generated.Person.getRoot(&reader);
     try std.testing.expectEqual(generated.Person.size, person.actualSize());
     try std.testing.expectEqual(@as(u8, 7 ^ 42), person.dataSection()[0]);

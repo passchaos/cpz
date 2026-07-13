@@ -5257,6 +5257,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootPointerTotalSize();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.validate"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageStats {{
+        \\        return @"cpz.reader".validate();
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.pointerKind"(@"cpz.builder": *cpz.MessageBuilder) !?cpz.wire.PointerType {{
         \\        return @"cpz.builder".getRootPointerKind();
         \\    }}
