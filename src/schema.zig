@@ -5269,6 +5269,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".segmentCount();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.segmentBytes"(@"cpz.reader": *cpz.MessageReader, @"cpz.index": usize) !cpz.serialize.ConstSegment {{
+        \\        return @"cpz.reader".segmentBytes(@"cpz.index");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.segmentByteLen"(@"cpz.reader": *cpz.MessageReader, @"cpz.index": usize) !usize {{
         \\        return @"cpz.reader".segmentByteLen(@"cpz.index");
         \\    }}
@@ -5351,6 +5355,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.segmentCount"(@"cpz.builder": *cpz.MessageBuilder) usize {{
         \\        return @"cpz.builder".segmentCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.segmentBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.index": usize) !cpz.serialize.ConstSegment {{
+        \\        return @"cpz.builder".segmentBytes(@"cpz.index");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.segmentByteLen"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.index": usize) !usize {{

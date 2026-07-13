@@ -422,6 +422,11 @@ pub const MessageBuilder = struct {
         return self.segments.items.len;
     }
 
+    pub fn segmentBytes(self: *MessageBuilder, index: usize) Error!serialize.ConstSegment {
+        if (index >= self.segments.items.len) return error.SegmentOutOfBounds;
+        return self.segments.items[index].allocatedBytes();
+    }
+
     pub fn segmentByteLen(self: *MessageBuilder, index: usize) Error!usize {
         if (index >= self.segments.items.len) return error.SegmentOutOfBounds;
         return self.segments.items[index].used * wire.bytes_per_word;
@@ -638,6 +643,11 @@ pub const MessageReader = struct {
 
     pub fn segmentCount(self: *const MessageReader) usize {
         return self.segments.len;
+    }
+
+    pub fn segmentBytes(self: *const MessageReader, index: usize) Error!serialize.ConstSegment {
+        if (index >= self.segments.len) return error.SegmentOutOfBounds;
+        return self.segments[index];
     }
 
     pub fn segmentByteLen(self: *const MessageReader, index: usize) Error!usize {

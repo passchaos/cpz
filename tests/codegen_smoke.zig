@@ -295,6 +295,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(builder_segments.len, generated.Person.@"cpz.builderRoot.segmentCount"(&builder));
     try std.testing.expectEqual(builder_segments.len, builder.segmentCount());
     try std.testing.expect(builder_segments[0].len >= @sizeOf(cpz.Word));
+    try std.testing.expectEqualSlices(u8, builder_segments[0], try generated.Person.@"cpz.builderRoot.segmentBytes"(&builder, 0));
     try std.testing.expectEqual(builder_segments[0].len, try generated.Person.@"cpz.builderRoot.segmentByteLen"(&builder, 0));
     const first_segment_words = try generated.Person.@"cpz.builderRoot.segmentWordLen"(&builder, 0);
     try std.testing.expectEqual(builder_segments[0].len / @sizeOf(cpz.Word), first_segment_words);
@@ -482,6 +483,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(reader_segments.len > 0);
     try std.testing.expectEqual(reader_segments.len, generated.Person.@"cpz.root.segmentCount"(&reader));
     try std.testing.expectEqual(reader_segments.len, reader.segmentCount());
+    try std.testing.expectEqualSlices(u8, reader_segments[0], try generated.Person.@"cpz.root.segmentBytes"(&reader, 0));
     try std.testing.expectEqual(reader_segments[0].len, try generated.Person.@"cpz.root.segmentByteLen"(&reader, 0));
     try std.testing.expectEqual(reader_segments[0].len / @sizeOf(cpz.Word), try generated.Person.@"cpz.root.segmentWordLen"(&reader, 0));
     const reader_serialized_size = try generated.Person.@"cpz.root.serializedSize"(&reader);
