@@ -999,12 +999,27 @@ test "generated root move and copy helpers work" {
     const ptr_copied_person = try generated.Person.getRoot(&ptr_copy_reader);
     try std.testing.expectEqual(@as(u32, 2024), ptr_copied_person.id());
 
+    var builder_to_builder_copy = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_to_builder_copy.deinit();
+    _ = try generated.Person.@"cpz.root.copyTo"(&source_builder, &builder_to_builder_copy);
+    var builder_to_builder_reader = cpz.MessageReader.init(try builder_to_builder_copy.segmentsConst(), .{});
+    const builder_to_builder_person = try generated.Person.getRoot(&builder_to_builder_reader);
+    try std.testing.expectEqual(@as(u32, 2024), builder_to_builder_person.id());
+    try std.testing.expectEqualSlices(u8, "root helper", try builder_to_builder_person.name());
+
     var canonical_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
     defer canonical_builder.deinit();
     _ = try generated.Person.@"cpz.root.copyCanonicalFrom"(&canonical_builder, &source_reader);
     var canonical_reader = cpz.MessageReader.init(try canonical_builder.segmentsConst(), .{});
     const canonical_person = try generated.Person.getRoot(&canonical_reader);
     try std.testing.expectEqualSlices(u8, "root helper", try canonical_person.name());
+
+    var builder_to_builder_canonical = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_to_builder_canonical.deinit();
+    _ = try generated.Person.@"cpz.root.copyCanonicalTo"(&source_builder, &builder_to_builder_canonical);
+    var builder_to_builder_canonical_reader = cpz.MessageReader.init(try builder_to_builder_canonical.segmentsConst(), .{});
+    const builder_to_builder_canonical_person = try generated.Person.getRoot(&builder_to_builder_canonical_reader);
+    try std.testing.expectEqualSlices(u8, "root helper", try builder_to_builder_canonical_person.name());
 
     var move_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer move_builder.deinit();

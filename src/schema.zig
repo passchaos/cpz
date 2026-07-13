@@ -6535,12 +6535,20 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".copyRootPointerFrom(@"cpz.source");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.copyTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !cpz.PointerBuilder {{
+        \\        return @"cpz.source".copyRootTo(@"cpz.target");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.copyCanonicalFrom"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": *cpz.MessageReader) !Builder {{
         \\        return Builder.fromBuilder(try @"cpz.builder".copyRootCanonicalFrom(@"cpz.source"));
         \\    }}
         \\
         \\    pub fn @"cpz.root.copyPointerCanonicalFrom"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": cpz.PointerReader) !cpz.PointerBuilder {{
         \\        return @"cpz.builder".copyRootPointerCanonicalFrom(@"cpz.source");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.copyCanonicalTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !cpz.PointerBuilder {{
+        \\        return @"cpz.source".copyRootCanonicalTo(@"cpz.target");
         \\    }}
         \\
         \\    pub fn newOrphan(@"cpz.builder": *cpz.MessageBuilder) !Orphan {{
