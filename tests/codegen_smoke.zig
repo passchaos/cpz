@@ -1842,6 +1842,40 @@ test "generated list orphan wrappers can allocate orphan copies" {
     const builder_copy_orphanage_person = generated.Person.fromReader(try builder_copy_orphanage_reader.getRoot());
     const builder_copy_orphanage_scores = try builder_copy_orphanage_person.scores();
     try std.testing.expectEqual(@as(u32, 14), builder_copy_orphanage_scores.get(1));
+
+    const source_children = try source_person_builder.init_children(1);
+    const source_child = try source_children.get(0);
+    try source_child.set_id(9191);
+    try source_child.set_name("CanonicalChild");
+    var canonical_source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const canonical_source_person = generated.Person.fromReader(try canonical_source_reader.getRoot());
+    const canonical_source_children = try canonical_source_person.children();
+
+    var canonical_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer canonical_target.deinit();
+    const canonical_person_builder = try generated.Person.initRootTyped(&canonical_target);
+    var children_canonical = try generated.Person.Person_children_Orphan.newOrphanCopyCanonical(&canonical_target, canonical_source_children);
+    try canonical_person_builder.adopt_children_typed(&children_canonical);
+    var canonical_reader = cpz.MessageReader.init(try canonical_target.segmentsConst(), .{});
+    const canonical_person = generated.Person.fromReader(try canonical_reader.getRoot());
+    const canonical_children = try canonical_person.children();
+    try std.testing.expect(canonical_children.structElementSize().pointer_count < generated.Person.size.pointer_count);
+    try std.testing.expectEqual(@as(u32, 9191), (try canonical_children.get(0)).id());
+
+    var canonical_builder_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer canonical_builder_target.deinit();
+    const canonical_builder_person_builder = try generated.Person.initRootTyped(&canonical_builder_target);
+    var children_canonical_builder = try generated.Person.Person_children_Orphan.newOrphanCopyCanonicalFromBuilder(&canonical_builder_target, source_children);
+    try canonical_builder_person_builder.adopt_children_typed(&children_canonical_builder);
+    var children_canonical_in = try generated.Person.Person_children_Orphan.newOrphanCopyCanonicalIn(canonical_builder_person_builder.orphanage(), canonical_source_children);
+    try canonical_builder_person_builder.adopt_children_typed(&children_canonical_in);
+    var children_canonical_builder_in = try generated.Person.Person_children_Orphan.newOrphanCopyCanonicalFromBuilderIn(canonical_builder_person_builder.orphanage(), source_children);
+    try canonical_builder_person_builder.adopt_children_typed(&children_canonical_builder_in);
+    var canonical_builder_reader = cpz.MessageReader.init(try canonical_builder_target.segmentsConst(), .{});
+    const canonical_builder_person = generated.Person.fromReader(try canonical_builder_reader.getRoot());
+    const canonical_builder_children = try canonical_builder_person.children();
+    try std.testing.expect(canonical_builder_children.structElementSize().pointer_count < generated.Person.size.pointer_count);
+    try std.testing.expectEqual(@as(u32, 9191), (try canonical_builder_children.get(0)).id());
 }
 
 test "generated builders can set whole list fields from slices" {
