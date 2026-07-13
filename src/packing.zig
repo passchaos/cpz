@@ -225,7 +225,7 @@ pub fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8) (Error |
 /// Decode a packed Cap'n Proto stream into a newly-allocated word-aligned byte
 /// sequence. The returned slice length is always a multiple of 8.
 pub fn unpack(allocator: std.mem.Allocator, packed_bytes: []const u8) Error![]u8 {
-    var out = std.ArrayList(u8).empty;
+    var out = try std.ArrayList(u8).initCapacity(allocator, try unpackedSize(packed_bytes));
     errdefer out.deinit(allocator);
 
     var i: usize = 0;
