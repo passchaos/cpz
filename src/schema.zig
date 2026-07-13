@@ -218,6 +218,38 @@ pub const FieldMetadata = struct {
     is_union_member: bool = false,
     union_index: ?u32 = null,
     union_discriminant: u16 = 0,
+
+    pub fn matchesName(self: FieldMetadata, field_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, field_name);
+    }
+
+    pub fn matchesType(self: FieldMetadata, field_type: []const u8) bool {
+        return std.mem.eql(u8, self.ty, field_type);
+    }
+
+    pub fn matchesResolvedType(self: FieldMetadata, field_type: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_ty, field_type);
+    }
+
+    pub fn matchesSlot(self: FieldMetadata, slot: []const u8, offset: usize) bool {
+        return std.mem.eql(u8, self.slot, slot) and self.offset == offset;
+    }
+
+    pub fn matchesDefault(self: FieldMetadata, default_value: []const u8) bool {
+        return std.mem.eql(u8, self.default, default_value);
+    }
+
+    pub fn matchesAnnotations(self: FieldMetadata, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
+    }
+
+    pub fn hasUnionIndex(self: FieldMetadata, index: u32) bool {
+        return self.union_index != null and self.union_index.? == index;
+    }
+
+    pub fn hasUnionDiscriminant(self: FieldMetadata, discriminant: u16) bool {
+        return self.is_union_member and self.union_discriminant == discriminant;
+    }
 };
 
 pub const UnionMetadata = struct {

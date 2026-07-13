@@ -301,6 +301,12 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("pointer", generated.Person.@"cpz.field.name.slot");
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.field.name.offset");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");
+    try std.testing.expect(generated.Person.@"cpz.field.name.metadata".matchesName("name"));
+    try std.testing.expect(generated.Person.@"cpz.field.name.metadata".matchesType("Text"));
+    try std.testing.expect(generated.Person.@"cpz.field.children.metadata".matchesResolvedType("List(Person)"));
+    try std.testing.expect(generated.Person.@"cpz.field.name.metadata".matchesSlot("pointer", 0));
+    try std.testing.expect(generated.Person.@"cpz.field.id.metadata".matchesDefault("42"));
+    try std.testing.expect(generated.Person.@"cpz.field.name.metadata".matchesAnnotations("$schemaNote(\"person-name\")"));
     try std.testing.expectEqualStrings("data_bit", generated.Person.@"cpz.fields"[1].slot);
     try std.testing.expectEqual(@as(usize, 32), generated.Person.@"cpz.fields"[1].offset);
     try std.testing.expectEqual(@as(u32, 4), generated.Person.@"cpz.field.scores.ordinal");
@@ -1732,6 +1738,9 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?u32, 0), generated.Choice.@"cpz.field.name.unionIndex");
     try std.testing.expect(generated.Choice.@"cpz.field.name.isUnionMember");
     try std.testing.expect(generated.Choice.@"cpz.field.name.metadata".is_union_member);
+    try std.testing.expect(generated.Choice.@"cpz.field.name.metadata".hasUnionIndex(0));
+    try std.testing.expect(generated.Choice.@"cpz.field.name.metadata".hasUnionDiscriminant(0));
+    try std.testing.expect(!generated.Choice.@"cpz.field.before.metadata".hasUnionIndex(0));
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.field.name.unionDiscriminant");
 
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
