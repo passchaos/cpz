@@ -1051,7 +1051,8 @@ pub const PointerBuilder = struct {
 };
 
 fn copyPrimitiveList(dst: ListBuilder, source: ListReader) Error!void {
-    if (dst.element_size != source.element_size or dst.element_count != source.element_count) return error.IncompatibleListShape;
+    if (dst.element_count != source.element_count) return error.IncompatibleListShape;
+    if (wire.bitsPerElement(dst.element_size) != wire.bitsPerElement(source.element_size)) return error.IncompatibleListShape;
     switch (source.element_size) {
         .void => {},
         .bit => for (0..source.element_count) |i| try dst.setBool(i, source.getBool(i)),
@@ -1064,7 +1065,7 @@ fn copyPrimitiveList(dst: ListBuilder, source: ListReader) Error!void {
 }
 
 fn copyPrimitiveBuilderList(dst: ListBuilder, source: ListBuilder, start_index: usize) Error!void {
-    if (dst.element_size != source.element_size) return error.IncompatibleListShape;
+    if (wire.bitsPerElement(dst.element_size) != wire.bitsPerElement(source.element_size)) return error.IncompatibleListShape;
     if (start_index > source.element_count or source.element_count - start_index < dst.element_count) return error.PointerOutOfBounds;
     switch (source.element_size) {
         .void => {},
@@ -1745,6 +1746,11 @@ pub const ListBuilder = struct {
         return std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items[self.start .. self.start + word_count])[0..listByteLen(self.element_count, self.step_bits)];
     }
 
+    pub fn rawPrimitiveBytes(self: ListBuilder) Error![]u8 {
+        if (self.element_size == .pointer or self.element_size == .composite) return error.IncompatibleListShape;
+        return self.bytes();
+    }
+
     pub fn setUInt8(self: ListBuilder, index: usize, value: u8) Error!void {
         try self.setPrimitive(u8, index, value);
     }
@@ -1957,6 +1963,12 @@ pub const ListReader = struct {
         const segment = self.message.segments[self.segment_id];
         if (byte_start > segment.len or segment.len - byte_start < byte_len) return &.{};
         return segment[byte_start..][0..byte_len];
+    }
+
+    pub fn rawPrimitiveBytes(self: ListReader) Error![]const u8 {
+        if (self.element_size == .pointer or self.element_size == .composite) return error.IncompatibleListShape;
+        if (self.bit_offset % 8 != 0) return error.UnsupportedElementSize;
+        return self.bytes();
     }
 
     pub fn getBool(self: ListReader, index: usize) bool {
@@ -2436,6 +2448,26 @@ test "primitive and struct lists" {
     try testing.expectEqual(@as(u16, 44), try nums_builder_copy.getUInt16(0));
     try nums_builder_copy.setUInt16(0, 55);
     try testing.expectEqual(@as(u16, 44), try nums.getUInt16(1));
+}
+
+test "primitive lists expose raw bytes" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const values = try builder.initRootList(.four_bytes, 2);
+    try values.setUInt32(0, 0x11223344);
+    try values.setUInt32(1, 0x55667788);
+    try testing.expectEqualSlices(u8, &[_]u8{ 0x44, 0x33, 0x22, 0x11, 0x88, 0x77, 0x66, 0x55 }, try values.rawPrimitiveBytes());
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_values = try reader.getRootList(.four_bytes);
+    try testing.expectEqualSlices(u8, try values.rawPrimitiveBytes(), try read_values.rawPrimitiveBytes());
+
+    const text = try builder.initRootList(.pointer, 1);
+    try testing.expectError(error.IncompatibleListShape, text.rawPrimitiveBytes());
+    var pointer_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    try testing.expectError(error.IncompatibleListShape, (try pointer_reader.getRootList(.pointer)).rawPrimitiveBytes());
 }
 
 test "pointer lists hold nested text values" {
