@@ -44,6 +44,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declarationByParameter"("T").?.name);
     try std.testing.expectEqualStrings("ExtendedService", generated.@"cpz.declarationByParameter"("Req").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByParameter"("Missing"));
+    try std.testing.expectEqualStrings("Person", generated.@"cpz.declarationByParameterCount"(0).?.name);
+    try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declarationByParameterCount"(1).?.name);
+    try std.testing.expectEqualStrings("ExtendedService", generated.@"cpz.declarationByParameterCount"(2).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByParameterCount"(99));
     try std.testing.expectEqualStrings("Color", generated.@"cpz.declarationByIndex"(12).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByIndex"(999));
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declarations"[0].kind);

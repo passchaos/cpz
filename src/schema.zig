@@ -5350,6 +5350,11 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.declarationByParameterCount"(@"cpz.count": usize) ?cpz.schema.DeclarationMetadata {{
+        \\{s}    for (@This().@"cpz.declarations") |@"cpz.decl"| if (@"cpz.decl".parameter_count == @"cpz.count") return @"cpz.decl";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.declarationByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.DeclarationMetadata {{
         \\{s}    for (@This().@"cpz.declarations") |@"cpz.decl"| if (std.mem.eql(u8, @"cpz.decl".annotations, @"cpz.annotationFilter")) return @"cpz.decl";
         \\{s}    return null;
@@ -5360,7 +5365,7 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return @This().@"cpz.declarations"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (count != 0) try out.append(allocator, '\n');
 }
 
