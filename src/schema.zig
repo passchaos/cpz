@@ -183,6 +183,14 @@ pub const FieldMetadata = struct {
     union_discriminant: u16 = 0,
 };
 
+pub const UnionMetadata = struct {
+    index: u32,
+    discriminant_byte: usize,
+    data_bit: usize = 0,
+    data_bits: usize = 0,
+    pointer: ?usize = null,
+};
+
 pub const DeclarationKind = enum {
     struct_decl,
     enum_decl,
@@ -4473,6 +4481,22 @@ fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError!
     return zigDataLiteralAlloc(allocator, item.literal, item.is_hex_data);
 }
 
+fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
+    try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
+    for (layout.unions, 0..) |union_layout, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        try appendFmt(allocator, out, ".{{ .index = {}, .discriminant_byte = {}", .{ index, union_layout.discriminant_byte });
+        if (union_layout.data_bits != 0) {
+            try appendFmt(allocator, out, ", .data_bit = {}, .data_bits = {}", .{ union_layout.data_bit, union_layout.data_bits });
+        }
+        if (union_layout.pointer) |pointer| {
+            try appendFmt(allocator, out, ", .pointer = {}", .{pointer});
+        }
+        try out.appendSlice(allocator, " }");
+    }
+    try out.appendSlice(allocator, "};\n\n");
+}
+
 fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
     try out.appendSlice(allocator, "    pub const @\"cpz.fields\": []const cpz.schema.FieldMetadata = &[_]cpz.schema.FieldMetadata{");
     for (layout.fields, 0..) |field_layout, index| {
@@ -4543,6 +4567,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
 
     try emitConstMetadataTable(allocator, out, layout.decl.consts, "    ");
     try emitScopedAnnotationMetadataTable(allocator, out, file, layout.decl.name, "    ");
+    try emitStructUnionMetadata(allocator, out, layout);
     try emitStructFieldMetadata(allocator, out, layout);
 
     try appendFmt(allocator, out,

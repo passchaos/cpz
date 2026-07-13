@@ -1005,6 +1005,15 @@ test "generated enum raw setters preserve unknown ordinals" {
 }
 
 test "generated anonymous union accessors activate and guard fields" {
+    try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions".len);
+    try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unions"[0].index);
+    try std.testing.expectEqual(@as(usize, 0), generated.Choice.@"cpz.unions"[0].discriminant_byte);
+    try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bit);
+    try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bits);
+    try std.testing.expectEqual(@as(?usize, 1), generated.Choice.@"cpz.unions"[0].pointer);
+    try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.fields"[4].union_index.?);
+    try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.fields"[4].union_discriminant);
+
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
 
