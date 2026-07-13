@@ -4466,6 +4466,10 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\    return null;
         \\}}
         \\
+        \\pub fn @"cpz.enum.{s}.valueByRaw"(raw: u16) ?{s} {{
+        \\    return @"cpz.enum.{s}.fromRaw"(raw);
+        \\}}
+        \\
         \\
         \\pub fn @"cpz.enum.{s}.valueByMetadata"(metadata: cpz.schema.EnumValueMetadata) ?{s} {{
         \\    return @"cpz.enum.{s}.fromRaw"(metadata.ordinal);
@@ -4490,7 +4494,7 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\    if (@"cpz.index" >= @"cpz.enum.{s}.values".len) return null;
         \\    return @"cpz.enum.{s}.values"[@"cpz.index"];
         \\}}
-    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
+    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
     try appendFmt(allocator, out,
         \\pub const @"cpz.enum.{s}.valueCount": usize = {};
         \\
