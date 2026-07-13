@@ -2380,6 +2380,15 @@ pub const ListBuilder = struct {
         return self.element_count == 0;
     }
 
+    pub fn hasIndex(self: ListBuilder, index: usize) bool {
+        return index < self.element_count;
+    }
+
+    pub fn firstIndex(self: ListBuilder) Error!usize {
+        if (self.element_count == 0) return error.PointerOutOfBounds;
+        return 0;
+    }
+
     pub fn lastIndex(self: ListBuilder) Error!usize {
         if (self.element_count == 0) return error.PointerOutOfBounds;
         return self.element_count - 1;
@@ -2637,6 +2646,15 @@ pub const ListReader = struct {
 
     pub fn isEmpty(self: ListReader) bool {
         return self.element_count == 0;
+    }
+
+    pub fn hasIndex(self: ListReader, index: usize) bool {
+        return index < self.element_count;
+    }
+
+    pub fn firstIndex(self: ListReader) Error!usize {
+        if (self.element_count == 0) return error.PointerOutOfBounds;
+        return 0;
     }
 
     pub fn lastIndex(self: ListReader) Error!usize {

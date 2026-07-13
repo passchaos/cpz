@@ -593,6 +593,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
     const scores = try person_builder.init_scores(2);
     try std.testing.expect(!scores.isEmpty());
+    try std.testing.expect(scores.hasIndex(0));
+    try std.testing.expect(!scores.hasIndex(2));
+    try std.testing.expectEqual(@as(usize, 0), try scores.firstIndex());
     try std.testing.expectEqual(@as(usize, 1), try scores.lastIndex());
     try std.testing.expectEqual(cpz.ElementSize.four_bytes, scores.elementSize());
     try scores.set(0, 10);
@@ -798,6 +801,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u16, 2), person.favorite_raw());
     const read_scores = try person.scores();
     try std.testing.expect(!read_scores.isEmpty());
+    try std.testing.expect(read_scores.hasIndex(0));
+    try std.testing.expect(!read_scores.hasIndex(2));
+    try std.testing.expectEqual(@as(usize, 0), try read_scores.firstIndex());
     try std.testing.expectEqual(@as(usize, 1), try read_scores.lastIndex());
     try std.testing.expectEqual(cpz.ElementSize.four_bytes, read_scores.elementSize());
     try std.testing.expectEqual(@as(u32, 20), read_scores.get(1));

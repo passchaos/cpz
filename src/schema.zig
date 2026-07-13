@@ -7208,6 +7208,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.isEmpty();
         \\        }}
         \\
+        \\        pub fn hasIndex(self: @This(), index: usize) bool {{
+        \\            return self.list.hasIndex(index);
+        \\        }}
+        \\
+        \\        pub fn firstIndex(self: @This()) !usize {{
+        \\            return self.list.firstIndex();
+        \\        }}
+        \\
         \\        pub fn lastIndex(self: @This()) !usize {{
         \\            return self.list.lastIndex();
         \\        }}
@@ -7522,6 +7530,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn isEmpty(self: @This()) bool {{
         \\            return self.list.isEmpty();
+        \\        }}
+        \\
+        \\        pub fn hasIndex(self: @This(), index: usize) bool {{
+        \\            return self.list.hasIndex(index);
+        \\        }}
+        \\
+        \\        pub fn firstIndex(self: @This()) !usize {{
+        \\            return self.list.firstIndex();
         \\        }}
         \\
         \\        pub fn lastIndex(self: @This()) !usize {{
