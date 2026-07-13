@@ -2878,6 +2878,20 @@ pub const ListBuilder = struct {
     pub fn copyElementsFrom(self: ListBuilder, index: usize, source: ListReader, source_index: usize, count: usize) Error!void {
         if (index > self.element_count or self.element_count - index < count) return error.PointerOutOfBounds;
         if (source_index > source.element_count or source.element_count - source_index < count) return error.PointerOutOfBounds;
+        if (self.element_size != source.element_size) return error.IncompatibleListShape;
+        switch (self.element_size) {
+            .byte, .two_bytes, .four_bytes, .eight_bytes => {
+                const bytes_per_element = wire.bitsPerElement(self.element_size) / 8;
+                const byte_count = std.math.mul(usize, count, bytes_per_element) catch return error.MessageTooLarge;
+                const dst_start = std.math.mul(usize, index, bytes_per_element) catch return error.MessageTooLarge;
+                const src_start = std.math.mul(usize, source_index, bytes_per_element) catch return error.MessageTooLarge;
+                const source_bytes = try source.rawPrimitiveBytes();
+                const dest_bytes = try self.rawPrimitiveBytes();
+                @memcpy(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
+                return;
+            },
+            else => {},
+        }
         for (0..count) |offset| {
             try self.copyElementFrom(index + offset, source, source_index + offset);
         }
