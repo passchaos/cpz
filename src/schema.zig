@@ -241,6 +241,7 @@ pub const MethodField = struct {
     ty: []const u8,
     resolved_ty: []const u8 = "",
     default_literal: ?[]const u8 = null,
+    default_is_hex_data: bool = false,
     has_explicit_default: bool = false,
     annotations: []const u8 = "",
 };
@@ -1060,6 +1061,7 @@ pub const Parser = struct {
             }
             const field_type_end = index;
             var default_literal: ?[]const u8 = null;
+            var default_is_hex_data = false;
             var has_explicit_default = false;
             var annotations: []const u8 = "";
             if (index < end and trimmed[index] != ',' and trimmed[index] != '=') {
@@ -1111,6 +1113,11 @@ pub const Parser = struct {
                     }
                 }
                 default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
+                if (std.mem.eql(u8, field_type, "Data")) {
+                    if (default_literal) |literal| {
+                        default_is_hex_data = std.mem.startsWith(u8, literal, "0x\"");
+                    }
+                }
             }
             if (index < end and trimmed[index] != ',' and annotations.len == 0) {
                 const annotation_start = index;
@@ -1132,7 +1139,7 @@ pub const Parser = struct {
                 }
                 annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
             }
-            try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .has_explicit_default = has_explicit_default, .annotations = annotations });
+            try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .default_is_hex_data = default_is_hex_data, .has_explicit_default = has_explicit_default, .annotations = annotations });
             if (index < end and trimmed[index] == ',') index += 1;
         }
         return fields.toOwnedSlice(self.allocator);
@@ -4222,10 +4229,11 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.defaultIsHexData": bool = {};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.hasExplicitDefault": bool = {};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.annotations": []const u8 = {s};
             \\
-        , .{ indent, method_name, kind, field_name, field.has_explicit_default, indent, method_name, kind, field_name, annotations_literal });
+        , .{ indent, method_name, kind, field_name, field.default_is_hex_data, indent, method_name, kind, field_name, field.has_explicit_default, indent, method_name, kind, field_name, annotations_literal });
     }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.{s}.fields\": []const cpz.schema.MethodField = &[_]cpz.schema.MethodField{{", .{ indent, method_name, kind });
     for (fields, 0..) |field, index| {
@@ -4243,7 +4251,7 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .default_literal = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, default_literal, field.has_explicit_default, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .default_literal = {s}, .default_is_hex_data = {}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, default_literal, field.default_is_hex_data, field.has_explicit_default, annotations_literal });
         } else if (field.annotations.len != 0) {
             try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, field.has_explicit_default, annotations_literal });
         } else {
@@ -4273,7 +4281,7 @@ fn appendMethodFieldListLiteral(allocator: std.mem.Allocator, out: *std.ArrayLis
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .default_literal = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, default_literal, field.has_explicit_default, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .default_literal = {s}, .default_is_hex_data = {}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, default_literal, field.default_is_hex_data, field.has_explicit_default, annotations_literal });
         } else if (field.annotations.len != 0) {
             try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, field.has_explicit_default, annotations_literal });
         } else {

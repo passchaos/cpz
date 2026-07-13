@@ -2010,10 +2010,16 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.results.fields"[0].ty);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.results.fields"[0].resolved_ty);
     try std.testing.expectEqual(@as(u16, 2), generated.Service.streamIt);
-    try std.testing.expectEqualStrings("(chunk :Data) -> stream", generated.Service.@"cpz.method.streamIt.signature");
-    try std.testing.expectEqualStrings("(chunk :Data)", generated.Service.@"cpz.method.streamIt.params");
+    try std.testing.expectEqualStrings("(chunk :Data = 0x\"de ad\") -> stream", generated.Service.@"cpz.method.streamIt.signature");
+    try std.testing.expectEqualStrings("(chunk :Data = 0x\"de ad\")", generated.Service.@"cpz.method.streamIt.params");
     try std.testing.expectEqualStrings("stream", generated.Service.@"cpz.method.streamIt.results");
     try std.testing.expectEqualStrings("", generated.Service.@"cpz.method.streamIt.annotations");
+    try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.methods"[2].param_fields.len);
+    try std.testing.expectEqualStrings("chunk", generated.Service.@"cpz.methods"[2].param_fields[0].name);
+    try std.testing.expectEqualStrings("0x\"de ad\"", generated.Service.@"cpz.methods"[2].param_fields[0].default_literal.?);
+    try std.testing.expect(generated.Service.@"cpz.methods"[2].param_fields[0].default_is_hex_data);
+    try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.fields"[0].default_is_hex_data);
+    try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultIsHexData");
     try std.testing.expect(generated.Service.@"cpz.methods"[2].streaming);
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.streaming");
     try std.testing.expectEqual(@as(u16, 3), generated.Service.typed);
