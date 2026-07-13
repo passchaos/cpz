@@ -162,6 +162,7 @@ pub const MethodField = struct {
     name: []const u8,
     ty: []const u8,
     default_literal: ?[]const u8 = null,
+    annotations: []const u8 = "",
 };
 
 pub const InterfaceMethod = struct {
@@ -931,11 +932,35 @@ pub const Parser = struct {
                     },
                     ',' => if (paren_depth == 0) break,
                     '=' => if (paren_depth == 0) break,
+                    '$' => if (paren_depth == 0) break,
                     else => {},
                 }
             }
-            const field_type = std.mem.trim(u8, trimmed[type_start..index], " \t\r\n");
+            const field_type_end = index;
             var default_literal: ?[]const u8 = null;
+            var annotations: []const u8 = "";
+            if (index < end and trimmed[index] != ',' and trimmed[index] != '=') {
+                const annotation_start = index;
+                var annotation_paren_depth: usize = 0;
+                var annotation_bracket_depth: usize = 0;
+                while (index < end) : (index += 1) {
+                    switch (trimmed[index]) {
+                        '(' => annotation_paren_depth += 1,
+                        ')' => {
+                            if (annotation_paren_depth != 0) annotation_paren_depth -= 1;
+                        },
+                        '[' => annotation_bracket_depth += 1,
+                        ']' => {
+                            if (annotation_bracket_depth != 0) annotation_bracket_depth -= 1;
+                        },
+                        ',' => if (annotation_paren_depth == 0 and annotation_bracket_depth == 0) break,
+                        '=' => if (annotation_paren_depth == 0 and annotation_bracket_depth == 0) break,
+                        else => {},
+                    }
+                }
+                annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
+            }
+            const field_type = std.mem.trim(u8, trimmed[type_start..field_type_end], " \t\r\n");
             if (index < end and trimmed[index] == '=') {
                 index += 1;
                 while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
@@ -957,12 +982,33 @@ pub const Parser = struct {
                             if (default_bracket_depth != 0) default_bracket_depth -= 1;
                         },
                         ',' => if (default_paren_depth == 0 and default_bracket_depth == 0) break,
+                        '$' => if (default_paren_depth == 0 and default_bracket_depth == 0) break,
                         else => {},
                     }
                 }
                 default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
             }
-            try fields.append(self.allocator, .{ .name = field_name, .ty = field_type, .default_literal = default_literal });
+            if (index < end and trimmed[index] != ',' and annotations.len == 0) {
+                const annotation_start = index;
+                var annotation_paren_depth: usize = 0;
+                var annotation_bracket_depth: usize = 0;
+                while (index < end) : (index += 1) {
+                    switch (trimmed[index]) {
+                        '(' => annotation_paren_depth += 1,
+                        ')' => {
+                            if (annotation_paren_depth != 0) annotation_paren_depth -= 1;
+                        },
+                        '[' => annotation_bracket_depth += 1,
+                        ']' => {
+                            if (annotation_bracket_depth != 0) annotation_bracket_depth -= 1;
+                        },
+                        ',' => if (annotation_paren_depth == 0 and annotation_bracket_depth == 0) break,
+                        else => {},
+                    }
+                }
+                annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
+            }
+            try fields.append(self.allocator, .{ .name = field_name, .ty = field_type, .default_literal = default_literal, .annotations = annotations });
             if (index < end and trimmed[index] == ',') index += 1;
         }
         return fields.toOwnedSlice(self.allocator);
@@ -3605,10 +3651,14 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         defer allocator.free(name_literal);
         const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
         defer allocator.free(type_literal);
+        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        defer allocator.free(annotations_literal);
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
-            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}, .default_literal = {s} }}", .{ name_literal, type_literal, default_literal });
+            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}, .default_literal = {s}, .annotations = {s} }}", .{ name_literal, type_literal, default_literal, annotations_literal });
+        } else if (field.annotations.len != 0) {
+            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}, .annotations = {s} }}", .{ name_literal, type_literal, annotations_literal });
         } else {
             try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s} }}", .{ name_literal, type_literal });
         }

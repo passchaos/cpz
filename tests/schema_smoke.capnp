@@ -126,7 +126,7 @@ struct ScopedAliasBox {
 
 interface Service $marker {
   call @0 () -> () $marker;
-  ping @1 [Req, Resp] (request :Req, attempts :UInt32 = 3) -> (response :Resp);
+  ping @1 [Req, Resp] (request :Req $schemaNote("request"), attempts :UInt32 = 3 $schemaNote("attempts")) -> (response :Resp);
   streamIt @2 (chunk :Data) -> stream;
 }
 

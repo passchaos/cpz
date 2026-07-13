@@ -1314,8 +1314,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.method.call.annotations");
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
     try std.testing.expect(!generated.Service.@"cpz.method.ping.streaming");
-    try std.testing.expectEqualStrings("[Req, Resp] (request :Req, attempts :UInt32 = 3) -> (response :Resp)", generated.Service.@"cpz.method.ping.signature");
-    try std.testing.expectEqualStrings("(request :Req, attempts :UInt32 = 3)", generated.Service.@"cpz.method.ping.params");
+    try std.testing.expectEqualStrings("[Req, Resp] (request :Req $schemaNote(\"request\"), attempts :UInt32 = 3 $schemaNote(\"attempts\")) -> (response :Resp)", generated.Service.@"cpz.method.ping.signature");
+    try std.testing.expectEqualStrings("(request :Req $schemaNote(\"request\"), attempts :UInt32 = 3 $schemaNote(\"attempts\"))", generated.Service.@"cpz.method.ping.params");
     try std.testing.expectEqualStrings("(response :Resp)", generated.Service.@"cpz.method.ping.results");
     try std.testing.expectEqualStrings("", generated.Service.@"cpz.method.ping.annotations");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.method.ping.parameters");
@@ -1323,9 +1323,11 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields"[0].name);
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.fields"[0].ty);
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Service.@"cpz.method.ping.params.fields"[0].default_literal);
+    try std.testing.expectEqualStrings("$schemaNote(\"request\")", generated.Service.@"cpz.method.ping.params.fields"[0].annotations);
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields"[1].name);
     try std.testing.expectEqualStrings("UInt32", generated.Service.@"cpz.method.ping.params.fields"[1].ty);
     try std.testing.expectEqualStrings("3", generated.Service.@"cpz.method.ping.params.fields"[1].default_literal.?);
+    try std.testing.expectEqualStrings("$schemaNote(\"attempts\")", generated.Service.@"cpz.method.ping.params.fields"[1].annotations);
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.results.fields".len);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields"[0].name);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.results.fields"[0].ty);
