@@ -1762,6 +1762,12 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unionByPointer"(1).?.index);
     try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByPointer"(4).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByPointer"(99));
+    try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unionByDataBit"(32).?.index);
+    try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByDataBit"(128).?.index);
+    try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByDataBit"(99));
+    try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unionByDataRange"(32, 32).?.index);
+    try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByDataRange"(128, 32).?.index);
+    try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByDataRange"(32, 16));
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unionByIndex"(1).?.field_count);
     try std.testing.expectEqualStrings("selected_code", generated.Choice.@"cpz.unionByIndex"(1).?.fields[1].name);
     try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByIndex"(99));

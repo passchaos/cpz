@@ -5873,6 +5873,16 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\        return null;
         \\    }
         \\
+        \\    pub fn @"cpz.unionByDataBit"(@"cpz.bit": usize) ?cpz.schema.UnionMetadata {
+        \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".data_bits != 0 and @"cpz.bit" >= @"cpz.union".data_bit and @"cpz.bit" < @"cpz.union".data_bit + @"cpz.union".data_bits) return @"cpz.union";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.unionByDataRange"(@"cpz.bit": usize, @"cpz.bits": usize) ?cpz.schema.UnionMetadata {
+        \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".data_bits == @"cpz.bits" and @"cpz.union".data_bit == @"cpz.bit") return @"cpz.union";
+        \\        return null;
+        \\    }
+        \\
         \\    pub fn @"cpz.unionByIndex"(@"cpz.index": u32) ?cpz.schema.UnionMetadata {
         \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".index == @"cpz.index") return @"cpz.union";
         \\        return null;
