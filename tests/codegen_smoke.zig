@@ -58,6 +58,9 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declaration.GenericBox.metadata".kind);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.declarations"[10].parameter_count);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declarations"[10].parameters);
+    try std.testing.expect(generated.@"cpz.declarations"[10].matchesParameterCount(1));
+    try std.testing.expect(generated.@"cpz.declarations"[10].matchesParameter("T"));
+    try std.testing.expect(!generated.@"cpz.declarations"[10].matchesParameter("Missing"));
     try std.testing.expectEqualStrings("T", generated.@"cpz.declarations"[10].parameterByName("T").?);
     try std.testing.expectEqualStrings("T", generated.@"cpz.declarations"[10].parameterByIndex(0).?);
     try std.testing.expectEqual(@as(?[]const u8, null), generated.@"cpz.declarations"[10].parameterByName("Missing"));
@@ -2363,6 +2366,9 @@ test "generated interface method constants compile" {
     try std.testing.expect(!ping_metadata.matchesName("missing"));
     try std.testing.expectEqualStrings("Req", ping_metadata.parameterByName("Req").?);
     try std.testing.expectEqualStrings("Resp", ping_metadata.parameterByIndex(1).?);
+    try std.testing.expect(ping_metadata.matchesParameterCount(2));
+    try std.testing.expect(ping_metadata.matchesParameter("Req"));
+    try std.testing.expect(!ping_metadata.matchesParameter("Missing"));
     try std.testing.expectEqual(@as(?[]const u8, null), ping_metadata.parameterByName("Missing"));
     try std.testing.expectEqual(@as(?[]const u8, null), ping_metadata.parameterByIndex(99));
     try std.testing.expectEqualStrings("attempts", ping_metadata.paramFieldByName("attempts").?.name);

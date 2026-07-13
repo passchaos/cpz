@@ -449,6 +449,14 @@ pub const DeclarationMetadata = struct {
         return std.mem.eql(u8, self.annotations, annotations);
     }
 
+    pub fn matchesParameterCount(self: DeclarationMetadata, count: usize) bool {
+        return self.parameter_count == count;
+    }
+
+    pub fn matchesParameter(self: DeclarationMetadata, parameter: []const u8) bool {
+        return self.parameterByName(parameter) != null;
+    }
+
     pub fn parameterByName(self: DeclarationMetadata, parameter: []const u8) ?[]const u8 {
         for (self.parameters) |item| if (std.mem.eql(u8, item, parameter)) return item;
         return null;
@@ -582,6 +590,14 @@ pub const InterfaceMethodMetadata = struct {
 
     pub fn matchesStreaming(self: InterfaceMethodMetadata, is_streaming: bool) bool {
         return self.streaming == is_streaming;
+    }
+
+    pub fn matchesParameterCount(self: InterfaceMethodMetadata, count: usize) bool {
+        return self.parameter_count == count;
+    }
+
+    pub fn matchesParameter(self: InterfaceMethodMetadata, parameter: []const u8) bool {
+        return self.parameterByName(parameter) != null;
     }
 
     pub fn parameterByName(self: InterfaceMethodMetadata, parameter: []const u8) ?[]const u8 {
