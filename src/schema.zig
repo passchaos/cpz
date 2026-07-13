@@ -4304,6 +4304,13 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         try out.appendSlice(allocator, " }");
     }
     try out.appendSlice(allocator, "};\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.aliasByName"(@"cpz.name": []const u8) ?cpz.schema.AliasMetadata {{
+        \\{s}    for (@This().@"cpz.aliases") |@"cpz.alias"| if (std.mem.eql(u8, @"cpz.alias".name, @"cpz.name")) return @"cpz.alias";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent });
     if (aliases.len != 0) try out.append(allocator, '\n');
 }
 

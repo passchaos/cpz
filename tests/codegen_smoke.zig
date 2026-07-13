@@ -32,6 +32,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(u64, 0xe57e0001), generated.ExtendedService.@"cpz.type_id");
     try std.testing.expectEqual(@as(usize, 7), generated.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("Id", generated.@"cpz.aliases"[0].name);
+    try std.testing.expectEqualStrings("Names", generated.@"cpz.aliasByName"("Names").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.@"cpz.aliasByName"("Missing"));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].target);
     try std.testing.expectEqualStrings("Names", generated.@"cpz.aliases"[2].name);
     try std.testing.expectEqualStrings("List(Text)", generated.@"cpz.aliases"[2].target);
@@ -1459,6 +1461,8 @@ test "generated using aliases resolve for layout and accessors" {
 test "generated scoped using aliases resolve for fields, consts, lists, and unions" {
     try std.testing.expectEqual(@as(usize, 6), generated.ScopedAliasBox.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("LocalId", generated.ScopedAliasBox.@"cpz.aliases"[0].name);
+    try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliasByName"("LocalNames").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.ScopedAliasBox.@"cpz.aliasByName"("Missing"));
     try std.testing.expectEqualStrings("Id", generated.ScopedAliasBox.@"cpz.aliases"[0].target);
     try std.testing.expectEqualStrings("UInt32", generated.ScopedAliasBox.@"cpz.aliases"[0].resolved_target);
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliases"[2].name);
@@ -1568,6 +1572,8 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.DetailsAlias == generated.ExtendedService_Details);
     try std.testing.expectEqual(@as(usize, 4), generated.ExtendedService.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("Details", generated.ExtendedService.@"cpz.aliases"[0].name);
+    try std.testing.expectEqualStrings("DetailsAlias", generated.ExtendedService.@"cpz.aliasByName"("DetailsAlias").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.ExtendedService.@"cpz.aliasByName"("Missing"));
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.@"cpz.aliases"[0].target);
     try std.testing.expectEqualStrings("DetailsAlias", generated.ExtendedService.@"cpz.aliases"[2].name);
     try std.testing.expectEqualStrings("Details", generated.ExtendedService.@"cpz.aliases"[2].target);
