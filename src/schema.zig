@@ -355,6 +355,7 @@ pub const AnnotationMetadata = struct {
     id: ?u64 = null,
     ty: []const u8,
     resolved_ty: []const u8 = "",
+    target_count: usize = 0,
     targets: AnnotationTargets = .{},
 };
 
@@ -4778,8 +4779,9 @@ fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.Array
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.annotationDecl.{s}.type": []const u8 = {s};
         \\{s}pub const @"cpz.annotationDecl.{s}.resolvedType": []const u8 = {s};
+        \\{s}pub const @"cpz.annotationDecl.{s}.targetCount": usize = {};
         \\{s}pub const @"cpz.annotationDecl.{s}.targets": cpz.schema.AnnotationTargets = 
-    , .{ indent, annotation_name, type_literal, indent, annotation_name, resolved_type_literal, indent, annotation_name });
+    , .{ indent, annotation_name, type_literal, indent, annotation_name, resolved_type_literal, indent, annotation_name, annotationTargetCount(decl.targets), indent, annotation_name });
     try appendAnnotationTargetsLiteral(allocator, out, decl.targets);
     try out.appendSlice(allocator, ";\n\n");
 }
@@ -4798,9 +4800,26 @@ fn appendAnnotationMetadataLiteral(allocator: std.mem.Allocator, out: *std.Array
     defer allocator.free(resolved_type_literal);
     try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, ", .{ index, name_literal });
     if (decl.id) |id| try appendFmt(allocator, out, ".id = 0x{x}, ", .{id});
-    try appendFmt(allocator, out, ".ty = {s}, .resolved_ty = {s}, .targets = ", .{ type_literal, resolved_type_literal });
+    try appendFmt(allocator, out, ".ty = {s}, .resolved_ty = {s}, .target_count = {}, .targets = ", .{ type_literal, resolved_type_literal, annotationTargetCount(decl.targets) });
     try appendAnnotationTargetsLiteral(allocator, out, decl.targets);
     try out.appendSlice(allocator, " }");
+}
+
+fn annotationTargetCount(targets: AnnotationTargets) usize {
+    var count: usize = 0;
+    if (targets.file) count += 1;
+    if (targets.const_decl) count += 1;
+    if (targets.enum_decl) count += 1;
+    if (targets.enumerant) count += 1;
+    if (targets.struct_decl) count += 1;
+    if (targets.field) count += 1;
+    if (targets.union_decl) count += 1;
+    if (targets.group) count += 1;
+    if (targets.interface_decl) count += 1;
+    if (targets.method) count += 1;
+    if (targets.param) count += 1;
+    if (targets.annotation_decl) count += 1;
+    return count;
 }
 
 fn appendAnnotationTargetsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), targets: AnnotationTargets) std.mem.Allocator.Error!void {

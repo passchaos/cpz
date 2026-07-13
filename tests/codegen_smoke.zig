@@ -93,6 +93,8 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.annotation_decls"[0].index);
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotation_decls"[0].ty);
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotation_decls"[0].resolved_ty);
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotation_decls"[0].target_count);
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationDecl.enumNote.targetCount");
     try std.testing.expect(generated.@"cpz.annotation_decls"[0].targets.enum_decl);
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotation_decls"[1].name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationDecl.schemaNote.index");
@@ -100,6 +102,8 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(?u64, 0xa110ca110c), generated.@"cpz.annotationDecl.schemaNote.id");
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotationDecl.schemaNote.type");
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotationDecl.schemaNote.resolvedType");
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotation_decls"[1].target_count);
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotationDecl.schemaNote.targetCount");
     try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.targets".file);
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotationByName"("schemaNote").?.name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationByName"("schemaNote").?.index);
@@ -143,7 +147,9 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expect(generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.targets".field);
     try std.testing.expectEqualStrings("Item", generated.NestedBox.@"cpz.annotation_decls"[0].ty);
     try std.testing.expectEqualStrings("NestedBox.Item", generated.NestedBox.@"cpz.annotation_decls"[0].resolved_ty);
+    try std.testing.expectEqual(@as(usize, 1), generated.NestedBox.@"cpz.annotation_decls"[0].target_count);
     try std.testing.expectEqualStrings("NestedBox.Item", generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.resolvedType");
+    try std.testing.expectEqual(@as(usize, 1), generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.targetCount");
     try std.testing.expectEqualStrings("List(NestedBox.Status)", generated.NestedBox.@"cpz.annotationDecl.NestedBox_statusLabels.resolvedType");
     try std.testing.expect(generated.NestedBox.@"cpz.annotation_decls"[0].targets.field);
 }
