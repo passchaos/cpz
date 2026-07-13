@@ -153,6 +153,7 @@ pub const EnumDecl = struct {
 pub const InterfaceMethod = struct {
     name: []const u8,
     ordinal: u16,
+    signature: []const u8 = "",
 };
 
 pub const InterfaceDecl = struct {
@@ -740,8 +741,8 @@ pub const Parser = struct {
             if (name_entry.found_existing) return error.NameCollision;
             const ordinal_entry = try occupied_ordinals.getOrPut(ordinal);
             if (ordinal_entry.found_existing) return error.OrdinalCollision;
-            try self.skipRawUntilSemicolon();
-            try methods.append(self.allocator, .{ .name = name, .ordinal = ordinal });
+            const signature = try self.takeRawUntilSemicolon();
+            try methods.append(self.allocator, .{ .name = name, .ordinal = ordinal, .signature = signature });
         }
         try self.expect(.r_brace);
         return methods.toOwnedSlice(self.allocator);
@@ -1678,6 +1679,89 @@ pub const Parser = struct {
                         self.lexer.index = index;
                         try self.advance();
                         return;
+                    }
+                },
+                else => index += 1,
+            }
+        }
+        return error.UnexpectedToken;
+    }
+
+    fn takeRawUntilSemicolon(self: *Parser) Error![]const u8 {
+        const source = self.lexer.source;
+        const start = if (self.lookahead.tag == .eof) self.lexer.index else self.lexer.index - self.lookahead.lexeme.len;
+        var index = start;
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        var brace_depth: usize = 0;
+        while (index < source.len) {
+            const c = source[index];
+            switch (c) {
+                '`' => {
+                    while (index < source.len and source[index] != '\n') index += 1;
+                },
+                '"' => {
+                    if (index + 2 < source.len and source[index + 1] == '"' and source[index + 2] == '"') {
+                        index += 3;
+                        while (index + 2 < source.len and !(source[index] == '"' and source[index + 1] == '"' and source[index + 2] == '"')) : (index += 1) {}
+                        if (index + 2 >= source.len) return error.UnexpectedToken;
+                        index += 3;
+                    } else {
+                        index += 1;
+                        while (index < source.len) {
+                            if (source[index] == '\\') {
+                                index += 2;
+                            } else if (source[index] == '"') {
+                                index += 1;
+                                break;
+                            } else {
+                                index += 1;
+                            }
+                        }
+                    }
+                },
+                '#' => {
+                    while (index < source.len and source[index] != '\n') index += 1;
+                },
+                '/' => {
+                    if (index + 1 < source.len and source[index + 1] == '/') {
+                        index += 2;
+                        while (index < source.len and source[index] != '\n') index += 1;
+                    } else {
+                        index += 1;
+                    }
+                },
+                '(' => {
+                    paren_depth += 1;
+                    index += 1;
+                },
+                ')' => {
+                    if (paren_depth > 0) paren_depth -= 1;
+                    index += 1;
+                },
+                '[' => {
+                    bracket_depth += 1;
+                    index += 1;
+                },
+                ']' => {
+                    if (bracket_depth > 0) bracket_depth -= 1;
+                    index += 1;
+                },
+                '{' => {
+                    brace_depth += 1;
+                    index += 1;
+                },
+                '}' => {
+                    if (brace_depth > 0) brace_depth -= 1;
+                    index += 1;
+                },
+                ';' => {
+                    const end = index;
+                    index += 1;
+                    if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) {
+                        self.lexer.index = index;
+                        try self.advance();
+                        return std.mem.trim(u8, source[start..end], " \t\r\n");
                     }
                 },
                 else => index += 1,
@@ -3009,6 +3093,12 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const {s}: u16 = {};
             \\
         , .{ method_name, method.ordinal });
+        const signature_literal = try zigStringLiteralAlloc(allocator, method.signature);
+        defer allocator.free(signature_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.signature": []const u8 = {s};
+            \\
+        , .{ method_name, signature_literal });
     }
     try appendFmt(allocator, out,
         \\}};

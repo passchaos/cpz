@@ -1285,7 +1285,9 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
 
 test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.Service.call);
+    try std.testing.expectEqualStrings("() -> ()", generated.Service.@"cpz.method.call.signature");
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
+    try std.testing.expectEqualStrings("(request :Text) -> (response :Text)", generated.Service.@"cpz.method.ping.signature");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);
     try std.testing.expect(generated.ExtendedService.Details == generated.ExtendedService_Details);
@@ -1294,6 +1296,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 12), generated.ExtendedService.defaultLimit);
     try std.testing.expectEqualSlices(u8, "extended", generated.ExtendedService.defaultLabel);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
+    try std.testing.expectEqualStrings("(details :Details) -> ()", generated.ExtendedService.Callback.@"cpz.method.done.signature");
 }
 
 test "generated interface capability accessors round-trip" {
