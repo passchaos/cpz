@@ -4661,11 +4661,12 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         try appendFmt(allocator, out,
             \\{s}pub const @"cpz.import.{s}.index": usize = {};
             \\{s}pub const @"cpz.import.{s}.name": []const u8 = {s};
+            \\{s}pub const @"cpz.import.{s}.metadata": cpz.schema.ImportMetadata = @This().@"cpz.imports"[{}];
             \\{s}pub const @"cpz.import.{s}.path": []const u8 = {s};
             \\{s}pub const @"cpz.import.{s}.member": []const u8 = {s};
             \\{s}pub const @"cpz.import.{s}.hasMember": bool = {};
             \\
-        , .{ indent, import_name, index, indent, import_name, name_literal, indent, import_name, path_literal, indent, import_name, member_literal, indent, import_name, import_decl.member != null });
+        , .{ indent, import_name, index, indent, import_name, name_literal, indent, import_name, index, indent, import_name, path_literal, indent, import_name, member_literal, indent, import_name, import_decl.member != null });
     }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.imports\": []const cpz.schema.ImportMetadata = &[_]cpz.schema.ImportMetadata{{", .{indent});
     for (imports, 0..) |import_decl, index| {
