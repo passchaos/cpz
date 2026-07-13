@@ -25,6 +25,10 @@ const globalNames :TextList = ["alpha", "beta"];
 const globalNamesAlias :Names = ["gamma", "delta"];
 const globalShades :List(Color) = [red, blue];
 
+annotation schemaNote @0xa110ca110c (file, struct, field) :Text;
+annotation marker(interface, method) :Void;
+annotation labels(enumerant) :List(Text);
+
 struct Person {
   id @0 :UInt32 = 42;
   active @1 :Bool = true;

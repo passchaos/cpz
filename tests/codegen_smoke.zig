@@ -13,6 +13,22 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(generated.Color.red, @as(generated.ScopedAliasBox.LocalShade, generated.Color.red));
 }
 
+test "generated annotation declarations expose ids types and targets" {
+    try std.testing.expect(generated.schemaNote.@"cpz.annotation");
+    try std.testing.expectEqual(@as(u64, 0xa110ca110c), generated.schemaNote.@"cpz.type_id");
+    try std.testing.expect(generated.schemaNote.Type == []const u8);
+    try std.testing.expect(generated.schemaNote.targets.file);
+    try std.testing.expect(generated.schemaNote.targets.struct_decl);
+    try std.testing.expect(generated.schemaNote.targets.field);
+    try std.testing.expect(!generated.schemaNote.targets.method);
+    try std.testing.expect(generated.marker.@"cpz.annotation");
+    try std.testing.expect(generated.marker.Type == void);
+    try std.testing.expect(generated.marker.targets.interface_decl);
+    try std.testing.expect(generated.marker.targets.method);
+    try std.testing.expect(generated.labels.Type == []const []const u8);
+    try std.testing.expect(generated.labels.targets.enumerant);
+}
+
 test "generated simple constants compile" {
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);

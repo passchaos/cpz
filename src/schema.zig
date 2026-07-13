@@ -169,6 +169,35 @@ pub const InterfaceDecl = struct {
     }
 };
 
+pub const AnnotationTargets = struct {
+    file: bool = false,
+    const_decl: bool = false,
+    enum_decl: bool = false,
+    enumerant: bool = false,
+    struct_decl: bool = false,
+    field: bool = false,
+    union_decl: bool = false,
+    group: bool = false,
+    interface_decl: bool = false,
+    method: bool = false,
+    param: bool = false,
+    annotation_decl: bool = false,
+};
+
+pub const AnnotationDecl = struct {
+    name: []const u8,
+    owns_name: bool = false,
+    id: ?u64 = null,
+    ty: Type,
+    targets: AnnotationTargets,
+
+    pub fn deinit(self: *AnnotationDecl, allocator: std.mem.Allocator) void {
+        self.ty.deinit(allocator);
+        if (self.owns_name) allocator.free(self.name);
+        self.* = undefined;
+    }
+};
+
 pub const File = struct {
     id: ?u64,
     structs: []Struct,
@@ -177,6 +206,7 @@ pub const File = struct {
     consts: []ConstDecl,
     imports: []ImportDecl,
     interfaces: []InterfaceDecl,
+    annotations: []AnnotationDecl,
 
     pub fn deinit(self: *File, allocator: std.mem.Allocator) void {
         for (self.structs) |*s| s.deinit(allocator);
@@ -190,6 +220,8 @@ pub const File = struct {
         allocator.free(self.imports);
         for (self.interfaces) |*i| i.deinit(allocator);
         allocator.free(self.interfaces);
+        for (self.annotations) |*a| a.deinit(allocator);
+        allocator.free(self.annotations);
         self.* = undefined;
     }
 };
@@ -385,6 +417,7 @@ pub const Parser = struct {
     parsed_structs: ?*std.ArrayList(Struct) = null,
     parsed_enums: ?*std.ArrayList(EnumDecl) = null,
     parsed_interfaces: ?*std.ArrayList(InterfaceDecl) = null,
+    parsed_annotations: ?*std.ArrayList(AnnotationDecl) = null,
     parsed_imports: ?*std.ArrayList(ImportDecl) = null,
     parsed_decl_names: ?*std.StringHashMap(void) = null,
 
@@ -422,18 +455,25 @@ pub const Parser = struct {
             for (interfaces.items) |*i| i.deinit(self.allocator);
             interfaces.deinit(self.allocator);
         }
+        var annotations = std.ArrayList(AnnotationDecl).empty;
+        errdefer {
+            for (annotations.items) |*a| a.deinit(self.allocator);
+            annotations.deinit(self.allocator);
+        }
         var decl_names = std.StringHashMap(void).init(self.allocator);
         defer decl_names.deinit();
         var file_id: ?u64 = null;
         self.parsed_structs = &structs;
         self.parsed_enums = &enums;
         self.parsed_interfaces = &interfaces;
+        self.parsed_annotations = &annotations;
         self.parsed_imports = &imports;
         self.parsed_decl_names = &decl_names;
         defer {
             self.parsed_structs = null;
             self.parsed_enums = null;
             self.parsed_interfaces = null;
+            self.parsed_annotations = null;
             self.parsed_imports = null;
             self.parsed_decl_names = null;
         }
@@ -461,7 +501,13 @@ pub const Parser = struct {
                 try self.parseUsingOrSkip(&aliases, &imports, &decl_names);
             } else if (self.eatKeyword("const")) {
                 try self.parseConstOrSkip(&consts, &decl_names);
-            } else if (self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            } else if (self.eatKeyword("annotation")) {
+                var decl = try self.parseAnnotationDeclaration(null);
+                var keep = false;
+                errdefer if (!keep) decl.deinit(self.allocator);
+                try self.appendParsedAnnotation(decl);
+                keep = true;
+            } else if (self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
@@ -478,6 +524,7 @@ pub const Parser = struct {
             .consts = try consts.toOwnedSlice(self.allocator),
             .imports = try imports.toOwnedSlice(self.allocator),
             .interfaces = try interfaces.toOwnedSlice(self.allocator),
+            .annotations = try annotations.toOwnedSlice(self.allocator),
         };
     }
 
@@ -499,6 +546,63 @@ pub const Parser = struct {
         const methods = try self.parseInterfaceBody();
         errdefer self.allocator.free(methods);
         return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .methods = methods, .superclasses = superclasses };
+    }
+
+    fn parseAnnotationDeclaration(self: *Parser, name_prefix: ?[]const u8) Error!AnnotationDecl {
+        const local_name = try self.expectIdentifier();
+        const qualified = try self.qualifiedDeclName(name_prefix, local_name);
+        errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
+        const decl_id = try self.parseOptionalDeclarationId();
+        const targets = try self.parseAnnotationTargets();
+        try self.expect(.colon);
+        var ty = try self.parseType();
+        errdefer ty.deinit(self.allocator);
+        try self.skipUntilSemicolon();
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .ty = ty, .targets = targets };
+    }
+
+    fn parseAnnotationTargets(self: *Parser) Error!AnnotationTargets {
+        try self.expect(.l_paren);
+        var targets: AnnotationTargets = .{};
+        while (self.lookahead.tag != .r_paren) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            const target = try self.expectIdentifier();
+            if (std.mem.eql(u8, target, "file")) {
+                targets.file = true;
+            } else if (std.mem.eql(u8, target, "const")) {
+                targets.const_decl = true;
+            } else if (std.mem.eql(u8, target, "enum")) {
+                targets.enum_decl = true;
+            } else if (std.mem.eql(u8, target, "enumerant")) {
+                targets.enumerant = true;
+            } else if (std.mem.eql(u8, target, "struct")) {
+                targets.struct_decl = true;
+            } else if (std.mem.eql(u8, target, "field")) {
+                targets.field = true;
+            } else if (std.mem.eql(u8, target, "union")) {
+                targets.union_decl = true;
+            } else if (std.mem.eql(u8, target, "group")) {
+                targets.group = true;
+            } else if (std.mem.eql(u8, target, "interface")) {
+                targets.interface_decl = true;
+            } else if (std.mem.eql(u8, target, "method")) {
+                targets.method = true;
+            } else if (std.mem.eql(u8, target, "param")) {
+                targets.param = true;
+            } else if (std.mem.eql(u8, target, "annotation")) {
+                targets.annotation_decl = true;
+            } else {
+                return error.UnexpectedToken;
+            }
+
+            if (self.lookahead.tag == .comma) {
+                try self.expect(.comma);
+            } else if (self.lookahead.tag != .r_paren) {
+                return error.UnexpectedToken;
+            }
+        }
+        try self.expect(.r_paren);
+        return targets;
     }
 
     fn parseInterfaceExtendsOrEmpty(self: *Parser) Error![]Type {
@@ -597,6 +701,14 @@ pub const Parser = struct {
         const entry = try decl_names.getOrPut(decl.name);
         if (entry.found_existing) return error.NameCollision;
         try interfaces.append(self.allocator, decl);
+    }
+
+    fn appendParsedAnnotation(self: *Parser, decl: AnnotationDecl) Error!void {
+        const annotations = self.parsed_annotations.?;
+        const decl_names = self.parsed_decl_names.?;
+        const entry = try decl_names.getOrPut(decl.name);
+        if (entry.found_existing) return error.NameCollision;
+        try annotations.append(self.allocator, decl);
     }
 
     fn addLocalTypeAlias(self: *Parser, aliases: *std.ArrayList(AliasDecl), decl_names: *std.StringHashMap(void), local_name: []const u8, target_name: []const u8) Error!void {
@@ -2077,6 +2189,7 @@ test "schema parser records imported type aliases" {
 test "schema parser skips top-level annotations and interfaces" {
     const source =
         \\annotation deprecated @0xaaaa (field) :Text;
+        \\annotation labels(enumerant) :List(Text);
         \\$Cxx.namespace("example");
         \\interface Service {
         \\  call @0 (request :Text) -> (response :Text);
@@ -2090,6 +2203,16 @@ test "schema parser skips top-level annotations and interfaces" {
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 2), file.annotations.len);
+    try std.testing.expectEqualStrings("deprecated", file.annotations[0].name);
+    try std.testing.expectEqual(@as(?u64, 0xaaaa), file.annotations[0].id);
+    try std.testing.expectEqual(Type.text, file.annotations[0].ty);
+    try std.testing.expect(file.annotations[0].targets.field);
+    try std.testing.expect(!file.annotations[0].targets.file);
+    try std.testing.expectEqualStrings("labels", file.annotations[1].name);
+    try std.testing.expect(file.annotations[1].ty == .list);
+    try std.testing.expectEqual(Type.text, file.annotations[1].ty.list.*);
+    try std.testing.expect(file.annotations[1].targets.enumerant);
     try std.testing.expectEqual(@as(usize, 2), file.interfaces.len);
     try std.testing.expectEqualStrings("Service", file.interfaces[0].name);
     try std.testing.expectEqual(@as(usize, 1), file.interfaces[0].methods.len);
@@ -2487,6 +2610,9 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     for (file.interfaces) |*decl| {
         try emitInterface(allocator, &out, file, decl);
     }
+    for (file.annotations) |*decl| {
+        try emitAnnotation(allocator, &out, file, decl);
+    }
     for (file.aliases) |*decl| {
         try emitAlias(allocator, &out, file, null, decl, "");
     }
@@ -2530,6 +2656,9 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.interfaces) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.annotations) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
         try validateFieldZigNames(allocator, &lhs);
     }
     for (file.enums, 0..) |lhs, i| {
@@ -2545,6 +2674,9 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.interfaces) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.annotations) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
         try validateEnumValueZigNames(allocator, &lhs);
     }
     for (file.consts, 0..) |lhs, i| {
@@ -2557,6 +2689,9 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.interfaces) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.annotations) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
     for (file.aliases, 0..) |lhs, i| {
         for (file.aliases[i + 1 ..]) |rhs| {
@@ -2565,12 +2700,23 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.interfaces) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.annotations) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
     for (file.interfaces, 0..) |lhs, i| {
         for (file.interfaces[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (file.annotations) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
         try validateInterfaceMethodZigNames(allocator, &lhs);
+    }
+    for (file.annotations, 0..) |lhs, i| {
+        for (file.annotations[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
 }
 
@@ -2692,6 +2838,86 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         \\
         \\
     , .{});
+}
+
+fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {
+    const annotation_name = try zigIdentAlloc(allocator, decl.name);
+    defer allocator.free(annotation_name);
+    const zig_type = try annotationTypeNameAlloc(allocator, file, decl.ty);
+    defer allocator.free(zig_type);
+    try appendFmt(allocator, out,
+        \\pub const {s} = struct {{
+        \\    pub const @"cpz.annotation" = true;
+        \\    pub const Type = {s};
+        \\
+    , .{ annotation_name, zig_type });
+    if (decl.id) |id| {
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.type_id": u64 = 0x{x};
+            \\
+        , .{id});
+    }
+    try appendFmt(allocator, out,
+        \\    pub const targets: cpz.schema.AnnotationTargets = .{{
+        \\        .file = {},
+        \\        .const_decl = {},
+        \\        .enum_decl = {},
+        \\        .enumerant = {},
+        \\        .struct_decl = {},
+        \\        .field = {},
+        \\        .union_decl = {},
+        \\        .group = {},
+        \\        .interface_decl = {},
+        \\        .method = {},
+        \\        .param = {},
+        \\        .annotation_decl = {},
+        \\    }};
+        \\}};
+        \\
+        \\
+    , .{
+        decl.targets.file,
+        decl.targets.const_decl,
+        decl.targets.enum_decl,
+        decl.targets.enumerant,
+        decl.targets.struct_decl,
+        decl.targets.field,
+        decl.targets.union_decl,
+        decl.targets.group,
+        decl.targets.interface_decl,
+        decl.targets.method,
+        decl.targets.param,
+        decl.targets.annotation_decl,
+    });
+}
+
+fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, ty: Type) LayoutError![]u8 {
+    return switch (resolveType(file, ty)) {
+        .void => allocator.dupe(u8, "void"),
+        .bool => allocator.dupe(u8, "bool"),
+        .int8 => allocator.dupe(u8, "i8"),
+        .int16 => allocator.dupe(u8, "i16"),
+        .int32 => allocator.dupe(u8, "i32"),
+        .int64 => allocator.dupe(u8, "i64"),
+        .uint8 => allocator.dupe(u8, "u8"),
+        .uint16 => allocator.dupe(u8, "u16"),
+        .uint32 => allocator.dupe(u8, "u32"),
+        .uint64 => allocator.dupe(u8, "u64"),
+        .float32 => allocator.dupe(u8, "f32"),
+        .float64 => allocator.dupe(u8, "f64"),
+        .text, .data => allocator.dupe(u8, "[]const u8"),
+        .any_pointer => allocator.dupe(u8, "cpz.PointerReader"),
+        .any_struct => allocator.dupe(u8, "cpz.StructReader"),
+        .any_list => allocator.dupe(u8, "cpz.ListReader"),
+        .capability => allocator.dupe(u8, "u32"),
+        .named => |type_name| zigTypeRefAlloc(allocator, file, type_name),
+        .list => |child| {
+            const child_type = try annotationTypeNameAlloc(allocator, file, child.*);
+            defer allocator.free(child_type);
+            return std.fmt.allocPrint(allocator, "[]const {s}", .{child_type});
+        },
+        .optional => |child| annotationTypeNameAlloc(allocator, file, child.*),
+    };
 }
 
 fn emitAlias(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, decl: *const AliasDecl, indent: []const u8) LayoutError!void {
@@ -5508,17 +5734,20 @@ test "schema parser and code generator preserve declaration ids" {
         \\interface Persistent @0xc8cb212fcd9f5691 {
         \\  save @0 () -> (sturdyRef :Data);
         \\}
+        \\annotation note @0xa110ca110c (field) :Text;
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(?u64, 0x995f9a3377c0b16e), file.structs[0].id);
     try std.testing.expectEqual(@as(?u64, 0xc8cb212fcd9f5691), file.interfaces[0].id);
+    try std.testing.expectEqual(@as(?u64, 0xa110ca110c), file.annotations[0].id);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.type_id\": u64 = 0x995f9a3377c0b16e;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.type_id\": u64 = 0xc8cb212fcd9f5691;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.type_id\": u64 = 0xa110ca110c;") != null);
 }
 
 test "schema code generator emits file id constant" {
