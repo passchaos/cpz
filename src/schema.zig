@@ -4345,6 +4345,18 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
     defer allocator.free(by_resolved_type);
     const by_resolved_type_ident = try zigStringLiteralAlloc(allocator, by_resolved_type);
     defer allocator.free(by_resolved_type_ident);
+    const by_default = try std.fmt.allocPrint(allocator, "{s}.fieldByDefault", .{metadata_name});
+    defer allocator.free(by_default);
+    const by_default_ident = try zigStringLiteralAlloc(allocator, by_default);
+    defer allocator.free(by_default_ident);
+    const by_explicit_default = try std.fmt.allocPrint(allocator, "{s}.fieldByExplicitDefault", .{metadata_name});
+    defer allocator.free(by_explicit_default);
+    const by_explicit_default_ident = try zigStringLiteralAlloc(allocator, by_explicit_default);
+    defer allocator.free(by_explicit_default_ident);
+    const by_annotations = try std.fmt.allocPrint(allocator, "{s}.fieldByAnnotations", .{metadata_name});
+    defer allocator.free(by_annotations);
+    const by_annotations_ident = try zigStringLiteralAlloc(allocator, by_annotations);
+    defer allocator.free(by_annotations_ident);
     const by_index = try std.fmt.allocPrint(allocator, "{s}.fieldByIndex", .{metadata_name});
     defer allocator.free(by_index);
     const by_index_ident = try zigStringLiteralAlloc(allocator, by_index);
@@ -4365,12 +4377,29 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return null;
         \\{s}}}
         \\
+    , .{ indent, by_name_ident, indent, metadata_ident, indent, indent, indent, by_type_ident, indent, metadata_ident, indent, indent, indent, by_resolved_type_ident, indent, metadata_ident, indent, indent });
+    try appendFmt(allocator, out,
+        \\{s}pub fn @{s}(@"cpz.default": []const u8) ?cpz.schema.MethodField {{
+        \\{s}    for (@This().@{s}) |@"cpz.field"| if (@"cpz.field".default_literal != null and std.mem.eql(u8, @"cpz.field".default_literal.?, @"cpz.default")) return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @{s}(@"cpz.hasDefault": bool) ?cpz.schema.MethodField {{
+        \\{s}    for (@This().@{s}) |@"cpz.field"| if (@"cpz.field".has_explicit_default == @"cpz.hasDefault") return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @{s}(@"cpz.annotationFilter": []const u8) ?cpz.schema.MethodField {{
+        \\{s}    for (@This().@{s}) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".annotations, @"cpz.annotationFilter")) return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @{s}(@"cpz.index": usize) ?cpz.schema.MethodField {{
         \\{s}    if (@"cpz.index" >= @This().@{s}.len) return null;
         \\{s}    return @This().@{s}[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, by_name_ident, indent, metadata_ident, indent, indent, indent, by_type_ident, indent, metadata_ident, indent, indent, indent, by_resolved_type_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
+    , .{ indent, by_default_ident, indent, metadata_ident, indent, indent, indent, by_explicit_default_ident, indent, metadata_ident, indent, indent, indent, by_annotations_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
 }
 
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {
