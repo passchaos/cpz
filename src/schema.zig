@@ -5561,24 +5561,16 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     }
     try appendFmt(allocator, out,
         \\    pub const @"cpz.field.{s}.unionDiscriminant": u16 = {};
-        \\
     , .{ field_name, field.union_discriminant });
-    if (field.default_expression.len != 0) {
-        const default_expression_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
-        defer allocator.free(default_expression_literal);
-        try appendFmt(allocator, out,
-            \\    pub const @"cpz.field.{s}.default": []const u8 = {s};
-            \\
-        , .{ field_name, default_expression_literal });
-    }
-    if (field.annotations.len != 0) {
-        const annotation_literal = try zigStringLiteralAlloc(allocator, field.annotations);
-        defer allocator.free(annotation_literal);
-        try appendFmt(allocator, out,
-            \\    pub const @"cpz.field.{s}.annotations": []const u8 = {s};
-            \\
-        , .{ field_name, annotation_literal });
-    }
+    const default_expression_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
+    defer allocator.free(default_expression_literal);
+    const annotation_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+    defer allocator.free(annotation_literal);
+    try appendFmt(allocator, out,
+        \\    pub const @"cpz.field.{s}.default": []const u8 = {s};
+        \\    pub const @"cpz.field.{s}.annotations": []const u8 = {s};
+        \\
+    , .{ field_name, default_expression_literal, field_name, annotation_literal });
     switch (field_layout.slot) {
         .void => if (unionLayoutForField(layout, field)) |union_layout| try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) !void {{

@@ -188,6 +188,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("List(UInt32)", generated.Person.@"cpz.field.scores.type");
     try std.testing.expectEqualStrings("Color.green", generated.Person.@"cpz.field.favorite.default");
     try std.testing.expectEqualStrings("[1, 2, 3]", generated.Person.@"cpz.field.scores.default");
+    try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.default");
+    try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.annotations");
     try std.testing.expectEqualStrings("?Text", generated.Person.@"cpz.field.maybeName.type");
 }
 
