@@ -254,13 +254,17 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("List(Text)", generated.@"cpz.consts"[8].resolved_ty);
     try std.testing.expectEqualStrings("Names", generated.@"cpz.const.globalNamesAlias.type");
     try std.testing.expectEqualStrings("List(Text)", generated.@"cpz.const.globalNamesAlias.resolvedType");
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.consts"[6].list_item_count);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.consts"[6].list_items.len);
     try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].list_items[1].literal);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].list_items[1].index);
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItems".len);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.const.globalScores.listItem.1.index");
     try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItem.1.literal");
     try std.testing.expect(!generated.@"cpz.const.globalScores.listItem.1.isHexData");
+    try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].list_item_count);
+    try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.listItemCount");
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.consts"[10].name);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[10].ty);
     try std.testing.expectEqualStrings("(id = 9, name = \"raw\")", generated.@"cpz.consts"[10].literal);
@@ -300,8 +304,10 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.const.defaultAge.resolvedType");
     try std.testing.expectEqualStrings("99", generated.Person.@"cpz.const.defaultAge.literal");
     try std.testing.expectEqualStrings("[7, 8, 9]", generated.Person.@"cpz.consts"[3].literal);
+    try std.testing.expectEqual(@as(usize, 3), generated.Person.@"cpz.consts"[3].list_item_count);
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.consts"[3].list_items[1].literal);
     try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.consts"[3].list_items[1].index);
+    try std.testing.expectEqual(@as(usize, 3), generated.Person.@"cpz.const.defaultScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.Person.@"cpz.const.defaultScores.listItems".len);
     try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.const.defaultScores.listItem.1.index");
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItem.1.literal");
