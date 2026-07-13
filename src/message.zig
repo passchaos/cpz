@@ -665,8 +665,16 @@ pub const MessageReader = struct {
         return (try self.getRootPointer()).decode();
     }
 
+    pub fn getRootPointerStatsWithOptions(self: *MessageReader, options: ReaderOptions) Error!MessageStats {
+        return (try self.getRootPointer()).validateWithOptions(options);
+    }
+
     pub fn getRootPointerStats(self: *MessageReader) Error!MessageStats {
         return (try self.getRootPointer()).validate();
+    }
+
+    pub fn getRootPointerTotalSizeWithOptions(self: *MessageReader, options: ReaderOptions) Error!MessageSize {
+        return (try self.getRootPointerStatsWithOptions(options)).size();
     }
 
     pub fn getRootPointerTotalSize(self: *MessageReader) Error!MessageSize {

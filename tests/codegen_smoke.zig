@@ -701,6 +701,8 @@ test "generated scalar root helpers work" {
     try std.testing.expectError(error.InvalidCapabilityPointer, cap_builder.totalSizeWithOptions(.{ .capability_count_limit = 1 }));
     var cap_reader = cpz.MessageReader.init(try cap_builder.segmentsConst(), .{});
     try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.root.capability"(&cap_reader));
+    try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.statsWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.totalSizeWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
 }
 
 test "generated list root helpers work" {

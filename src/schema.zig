@@ -5288,8 +5288,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootPointerStats();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.statsWithOptions"(@"cpz.reader": *cpz.MessageReader, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\        return @"cpz.reader".getRootPointerStatsWithOptions(@"cpz.options");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.totalSize"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageSize {{
         \\        return @"cpz.reader".getRootPointerTotalSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.totalSizeWithOptions"(@"cpz.reader": *cpz.MessageReader, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+        \\        return @"cpz.reader".getRootPointerTotalSizeWithOptions(@"cpz.options");
         \\    }}
         \\
         \\    pub fn @"cpz.root.segments"(@"cpz.reader": *cpz.MessageReader) []const cpz.serialize.ConstSegment {{
