@@ -6138,8 +6138,9 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\    pub const @"cpz.field.{s}.index": usize = {};
         \\    pub const @"cpz.field.{s}.name": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.ordinal": u32 = {};
+        \\    pub const @"cpz.field.{s}.metadata": cpz.schema.FieldMetadata = @"cpz.fields"[{}];
         \\
-    , .{ field_name, field_index, field_name, field_name_literal, field_name, field.ordinal });
+    , .{ field_name, field_index, field_name, field_name_literal, field_name, field.ordinal, field_name, field_index });
     const type_name = try schemaTypeNameAlloc(allocator, field.ty);
     defer allocator.free(type_name);
     const type_literal = try zigStringLiteralAlloc(allocator, type_name);

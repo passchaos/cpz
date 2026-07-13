@@ -222,6 +222,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[2].offset);
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.fields"[2].annotations);
     try std.testing.expectEqual(@as(u32, 2), generated.Person.@"cpz.field.name.ordinal");
+    try std.testing.expectEqualStrings("name", generated.Person.@"cpz.field.name.metadata".name);
+    try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.field.name.metadata".index);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.field.name.name");
     try std.testing.expectEqualStrings("Text", generated.Person.@"cpz.field.name.type");
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.field.name.index");
@@ -1545,11 +1547,13 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.fields"[4].union_discriminant);
     try std.testing.expect(!generated.Choice.@"cpz.fields"[0].is_union_member);
     try std.testing.expect(generated.Choice.@"cpz.fields"[4].is_union_member);
+    try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.field.before.metadata".union_index);
     try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.field.before.unionIndex");
     try std.testing.expect(!generated.Choice.@"cpz.field.before.isUnionMember");
     try std.testing.expectEqualStrings("before", generated.Choice.@"cpz.field.before.name");
     try std.testing.expectEqual(@as(?u32, 0), generated.Choice.@"cpz.field.name.unionIndex");
     try std.testing.expect(generated.Choice.@"cpz.field.name.isUnionMember");
+    try std.testing.expect(generated.Choice.@"cpz.field.name.metadata".is_union_member);
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.field.name.unionDiscriminant");
 
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
