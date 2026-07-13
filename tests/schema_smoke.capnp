@@ -38,7 +38,7 @@ struct Person $schemaNote("person") {
   active @1 :Bool = true;
   name @2 :Text $schemaNote("person-name");
   favorite @3 :Color = Color.green;
-  scores @4 :List(UInt32);
+  scores @4 :List(UInt32) = [1, 2, 3];
   children @5 :List(Person);
   friend @6 :Person;
   palette @7 :List(Color);

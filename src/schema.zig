@@ -51,6 +51,7 @@ pub const Field = struct {
     ty: Type,
     default_literal: ?[]const u8 = null,
     default_is_hex_data: bool = false,
+    default_expression: []const u8 = "",
     annotations: []const u8 = "",
     union_index: ?u32 = null,
     union_discriminant: u16 = 0,
@@ -1782,29 +1783,52 @@ pub const Parser = struct {
             try self.skipCurrentBracedBody();
             return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = .void };
         }
+
+        var default_literal: ?[]const u8 = null;
         var default_is_hex_data = false;
-        const default_literal = if (self.lookahead.tag == .equal) blk: {
+        var default_expression: []const u8 = "";
+        var annotations: []const u8 = "";
+
+        if (self.lookahead.tag == .equal) {
             if (ty == .text and self.constLiteralFirstByte() == '`') {
-                break :blk try self.parseBlockTextLiteralAfterEqual();
+                const literal = try self.parseBlockTextLiteralAfterEqual();
+                default_literal = literal;
+                default_expression = literal;
+                annotations = try self.takeRawUntilSemicolon();
+            } else {
+                try self.expect(.equal);
+                if (self.lookahead.tag == .l_paren or self.lookahead.tag == .l_bracket) {
+                    const raw_tail = try self.takeRawUntilSemicolon();
+                    const split = splitDefaultExpressionAndAnnotations(raw_tail);
+                    default_expression = split.default_expression;
+                    annotations = split.annotations;
+                } else {
+                    const default_start = self.currentTokenStart();
+                    if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) {
+                        try self.expect(.integer);
+                        if (self.lookahead.tag != .string) return error.UnexpectedToken;
+                        default_literal = self.lookahead.lexeme;
+                        try self.advance();
+                        default_is_hex_data = true;
+                    } else {
+                        default_literal = try self.expectDefaultLiteral();
+                    }
+                    const default_end = self.currentTokenStart();
+                    default_expression = std.mem.trim(u8, self.lexer.source[default_start..default_end], " \t\r\n");
+                    annotations = try self.takeRawUntilSemicolon();
+                }
             }
-            try self.expect(.equal);
-            if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) {
-                try self.expect(.integer);
-                if (self.lookahead.tag != .string) return error.UnexpectedToken;
-                const value = self.lookahead.lexeme;
-                try self.advance();
-                default_is_hex_data = true;
-                break :blk value;
-            }
-            break :blk try self.expectDefaultLiteral();
-        } else null;
-        const annotations = try self.takeRawUntilSemicolon();
+        } else {
+            annotations = try self.takeRawUntilSemicolon();
+        }
+
         return .{
             .name = name,
             .ordinal = @intCast(ordinal_u64),
             .ty = ty,
             .default_literal = default_literal,
             .default_is_hex_data = default_is_hex_data,
+            .default_expression = default_expression,
             .annotations = annotations,
         };
     }
@@ -1958,6 +1982,10 @@ pub const Parser = struct {
         return source[start..end];
     }
 
+    fn currentTokenStart(self: *const Parser) usize {
+        return if (self.lookahead.tag == .eof) self.lexer.index else self.lexer.index - self.lookahead.lexeme.len;
+    }
+
     fn expectDefaultLiteral(self: *Parser) Error!?[]const u8 {
         switch (self.lookahead.tag) {
             .identifier => {
@@ -1982,6 +2010,42 @@ pub const Parser = struct {
             .l_paren, .l_bracket => return null,
             else => return error.UnexpectedToken,
         }
+    }
+
+    fn splitDefaultExpressionAndAnnotations(raw: []const u8) struct { default_expression: []const u8, annotations: []const u8 } {
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        var index: usize = 0;
+        while (index < raw.len) : (index += 1) {
+            switch (raw[index]) {
+                '"' => {
+                    index += 1;
+                    while (index < raw.len) : (index += 1) {
+                        if (raw[index] == '\\') {
+                            index += 1;
+                        } else if (raw[index] == '"') {
+                            break;
+                        }
+                    }
+                },
+                '(' => paren_depth += 1,
+                ')' => {
+                    if (paren_depth != 0) paren_depth -= 1;
+                },
+                '[' => bracket_depth += 1,
+                ']' => {
+                    if (bracket_depth != 0) bracket_depth -= 1;
+                },
+                '$' => if (paren_depth == 0 and bracket_depth == 0) {
+                    return .{
+                        .default_expression = std.mem.trim(u8, raw[0..index], " \t\r\n"),
+                        .annotations = std.mem.trim(u8, raw[index..], " \t\r\n"),
+                    };
+                },
+                else => {},
+            }
+        }
+        return .{ .default_expression = std.mem.trim(u8, raw, " \t\r\n"), .annotations = "" };
     }
 
     fn skipUntilSemicolon(self: *Parser) Error!void {
@@ -4309,6 +4373,14 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
+    if (field.default_expression.len != 0) {
+        const default_expression_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
+        defer allocator.free(default_expression_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.field.{s}.default": []const u8 = {s};
+            \\
+        , .{ field_name, default_expression_literal });
+    }
     if (field.annotations.len != 0) {
         const annotation_literal = try zigStringLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotation_literal);
