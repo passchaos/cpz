@@ -4727,6 +4727,46 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Builder.fromBuilder(try @"cpz.builder".getRoot());
         \\    }}
         \\
+        \\    pub fn @"cpz.root.isNull"(@"cpz.builder": *cpz.MessageBuilder) !bool {{
+        \\        return @"cpz.builder".isRootNull();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.clear"(@"cpz.builder": *cpz.MessageBuilder) !void {{
+        \\        return @"cpz.builder".clearRoot();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.pointerKind"(@"cpz.reader": *cpz.MessageReader) !?cpz.wire.PointerType {{
+        \\        return @"cpz.reader".getRootPointerKind();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.rawPointer"(@"cpz.reader": *cpz.MessageReader) !cpz.Word {{
+        \\        return @"cpz.reader".getRootRawPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.decodedPointer"(@"cpz.reader": *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
+        \\        return @"cpz.reader".getRootDecodedPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.totalSize"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageSize {{
+        \\        return @"cpz.reader".getRootPointerTotalSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.pointerKind"(@"cpz.builder": *cpz.MessageBuilder) !?cpz.wire.PointerType {{
+        \\        return @"cpz.builder".getRootPointerKind();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.rawPointer"(@"cpz.builder": *cpz.MessageBuilder) !cpz.Word {{
+        \\        return @"cpz.builder".getRootRawPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.decodedPointer"(@"cpz.builder": *cpz.MessageBuilder) !?cpz.wire.DecodedPointer {{
+        \\        return @"cpz.builder".getRootDecodedPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.totalSize"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageSize {{
+        \\        return @"cpz.builder".getRootPointerTotalSize();
+        \\    }}
+        \\
         \\    pub fn newOrphan(@"cpz.builder": *cpz.MessageBuilder) !Orphan {{
         \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanStruct(size));
         \\    }}

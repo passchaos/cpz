@@ -154,10 +154,20 @@ test "generated simple constants compile" {
 }
 
 test "generated reader and builder accessors compile and round-trip" {
-    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 64 });
     defer builder.deinit();
 
+    try std.testing.expect(try generated.Person.@"cpz.root.isNull"(&builder));
     const person_builder = try generated.Person.initRootTyped(&builder);
+    try std.testing.expect(!try generated.Person.@"cpz.root.isNull"(&builder));
+    try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.builderRoot.pointerKind"(&builder)).?);
+    const builder_root_raw = try generated.Person.@"cpz.builderRoot.rawPointer"(&builder);
+    try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, cpz.wire.pointerType(builder_root_raw));
+    const builder_root_decoded = (try generated.Person.@"cpz.builderRoot.decodedPointer"(&builder)).?.struct_ptr;
+    try std.testing.expectEqual(generated.Person.size.data_words, builder_root_decoded.data_words);
+    try std.testing.expectEqual(generated.Person.size.pointer_count, builder_root_decoded.pointer_count);
+    const builder_root_size = try generated.Person.@"cpz.builderRoot.totalSize"(&builder);
+    try std.testing.expect(builder_root_size.word_count > 0);
     try person_builder.set_id(7);
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
     try std.testing.expectEqual(generated.Person.size, person_builder.actualSize());
@@ -288,6 +298,14 @@ test "generated reader and builder accessors compile and round-trip" {
     try maybe_friend.set_id(64);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.root.pointerKind"(&reader)).?);
+    const reader_root_raw = try generated.Person.@"cpz.root.rawPointer"(&reader);
+    try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, cpz.wire.pointerType(reader_root_raw));
+    const reader_root_decoded = (try generated.Person.@"cpz.root.decodedPointer"(&reader)).?.struct_ptr;
+    try std.testing.expectEqual(generated.Person.size.data_words, reader_root_decoded.data_words);
+    try std.testing.expectEqual(generated.Person.size.pointer_count, reader_root_decoded.pointer_count);
+    const reader_root_size = try generated.Person.@"cpz.root.totalSize"(&reader);
+    try std.testing.expect(reader_root_size.word_count > 0);
     const person = try generated.Person.getRoot(&reader);
     try std.testing.expectEqual(generated.Person.size, person.actualSize());
     try std.testing.expectEqual(@as(u8, 7 ^ 42), person.dataSection()[0]);
