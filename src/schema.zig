@@ -4803,12 +4803,22 @@ fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.annotationByType"(@"cpz.type": []const u8) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (std.mem.eql(u8, @"cpz.annotation".ty, @"cpz.type")) return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.annotationByResolvedType"(@"cpz.type": []const u8) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (std.mem.eql(u8, @"cpz.annotation".resolved_ty, @"cpz.type")) return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.annotationByIndex"(@"cpz.index": usize) ?cpz.schema.AnnotationMetadata {{
         \\{s}    if (@"cpz.index" >= @This().@"cpz.annotation_decls".len) return null;
         \\{s}    return @This().@"cpz.annotation_decls"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
 fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, index: usize, decl: *const AnnotationDecl, indent: []const u8) LayoutError!void {
