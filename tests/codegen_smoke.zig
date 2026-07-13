@@ -2014,6 +2014,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Req", generated.ExtendedService.@"cpz.parameter.Req.name");
     try std.testing.expectEqualStrings("Req", generated.ExtendedService.@"cpz.parameters.parameterByName"("Req").?);
     try std.testing.expectEqualStrings("Resp", generated.ExtendedService.@"cpz.parameters.parameterByIndex"(1).?);
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.superclassCount");
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.superclasses".len);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.superclasses"[0].index);
     try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclasses"[0].name);
