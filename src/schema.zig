@@ -3937,6 +3937,17 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
 }
 
 fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), superclasses: []const Type, indent: []const u8) LayoutError!void {
+    for (superclasses, 0..) |superclass, index| {
+        const superclass_name = try schemaTypeNameAlloc(allocator, superclass);
+        defer allocator.free(superclass_name);
+        const superclass_literal = try zigStringLiteralAlloc(allocator, superclass_name);
+        defer allocator.free(superclass_literal);
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.superclass.{}.index": usize = {};
+            \\{s}pub const @"cpz.superclass.{}.name": []const u8 = {s};
+            \\
+        , .{ indent, index, index, indent, index, superclass_literal });
+    }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.superclasses\": []const cpz.schema.InterfaceSuperclassMetadata = &[_]cpz.schema.InterfaceSuperclassMetadata{{", .{indent});
     for (superclasses, 0..) |superclass, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
