@@ -44,6 +44,34 @@ pub const MessageStats = struct {
         return self.capabilities != 0;
     }
 
+    pub fn hasPointerSlots(self: MessageStats) bool {
+        return self.pointer_slots != 0;
+    }
+
+    pub fn hasNonNullPointers(self: MessageStats) bool {
+        return self.non_null_pointers != 0;
+    }
+
+    pub fn hasStructs(self: MessageStats) bool {
+        return self.structs != 0;
+    }
+
+    pub fn hasLists(self: MessageStats) bool {
+        return self.lists != 0;
+    }
+
+    pub fn hasDataWords(self: MessageStats) bool {
+        return self.data_words != 0;
+    }
+
+    pub fn hasPointerWords(self: MessageStats) bool {
+        return self.pointer_words != 0;
+    }
+
+    pub fn hasWords(self: MessageStats) bool {
+        return self.total_words != 0;
+    }
+
     pub fn maxCapabilityIndex(self: MessageStats) ?u32 {
         return self.max_capability_index;
     }

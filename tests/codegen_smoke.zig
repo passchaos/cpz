@@ -785,6 +785,13 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(validation_stats.total_words, validation_stats.size().word_count);
     try std.testing.expectEqual(validation_stats.capabilities, validation_stats.size().cap_count);
     try std.testing.expect(!validation_stats.isEmpty());
+    try std.testing.expect(validation_stats.hasPointerSlots());
+    try std.testing.expect(validation_stats.hasNonNullPointers());
+    try std.testing.expect(validation_stats.hasStructs());
+    try std.testing.expect(validation_stats.hasLists());
+    try std.testing.expect(validation_stats.hasDataWords());
+    try std.testing.expect(validation_stats.hasPointerWords());
+    try std.testing.expect(validation_stats.hasWords());
     try std.testing.expect(!validation_stats.hasCapabilities());
     try std.testing.expect(validation_stats.maxCapabilityIndex() == null);
     try std.testing.expectEqual(@as(usize, 0), validation_stats.maxCapabilityCount());
