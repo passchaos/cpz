@@ -166,6 +166,7 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$labels([\"cool\", \"primary\"])", generated.@"cpz.enumerant.Color.blue.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.Person.@"cpz.annotations");
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.annotations");
+    try std.testing.expectEqual(@as(usize, 22), generated.Person.@"cpz.fieldCount");
     try std.testing.expectEqual(@as(usize, 22), generated.Person.@"cpz.fields".len);
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fields"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[0].index);
@@ -1953,6 +1954,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.parameters.parameterByName"("Req").?);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.parameters.parameterByIndex"(1).?);
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Service.@"cpz.method.ping.parameters.parameterByIndex"(9));
+    try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.method.ping.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.method.ping.params.fields".len);
     try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.params.fields"[0].index);
@@ -1978,6 +1980,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("3", generated.Service.@"cpz.method.ping.params.field.attempts.default".?);
     try std.testing.expect(generated.Service.@"cpz.method.ping.params.field.attempts.hasExplicitDefault");
     try std.testing.expectEqualStrings("$schemaNote(\"attempts\")", generated.Service.@"cpz.method.ping.params.field.attempts.annotations");
+    try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.results.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.results.fields".len);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.results.fields"[0].index);
@@ -1997,7 +2000,9 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].results_type);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.paramsType");
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resultsType");
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.params.fields".len);
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fieldCount");
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fields".len);
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.methodCount");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);

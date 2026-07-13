@@ -4128,6 +4128,10 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
 }
 
 fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.method.{s}.{s}.fieldCount": usize = {};
+        \\
+    , .{ indent, method_name, kind, fields.len });
     for (fields) |field| {
         const field_name = try zigIdentAlloc(allocator, field.name);
         defer allocator.free(field_name);
@@ -5131,6 +5135,10 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
 }
 
 fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\    pub const @"cpz.fieldCount": usize = {};
+        \\
+    , .{layout.fields.len});
     try out.appendSlice(allocator, "    pub const @\"cpz.fields\": []const cpz.schema.FieldMetadata = &[_]cpz.schema.FieldMetadata{");
     for (layout.fields, 0..) |field_layout, index| {
         const field = field_layout.field;
