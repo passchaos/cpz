@@ -1,6 +1,8 @@
 @0xc0ffee;
 
-enum Color @0xc010 {
+annotation enumNote(enum) :Text;
+
+enum Color @0xc010 $enumNote("palette") {
   red @0;
   green @1;
   blue @2;
@@ -29,7 +31,7 @@ annotation schemaNote @0xa110ca110c (file, struct, field) :Text;
 annotation marker(interface, method) :Void;
 annotation labels(enumerant) :List(Text);
 
-struct Person {
+struct Person $schemaNote("person") {
   id @0 :UInt32 = 42;
   active @1 :Bool = true;
   name @2 :Text $schemaNote("person-name");
@@ -120,7 +122,7 @@ struct ScopedAliasBox {
   }
 }
 
-interface Service {
+interface Service $marker {
   call @0 () -> () $marker;
   ping @1 [Req, Resp] (request :Req, attempts :UInt32 = 3) -> (response :Resp);
   streamIt @2 (chunk :Data) -> stream;

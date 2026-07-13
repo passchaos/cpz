@@ -34,7 +34,10 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expect(generated.NestedBox_statusLabels.targets.enumerant);
 }
 
-test "generated field annotation metadata compiles" {
+test "generated declaration and field annotation metadata compiles" {
+    try std.testing.expectEqualStrings("$enumNote(\"palette\")", generated.Color.@"cpz.annotations");
+    try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.Person.@"cpz.annotations");
+    try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");
 }
 

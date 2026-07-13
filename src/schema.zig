@@ -117,6 +117,7 @@ pub const Struct = struct {
     name: []const u8,
     owns_name: bool = false,
     id: ?u64 = null,
+    annotations: []const u8 = "",
     parameters: []const []const u8 = &.{},
     fields: []Field,
     consts: []ConstDecl,
@@ -144,6 +145,7 @@ pub const EnumDecl = struct {
     name: []const u8,
     owns_name: bool = false,
     id: ?u64 = null,
+    annotations: []const u8 = "",
     values: []EnumValue,
 
     pub fn deinit(self: *EnumDecl, allocator: std.mem.Allocator) void {
@@ -176,6 +178,7 @@ pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
     id: ?u64 = null,
+    annotations: []const u8 = "",
     parameters: []const []const u8 = &.{},
     methods: []InterfaceMethod = &.{},
     superclasses: []Type = &.{},
@@ -577,6 +580,7 @@ pub const Parser = struct {
             for (superclasses) |*superclass| superclass.deinit(self.allocator);
             self.allocator.free(superclasses);
         }
+        const annotations = try self.takeRawUntilLeftBrace();
         var aliases = std.ArrayList(AliasDecl).empty;
         errdefer {
             for (aliases.items) |*a| a.deinit(self.allocator);
@@ -596,6 +600,7 @@ pub const Parser = struct {
             .name = qualified.name,
             .owns_name = qualified.owns_name,
             .id = decl_id,
+            .annotations = annotations,
             .parameters = parameters,
             .methods = methods,
             .superclasses = superclasses,
@@ -1380,7 +1385,7 @@ pub const Parser = struct {
         const decl_id = try self.parseOptionalDeclarationId();
         const parameters = try self.parseDeclarationParameters();
         errdefer self.allocator.free(parameters);
-        try self.skipUntil(.l_brace);
+        const annotations = try self.takeRawUntilLeftBrace();
         try self.expect(.l_brace);
 
         var fields = std.ArrayList(Field).empty;
@@ -1492,6 +1497,7 @@ pub const Parser = struct {
             .name = qualified.name,
             .owns_name = qualified.owns_name,
             .id = decl_id,
+            .annotations = annotations,
             .parameters = parameters,
             .fields = try fields.toOwnedSlice(self.allocator),
             .consts = try consts.toOwnedSlice(self.allocator),
@@ -1686,7 +1692,7 @@ pub const Parser = struct {
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         const decl_id = try self.parseOptionalDeclarationId();
-        try self.skipUntil(.l_brace);
+        const annotations = try self.takeRawUntilLeftBrace();
         try self.expect(.l_brace);
 
         var values = std.ArrayList(EnumValue).empty;
@@ -1711,7 +1717,7 @@ pub const Parser = struct {
             try values.append(self.allocator, .{ .name = value_name, .ordinal = ordinal });
         }
         try self.expect(.r_brace);
-        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .values = try values.toOwnedSlice(self.allocator) };
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .annotations = annotations, .values = try values.toOwnedSlice(self.allocator) };
     }
 
     fn parseField(self: *Parser) Error!Field {
@@ -2090,6 +2096,69 @@ pub const Parser = struct {
                         try self.advance();
                         return std.mem.trim(u8, source[start..end], " \t\r\n");
                     }
+                },
+                else => index += 1,
+            }
+        }
+        return error.UnexpectedToken;
+    }
+
+    fn takeRawUntilLeftBrace(self: *Parser) Error![]const u8 {
+        const source = self.lexer.source;
+        const start = if (self.lookahead.tag == .eof) self.lexer.index else self.lexer.index - self.lookahead.lexeme.len;
+        var index = start;
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        while (index < source.len) {
+            const c = source[index];
+            switch (c) {
+                '"' => {
+                    index += 1;
+                    while (index < source.len) {
+                        if (source[index] == '\\') {
+                            index += 2;
+                        } else if (source[index] == '"') {
+                            index += 1;
+                            break;
+                        } else {
+                            index += 1;
+                        }
+                    }
+                },
+                '#' => {
+                    while (index < source.len and source[index] != '\n') index += 1;
+                },
+                '/' => {
+                    if (index + 1 < source.len and source[index + 1] == '/') {
+                        index += 2;
+                        while (index < source.len and source[index] != '\n') index += 1;
+                    } else {
+                        index += 1;
+                    }
+                },
+                '(' => {
+                    paren_depth += 1;
+                    index += 1;
+                },
+                ')' => {
+                    if (paren_depth > 0) paren_depth -= 1;
+                    index += 1;
+                },
+                '[' => {
+                    bracket_depth += 1;
+                    index += 1;
+                },
+                ']' => {
+                    if (bracket_depth > 0) bracket_depth -= 1;
+                    index += 1;
+                },
+                '{' => {
+                    if (paren_depth == 0 and bracket_depth == 0) {
+                        self.lexer.index = index;
+                        try self.advance();
+                        return std.mem.trim(u8, source[start..index], " \t\r\n");
+                    }
+                    index += 1;
                 },
                 else => index += 1,
             }
@@ -3351,6 +3420,16 @@ fn zigNamesEqual(allocator: std.mem.Allocator, lhs_raw: []const u8, rhs_raw: []c
     return std.mem.eql(u8, lhs, rhs);
 }
 
+fn emitDeclarationAnnotations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), annotations: []const u8, indent: []const u8) LayoutError!void {
+    if (annotations.len == 0) return;
+    const annotation_literal = try zigStringLiteralAlloc(allocator, annotations);
+    defer allocator.free(annotation_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.annotations": []const u8 = {s};
+        \\
+    , .{ indent, annotation_literal });
+}
+
 fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const EnumDecl) LayoutError!void {
     const enum_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(enum_name);
@@ -3364,6 +3443,7 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
             \\
         , .{id});
     }
+    try emitDeclarationAnnotations(allocator, out, decl.annotations, "    ");
     for (decl.values) |value| {
         const value_name = try zigIdentAlloc(allocator, value.name);
         defer allocator.free(value_name);
@@ -3392,6 +3472,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\
         , .{id});
     }
+    try emitDeclarationAnnotations(allocator, out, decl.annotations, "    ");
     try emitParameterMetadata(allocator, out, decl.parameters, "    ");
     for (decl.superclasses, 0..) |superclass, index| {
         switch (resolveType(file, superclass)) {
@@ -3871,6 +3952,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
             \\
         , .{id});
     }
+    try emitDeclarationAnnotations(allocator, out, layout.decl.annotations, "    ");
     try emitParameterMetadata(allocator, out, layout.decl.parameters, "    ");
 
     for (layout.decl.aliases) |*decl| {
