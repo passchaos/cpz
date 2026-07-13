@@ -5422,8 +5422,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.validate"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageStats {{
-        \\        var @"cpz.reader" = try @"cpz.builder".asReader(.{{}});
-        \\        return @"cpz.reader".validate();
+        \\        return @"cpz.builder".validate(.{{}});
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.toFlatBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{

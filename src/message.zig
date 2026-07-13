@@ -517,14 +517,19 @@ pub const MessageBuilder = struct {
         return messageToCanonicalSegmentBytes(self.allocator, &reader);
     }
 
+    pub fn validate(self: *MessageBuilder, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(try self.segmentsConst(), options);
+        return reader.validate();
+    }
+
     pub fn toSingleSegmentFlatBytes(self: *MessageBuilder, options: ReaderOptions) (Error || serialize.Error)![]u8 {
         var reader = MessageReader.init(try self.segmentsConst(), options);
         return messageToSingleSegmentFlatBytes(self.allocator, &reader);
     }
 
     pub fn totalSize(self: *MessageBuilder) Error!MessageSize {
-        var reader = MessageReader.init(try self.segmentsConst(), .{});
-        return reader.totalSize();
+        const stats = try self.validate(.{});
+        return stats.size();
     }
 
     pub fn segmentsConst(self: *MessageBuilder) ![]const serialize.ConstSegment {
