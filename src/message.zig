@@ -432,6 +432,17 @@ pub const MessageBuilder = struct {
         return self.segments.items[index].used;
     }
 
+    pub fn segmentCapacityWords(self: *MessageBuilder, index: usize) Error!usize {
+        if (index >= self.segments.items.len) return error.SegmentOutOfBounds;
+        return self.segments.items[index].words.items.len;
+    }
+
+    pub fn segmentRemainingWords(self: *MessageBuilder, index: usize) Error!usize {
+        if (index >= self.segments.items.len) return error.SegmentOutOfBounds;
+        const segment = self.segments.items[index];
+        return segment.words.items.len - segment.used;
+    }
+
     pub fn serializedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
         return serialize.computeSerializedSize(try self.segmentsConst());
     }
