@@ -5549,6 +5549,11 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\        return null;
         \\    }
         \\
+        \\    pub fn @"cpz.fieldByUnionDiscriminant"(@"cpz.unionIndex": u32, @"cpz.discriminant": u16) ?cpz.schema.FieldMetadata {
+        \\        for (@"cpz.fields") |@"cpz.field"| if (@"cpz.field".union_index != null and @"cpz.field".union_index.? == @"cpz.unionIndex" and @"cpz.field".union_discriminant == @"cpz.discriminant") return @"cpz.field";
+        \\        return null;
+        \\    }
+        \\
         \\    pub fn @"cpz.fieldByOrdinal"(@"cpz.ordinal": u32) ?cpz.schema.FieldMetadata {
         \\        for (@"cpz.fields") |@"cpz.field"| if (@"cpz.field".ordinal == @"cpz.ordinal") return @"cpz.field";
         \\        return null;
