@@ -5453,8 +5453,11 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try appendFmt(allocator, out,
         \\pub const {s} = struct {{
         \\    pub const size: cpz.StructSize = .{{ .data_words = {}, .pointer_count = {} }};
+        \\    pub const @"cpz.dataWordCount": u16 = {};
+        \\    pub const @"cpz.pointerCount": u16 = {};
+        \\    pub const @"cpz.structSize": cpz.StructSize = size;
         \\
-    , .{ struct_name, layout.data_words, layout.pointer_count });
+    , .{ struct_name, layout.data_words, layout.pointer_count, layout.data_words, layout.pointer_count });
     if (layout.decl.id) |id| {
         try appendFmt(allocator, out,
             \\    pub const @"cpz.type_id": u64 = 0x{x};
@@ -5821,8 +5824,8 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".initRootList(@"cpz.elementSize", @"cpz.count");
         \\    }}
         \\
-        \\    pub fn @"cpz.builderRoot.initStructList"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize, @"cpz.size": cpz.StructSize) !cpz.ListBuilder {{
-        \\        return @"cpz.builder".initRootStructList(@"cpz.count", @"cpz.size");
+        \\    pub fn @"cpz.builderRoot.initStructList"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize, @"cpz.elementStructSize": cpz.StructSize) !cpz.ListBuilder {{
+        \\        return @"cpz.builder".initRootStructList(@"cpz.count", @"cpz.elementStructSize");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.list"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !cpz.ListBuilder {{

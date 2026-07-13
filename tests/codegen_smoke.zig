@@ -60,6 +60,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(u64, 0xc010), generated.Color.@"cpz.type_id");
     try std.testing.expectEqual(@as(u64, 0xd00d), generated.DynamicBox.@"cpz.type_id");
     try std.testing.expectEqual(@as(u64, 0xe57e0001), generated.ExtendedService.@"cpz.type_id");
+    try std.testing.expectEqual(generated.Person.size, generated.Person.@"cpz.structSize");
+    try std.testing.expectEqual(generated.Person.size.data_words, generated.Person.@"cpz.dataWordCount");
+    try std.testing.expectEqual(generated.Person.size.pointer_count, generated.Person.@"cpz.pointerCount");
+    try std.testing.expectEqual(generated.Choice.size, generated.Choice.@"cpz.structSize");
     try std.testing.expectEqual(@as(usize, 8), generated.@"cpz.aliasCount");
     try std.testing.expectEqual(@as(usize, 8), generated.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("Id", generated.@"cpz.aliases"[0].name);
