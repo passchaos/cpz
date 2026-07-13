@@ -6540,6 +6540,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return cpz.MessageReaderView.initFlat(@"cpz.allocator", @"cpz.bytes", @"cpz.options");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.viewFlatBytesInto"(@"cpz.segmentTable": []cpz.serialize.ConstSegment, @"cpz.bytes": []const u8, @"cpz.options": cpz.ReaderOptions) !cpz.MessageReaderView {{
+        \\        return cpz.MessageReaderView.initFlatInto(@"cpz.segmentTable", @"cpz.bytes", @"cpz.options");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.consumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".consumedLen();
         \\    }}

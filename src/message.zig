@@ -400,6 +400,14 @@ pub const MessageReaderView = struct {
         };
     }
 
+    pub fn initFlatInto(segment_table: []serialize.ConstSegment, flat_bytes: []const u8, options: ReaderOptions) (Error || serialize.Error)!MessageReaderView {
+        const flat = try serialize.readFlatMessageViewInto(segment_table, flat_bytes);
+        return .{
+            .reader = MessageReader.init(flat.segments, options),
+            .flat = flat,
+        };
+    }
+
     pub fn deinit(self: *MessageReaderView, allocator: std.mem.Allocator) void {
         self.flat.deinit(allocator);
         self.reader = undefined;
@@ -3472,6 +3480,13 @@ test "message reader views parse flat bytes without copying message data" {
     try testing.expectEqual(flat.len, view.consumedLen());
     try testing.expectEqual(flat.len, view.sourceConsumedLen());
     try testing.expectEqualSlices(u8, flat, view.bytes());
+    var stack_view_segments: [1]serialize.ConstSegment = undefined;
+    var stack_view = try MessageReaderView.initFlatInto(&stack_view_segments, flat_with_trailer, .{});
+    defer stack_view.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, stack_view.consumedLen());
+    try testing.expectEqualSlices(u8, flat, stack_view.bytes());
+    try testing.expect(!stack_view.flat.owns_segments);
+    try testing.expectEqual(@as(u32, 6160), (try stack_view.getRoot()).getUInt32(0, 0));
     try testing.expectEqual(@as(u32, 6160), (try view.asReader().getRoot()).getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "view", try (try view.asReader().getRoot()).getPointerField(0).getText());
     try testing.expectEqual(@as(u32, 6160), (try view.getRoot()).getUInt32(0, 0));

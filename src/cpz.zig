@@ -86,6 +86,7 @@ pub const writePackedMessageToWriter = serialize.writePackedMessageToWriter;
 pub const writePackedMessageToWriterWithTableBuffer = serialize.writePackedMessageToWriterWithTableBuffer;
 pub const readFlatMessage = serialize.readFlatMessage;
 pub const readFlatMessageView = serialize.readFlatMessageView;
+pub const readFlatMessageViewInto = serialize.readFlatMessageViewInto;
 pub const readPackedMessage = serialize.readPackedMessage;
 pub const readMessageFromReader = serialize.readMessageFromReader;
 pub const readPackedMessageFromReader = serialize.readPackedMessageFromReader;
@@ -130,6 +131,11 @@ test "top-level stream framing helpers round-trip" {
     defer view.deinit(testing.allocator);
     var view_reader = MessageReader.init(view.segments, .{});
     try testing.expectEqual(@as(u32, 2026), (try view_reader.getRoot()).getUInt32(0, 0));
+    var view_segments: [1]ConstSegment = undefined;
+    var stack_view = try readFlatMessageViewInto(&view_segments, flat);
+    defer stack_view.deinit(testing.allocator);
+    var stack_view_reader = MessageReader.init(stack_view.segments, .{});
+    try testing.expectEqual(@as(u32, 2026), (try stack_view_reader.getRoot()).getUInt32(0, 0));
 
     const packed_bytes = try messageToPackedBytes(testing.allocator, segments);
     defer testing.allocator.free(packed_bytes);
