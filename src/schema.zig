@@ -4686,12 +4686,17 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.importByPath"(@"cpz.path": []const u8) ?cpz.schema.ImportMetadata {{
+        \\{s}    for (@This().@"cpz.imports") |@"cpz.import"| if (std.mem.eql(u8, @"cpz.import".path, @"cpz.path")) return @"cpz.import";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.importByIndex"(@"cpz.index": usize) ?cpz.schema.ImportMetadata {{
         \\{s}    if (@"cpz.index" >= @This().@"cpz.imports".len) return null;
         \\{s}    return @This().@"cpz.imports"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (imports.len != 0) try out.append(allocator, '\n');
 }
 
