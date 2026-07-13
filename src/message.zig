@@ -1798,6 +1798,7 @@ pub const PointerReader = struct {
                 .pointer_count = shape.pointer_count,
                 .step_bits = wire.bitsPerElement(l.element_size),
                 .nesting_left = self.nesting_left - 1,
+                .element_data_bits = if (shape.pointer_count == 0) wire.bitsPerElement(l.element_size) else 0,
             };
         }
         return .{
@@ -2185,6 +2186,8 @@ pub const StructReader = struct {
     data_words: u16,
     pointer_count: u16,
     nesting_left: u16,
+    data_bit_offset: usize = 0,
+    data_bit_len: usize = 0,
 
     pub fn getPointerField(self: StructReader, index: usize) PointerReader {
         if (index >= self.pointer_count) {
@@ -2212,8 +2215,8 @@ pub const StructReader = struct {
     }
 
     pub fn getBool(self: StructReader, bit_offset: usize, default_value: bool) bool {
-        if (bit_offset >= @as(usize, self.data_words) * wire.bits_per_word) return default_value;
-        const abs_bit = self.data_start * wire.bits_per_word + bit_offset;
+        if (bit_offset >= self.effectiveDataBits()) return default_value;
+        const abs_bit = self.data_start * wire.bits_per_word + self.data_bit_offset + bit_offset;
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         const word = self.message.readWord(self.segment_id, word_index) catch return default_value;
@@ -2261,15 +2264,32 @@ pub const StructReader = struct {
     }
 
     fn getInt(self: StructReader, comptime T: type, byte_offset: usize, default_value: T) T {
-        const data_len = @as(usize, self.data_words) * wire.bytes_per_word;
-        if (byte_offset > data_len or data_len - byte_offset < @sizeOf(T)) return default_value;
-        const bytes = self.dataBytes()[byte_offset..][0..@sizeOf(T)];
-        return std.mem.readInt(T, bytes, .little) ^ default_value;
+        const data_bits = self.effectiveDataBits();
+        const value_bits = @sizeOf(T) * 8;
+        const field_bit_offset = byte_offset * 8;
+        if (field_bit_offset > data_bits or data_bits - field_bit_offset < value_bits) return default_value;
+        const absolute_bit_offset = self.data_bit_offset + field_bit_offset;
+        if (absolute_bit_offset % 8 != 0) return default_value;
+        const byte_start = self.data_start * wire.bytes_per_word + absolute_bit_offset / 8;
+        if (self.segment_id >= self.message.segments.len) return default_value;
+        const segment = self.message.segments[self.segment_id];
+        if (byte_start > segment.len or segment.len - byte_start < @sizeOf(T)) return default_value;
+        return std.mem.readInt(T, segment[byte_start..][0..@sizeOf(T)], .little) ^ default_value;
     }
 
     fn dataBytes(self: StructReader) []const u8 {
         if (self.segment_id >= self.message.segments.len) return &.{};
-        return self.message.segments[self.segment_id][self.data_start * wire.bytes_per_word .. (self.data_start + self.data_words) * wire.bytes_per_word];
+        if (self.data_bit_offset % 8 != 0) return &.{};
+        const byte_start = self.data_start * wire.bytes_per_word + self.data_bit_offset / 8;
+        const byte_len = self.effectiveDataBits() / 8;
+        const segment = self.message.segments[self.segment_id];
+        if (byte_start > segment.len or segment.len - byte_start < byte_len) return &.{};
+        return segment[byte_start..][0..byte_len];
+    }
+
+    fn effectiveDataBits(self: StructReader) usize {
+        if (self.data_bit_len != 0) return self.data_bit_len;
+        return @as(usize, self.data_words) * wire.bits_per_word;
     }
 
     pub fn validate(self: StructReader) Error!MessageStats {
@@ -2288,6 +2308,8 @@ pub const StructReader = struct {
             .data_words = self.data_words,
             .pointer_count = self.pointer_count,
             .nesting_left = reader.options.nesting_limit,
+            .data_bit_offset = self.data_bit_offset,
+            .data_bit_len = self.data_bit_len,
         }).validate();
     }
 
@@ -2570,6 +2592,7 @@ pub const ListReader = struct {
     step_bits: usize,
     nesting_left: u16,
     bit_offset: usize = 0,
+    element_data_bits: usize = 0,
 
     pub fn len(self: ListReader) usize {
         return self.element_count;
@@ -2609,6 +2632,7 @@ pub const ListReader = struct {
             .step_bits = self.step_bits,
             .nesting_left = self.nesting_left,
             .bit_offset = start_bits % wire.bits_per_word,
+            .element_data_bits = self.element_data_bits,
         };
     }
 
@@ -2689,19 +2713,21 @@ pub const ListReader = struct {
     }
 
     pub fn getStructElement(self: ListReader, index: usize) Error!StructReader {
-        if (self.element_size == .bit or index >= self.element_count or self.bit_offset != 0) return error.PointerOutOfBounds;
-        const data_words = self.data_words;
-        const pointer_count = self.pointer_count;
-        const step_words = @as(usize, data_words) + @as(usize, pointer_count);
-        const start = self.start + index * step_words;
+        if (self.element_size == .bit or index >= self.element_count) return error.PointerOutOfBounds;
+        const start_bits = std.math.add(usize, self.bit_offset, std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge) catch return error.MessageTooLarge;
+        if (self.pointer_count != 0 and start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+        const start = self.start + start_bits / wire.bits_per_word;
+        const data_bit_offset = start_bits % wire.bits_per_word;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
             .data_start = start,
-            .pointer_start = start + data_words,
-            .data_words = data_words,
-            .pointer_count = pointer_count,
+            .pointer_start = start + self.data_words,
+            .data_words = self.data_words,
+            .pointer_count = self.pointer_count,
             .nesting_left = self.nesting_left,
+            .data_bit_offset = data_bit_offset,
+            .data_bit_len = self.element_data_bits,
         };
     }
 
@@ -2737,6 +2763,7 @@ pub const ListReader = struct {
             .step_bits = self.step_bits,
             .nesting_left = reader.options.nesting_limit,
             .bit_offset = self.bit_offset,
+            .element_data_bits = self.element_data_bits,
         }).validate();
     }
 
@@ -2780,13 +2807,8 @@ fn primitivePointerCount(size: wire.ElementSize) u16 {
 fn upgradedStructListShape(size: wire.ElementSize) Error!struct { data_words: u16, pointer_count: u16 } {
     return switch (size) {
         .void => .{ .data_words = 0, .pointer_count = 0 },
-        .eight_bytes => .{ .data_words = 1, .pointer_count = 0 },
+        .byte, .two_bytes, .four_bytes, .eight_bytes => .{ .data_words = 1, .pointer_count = 0 },
         .pointer => .{ .data_words = 0, .pointer_count = 1 },
-        // Smaller primitive lists can be interpreted as struct lists by the
-        // Cap'n Proto spec, but this runtime's StructReader currently addresses
-        // data sections at word granularity. Return an explicit error rather
-        // than manufacturing a misleading view.
-        .byte, .two_bytes, .four_bytes => error.UnsupportedElementSize,
         .bit, .composite => error.IncompatibleListShape,
     };
 }
@@ -2842,6 +2864,13 @@ fn collectListStats(list: ListReader, stats: *MessageStats) Error!void {
             }
         },
         .composite => {
+            if (list.element_data_bits != 0) {
+                const content_words = wire.wordsForBits(std.math.mul(usize, list.element_data_bits, list.element_count) catch return error.SerializedSizeOverflow);
+                try addStat(&stats.structs, list.element_count);
+                try addStat(&stats.data_words, content_words);
+                try addStat(&stats.total_words, content_words);
+                return;
+            }
             const element_words = @as(usize, list.data_words) + @as(usize, list.pointer_count);
             const content_words = std.math.mul(usize, element_words, list.element_count) catch return error.SerializedSizeOverflow;
             try addStat(&stats.structs, list.element_count);
@@ -4128,12 +4157,12 @@ test "capability pointers round-trip and validate" {
     try testing.expectError(error.InvalidCapabilityPointer, limited.validate());
 }
 
-test "non-bit pointer and eight-byte lists can be read as struct lists" {
+test "non-bit primitive and pointer lists can be read as struct lists" {
     const testing = std.testing;
-    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 24 });
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
 
-    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 5 });
 
     const ptrs = try (try root.getPointerField(0)).initList(.pointer, 2);
     try (try ptrs.getPointerElement(0)).setText("zero");
@@ -4142,6 +4171,19 @@ test "non-bit pointer and eight-byte lists can be read as struct lists" {
     const words = try (try root.getPointerField(1)).initList(.eight_bytes, 2);
     try words.setUInt64(0, 0x1111_2222_3333_4444);
     try words.setUInt64(1, 0x5555_6666_7777_8888);
+
+    const bytes = try (try root.getPointerField(2)).initList(.byte, 3);
+    try bytes.setUInt8(0, 0x11);
+    try bytes.setUInt8(1, 0x22);
+    try bytes.setUInt8(2, 0x33);
+
+    const half_words = try (try root.getPointerField(3)).initList(.two_bytes, 2);
+    try half_words.setUInt16(0, 0x4455);
+    try half_words.setUInt16(1, 0x6677);
+
+    const double_words = try (try root.getPointerField(4)).initList(.four_bytes, 2);
+    try double_words.setUInt32(0, 0x8899_aabb);
+    try double_words.setUInt32(1, 0xccdd_eeff);
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const read_root = try reader.getRoot();
@@ -4158,9 +4200,20 @@ test "non-bit pointer and eight-byte lists can be read as struct lists" {
     try testing.expectEqual(@as(u64, 0x1111_2222_3333_4444), first_word.getUInt64(0, 0));
     try testing.expectEqual(@as(u64, 0x5555_6666_7777_8888), second_word.getUInt64(0, 0));
 
-    const bytes = try (try root.getPointerField(1)).initList(.byte, 1);
-    _ = bytes;
-    var unsupported_reader = MessageReader.init(try builder.segmentsConst(), .{});
-    const unsupported_root = try unsupported_reader.getRoot();
-    try testing.expectError(error.UnsupportedElementSize, unsupported_root.getPointerField(1).getList(.composite));
+    const byte_structs = try read_root.getPointerField(2).getList(.composite);
+    try testing.expectEqual(@as(usize, 3), byte_structs.len());
+    try testing.expectEqual(@as(u8, 0x11), (try byte_structs.getStructElement(0)).getUInt8(0, 0));
+    try testing.expectEqual(@as(u8, 0x22), (try byte_structs.getStructElement(1)).getUInt8(0, 0));
+    try testing.expectEqual(@as(u8, 0x33), (try byte_structs.getStructElement(2)).getUInt8(0, 0));
+    try testing.expectEqual(@as(u16, 0xbeef), (try byte_structs.getStructElement(1)).getUInt16(0, 0xbeef));
+    try testing.expectEqualSlices(u8, &[_]u8{0x22}, (try byte_structs.getStructElement(1)).dataSectionBytes());
+    try testing.expectEqual(@as(usize, 1), (try byte_structs.totalSize()).word_count);
+
+    const half_word_structs = try read_root.getPointerField(3).getList(.composite);
+    try testing.expectEqual(@as(u16, 0x4455), (try half_word_structs.getStructElement(0)).getUInt16(0, 0));
+    try testing.expectEqual(@as(u16, 0x6677), (try half_word_structs.getStructElement(1)).getUInt16(0, 0));
+
+    const double_word_structs = try read_root.getPointerField(4).getList(.composite);
+    try testing.expectEqual(@as(u32, 0x8899_aabb), (try double_word_structs.getStructElement(0)).getUInt32(0, 0));
+    try testing.expectEqual(@as(u32, 0xccdd_eeff), (try double_word_structs.getStructElement(1)).getUInt32(0, 0));
 }
