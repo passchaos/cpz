@@ -300,7 +300,10 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(builder_segments[0].len / @sizeOf(cpz.Word), first_segment_words);
     const first_segment_capacity = try generated.Person.@"cpz.builderRoot.segmentCapacityWords"(&builder, 0);
     try std.testing.expect(first_segment_capacity >= first_segment_words);
-    try std.testing.expectEqual(first_segment_capacity - first_segment_words, try generated.Person.@"cpz.builderRoot.segmentRemainingWords"(&builder, 0));
+    const first_segment_remaining = try generated.Person.@"cpz.builderRoot.segmentRemainingWords"(&builder, 0);
+    try std.testing.expectEqual(first_segment_capacity - first_segment_words, first_segment_remaining);
+    try std.testing.expectEqual(first_segment_capacity * @sizeOf(cpz.Word), try generated.Person.@"cpz.builderRoot.segmentCapacityBytes"(&builder, 0));
+    try std.testing.expectEqual(first_segment_remaining * @sizeOf(cpz.Word), try generated.Person.@"cpz.builderRoot.segmentRemainingBytes"(&builder, 0));
     const builder_validation_stats = try generated.Person.@"cpz.builderRoot.validate"(&builder);
     try std.testing.expect(builder_validation_stats.total_words >= builder_root_size.word_count);
     const flat_root_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&builder);

@@ -443,6 +443,14 @@ pub const MessageBuilder = struct {
         return segment.words.items.len - segment.used;
     }
 
+    pub fn segmentCapacityBytes(self: *MessageBuilder, index: usize) Error!usize {
+        return (try self.segmentCapacityWords(index)) * wire.bytes_per_word;
+    }
+
+    pub fn segmentRemainingBytes(self: *MessageBuilder, index: usize) Error!usize {
+        return (try self.segmentRemainingWords(index)) * wire.bytes_per_word;
+    }
+
     pub fn serializedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
         return serialize.computeSerializedSize(try self.segmentsConst());
     }

@@ -5369,6 +5369,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".segmentRemainingWords(@"cpz.index");
         \\    }}
         \\
+        \\    pub fn @"cpz.builderRoot.segmentCapacityBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.builder".segmentCapacityBytes(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.segmentRemainingBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.builder".segmentRemainingBytes(@"cpz.index");
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.serializedSize"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
         \\        return @"cpz.builder".serializedSize();
         \\    }}
