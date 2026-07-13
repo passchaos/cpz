@@ -460,8 +460,16 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).getText();
     }
 
+    pub fn getRootTextDefault(self: *MessageBuilder, default_value: []const u8) Error![]const u8 {
+        return (try self.getRootPointer()).getTextDefault(default_value);
+    }
+
     pub fn getRootData(self: *MessageBuilder) Error![]const u8 {
         return (try self.getRootPointer()).getData();
+    }
+
+    pub fn getRootDataDefault(self: *MessageBuilder, default_value: []const u8) Error![]const u8 {
+        return (try self.getRootPointer()).getDataDefault(default_value);
     }
 
     pub fn getRootCapability(self: *MessageBuilder) Error!u32 {
@@ -704,8 +712,16 @@ pub const MessageReader = struct {
         return (try self.getRootPointer()).getText();
     }
 
+    pub fn getRootTextDefault(self: *MessageReader, default_value: []const u8) Error![]const u8 {
+        return (try self.getRootPointer()).getTextDefault(default_value);
+    }
+
     pub fn getRootData(self: *MessageReader) Error![]const u8 {
         return (try self.getRootPointer()).getData();
+    }
+
+    pub fn getRootDataDefault(self: *MessageReader, default_value: []const u8) Error![]const u8 {
+        return (try self.getRootPointer()).getDataDefault(default_value);
     }
 
     pub fn getRootCapability(self: *MessageReader) Error!u32 {
@@ -3301,19 +3317,36 @@ test "message builder copies arbitrary root pointers" {
 test "message builder and reader expose scalar root pointer helpers" {
     const testing = std.testing;
 
+    var empty_text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_text_builder.deinit();
+    try testing.expectEqualSlices(u8, "default root", try empty_text_builder.getRootTextDefault("default root"));
+    var empty_text_reader = MessageReader.init(try empty_text_builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, "default root", try empty_text_reader.getRootTextDefault("default root"));
+
     var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
     defer text_builder.deinit();
     try text_builder.setRootText("root text");
     try testing.expectEqualSlices(u8, "root text", try text_builder.getRootText());
+    try testing.expectEqualSlices(u8, "root text", try text_builder.getRootTextDefault("ignored"));
     var text_reader = MessageReader.init(try text_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, "root text", try text_reader.getRootText());
+    try testing.expectEqualSlices(u8, "root text", try text_reader.getRootTextDefault("ignored"));
+    try testing.expectError(error.TextContainsInteriorNul, empty_text_reader.getRootTextDefault("bad\x00default"));
+
+    var empty_data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_data_builder.deinit();
+    try testing.expectEqualSlices(u8, &[_]u8{ 9, 9 }, try empty_data_builder.getRootDataDefault(&[_]u8{ 9, 9 }));
+    var empty_data_reader = MessageReader.init(try empty_data_builder.segmentsConst(), .{});
+    try testing.expectEqualSlices(u8, &[_]u8{ 9, 9 }, try empty_data_reader.getRootDataDefault(&[_]u8{ 9, 9 }));
 
     var data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
     defer data_builder.deinit();
     try data_builder.setRootData(&[_]u8{ 3, 1, 4 });
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_builder.getRootData());
+    try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_builder.getRootDataDefault(&[_]u8{ 9, 9 }));
     var data_reader = MessageReader.init(try data_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_reader.getRootData());
+    try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_reader.getRootDataDefault(&[_]u8{ 9, 9 }));
 
     var cap_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
     defer cap_builder.deinit();

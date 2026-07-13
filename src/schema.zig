@@ -6443,8 +6443,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootText();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.textDefault"(@"cpz.reader": *cpz.MessageReader, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.reader".getRootTextDefault(@"cpz.default");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.data"(@"cpz.reader": *cpz.MessageReader) ![]const u8 {{
         \\        return @"cpz.reader".getRootData();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.dataDefault"(@"cpz.reader": *cpz.MessageReader, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.reader".getRootDataDefault(@"cpz.default");
         \\    }}
         \\
         \\    pub fn @"cpz.root.capability"(@"cpz.reader": *cpz.MessageReader) !u32 {{
@@ -6459,12 +6467,20 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".getRootText();
         \\    }}
         \\
+        \\    pub fn @"cpz.builderRoot.textDefault"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.builder".getRootTextDefault(@"cpz.default");
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.setData"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": []const u8) !void {{
         \\        return @"cpz.builder".setRootData(@"cpz.value");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.data"(@"cpz.builder": *cpz.MessageBuilder) ![]const u8 {{
         \\        return @"cpz.builder".getRootData();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.dataDefault"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.builder".getRootDataDefault(@"cpz.default");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.setCapability"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": u32) !void {{

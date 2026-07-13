@@ -876,19 +876,35 @@ test "generated reader and builder accessors compile and round-trip" {
 }
 
 test "generated scalar root helpers work" {
+    var empty_text_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_text_builder.deinit();
+    try std.testing.expectEqualSlices(u8, "schema default text", try generated.Person.@"cpz.builderRoot.textDefault"(&empty_text_builder, "schema default text"));
+    var empty_text_reader = cpz.MessageReader.init(try empty_text_builder.segmentsConst(), .{});
+    try std.testing.expectEqualSlices(u8, "schema default text", try generated.Person.@"cpz.root.textDefault"(&empty_text_reader, "schema default text"));
+
     var text_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
     defer text_builder.deinit();
     try generated.Person.@"cpz.builderRoot.setText"(&text_builder, "schema root text");
     try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.builderRoot.text"(&text_builder));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.builderRoot.textDefault"(&text_builder, "ignored"));
     var text_reader = cpz.MessageReader.init(try text_builder.segmentsConst(), .{});
     try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(&text_reader));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.textDefault"(&text_reader, "ignored"));
+
+    var empty_data_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_data_builder.deinit();
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 8, 8 }, try generated.Person.@"cpz.builderRoot.dataDefault"(&empty_data_builder, &[_]u8{ 8, 8 }));
+    var empty_data_reader = cpz.MessageReader.init(try empty_data_builder.segmentsConst(), .{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 8, 8 }, try generated.Person.@"cpz.root.dataDefault"(&empty_data_reader, &[_]u8{ 8, 8 }));
 
     var data_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
     defer data_builder.deinit();
     try generated.Person.@"cpz.builderRoot.setData"(&data_builder, &[_]u8{ 4, 2, 0 });
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.builderRoot.data"(&data_builder));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.builderRoot.dataDefault"(&data_builder, &[_]u8{ 8, 8 }));
     var data_reader = cpz.MessageReader.init(try data_builder.segmentsConst(), .{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.root.data"(&data_reader));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.root.dataDefault"(&data_reader, &[_]u8{ 8, 8 }));
 
     var cap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
     defer cap_builder.deinit();
