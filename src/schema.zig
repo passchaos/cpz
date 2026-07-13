@@ -339,6 +339,28 @@ pub const AnnotationTargets = struct {
     annotation_decl: bool = false,
 };
 
+pub fn annotationTargetsHas(targets: AnnotationTargets, name: []const u8) bool {
+    if (std.mem.eql(u8, name, "file")) return targets.file;
+    if (std.mem.eql(u8, name, "const")) return targets.const_decl;
+    if (std.mem.eql(u8, name, "const_decl")) return targets.const_decl;
+    if (std.mem.eql(u8, name, "enum")) return targets.enum_decl;
+    if (std.mem.eql(u8, name, "enum_decl")) return targets.enum_decl;
+    if (std.mem.eql(u8, name, "enumerant")) return targets.enumerant;
+    if (std.mem.eql(u8, name, "struct")) return targets.struct_decl;
+    if (std.mem.eql(u8, name, "struct_decl")) return targets.struct_decl;
+    if (std.mem.eql(u8, name, "field")) return targets.field;
+    if (std.mem.eql(u8, name, "union")) return targets.union_decl;
+    if (std.mem.eql(u8, name, "union_decl")) return targets.union_decl;
+    if (std.mem.eql(u8, name, "group")) return targets.group;
+    if (std.mem.eql(u8, name, "interface")) return targets.interface_decl;
+    if (std.mem.eql(u8, name, "interface_decl")) return targets.interface_decl;
+    if (std.mem.eql(u8, name, "method")) return targets.method;
+    if (std.mem.eql(u8, name, "param")) return targets.param;
+    if (std.mem.eql(u8, name, "annotation")) return targets.annotation_decl;
+    if (std.mem.eql(u8, name, "annotation_decl")) return targets.annotation_decl;
+    return false;
+}
+
 pub const AnnotationDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -4893,12 +4915,17 @@ fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.annotationByTarget"(@"cpz.target": []const u8) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (cpz.schema.annotationTargetsHas(@"cpz.annotation".targets, @"cpz.target")) return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.annotationByIndex"(@"cpz.index": usize) ?cpz.schema.AnnotationMetadata {{
         \\{s}    if (@"cpz.index" >= @This().@"cpz.annotation_decls".len) return null;
         \\{s}    return @This().@"cpz.annotation_decls"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
 fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, index: usize, decl: *const AnnotationDecl, indent: []const u8) LayoutError!void {

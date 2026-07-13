@@ -151,6 +151,9 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationById"(0xdead));
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotationByType"("Text").?.name);
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotationByResolvedType"("Text").?.name);
+    try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotationByTarget"("enum").?.name);
+    try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotationByTarget"("file").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationByTarget"("missing"));
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationByType"("Missing"));
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationByResolvedType"("Missing"));
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotationByIndex"(1).?.name);
@@ -185,6 +188,7 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.NestedBox.@"cpz.annotationByIndex"(99));
     try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotationByType"("Item").?.name);
     try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotationByResolvedType"("NestedBox.Item").?.name);
+    try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotationByTarget"("field").?.name);
     try std.testing.expectEqual(@as(usize, 0), generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.index");
     try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.name");
     try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.metadata".name);
@@ -2318,6 +2322,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.annotationByName"("ExtendedService.detailNote").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.ExtendedService.@"cpz.annotationByName"("missing"));
     try std.testing.expectEqualStrings("ExtendedService.detailNote", generated.ExtendedService.@"cpz.annotationByResolvedType"("ExtendedService.Details").?.name);
+    try std.testing.expectEqualStrings("ExtendedService.detailNote", generated.ExtendedService.@"cpz.annotationByTarget"("field").?.name);
     try std.testing.expectEqualStrings("ExtendedService.detailNote", generated.ExtendedService.@"cpz.annotationByIndex"(0).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.ExtendedService.@"cpz.annotationByIndex"(99));
     try std.testing.expectEqualStrings("ExtendedService.detailNote", generated.ExtendedService.@"cpz.annotationDecl.ExtendedService_detailNote.name");
