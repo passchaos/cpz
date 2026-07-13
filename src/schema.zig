@@ -74,6 +74,7 @@ pub const AliasDecl = struct {
 };
 
 pub const AliasMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     target: []const u8,
     resolved_target: []const u8 = "",
@@ -4437,7 +4438,7 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         defer allocator.free(resolved_target_name);
         const resolved_target_literal = try zigStringLiteralAlloc(allocator, resolved_target_name);
         defer allocator.free(resolved_target_literal);
-        try appendFmt(allocator, out, ".{{ .name = {s}, .target = {s}", .{ name_literal, target_literal });
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .target = {s}", .{ index, name_literal, target_literal });
         if (!std.mem.eql(u8, target_name, resolved_target_name)) {
             try appendFmt(allocator, out, ", .resolved_target = {s}", .{resolved_target_literal});
         }
@@ -4450,7 +4451,12 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent });
+        \\{s}pub fn @"cpz.aliasByIndex"(@"cpz.index": usize) ?cpz.schema.AliasMetadata {{
+        \\{s}    if (@"cpz.index" >= @This().@"cpz.aliases".len) return null;
+        \\{s}    return @This().@"cpz.aliases"[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (aliases.len != 0) try out.append(allocator, '\n');
 }
 
