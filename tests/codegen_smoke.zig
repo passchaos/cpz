@@ -800,6 +800,10 @@ test "generated reader and builder accessors compile and round-trip" {
     const message_size_with_options = try generated.Person.@"cpz.root.messageTotalSizeWithOptions"(&reader, .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(validation_with_options.size().word_count, message_size_with_options.word_count);
     try std.testing.expect(message_size_with_options.hasWords());
+    try std.testing.expectEqual(message_size_with_options.word_count, message_size_with_options.wordCount());
+    try std.testing.expectEqual(message_size_with_options.cap_count, message_size_with_options.capabilityCount());
+    try std.testing.expect(message_size_with_options.matchesWords(validation_with_options.size().word_count));
+    try std.testing.expect(message_size_with_options.matchesCapabilities(0));
     var canonical_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const direct_reader_canonical_bytes = try canonical_reader.toCanonicalSegmentBytes(std.testing.allocator);
     defer std.testing.allocator.free(direct_reader_canonical_bytes);

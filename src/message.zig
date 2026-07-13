@@ -88,6 +88,22 @@ pub const MessageSize = struct {
     word_count: usize = 0,
     cap_count: usize = 0,
 
+    pub fn wordCount(self: MessageSize) usize {
+        return self.word_count;
+    }
+
+    pub fn capabilityCount(self: MessageSize) usize {
+        return self.cap_count;
+    }
+
+    pub fn matchesWords(self: MessageSize, count: usize) bool {
+        return self.word_count == count;
+    }
+
+    pub fn matchesCapabilities(self: MessageSize, count: usize) bool {
+        return self.cap_count == count;
+    }
+
     pub fn isEmpty(self: MessageSize) bool {
         return self.word_count == 0 and self.cap_count == 0;
     }
