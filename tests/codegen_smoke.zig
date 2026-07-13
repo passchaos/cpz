@@ -218,6 +218,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.index");
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.const.globalId.name");
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.const.globalId.type");
+    try std.testing.expectEqualStrings("UInt32", generated.@"cpz.const.globalId.resolvedType");
     try std.testing.expectEqualStrings("12345", generated.@"cpz.const.globalId.literal");
     try std.testing.expect(generated.@"cpz.const.globalId.emitted");
     try std.testing.expectEqualStrings("$schemaNote(\"global-id\")", generated.@"cpz.const.globalId.annotations");
@@ -225,6 +226,10 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("de ad be ef", generated.@"cpz.consts"[3].literal);
     try std.testing.expect(generated.@"cpz.consts"[3].is_hex_data);
     try std.testing.expectEqualStrings("[10, 20, 30]", generated.@"cpz.consts"[6].literal);
+    try std.testing.expectEqualStrings("Names", generated.@"cpz.consts"[8].ty);
+    try std.testing.expectEqualStrings("List(Text)", generated.@"cpz.consts"[8].resolved_ty);
+    try std.testing.expectEqualStrings("Names", generated.@"cpz.const.globalNamesAlias.type");
+    try std.testing.expectEqualStrings("List(Text)", generated.@"cpz.const.globalNamesAlias.resolvedType");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.consts"[6].list_items.len);
     try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].list_items[1].literal);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].list_items[1].index);
@@ -267,6 +272,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.const.defaultAge.index");
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.const.defaultAge.name");
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.const.defaultAge.type");
+    try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.const.defaultAge.resolvedType");
     try std.testing.expectEqualStrings("99", generated.Person.@"cpz.const.defaultAge.literal");
     try std.testing.expectEqualStrings("[7, 8, 9]", generated.Person.@"cpz.consts"[3].literal);
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.consts"[3].list_items[1].literal);
@@ -1848,6 +1854,9 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliases"[2].name);
     try std.testing.expectEqualStrings("List(LocalName)", generated.ScopedAliasBox.@"cpz.aliases"[2].target);
     try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.aliases"[2].resolved_target);
+    try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.const.defaultLocalNames.type");
+    try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.const.defaultLocalNames.resolvedType");
+    try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.consts"[1].resolved_ty);
     try std.testing.expectEqual(@as(u32, 77), generated.ScopedAliasBox.defaultLocalId);
     try std.testing.expectEqualSlices(u8, "aliases", generated.ScopedAliasBox.defaultLocalNames[1]);
     try std.testing.expectEqual(@as(u32, 4), generated.ScopedAliasBox.defaultLocalScores[1]);
