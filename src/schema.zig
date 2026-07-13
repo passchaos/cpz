@@ -236,6 +236,7 @@ pub const AnnotationDecl = struct {
 
 pub const File = struct {
     id: ?u64,
+    annotations_raw: []const []const u8 = &.{},
     structs: []Struct,
     enums: []EnumDecl,
     aliases: []AliasDecl,
@@ -254,6 +255,7 @@ pub const File = struct {
         for (self.consts) |*c| c.deinit(allocator);
         allocator.free(self.consts);
         allocator.free(self.imports);
+        allocator.free(self.annotations_raw);
         for (self.interfaces) |*i| i.deinit(allocator);
         allocator.free(self.interfaces);
         for (self.annotations) |*a| a.deinit(allocator);
@@ -496,6 +498,8 @@ pub const Parser = struct {
             for (annotations.items) |*a| a.deinit(self.allocator);
             annotations.deinit(self.allocator);
         }
+        var raw_file_annotations = std.ArrayList([]const u8).empty;
+        errdefer raw_file_annotations.deinit(self.allocator);
         var decl_names = std.StringHashMap(void).init(self.allocator);
         defer decl_names.deinit();
         var file_id: ?u64 = null;
@@ -544,7 +548,7 @@ pub const Parser = struct {
                 try self.appendParsedAnnotation(decl);
                 keep = true;
             } else if (self.lookahead.tag == .dollar) {
-                try self.skipRawUntilSemicolon();
+                try raw_file_annotations.append(self.allocator, try self.takeRawUntilSemicolon());
             } else if (self.lookahead.tag == .at) {
                 file_id = try self.parseFileId();
             } else {
@@ -554,6 +558,7 @@ pub const Parser = struct {
 
         return .{
             .id = file_id,
+            .annotations_raw = try raw_file_annotations.toOwnedSlice(self.allocator),
             .structs = try structs.toOwnedSlice(self.allocator),
             .enums = try enums.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
@@ -3232,6 +3237,16 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
             \\
         , .{ indent, id });
     }
+    for (file.annotations_raw, 0..) |annotation_raw, index| {
+        const indent = if (options.namespace != null) "    " else "";
+        const annotation_literal = try zigStringLiteralAlloc(allocator, annotation_raw);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, &out,
+            \\{s}pub const @"cpz.file_annotation.{}": []const u8 = {s};
+            \\
+        , .{ indent, index, annotation_literal });
+    }
+    if (file.annotations_raw.len != 0) try out.append(allocator, '\n');
     for (file.consts) |*decl| {
         try emitConst(allocator, &out, file, decl);
     }

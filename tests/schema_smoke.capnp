@@ -1,5 +1,7 @@
 @0xc0ffee;
 
+$schemaNote("file-level");
+
 annotation enumNote(enum) :Text;
 
 enum Color @0xc010 $enumNote("palette") {
