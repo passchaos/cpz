@@ -9421,11 +9421,25 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value.reader);
                 \\        }}
                 \\
+                \\        pub fn set_{s}_canonicalFrom(self: Builder, new_value: {s}) !void {{
+            , .{ index, field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyStructFromCanonical(new_value.reader);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: {s}.Builder) !void {{
             , .{ index, field_name, zig_type });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyStructFromBuilder(new_value.builder);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_canonicalFromBuilder(self: Builder, new_value: {s}.Builder) !void {{
+            , .{ index, field_name, zig_type });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyStructFromCanonicalBuilder(new_value.builder);
                 \\        }}
                 \\
                 \\        pub fn new_{s}_orphan(self: Builder) !{s}.Orphan {{
@@ -9940,8 +9954,12 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_friend(self: Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, new_value: @\"cpz.schema\".Person) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(new_value.reader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_canonicalFrom(self: Builder, new_value: @\"cpz.schema\".Person) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromCanonical(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_fromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value.builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_canonicalFromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromCanonicalBuilder(new_value.builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_friend_copyOrphanFromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !@\"cpz.schema\".Person.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructFromBuilder(new_value.builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyFromBuilder(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Builder) !Orphan") != null);

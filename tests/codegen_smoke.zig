@@ -1487,6 +1487,22 @@ test "generated builders can copy nested struct fields from readers" {
     const maybe_friend = try target_person.maybeFriend();
     try std.testing.expectEqual(@as(u32, 888), maybe_friend.id());
     try std.testing.expectEqualSlices(u8, "Copied", try maybe_friend.name());
+
+    var canonical_target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer canonical_target_builder.deinit();
+    const canonical_person_builder = try generated.Person.initRootTyped(&canonical_target_builder);
+    try canonical_person_builder.set_friend_canonicalFrom(source_person);
+    try canonical_person_builder.set_maybeFriend_canonicalFromBuilder(source_person_builder);
+
+    var canonical_reader = cpz.MessageReader.init(try canonical_target_builder.segmentsConst(), .{});
+    const canonical_person = generated.Person.fromReader(try canonical_reader.getRoot());
+    const canonical_friend = try canonical_person.friend();
+    try std.testing.expectEqual(@as(u32, 888), canonical_friend.id());
+    try std.testing.expectEqualSlices(u8, "Copied", try canonical_friend.name());
+    try std.testing.expect(canonical_friend.actualSize().pointer_count < generated.Person.size.pointer_count);
+    const canonical_maybe_friend = try canonical_person.maybeFriend();
+    try std.testing.expectEqual(@as(u32, 888), canonical_maybe_friend.id());
+    try std.testing.expect(canonical_maybe_friend.actualSize().pointer_count < generated.Person.size.pointer_count);
 }
 
 test "generated builders can copy and clear whole structs" {
