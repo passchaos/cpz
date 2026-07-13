@@ -5286,6 +5286,18 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".validate();
         \\    }}
         \\
+        \\    pub fn @"cpz.builderRoot.toFlatBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{
+        \\        return @"cpz.builder".toFlatBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.toPackedBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{
+        \\        return @"cpz.builder".toPackedBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.toCanonicalSegmentBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.options": cpz.ReaderOptions) ![]u8 {{
+        \\        return @"cpz.builder".toCanonicalSegmentBytes(@"cpz.options");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.list"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.ListReader {{
         \\        return @"cpz.reader".getRootList(@"cpz.elementSize");
         \\    }}

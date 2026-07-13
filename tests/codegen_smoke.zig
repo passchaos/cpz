@@ -289,6 +289,15 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(builder_root_size.word_count > 0);
     const builder_validation_stats = try generated.Person.@"cpz.builderRoot.validate"(&builder);
     try std.testing.expect(builder_validation_stats.total_words >= builder_root_size.word_count);
+    const flat_root_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&builder);
+    defer std.testing.allocator.free(flat_root_bytes);
+    try std.testing.expect(flat_root_bytes.len > 0);
+    const packed_root_bytes = try generated.Person.@"cpz.builderRoot.toPackedBytes"(&builder);
+    defer std.testing.allocator.free(packed_root_bytes);
+    try std.testing.expect(packed_root_bytes.len > 0);
+    const canonical_root_bytes = try generated.Person.@"cpz.builderRoot.toCanonicalSegmentBytes"(&builder, .{});
+    defer std.testing.allocator.free(canonical_root_bytes);
+    try std.testing.expect(canonical_root_bytes.len > 0);
     try person_builder.set_id(7);
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
     try std.testing.expectEqual(generated.Person.size, person_builder.actualSize());
