@@ -8,6 +8,13 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(u64, 0xc010), generated.Color.@"cpz.type_id");
     try std.testing.expectEqual(@as(u64, 0xd00d), generated.DynamicBox.@"cpz.type_id");
     try std.testing.expectEqual(@as(u64, 0xe57e0001), generated.ExtendedService.@"cpz.type_id");
+    try std.testing.expectEqual(@as(usize, 7), generated.@"cpz.aliases".len);
+    try std.testing.expectEqualStrings("Id", generated.@"cpz.aliases"[0].name);
+    try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].target);
+    try std.testing.expectEqualStrings("Names", generated.@"cpz.aliases"[2].name);
+    try std.testing.expectEqualStrings("List(Text)", generated.@"cpz.aliases"[2].target);
+    try std.testing.expectEqualStrings("GenericPersonAlias", generated.@"cpz.aliases"[6].name);
+    try std.testing.expectEqualStrings("GenericBox(Person)", generated.@"cpz.aliases"[6].target);
     try std.testing.expectEqual(@as(u32, 123), @as(generated.Id, 123));
     try std.testing.expectEqual(generated.Color.blue, @as(generated.Shade, generated.Color.blue));
     try std.testing.expectEqual(@as(u32, 456), @as(generated.ScopedAliasBox.LocalId, 456));
@@ -1298,6 +1305,11 @@ test "generated using aliases resolve for layout and accessors" {
 }
 
 test "generated scoped using aliases resolve for fields, consts, lists, and unions" {
+    try std.testing.expectEqual(@as(usize, 6), generated.ScopedAliasBox.@"cpz.aliases".len);
+    try std.testing.expectEqualStrings("LocalId", generated.ScopedAliasBox.@"cpz.aliases"[0].name);
+    try std.testing.expectEqualStrings("Id", generated.ScopedAliasBox.@"cpz.aliases"[0].target);
+    try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliases"[2].name);
+    try std.testing.expectEqualStrings("List(LocalName)", generated.ScopedAliasBox.@"cpz.aliases"[2].target);
     try std.testing.expectEqual(@as(u32, 77), generated.ScopedAliasBox.defaultLocalId);
     try std.testing.expectEqualSlices(u8, "aliases", generated.ScopedAliasBox.defaultLocalNames[1]);
     try std.testing.expectEqual(@as(u32, 4), generated.ScopedAliasBox.defaultLocalScores[1]);
@@ -1393,6 +1405,11 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.Details == generated.ExtendedService_Details);
     try std.testing.expect(generated.ExtendedService.Callback == generated.ExtendedService_Callback);
     try std.testing.expect(generated.ExtendedService.DetailsAlias == generated.ExtendedService_Details);
+    try std.testing.expectEqual(@as(usize, 4), generated.ExtendedService.@"cpz.aliases".len);
+    try std.testing.expectEqualStrings("Details", generated.ExtendedService.@"cpz.aliases"[0].name);
+    try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.@"cpz.aliases"[0].target);
+    try std.testing.expectEqualStrings("DetailsAlias", generated.ExtendedService.@"cpz.aliases"[2].name);
+    try std.testing.expectEqualStrings("Details", generated.ExtendedService.@"cpz.aliases"[2].target);
     try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.consts".len);
     try std.testing.expectEqualStrings("defaultLimit", generated.ExtendedService.@"cpz.consts"[0].name);
     try std.testing.expectEqualStrings("UInt16", generated.ExtendedService.@"cpz.consts"[0].ty);

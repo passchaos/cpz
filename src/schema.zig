@@ -73,6 +73,11 @@ pub const AliasDecl = struct {
     }
 };
 
+pub const AliasMetadata = struct {
+    name: []const u8,
+    target: []const u8,
+};
+
 pub const ConstDecl = struct {
     name: []const u8,
     ty: Type,
@@ -3429,6 +3434,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     }
     if (file.annotations_raw.len != 0) try out.append(allocator, '\n');
     try emitImportMetadataTable(allocator, &out, file.imports, if (options.namespace != null) "    " else "");
+    try emitAliasMetadataTable(allocator, &out, file.aliases, if (options.namespace != null) "    " else "");
     try emitConstMetadataTable(allocator, &out, file.consts, if (options.namespace != null) "    " else "");
     for (file.consts) |*decl| {
         try emitConst(allocator, &out, file, decl);
@@ -3725,6 +3731,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     for (decl.aliases) |*alias| {
         try emitAlias(allocator, out, file, &alias_scope, alias, "    ");
     }
+    try emitAliasMetadataTable(allocator, out, decl.aliases, "    ");
     for (decl.consts) |*nested_const| {
         try emitNestedConst(allocator, out, file, &alias_scope, nested_const);
     }
@@ -4022,6 +4029,22 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     }
     try out.appendSlice(allocator, "};\n");
     if (imports.len != 0) try out.append(allocator, '\n');
+}
+
+fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), aliases: []const AliasDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.aliases\": []const cpz.schema.AliasMetadata = &[_]cpz.schema.AliasMetadata{{", .{indent});
+    for (aliases, 0..) |alias, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const name_literal = try zigStringLiteralAlloc(allocator, alias.name);
+        defer allocator.free(name_literal);
+        const target_name = try schemaTypeNameAlloc(allocator, alias.target);
+        defer allocator.free(target_name);
+        const target_literal = try zigStringLiteralAlloc(allocator, target_name);
+        defer allocator.free(target_literal);
+        try appendFmt(allocator, out, ".{{ .name = {s}, .target = {s} }}", .{ name_literal, target_literal });
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (aliases.len != 0) try out.append(allocator, '\n');
 }
 
 fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), consts: []const ConstDecl, indent: []const u8) LayoutError!void {
@@ -4363,6 +4386,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     for (layout.decl.aliases) |*decl| {
         try emitAlias(allocator, out, file, layout.decl, decl, "    ");
     }
+    try emitAliasMetadataTable(allocator, out, layout.decl.aliases, "    ");
 
     for (layout.decl.consts) |*decl| {
         try emitNestedConst(allocator, out, file, layout.decl, decl);
