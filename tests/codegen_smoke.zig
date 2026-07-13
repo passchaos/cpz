@@ -241,6 +241,10 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("green", generated.@"cpz.enum.Color.values"[1].name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.enum.Color.values"[1].index);
     try std.testing.expectEqual(@as(u16, 1), generated.@"cpz.enum.Color.values"[1].ordinal);
+    try std.testing.expect(generated.@"cpz.enum.Color.values"[1].matchesName("green"));
+    try std.testing.expect(generated.@"cpz.enum.Color.values"[1].matchesRaw(1));
+    try std.testing.expect(generated.@"cpz.enum.Color.values"[2].matchesAnnotations("$labels([\"cool\", \"primary\"])"));
+    try std.testing.expect(!generated.@"cpz.enum.Color.values"[0].matchesRaw(99));
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.enumerant.Color.blue.index");
     try std.testing.expectEqualStrings("blue", generated.@"cpz.enumerant.Color.blue.metadata".name);
     try std.testing.expectEqual(@as(u16, 2), generated.@"cpz.enumerant.Color.blue.metadata".ordinal);

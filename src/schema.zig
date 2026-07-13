@@ -201,6 +201,18 @@ pub const EnumValueMetadata = struct {
     name: []const u8,
     ordinal: u16,
     annotations: []const u8 = "",
+
+    pub fn matchesName(self: EnumValueMetadata, value_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, value_name);
+    }
+
+    pub fn matchesRaw(self: EnumValueMetadata, raw: u16) bool {
+        return self.ordinal == raw;
+    }
+
+    pub fn matchesAnnotations(self: EnumValueMetadata, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
+    }
 };
 
 pub const FieldMetadata = struct {
