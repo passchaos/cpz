@@ -104,6 +104,30 @@ pub const MessageStats = struct {
         return self.capabilities;
     }
 
+    pub fn matchesPointerSlots(self: MessageStats, count: usize) bool {
+        return self.pointer_slots == count;
+    }
+
+    pub fn matchesNonNullPointers(self: MessageStats, count: usize) bool {
+        return self.non_null_pointers == count;
+    }
+
+    pub fn matchesStructs(self: MessageStats, count: usize) bool {
+        return self.structs == count;
+    }
+
+    pub fn matchesLists(self: MessageStats, count: usize) bool {
+        return self.lists == count;
+    }
+
+    pub fn matchesDataWords(self: MessageStats, count: usize) bool {
+        return self.data_words == count;
+    }
+
+    pub fn matchesPointerWords(self: MessageStats, count: usize) bool {
+        return self.pointer_words == count;
+    }
+
     pub fn matchesWords(self: MessageStats, count: usize) bool {
         return self.total_words == count;
     }

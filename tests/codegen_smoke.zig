@@ -800,6 +800,12 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(validation_stats.pointer_words, validation_stats.pointerWordCount());
     try std.testing.expectEqual(validation_stats.total_words, validation_stats.wordCount());
     try std.testing.expectEqual(validation_stats.capabilities, validation_stats.capabilityCount());
+    try std.testing.expect(validation_stats.matchesPointerSlots(validation_stats.pointer_slots));
+    try std.testing.expect(validation_stats.matchesNonNullPointers(validation_stats.non_null_pointers));
+    try std.testing.expect(validation_stats.matchesStructs(validation_stats.structs));
+    try std.testing.expect(validation_stats.matchesLists(validation_stats.lists));
+    try std.testing.expect(validation_stats.matchesDataWords(validation_stats.data_words));
+    try std.testing.expect(validation_stats.matchesPointerWords(validation_stats.pointer_words));
     try std.testing.expect(validation_stats.matchesWords(validation_stats.total_words));
     try std.testing.expect(validation_stats.matchesCapabilities(0));
     try std.testing.expect(!validation_stats.hasCapabilities());
