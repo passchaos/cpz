@@ -5536,6 +5536,11 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\        return null;
             \\    }}
             \\
+            \\    pub fn @"cpz.union.{}.fieldBySlot"(@"cpz.slot": []const u8, @"cpz.offset": usize) ?cpz.schema.FieldMetadata {{
+            \\        for (@This().@"cpz.union.{}.fields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".slot, @"cpz.slot") and @"cpz.field".offset == @"cpz.offset") return @"cpz.field";
+            \\        return null;
+            \\    }}
+            \\
             \\    pub fn @"cpz.union.{}.fieldByDiscriminant"(@"cpz.discriminant": u16) ?cpz.schema.FieldMetadata {{
             \\        for (@This().@"cpz.union.{}.fields") |@"cpz.field"| if (@"cpz.field".union_discriminant == @"cpz.discriminant") return @"cpz.field";
             \\        return null;
@@ -5547,7 +5552,7 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\    }}
             \\
             \\
-        , .{ index, index, index, index, index, index, index, index, index, index, index });
+        , .{ index, index, index, index, index, index, index, index, index, index, index, index, index });
     }
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {
