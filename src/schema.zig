@@ -287,6 +287,13 @@ pub const AnnotationDecl = struct {
     }
 };
 
+pub const AnnotationMetadata = struct {
+    name: []const u8,
+    id: ?u64 = null,
+    ty: []const u8,
+    targets: AnnotationTargets = .{},
+};
+
 pub const File = struct {
     id: ?u64,
     annotations_raw: []const []const u8 = &.{},
@@ -3445,6 +3452,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     for (file.interfaces) |*decl| {
         try emitInterface(allocator, &out, file, decl);
     }
+    try emitAnnotationMetadataTable(allocator, &out, file.annotations, if (options.namespace != null) "    " else "");
     for (file.annotations) |*decl| {
         try emitAnnotation(allocator, &out, file, decl);
     }
@@ -3736,6 +3744,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         try emitNestedConst(allocator, out, file, &alias_scope, nested_const);
     }
     try emitConstMetadataTable(allocator, out, decl.consts, "    ");
+    try emitScopedAnnotationMetadataTable(allocator, out, file, decl.name, "    ");
     try appendInterfaceMethodTable(allocator, out, decl.methods, "    ");
     for (decl.methods) |method| {
         const method_name = try zigIdentAlloc(allocator, method.name);
@@ -4029,6 +4038,60 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     }
     try out.appendSlice(allocator, "};\n");
     if (imports.len != 0) try out.append(allocator, '\n');
+}
+
+fn emitAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), annotations: []const AnnotationDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.annotation_decls\": []const cpz.schema.AnnotationMetadata = &[_]cpz.schema.AnnotationMetadata{{", .{indent});
+    for (annotations, 0..) |annotation, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        try appendAnnotationMetadataLiteral(allocator, out, &annotation);
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (annotations.len != 0) try out.append(allocator, '\n');
+}
+
+fn emitScopedAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.annotation_decls\": []const cpz.schema.AnnotationMetadata = &[_]cpz.schema.AnnotationMetadata{{", .{indent});
+    var count: usize = 0;
+    for (file.annotations) |annotation| {
+        if (!std.mem.eql(u8, annotationOwnerName(annotation.name) orelse continue, owner_name)) continue;
+        if (count != 0) try out.appendSlice(allocator, ", ");
+        try appendAnnotationMetadataLiteral(allocator, out, &annotation);
+        count += 1;
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (count != 0) try out.append(allocator, '\n');
+}
+
+fn appendAnnotationMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const AnnotationDecl) LayoutError!void {
+    const name_literal = try zigStringLiteralAlloc(allocator, decl.name);
+    defer allocator.free(name_literal);
+    const type_name = try schemaTypeNameAlloc(allocator, decl.ty);
+    defer allocator.free(type_name);
+    const type_literal = try zigStringLiteralAlloc(allocator, type_name);
+    defer allocator.free(type_literal);
+    try appendFmt(allocator, out, ".{{ .name = {s}, ", .{name_literal});
+    if (decl.id) |id| try appendFmt(allocator, out, ".id = 0x{x}, ", .{id});
+    try appendFmt(allocator, out, ".ty = {s}, .targets = ", .{type_literal});
+    try appendAnnotationTargetsLiteral(allocator, out, decl.targets);
+    try out.appendSlice(allocator, " }");
+}
+
+fn appendAnnotationTargetsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), targets: AnnotationTargets) std.mem.Allocator.Error!void {
+    try out.appendSlice(allocator, ".{");
+    if (targets.file) try out.appendSlice(allocator, " .file = true,");
+    if (targets.const_decl) try out.appendSlice(allocator, " .const_decl = true,");
+    if (targets.enum_decl) try out.appendSlice(allocator, " .enum_decl = true,");
+    if (targets.enumerant) try out.appendSlice(allocator, " .enumerant = true,");
+    if (targets.struct_decl) try out.appendSlice(allocator, " .struct_decl = true,");
+    if (targets.field) try out.appendSlice(allocator, " .field = true,");
+    if (targets.union_decl) try out.appendSlice(allocator, " .union_decl = true,");
+    if (targets.group) try out.appendSlice(allocator, " .group = true,");
+    if (targets.interface_decl) try out.appendSlice(allocator, " .interface_decl = true,");
+    if (targets.method) try out.appendSlice(allocator, " .method = true,");
+    if (targets.param) try out.appendSlice(allocator, " .param = true,");
+    if (targets.annotation_decl) try out.appendSlice(allocator, " .annotation_decl = true,");
+    try out.appendSlice(allocator, " }");
 }
 
 fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), aliases: []const AliasDecl, indent: []const u8) LayoutError!void {
@@ -4393,6 +4456,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     }
 
     try emitConstMetadataTable(allocator, out, layout.decl.consts, "    ");
+    try emitScopedAnnotationMetadataTable(allocator, out, file, layout.decl.name, "    ");
     try emitStructFieldMetadata(allocator, out, layout);
 
     try appendFmt(allocator, out,
