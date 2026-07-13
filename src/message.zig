@@ -661,6 +661,10 @@ pub const MessageReader = struct {
         return stats.size();
     }
 
+    pub fn traversalRemainingWords(self: *const MessageReader) usize {
+        return self.traversal_remaining;
+    }
+
     pub fn segmentCount(self: *const MessageReader) usize {
         return self.segments.len;
     }
