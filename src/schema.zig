@@ -4934,12 +4934,17 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.constByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (std.mem.eql(u8, @"cpz.const".literal, @"cpz.literal")) return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.constByIndex"(@"cpz.index": usize) ?cpz.schema.ConstMetadata {{
         \\{s}    if (@"cpz.index" >= @This().@"cpz.consts".len) return null;
         \\{s}    return @This().@"cpz.consts"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (consts.len != 0) try out.append(allocator, '\n');
 }
 
