@@ -1418,12 +1418,16 @@ test "generated builders can copy nested struct fields from readers" {
     defer target_builder.deinit();
     const target_person_builder = try generated.Person.initRootTyped(&target_builder);
     try target_person_builder.set_friend_from(source_person);
+    try target_person_builder.set_maybeFriend_fromBuilder(source_person_builder);
 
     var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
     const target_person = generated.Person.fromReader(try target_reader.getRoot());
     const friend = try target_person.friend();
     try std.testing.expectEqual(@as(u32, 888), friend.id());
     try std.testing.expectEqualSlices(u8, "Copied", try friend.name());
+    const maybe_friend = try target_person.maybeFriend();
+    try std.testing.expectEqual(@as(u32, 888), maybe_friend.id());
+    try std.testing.expectEqualSlices(u8, "Copied", try maybe_friend.name());
 }
 
 test "generated builders can copy and clear whole structs" {

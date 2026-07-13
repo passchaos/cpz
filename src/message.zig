@@ -1793,6 +1793,11 @@ pub const PointerBuilder = struct {
         }
     }
 
+    pub fn copyStructFromBuilder(self: PointerBuilder, source: StructBuilder) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyStructFrom(source.asReader(&reader));
+    }
+
     pub fn copyListFrom(self: PointerBuilder, source: ListReader) Error!void {
         try self.copyListFromMode(source, false);
     }
@@ -2393,6 +2398,11 @@ pub const StructBuilder = struct {
         for (0..pointer_len) |i| {
             try (try self.getPointerField(i)).copyFrom(source.getPointerField(i));
         }
+    }
+
+    pub fn copyFromBuilder(self: StructBuilder, source: StructBuilder) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyFromReader(source.asReader(&reader));
     }
 
     fn overlapsSource(self: StructBuilder, source: StructReader) bool {
@@ -4665,6 +4675,29 @@ test "struct builder copyFromReader safely handles self-copy" {
     const read_root = try verify.getRoot();
     try testing.expectEqual(@as(u32, 2026), read_root.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "self", try read_root.getPointerField(0).getText());
+}
+
+test "struct and pointer builders copy from builders" {
+    const testing = std.testing;
+    var source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer source.deinit();
+    const source_root = try source.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try source_root.setUInt32(0, 77, 0);
+    try source_root.setText(0, "builder copy");
+
+    var target = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer target.deinit();
+    const target_root = try target.initRoot(.{ .data_words = 1, .pointer_count = 2 });
+    try target_root.copyFromBuilder(source_root);
+    try (try target_root.getPointerField(1)).copyStructFromBuilder(source_root);
+
+    var reader = MessageReader.init(try target.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    try testing.expectEqual(@as(u32, 77), read_root.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "builder copy", try read_root.getPointerField(0).getText());
+    const copied = try read_root.getPointerField(1).getStruct(null);
+    try testing.expectEqual(@as(u32, 77), copied.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "builder copy", try copied.getPointerField(0).getText());
 }
 
 test "signed integer and floating-point scalar accessors" {
