@@ -5394,13 +5394,18 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\        return null;
             \\    }}
             \\
+            \\    pub fn @"cpz.union.{}.fieldByDiscriminant"(@"cpz.discriminant": u16) ?cpz.schema.FieldMetadata {{
+            \\        for (@This().@"cpz.union.{}.fields") |@"cpz.field"| if (@"cpz.field".union_discriminant == @"cpz.discriminant") return @"cpz.field";
+            \\        return null;
+            \\    }}
+            \\
             \\    pub fn @"cpz.union.{}.fieldByIndex"(@"cpz.index": usize) ?cpz.schema.FieldMetadata {{
             \\        if (@"cpz.index" >= @This().@"cpz.union.{}.fields".len) return null;
             \\        return @This().@"cpz.union.{}.fields"[@"cpz.index"];
             \\    }}
             \\
             \\
-        , .{ index, index, index, index, index });
+        , .{ index, index, index, index, index, index, index });
     }
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {
