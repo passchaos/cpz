@@ -14,6 +14,36 @@ pub fn maxPackedSize(unpacked_len: usize) Error!usize {
     return std.math.mul(usize, words, wire.bytes_per_word + 2) catch return error.OutOfMemory;
 }
 
+pub fn unpackedSize(packed_bytes: []const u8) Error!usize {
+    var out_len: usize = 0;
+    var i: usize = 0;
+    while (i < packed_bytes.len) {
+        const tag = packed_bytes[i];
+        i += 1;
+        out_len = std.math.add(usize, out_len, wire.bytes_per_word) catch return error.OutOfMemory;
+        inline for (0..wire.bytes_per_word) |j| {
+            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                if (i >= packed_bytes.len) return error.PackedInputTruncated;
+                i += 1;
+            }
+        }
+        if (tag == 0x00) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const additional_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
+            i += 1;
+            out_len = std.math.add(usize, out_len, additional_bytes) catch return error.OutOfMemory;
+        } else if (tag == 0xff) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const raw_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
+            i += 1;
+            if (packed_bytes.len - i < raw_bytes) return error.PackedInputTruncated;
+            i += raw_bytes;
+            out_len = std.math.add(usize, out_len, raw_bytes) catch return error.OutOfMemory;
+        }
+    }
+    return out_len;
+}
+
 /// Cap'n Proto packing encoder. Input must be whole words.
 ///
 /// The implementation keeps the hot path branch-light: collect the tag and
@@ -316,6 +346,7 @@ test "packInto matches allocating encoder and reports small buffers" {
     };
     const expected = try pack(allocator, &unpacked);
     defer allocator.free(expected);
+    try testing.expectEqual(unpacked.len, try unpackedSize(expected));
 
     const buffer = try allocator.alloc(u8, try maxPackedSize(unpacked.len));
     defer allocator.free(buffer);
@@ -323,6 +354,7 @@ test "packInto matches allocating encoder and reports small buffers" {
     try testing.expectEqualSlices(u8, expected, buffer[0..written]);
     try testing.expectError(error.PackedOutputTooSmall, packInto(buffer[0 .. written - 1], &unpacked));
     try testing.expectError(error.UnpackedInputNotWordAligned, maxPackedSize(unpacked.len - 1));
+    try testing.expectError(error.PackedInputTruncated, unpackedSize(expected[0 .. expected.len - 1]));
 }
 
 test "packToWriter matches allocating encoder" {
