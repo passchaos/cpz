@@ -5269,6 +5269,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return cpz.serialize.computeSerializedSizeInWords(@"cpz.reader".segments);
         \\    }}
         \\
+        \\    pub fn @"cpz.root.toFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader) ![]u8 {{
+        \\        return @"cpz.reader".toFlatBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.toPackedBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader) ![]u8 {{
+        \\        return @"cpz.reader".toPackedBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.writeToWriter"(@"cpz.reader": *cpz.MessageReader, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.reader".writeToWriter(@"cpz.writer");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.writePackedToWriter"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.reader".writePackedToWriter(@"cpz.allocator", @"cpz.writer");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.validate"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageStats {{
         \\        return @"cpz.reader".validate();
         \\    }}

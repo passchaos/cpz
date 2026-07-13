@@ -591,6 +591,22 @@ pub const MessageReader = struct {
         return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
     }
 
+    pub fn toFlatBytes(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return serialize.messageToFlatBytes(allocator, self.segments);
+    }
+
+    pub fn toPackedBytes(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return serialize.messageToPackedBytes(allocator, self.segments);
+    }
+
+    pub fn writeToWriter(self: *const MessageReader, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return serialize.writeMessageToWriter(writer, self.segments);
+    }
+
+    pub fn writePackedToWriter(self: *const MessageReader, allocator: std.mem.Allocator, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return serialize.writePackedMessageToWriter(allocator, writer, self.segments);
+    }
+
     fn segmentWords(self: *const MessageReader, segment_id: u32) Error!usize {
         if (segment_id >= self.segments.len) return error.SegmentOutOfBounds;
         const segment = self.segments[segment_id];
