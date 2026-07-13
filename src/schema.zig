@@ -156,6 +156,8 @@ pub const InterfaceMethod = struct {
     name: []const u8,
     ordinal: u16,
     signature: []const u8 = "",
+    params_signature: []const u8 = "",
+    results_signature: []const u8 = "",
     parameters: []const []const u8 = &.{},
 };
 
@@ -777,10 +779,18 @@ pub const Parser = struct {
             const ordinal_entry = try occupied_ordinals.getOrPut(ordinal);
             if (ordinal_entry.found_existing) return error.OrdinalCollision;
             const signature = try self.takeRawUntilSemicolon();
+            const parts = splitMethodSignature(signature);
             const parameters = try self.parseMethodSignatureParameters(signature);
             var keep_parameters = false;
             errdefer if (!keep_parameters) self.allocator.free(parameters);
-            try methods.append(self.allocator, .{ .name = name, .ordinal = ordinal, .signature = signature, .parameters = parameters });
+            try methods.append(self.allocator, .{
+                .name = name,
+                .ordinal = ordinal,
+                .signature = signature,
+                .params_signature = parts.params,
+                .results_signature = parts.results,
+                .parameters = parameters,
+            });
             keep_parameters = true;
         }
         try self.expect(.r_brace);
@@ -820,6 +830,39 @@ pub const Parser = struct {
             }
             return error.UnexpectedToken;
         }
+    }
+
+    fn splitMethodSignature(signature: []const u8) struct { params: []const u8, results: []const u8 } {
+        var index: usize = 0;
+        if (signature.len != 0 and signature[0] == '[') {
+            var bracket_depth: usize = 1;
+            index = 1;
+            while (index < signature.len and bracket_depth != 0) : (index += 1) {
+                switch (signature[index]) {
+                    '[' => bracket_depth += 1,
+                    ']' => bracket_depth -= 1,
+                    else => {},
+                }
+            }
+            while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+        }
+        const params_start = index;
+        var paren_depth: usize = 0;
+        while (index < signature.len) : (index += 1) {
+            switch (signature[index]) {
+                '(' => paren_depth += 1,
+                ')' => {
+                    if (paren_depth != 0) paren_depth -= 1;
+                },
+                '-' => if (paren_depth == 0 and index + 1 < signature.len and signature[index + 1] == '>') {
+                    const params = std.mem.trim(u8, signature[params_start..index], " \t\r\n");
+                    const results = std.mem.trim(u8, signature[index + 2 ..], " \t\r\n");
+                    return .{ .params = params, .results = results };
+                },
+                else => {},
+            }
+        }
+        return .{ .params = std.mem.trim(u8, signature[params_start..], " \t\r\n"), .results = "" };
     }
 
     fn qualifiedDeclName(self: *Parser, prefix: ?[]const u8, local_name: []const u8) std.mem.Allocator.Error!QualifiedName {
@@ -3177,6 +3220,18 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.signature": []const u8 = {s};
             \\
         , .{ method_name, signature_literal });
+        const params_signature_literal = try zigStringLiteralAlloc(allocator, method.params_signature);
+        defer allocator.free(params_signature_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.params": []const u8 = {s};
+            \\
+        , .{ method_name, params_signature_literal });
+        const results_signature_literal = try zigStringLiteralAlloc(allocator, method.results_signature);
+        defer allocator.free(results_signature_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.results": []const u8 = {s};
+            \\
+        , .{ method_name, results_signature_literal });
         try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
     }
     try appendFmt(allocator, out,
