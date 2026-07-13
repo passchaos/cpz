@@ -148,6 +148,11 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotation_decls"[1].target_count);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotationDecl.schemaNote.targetCount");
     try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.targets".file);
+    try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.targets".hasTarget("file"));
+    try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.metadata".hasTarget("struct"));
+    try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.metadata".hasTarget("struct_decl"));
+    try std.testing.expect(!generated.@"cpz.annotationDecl.schemaNote.metadata".hasTarget("method"));
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotationDecl.schemaNote.metadata".computedTargetCount());
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotationByName"("schemaNote").?.name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationByName"("schemaNote").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationByName"("missing"));
@@ -169,6 +174,8 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(u64, 0xa110ca110c), generated.schemaNote.@"cpz.type_id");
     try std.testing.expect(generated.schemaNote.Type == []const u8);
     try std.testing.expect(generated.schemaNote.targets.file);
+    try std.testing.expect(generated.schemaNote.targets.hasTarget("field"));
+    try std.testing.expectEqual(@as(usize, 3), generated.schemaNote.targets.count());
     try std.testing.expect(generated.schemaNote.targets.struct_decl);
     try std.testing.expect(generated.schemaNote.targets.field);
     try std.testing.expect(!generated.schemaNote.targets.method);

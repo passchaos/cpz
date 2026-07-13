@@ -536,6 +536,14 @@ pub const AnnotationTargets = struct {
     method: bool = false,
     param: bool = false,
     annotation_decl: bool = false,
+
+    pub fn hasTarget(self: AnnotationTargets, name: []const u8) bool {
+        return annotationTargetsHas(self, name);
+    }
+
+    pub fn count(self: AnnotationTargets) usize {
+        return annotationTargetCount(self);
+    }
 };
 
 pub fn annotationTargetsHas(targets: AnnotationTargets, name: []const u8) bool {
@@ -582,6 +590,14 @@ pub const AnnotationMetadata = struct {
     resolved_ty: []const u8 = "",
     target_count: usize = 0,
     targets: AnnotationTargets = .{},
+
+    pub fn hasTarget(self: AnnotationMetadata, name: []const u8) bool {
+        return self.targets.hasTarget(name);
+    }
+
+    pub fn computedTargetCount(self: AnnotationMetadata) usize {
+        return self.targets.count();
+    }
 };
 
 pub const FileAnnotationMetadata = struct {
