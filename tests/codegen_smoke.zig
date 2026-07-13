@@ -45,6 +45,13 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$labels([\"cool\", \"primary\"])", generated.@"cpz.enumerant.Color.blue.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.Person.@"cpz.annotations");
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.annotations");
+    try std.testing.expectEqual(@as(usize, 21), generated.Person.@"cpz.fields".len);
+    try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fields"[0].name);
+    try std.testing.expectEqual(@as(u32, 0), generated.Person.@"cpz.fields"[0].ordinal);
+    try std.testing.expectEqualStrings("UInt32", generated.Person.@"cpz.fields"[0].ty);
+    try std.testing.expectEqualStrings("42", generated.Person.@"cpz.fields"[0].default);
+    try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fields"[2].name);
+    try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.fields"[2].annotations);
     try std.testing.expectEqual(@as(u32, 2), generated.Person.@"cpz.field.name.ordinal");
     try std.testing.expectEqualStrings("Text", generated.Person.@"cpz.field.name.type");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");

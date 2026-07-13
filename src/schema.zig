@@ -151,6 +151,14 @@ pub const EnumValueMetadata = struct {
     annotations: []const u8 = "",
 };
 
+pub const FieldMetadata = struct {
+    name: []const u8,
+    ordinal: u32,
+    ty: []const u8,
+    default: []const u8 = "",
+    annotations: []const u8 = "",
+};
+
 pub const EnumDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -4150,6 +4158,32 @@ fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError!
     return zigDataLiteralAlloc(allocator, item.literal, item.is_hex_data);
 }
 
+fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
+    try out.appendSlice(allocator, "    pub const @\"cpz.fields\": []const cpz.schema.FieldMetadata = &[_]cpz.schema.FieldMetadata{");
+    for (layout.decl.fields, 0..) |field, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const field_name = try zigStringLiteralAlloc(allocator, field.name);
+        defer allocator.free(field_name);
+        const type_name = try schemaTypeNameAlloc(allocator, field.ty);
+        defer allocator.free(type_name);
+        const type_literal = try zigStringLiteralAlloc(allocator, type_name);
+        defer allocator.free(type_literal);
+        const default_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
+        defer allocator.free(default_literal);
+        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        defer allocator.free(annotations_literal);
+        try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {}, .ty = {s}", .{ field_name, field.ordinal, type_literal });
+        if (field.default_expression.len != 0) {
+            try appendFmt(allocator, out, ", .default = {s}", .{default_literal});
+        }
+        if (field.annotations.len != 0) {
+            try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
+        }
+        try out.appendSlice(allocator, " }");
+    }
+    try out.appendSlice(allocator, "};\n\n");
+}
+
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
     const struct_name = try zigIdentAlloc(allocator, layout.decl.name);
     defer allocator.free(struct_name);
@@ -4174,6 +4208,8 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     for (layout.decl.consts) |*decl| {
         try emitNestedConst(allocator, out, file, layout.decl, decl);
     }
+
+    try emitStructFieldMetadata(allocator, out, layout);
 
     try appendFmt(allocator, out,
         \\    pub const Orphan = struct {{
