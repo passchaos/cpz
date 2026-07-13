@@ -109,6 +109,12 @@ pub const ImportDecl = struct {
     member: ?[]const u8 = null,
 };
 
+pub const ImportMetadata = struct {
+    name: []const u8,
+    path: []const u8,
+    member: []const u8 = "",
+};
+
 const UnionBuilder = struct {
     fields: std.ArrayList(Field) = .empty,
     field_names: std.StringHashMap(void),
@@ -3422,6 +3428,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
         , .{ indent, index, annotation_literal });
     }
     if (file.annotations_raw.len != 0) try out.append(allocator, '\n');
+    try emitImportMetadataTable(allocator, &out, file.imports, if (options.namespace != null) "    " else "");
     try emitConstMetadataTable(allocator, &out, file.consts, if (options.namespace != null) "    " else "");
     for (file.consts) |*decl| {
         try emitConst(allocator, &out, file, decl);
@@ -3995,6 +4002,26 @@ fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_
         };
     }
     return null;
+}
+
+fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), imports: []const ImportDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.imports\": []const cpz.schema.ImportMetadata = &[_]cpz.schema.ImportMetadata{{", .{indent});
+    for (imports, 0..) |import_decl, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const name_literal = try zigStringLiteralAlloc(allocator, import_decl.name);
+        defer allocator.free(name_literal);
+        const path_literal = try zigStringLiteralAlloc(allocator, import_decl.path);
+        defer allocator.free(path_literal);
+        try appendFmt(allocator, out, ".{{ .name = {s}, .path = {s}", .{ name_literal, path_literal });
+        if (import_decl.member) |member| {
+            const member_literal = try zigStringLiteralAlloc(allocator, member);
+            defer allocator.free(member_literal);
+            try appendFmt(allocator, out, ", .member = {s}", .{member_literal});
+        }
+        try out.appendSlice(allocator, " }");
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (imports.len != 0) try out.append(allocator, '\n');
 }
 
 fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), consts: []const ConstDecl, indent: []const u8) LayoutError!void {
