@@ -5275,10 +5275,26 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\    pub const @"cpz.union.{}.pointer": ?usize = 
         , .{ index, index, index, union_layout.discriminant_byte, index, union_layout.data_bit, index, union_layout.data_bits, index, field_count, index });
         if (union_layout.pointer) |pointer| {
-            try appendFmt(allocator, out, "{};\n\n", .{pointer});
+            try appendFmt(allocator, out, "{};\n", .{pointer});
         } else {
-            try out.appendSlice(allocator, "null;\n\n");
+            try out.appendSlice(allocator, "null;\n");
         }
+        try appendFmt(allocator, out, "    pub const @\"cpz.union.{}.fields\": []const cpz.schema.FieldMetadata = ", .{index});
+        try appendUnionFieldMetadataLiteral(allocator, out, file, layout, @intCast(index));
+        try appendFmt(allocator, out,
+            \\;
+            \\    pub fn @"cpz.union.{}.fieldByName"(@"cpz.name": []const u8) ?cpz.schema.FieldMetadata {{
+            \\        for (@This().@"cpz.union.{}.fields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+            \\        return null;
+            \\    }}
+            \\
+            \\    pub fn @"cpz.union.{}.fieldByIndex"(@"cpz.index": usize) ?cpz.schema.FieldMetadata {{
+            \\        if (@"cpz.index" >= @This().@"cpz.union.{}.fields".len) return null;
+            \\        return @This().@"cpz.union.{}.fields"[@"cpz.index"];
+            \\    }}
+            \\
+            \\
+        , .{ index, index, index, index, index });
     }
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {
