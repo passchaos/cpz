@@ -48,6 +48,11 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByIndex"(999));
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declarations"[0].kind);
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.@"cpz.declarations"[0].annotations);
+    try std.testing.expect(generated.@"cpz.declarations"[0].matchesName("Person"));
+    try std.testing.expect(generated.@"cpz.declarations"[0].matchesKind(.struct_decl));
+    try std.testing.expect(generated.@"cpz.declarations"[12].matchesId(0xc010));
+    try std.testing.expect(generated.@"cpz.declarations"[0].matchesAnnotations("$schemaNote(\"person\")"));
+    try std.testing.expect(!generated.@"cpz.declarations"[0].matchesName("Missing"));
     try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declarations"[10].name);
     try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declaration.GenericBox.metadata".name);
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declaration.GenericBox.metadata".kind);

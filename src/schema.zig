@@ -409,6 +409,22 @@ pub const DeclarationMetadata = struct {
     parameter_count: usize = 0,
     parameters: []const []const u8 = &.{},
 
+    pub fn matchesName(self: DeclarationMetadata, declaration_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, declaration_name);
+    }
+
+    pub fn matchesKind(self: DeclarationMetadata, declaration_kind: DeclarationKind) bool {
+        return self.kind == declaration_kind;
+    }
+
+    pub fn matchesId(self: DeclarationMetadata, declaration_id: u64) bool {
+        return self.id != null and self.id.? == declaration_id;
+    }
+
+    pub fn matchesAnnotations(self: DeclarationMetadata, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
+    }
+
     pub fn parameterByName(self: DeclarationMetadata, parameter: []const u8) ?[]const u8 {
         for (self.parameters) |item| if (std.mem.eql(u8, item, parameter)) return item;
         return null;
