@@ -3314,8 +3314,8 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {
     const annotation_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(annotation_name);
-    const scope = annotationScope(file, decl.name);
-    const zig_type = try annotationTypeNameAlloc(allocator, file, scope, decl.ty);
+    const owner_name = annotationOwnerName(decl.name);
+    const zig_type = try annotationTypeNameAlloc(allocator, file, owner_name, decl.ty);
     defer allocator.free(zig_type);
     try appendFmt(allocator, out,
         \\pub const {s} = struct {{
@@ -3363,13 +3363,13 @@ fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
     });
 }
 
-fn annotationScope(file: *const File, annotation_name: []const u8) ?*const Struct {
+fn annotationOwnerName(annotation_name: []const u8) ?[]const u8 {
     const dot = lastTopLevelDot(annotation_name) orelse return null;
-    return findStructDirect(file, annotation_name[0..dot]);
+    return annotation_name[0..dot];
 }
 
-fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError![]u8 {
-    return switch (resolveTypeScoped(file, scope, ty)) {
+fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, owner_name: ?[]const u8, ty: Type) LayoutError![]u8 {
+    return switch (resolveTypeInOwnerScope(file, owner_name, ty)) {
         .void => allocator.dupe(u8, "void"),
         .bool => allocator.dupe(u8, "bool"),
         .int8 => allocator.dupe(u8, "i8"),
@@ -3394,12 +3394,43 @@ fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scop
             return allocator.dupe(u8, "cpz.PointerReader");
         },
         .list => |child| {
-            const child_type = try annotationTypeNameAlloc(allocator, file, scope, child.*);
+            const child_type = try annotationTypeNameAlloc(allocator, file, owner_name, child.*);
             defer allocator.free(child_type);
             return std.fmt.allocPrint(allocator, "[]const {s}", .{child_type});
         },
-        .optional => |child| annotationTypeNameAlloc(allocator, file, scope, child.*),
+        .optional => |child| annotationTypeNameAlloc(allocator, file, owner_name, child.*),
     };
+}
+
+fn resolveTypeInOwnerScope(file: *const File, owner_name: ?[]const u8, ty: Type) Type {
+    return switch (ty) {
+        .named => |name| resolveNamedAliasInOwnerScope(file, owner_name, name, 0) orelse ty,
+        else => ty,
+    };
+}
+
+fn resolveNamedAliasInOwnerScope(file: *const File, owner_name: ?[]const u8, name: []const u8, depth: usize) ?Type {
+    if (depth >= 32) return null;
+    if (owner_name) |owner| {
+        if (findStructDirect(file, owner)) |decl| {
+            if (resolveNamedAliasInList(decl.aliases, file, owner_name, name, depth)) |resolved| return resolved;
+        }
+        if (findInterfaceDirect(file, owner)) |decl| {
+            if (resolveNamedAliasInList(decl.aliases, file, owner_name, name, depth)) |resolved| return resolved;
+        }
+    }
+    return resolveNamedAliasInList(file.aliases, file, null, name, depth);
+}
+
+fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_name: ?[]const u8, name: []const u8, depth: usize) ?Type {
+    for (aliases) |alias| {
+        if (!std.mem.eql(u8, alias.name, name)) continue;
+        return switch (alias.target) {
+            .named => |target_name| resolveNamedAliasInOwnerScope(file, owner_name, target_name, depth + 1) orelse alias.target,
+            else => alias.target,
+        };
+    }
+    return null;
 }
 
 fn emitAlias(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, decl: *const AliasDecl, indent: []const u8) LayoutError!void {

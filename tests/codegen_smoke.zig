@@ -1314,6 +1314,8 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.DetailsAlias == generated.ExtendedService_Details);
     try std.testing.expectEqual(@as(u16, 12), generated.ExtendedService.defaultLimit);
     try std.testing.expectEqualSlices(u8, "extended", generated.ExtendedService.defaultLabel);
+    try std.testing.expect(generated.ExtendedService_detailNote.@"cpz.annotation");
+    try std.testing.expect(generated.ExtendedService_detailNote.Type == generated.ExtendedService_Details);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
     try std.testing.expectEqualStrings("(details :Details) -> ()", generated.ExtendedService.Callback.@"cpz.method.done.signature");
     try std.testing.expectEqualStrings("(details :Details)", generated.ExtendedService.Callback.@"cpz.method.done.params");
