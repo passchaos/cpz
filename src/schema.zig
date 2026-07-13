@@ -3996,7 +3996,33 @@ fn emitParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
     try appendFmt(allocator, out, "{s}pub const @\"cpz.parameters\": []const []const u8 = ", .{indent});
     try appendParameterListLiteral(allocator, out, parameters);
     try out.appendSlice(allocator, ";\n");
+    try emitParameterLookupHelpers(allocator, out, "cpz.parameters", indent);
     if (parameters.len != 0) try out.append(allocator, '\n');
+}
+
+fn emitParameterLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), metadata_name: []const u8, indent: []const u8) LayoutError!void {
+    const metadata_ident = try zigStringLiteralAlloc(allocator, metadata_name);
+    defer allocator.free(metadata_ident);
+    const by_name = try std.fmt.allocPrint(allocator, "{s}.parameterByName", .{metadata_name});
+    defer allocator.free(by_name);
+    const by_name_ident = try zigStringLiteralAlloc(allocator, by_name);
+    defer allocator.free(by_name_ident);
+    const by_index = try std.fmt.allocPrint(allocator, "{s}.parameterByIndex", .{metadata_name});
+    defer allocator.free(by_index);
+    const by_index_ident = try zigStringLiteralAlloc(allocator, by_index);
+    defer allocator.free(by_index_ident);
+    try appendFmt(allocator, out,
+        \\{s}pub fn @{s}(@"cpz.name": []const u8) ?[]const u8 {{
+        \\{s}    for (@This().@{s}) |@"cpz.parameter"| if (std.mem.eql(u8, @"cpz.parameter", @"cpz.name")) return @"cpz.parameter";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @{s}(@"cpz.index": usize) ?[]const u8 {{
+        \\{s}    if (@"cpz.index" >= @This().@{s}.len) return null;
+        \\{s}    return @This().@{s}[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, by_name_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
 }
 
 fn appendParameterListLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8) LayoutError!void {
@@ -4014,6 +4040,9 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
     try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.parameters\": []const []const u8 = ", .{ indent, method_name });
     try appendParameterListLiteral(allocator, out, parameters);
     try out.appendSlice(allocator, ";\n");
+    const method_parameters_name = try std.fmt.allocPrint(allocator, "cpz.method.{s}.parameters", .{method_name});
+    defer allocator.free(method_parameters_name);
+    try emitParameterLookupHelpers(allocator, out, method_parameters_name, indent);
 }
 
 fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
