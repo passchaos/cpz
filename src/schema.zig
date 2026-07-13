@@ -303,6 +303,14 @@ pub const FieldMetadata = struct {
         return std.mem.eql(u8, self.default, default_value);
     }
 
+    pub fn matchesExplicitDefault(self: FieldMetadata, has_default: bool) bool {
+        return self.has_explicit_default == has_default;
+    }
+
+    pub fn matchesHexDefault(self: FieldMetadata, is_hex: bool) bool {
+        return self.default_is_hex_data == is_hex;
+    }
+
     pub fn matchesAnnotations(self: FieldMetadata, annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, annotations);
     }
@@ -474,6 +482,14 @@ pub const MethodField = struct {
 
     pub fn matchesDefault(self: MethodField, default_value: []const u8) bool {
         return self.default_literal != null and std.mem.eql(u8, self.default_literal.?, default_value);
+    }
+
+    pub fn matchesExplicitDefault(self: MethodField, has_default: bool) bool {
+        return self.has_explicit_default == has_default;
+    }
+
+    pub fn matchesHexDefault(self: MethodField, is_hex: bool) bool {
+        return self.default_is_hex_data == is_hex;
     }
 
     pub fn matchesAnnotations(self: MethodField, annotations: []const u8) bool {

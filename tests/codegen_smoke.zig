@@ -326,6 +326,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expect(generated.Person.@"cpz.field.children.metadata".matchesResolvedType("List(Person)"));
     try std.testing.expect(generated.Person.@"cpz.field.name.metadata".matchesSlot("pointer", 0));
     try std.testing.expect(generated.Person.@"cpz.field.id.metadata".matchesDefault("42"));
+    try std.testing.expect(generated.Person.@"cpz.field.id.metadata".matchesExplicitDefault(true));
+    try std.testing.expect(generated.Person.@"cpz.field.defaultPayload.metadata".matchesHexDefault(true));
     try std.testing.expect(generated.Person.@"cpz.field.name.metadata".matchesAnnotations("$schemaNote(\"person-name\")"));
     try std.testing.expectEqualStrings("data_bit", generated.Person.@"cpz.fields"[1].slot);
     try std.testing.expectEqual(@as(usize, 32), generated.Person.@"cpz.fields"[1].offset);
@@ -2366,6 +2368,8 @@ test "generated interface method constants compile" {
     try std.testing.expect(ping_metadata.paramFieldByName("request").?.matchesType("Req"));
     try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesResolvedType("UInt32"));
     try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesDefault("3"));
+    try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesExplicitDefault(true));
+    try std.testing.expect(ping_metadata.paramFieldByName("request").?.matchesHexDefault(false));
     try std.testing.expect(!ping_metadata.paramFieldByName("request").?.matchesDefault("3"));
     try std.testing.expect(ping_metadata.paramFieldByName("request").?.matchesAnnotations("$schemaNote(\"request\")"));
     try std.testing.expectEqualStrings("attempts", ping_metadata.paramFieldByExplicitDefault(true).?.name);
