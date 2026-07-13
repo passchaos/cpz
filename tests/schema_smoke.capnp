@@ -28,6 +28,8 @@ const globalScores :List(UInt32) = [10, 20, 30];
 const globalNames :TextList = ["alpha", "beta"];
 const globalNamesAlias :Names = ["gamma", "delta"];
 const globalShades :List(Color) = [red, blue];
+const globalRawPerson :Person = (id = 9, name = "raw");
+const globalEmbeddedData :Data = embed "fixtures/raw.bin";
 
 annotation schemaNote @0xa110ca110c (file, struct, field) :Text;
 annotation marker(interface, method) :Void;

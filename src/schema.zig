@@ -83,6 +83,7 @@ pub const ConstDecl = struct {
     ty: Type,
     literal: []const u8,
     is_hex_data: bool = false,
+    emit_value: bool = true,
     annotations: []const u8 = "",
     list_items: ?[]ConstListItem = null,
 
@@ -104,6 +105,7 @@ pub const ConstMetadata = struct {
     ty: []const u8,
     literal: []const u8 = "",
     is_hex_data: bool = false,
+    emitted: bool = true,
     annotations: []const u8 = "",
     list_items: []const ConstListItem = &.{},
 };
@@ -1248,8 +1250,21 @@ pub const Parser = struct {
         const block_text_literal = ty == .text and self.constLiteralFirstByte() == '`';
         const list_literal = !block_text_literal and self.constLiteralStartsList();
         if (!block_text_literal and self.constLiteralStartsUnsupported(list_literal)) {
-            ty.deinit(self.allocator);
-            try self.skipRawUntilSemicolon();
+            try self.expect(.equal);
+            const raw_tail = try self.takeRawUntilSemicolon();
+            const split = splitDefaultExpressionAndAnnotations(raw_tail);
+            const entry = try decl_names.getOrPut(name);
+            if (entry.found_existing) {
+                ty.deinit(self.allocator);
+                return error.NameCollision;
+            }
+            try consts.append(self.allocator, .{
+                .name = name,
+                .ty = ty,
+                .literal = split.default_expression,
+                .emit_value = false,
+                .annotations = split.annotations,
+            });
             return;
         }
 
@@ -2974,6 +2989,7 @@ test "schema parser skips common top-level using and const declarations" {
         \\using Go = import "go.capnp";
         \\const defaultName :Text = "Ada";
         \\const embeddedText :Text = embed "testdata/short.txt";
+        \\const rawPerson :Person = (name = "Raw");
         \\const blockText :Text =
         \\  `line one
         \\  `"quoted" line two
@@ -2985,11 +3001,17 @@ test "schema parser skips common top-level using and const declarations" {
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
-    try std.testing.expectEqual(@as(usize, 2), file.consts.len);
+    try std.testing.expectEqual(@as(usize, 4), file.consts.len);
     try std.testing.expectEqualStrings("Person", file.structs[0].name);
     try std.testing.expectEqualStrings("Ada", file.structs[0].fields[0].default_literal.?);
     try std.testing.expectEqualStrings("defaultName", file.consts[0].name);
-    try std.testing.expectEqualStrings("blockText", file.consts[1].name);
+    try std.testing.expectEqualStrings("embeddedText", file.consts[1].name);
+    try std.testing.expectEqualStrings("embed \"testdata/short.txt\"", file.consts[1].literal);
+    try std.testing.expect(!file.consts[1].emit_value);
+    try std.testing.expectEqualStrings("rawPerson", file.consts[2].name);
+    try std.testing.expectEqualStrings("(name = \"Raw\")", file.consts[2].literal);
+    try std.testing.expect(!file.consts[2].emit_value);
+    try std.testing.expectEqualStrings("blockText", file.consts[3].name);
 }
 
 test "schema parser tolerates imports and annotations" {
@@ -4216,6 +4238,9 @@ fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
     if (decl.is_hex_data) {
         try out.appendSlice(allocator, ", .is_hex_data = true");
     }
+    if (!decl.emit_value) {
+        try out.appendSlice(allocator, ", .emitted = false");
+    }
     if (decl.annotations.len != 0) {
         try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
     }
@@ -4326,6 +4351,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             \\
         , .{ indent, const_name, annotation_literal });
     }
+    if (!decl.emit_value) return;
     switch (resolveTypeScoped(file, scope, decl.ty)) {
         .void => try appendFmt(allocator, out,
             \\{s}pub const {s}: void = {{}};
