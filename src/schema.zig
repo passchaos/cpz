@@ -158,6 +158,7 @@ pub const InterfaceMethod = struct {
     signature: []const u8 = "",
     params_signature: []const u8 = "",
     results_signature: []const u8 = "",
+    is_streaming: bool = false,
     parameters: []const []const u8 = &.{},
 };
 
@@ -789,6 +790,7 @@ pub const Parser = struct {
                 .signature = signature,
                 .params_signature = parts.params,
                 .results_signature = parts.results,
+                .is_streaming = std.mem.eql(u8, parts.results, "stream"),
                 .parameters = parameters,
             });
             keep_parameters = true;
@@ -3278,6 +3280,10 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.results": []const u8 = {s};
             \\
         , .{ method_name, results_signature_literal });
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.streaming": bool = {};
+            \\
+        , .{ method_name, method.is_streaming });
         try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
     }
     try appendFmt(allocator, out,

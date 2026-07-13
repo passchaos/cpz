@@ -1302,10 +1302,16 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("()", generated.Service.@"cpz.method.call.params");
     try std.testing.expectEqualStrings("()", generated.Service.@"cpz.method.call.results");
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
+    try std.testing.expect(!generated.Service.@"cpz.method.ping.streaming");
     try std.testing.expectEqualStrings("[Req, Resp] (request :Req) -> (response :Resp)", generated.Service.@"cpz.method.ping.signature");
     try std.testing.expectEqualStrings("(request :Req)", generated.Service.@"cpz.method.ping.params");
     try std.testing.expectEqualStrings("(response :Resp)", generated.Service.@"cpz.method.ping.results");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.method.ping.parameters");
+    try std.testing.expectEqual(@as(u16, 2), generated.Service.streamIt);
+    try std.testing.expectEqualStrings("(chunk :Data) -> stream", generated.Service.@"cpz.method.streamIt.signature");
+    try std.testing.expectEqualStrings("(chunk :Data)", generated.Service.@"cpz.method.streamIt.params");
+    try std.testing.expectEqualStrings("stream", generated.Service.@"cpz.method.streamIt.results");
+    try std.testing.expect(generated.Service.@"cpz.method.streamIt.streaming");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);

@@ -123,6 +123,7 @@ struct ScopedAliasBox {
 interface Service {
   call @0 () -> ();
   ping @1 [Req, Resp] (request :Req) -> (response :Resp);
+  streamIt @2 (chunk :Data) -> stream;
 }
 
 interface ExtendedService @0xe57e0001(Req, Resp) extends(Service) {
