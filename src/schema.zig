@@ -4792,11 +4792,12 @@ fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.Array
         try out.appendSlice(allocator, "null;\n");
     }
     try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.annotationDecl.{s}.metadata": cpz.schema.AnnotationMetadata = @This().@"cpz.annotation_decls"[{}];
         \\{s}pub const @"cpz.annotationDecl.{s}.type": []const u8 = {s};
         \\{s}pub const @"cpz.annotationDecl.{s}.resolvedType": []const u8 = {s};
         \\{s}pub const @"cpz.annotationDecl.{s}.targetCount": usize = {};
         \\{s}pub const @"cpz.annotationDecl.{s}.targets": cpz.schema.AnnotationTargets = 
-    , .{ indent, annotation_name, type_literal, indent, annotation_name, resolved_type_literal, indent, annotation_name, annotationTargetCount(decl.targets), indent, annotation_name });
+    , .{ indent, annotation_name, index, indent, annotation_name, type_literal, indent, annotation_name, resolved_type_literal, indent, annotation_name, annotationTargetCount(decl.targets), indent, annotation_name });
     try appendAnnotationTargetsLiteral(allocator, out, decl.targets);
     try out.appendSlice(allocator, ";\n\n");
 }

@@ -120,6 +120,8 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotation_decls"[1].name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationDecl.schemaNote.index");
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotationDecl.schemaNote.name");
+    try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotationDecl.schemaNote.metadata".name);
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotationDecl.schemaNote.metadata".target_count);
     try std.testing.expectEqual(@as(?u64, 0xa110ca110c), generated.@"cpz.annotationDecl.schemaNote.id");
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotationDecl.schemaNote.type");
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotationDecl.schemaNote.resolvedType");
@@ -165,6 +167,7 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.NestedBox.@"cpz.annotationByIndex"(99));
     try std.testing.expectEqual(@as(usize, 0), generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.index");
     try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.name");
+    try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.metadata".name);
     try std.testing.expect(generated.NestedBox.@"cpz.annotationDecl.NestedBox_itemNote.targets".field);
     try std.testing.expectEqualStrings("Item", generated.NestedBox.@"cpz.annotation_decls"[0].ty);
     try std.testing.expectEqualStrings("NestedBox.Item", generated.NestedBox.@"cpz.annotation_decls"[0].resolved_ty);
