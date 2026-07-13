@@ -37,6 +37,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declarations"[0].kind);
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.@"cpz.declarations"[0].annotations);
     try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declarations"[10].name);
+    try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declaration.GenericBox.metadata".name);
+    try std.testing.expectEqual(.struct_decl, generated.@"cpz.declaration.GenericBox.metadata".kind);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.declarations"[10].parameter_count);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declarations"[10].parameters);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.declaration.GenericBox.parameterCount");
@@ -50,12 +52,16 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(.enum_decl, generated.@"cpz.declarations"[12].kind);
     try std.testing.expectEqual(@as(?u64, 0xc010), generated.@"cpz.declarations"[12].id);
     try std.testing.expectEqual(@as(?u64, 0xc010), generated.@"cpz.declaration.Color.id");
+    try std.testing.expectEqualStrings("Color", generated.@"cpz.declaration.Color.metadata".name);
+    try std.testing.expectEqual(.enum_decl, generated.@"cpz.declaration.Color.metadata".kind);
     try std.testing.expectEqual(.enum_decl, generated.@"cpz.declaration.Color.kind");
     try std.testing.expectEqualStrings("ExtendedService", generated.@"cpz.declarations"[16].name);
     try std.testing.expectEqual(.interface_decl, generated.@"cpz.declarations"[16].kind);
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.declarations"[16].parameter_count);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.@"cpz.declarations"[16].parameters);
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.declaration.ExtendedService.parameterCount");
+    try std.testing.expectEqualStrings("ExtendedService", generated.@"cpz.declaration.ExtendedService.metadata".name);
+    try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.declaration.ExtendedService.metadata".parameter_count);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.@"cpz.declaration.ExtendedService.parameters");
     try std.testing.expectEqualStrings("Req", generated.@"cpz.declaration.ExtendedService.parameters.parameterByName"("Req").?);
     try std.testing.expectEqualStrings("Resp", generated.@"cpz.declaration.ExtendedService.parameters.parameterByIndex"(1).?);

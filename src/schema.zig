@@ -4595,8 +4595,9 @@ fn emitDeclarationMetadataConstants(
         \\{s}pub const @"cpz.declaration.{s}.index": usize = {};
         \\{s}pub const @"cpz.declaration.{s}.name": []const u8 = {s};
         \\{s}pub const @"cpz.declaration.{s}.kind": cpz.schema.DeclarationKind = .{s};
+        \\{s}pub const @"cpz.declaration.{s}.metadata": cpz.schema.DeclarationMetadata = @This().@"cpz.declarations"[{}];
         \\{s}pub const @"cpz.declaration.{s}.id": ?u64 = 
-    , .{ indent, decl_name, index, indent, decl_name, name_literal, indent, decl_name, kind, indent, decl_name });
+    , .{ indent, decl_name, index, indent, decl_name, name_literal, indent, decl_name, kind, indent, decl_name, index, indent, decl_name });
     if (id) |value| {
         try appendFmt(allocator, out, "0x{x};\n", .{value});
     } else {
