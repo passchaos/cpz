@@ -77,22 +77,124 @@ pub const StructPointer = struct {
     offset_words: i32,
     data_words: u16,
     pointer_count: u16,
+
+    pub fn size(self: StructPointer) StructSize {
+        return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
+    }
+
+    pub fn targetIndex(self: StructPointer, pointer_word_index: usize) Error!usize {
+        return targetWordIndex(pointer_word_index, self.offset_words);
+    }
+
+    pub fn dataWordCount(self: StructPointer) u16 {
+        return self.data_words;
+    }
+
+    pub fn pointerCount(self: StructPointer) u16 {
+        return self.pointer_count;
+    }
+
+    pub fn totalWords(self: StructPointer) usize {
+        return self.size().totalWords();
+    }
+
+    pub fn isEmpty(self: StructPointer) bool {
+        return self.size().isEmpty();
+    }
+
+    pub fn hasDataWords(self: StructPointer) bool {
+        return self.size().hasDataWords();
+    }
+
+    pub fn hasPointers(self: StructPointer) bool {
+        return self.size().hasPointers();
+    }
+
+    pub fn matchesSize(self: StructPointer, expected: StructSize) bool {
+        return self.data_words == expected.data_words and self.pointer_count == expected.pointer_count;
+    }
 };
 
 pub const ListPointer = struct {
     offset_words: i32,
     element_size: ElementSize,
     element_count_or_words: u29,
+
+    pub fn targetIndex(self: ListPointer, pointer_word_index: usize) Error!usize {
+        return targetWordIndex(pointer_word_index, self.offset_words);
+    }
+
+    pub fn elementSize(self: ListPointer) ElementSize {
+        return self.element_size;
+    }
+
+    pub fn elementCountOrWordCount(self: ListPointer) usize {
+        return self.element_count_or_words;
+    }
+
+    pub fn elementCount(self: ListPointer) Error!usize {
+        if (self.element_size == .composite) return error.UnsupportedElementSize;
+        return self.element_count_or_words;
+    }
+
+    pub fn compositeWordCount(self: ListPointer) Error!usize {
+        if (self.element_size != .composite) return error.UnsupportedElementSize;
+        return self.element_count_or_words;
+    }
+
+    pub fn hasElementsOrWords(self: ListPointer) bool {
+        return self.element_count_or_words != 0;
+    }
+
+    pub fn matchesElementSize(self: ListPointer, expected: ElementSize) bool {
+        return self.element_size == expected;
+    }
+
+    pub fn matchesElementCountOrWordCount(self: ListPointer, count: usize) bool {
+        return @as(usize, self.element_count_or_words) == count;
+    }
 };
 
 pub const FarPointer = struct {
     two_word_landing_pad: bool,
     landing_pad_offset: u29,
     segment_id: u32,
+
+    pub fn isDoubleFar(self: FarPointer) bool {
+        return self.two_word_landing_pad;
+    }
+
+    pub fn isSingleFar(self: FarPointer) bool {
+        return !self.two_word_landing_pad;
+    }
+
+    pub fn landingPadWordIndex(self: FarPointer) usize {
+        return self.landing_pad_offset;
+    }
+
+    pub fn landingPadSegmentId(self: FarPointer) u32 {
+        return self.segment_id;
+    }
+
+    pub fn matchesLandingPadWordIndex(self: FarPointer, word_index: usize) bool {
+        return @as(usize, self.landing_pad_offset) == word_index;
+    }
+
+    pub fn matchesSegmentId(self: FarPointer, segment_id: u32) bool {
+        return self.segment_id == segment_id;
+    }
 };
 
 pub const CapabilityPointer = struct {
     index: u32,
+
+    pub fn capabilityIndex(self: CapabilityPointer) u32 {
+        return self.index;
+    }
+
+    pub fn matchesIndex(self: CapabilityPointer, index: u32) bool {
+        return self.index == index;
+    }
 };
 
 pub const DecodedPointer = union(PointerType) {
@@ -268,6 +370,15 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(i32, 2), struct_ptr.offset_words);
     try testing.expectEqual(@as(u16, 3), struct_ptr.data_words);
     try testing.expectEqual(@as(u16, 2), struct_ptr.pointer_count);
+    try testing.expectEqual(StructSize{ .data_words = 3, .pointer_count = 2 }, struct_ptr.size());
+    try testing.expectEqual(@as(usize, 3), try struct_ptr.targetIndex(0));
+    try testing.expectEqual(@as(u16, 3), struct_ptr.dataWordCount());
+    try testing.expectEqual(@as(u16, 2), struct_ptr.pointerCount());
+    try testing.expectEqual(@as(usize, 5), struct_ptr.totalWords());
+    try testing.expect(!struct_ptr.isEmpty());
+    try testing.expect(struct_ptr.hasDataWords());
+    try testing.expect(struct_ptr.hasPointers());
+    try testing.expect(struct_ptr.matchesSize(.{ .data_words = 3, .pointer_count = 2 }));
 
     const text_raw = try encodeList(6, .byte, 53);
     try testing.expectEqual(@as(Word, 0x0000_01aa_0000_0019), text_raw);
@@ -275,6 +386,19 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(i32, 6), list_ptr.offset_words);
     try testing.expectEqual(ElementSize.byte, list_ptr.element_size);
     try testing.expectEqual(@as(u29, 53), list_ptr.element_count_or_words);
+    try testing.expectEqual(@as(usize, 8), try list_ptr.targetIndex(1));
+    try testing.expectEqual(ElementSize.byte, list_ptr.elementSize());
+    try testing.expectEqual(@as(usize, 53), list_ptr.elementCountOrWordCount());
+    try testing.expectEqual(@as(usize, 53), try list_ptr.elementCount());
+    try testing.expectError(error.UnsupportedElementSize, list_ptr.compositeWordCount());
+    try testing.expect(list_ptr.hasElementsOrWords());
+    try testing.expect(list_ptr.matchesElementSize(.byte));
+    try testing.expect(list_ptr.matchesElementCountOrWordCount(53));
+
+    const composite_raw = try encodeList(1, .composite, 7);
+    const composite_ptr = try decodeList(composite_raw);
+    try testing.expectError(error.UnsupportedElementSize, composite_ptr.elementCount());
+    try testing.expectEqual(@as(usize, 7), try composite_ptr.compositeWordCount());
 }
 
 test "wire signed offsets and far/capability pointers" {
@@ -289,8 +413,20 @@ test "wire signed offsets and far/capability pointers" {
     try testing.expect(far.two_word_landing_pad);
     try testing.expectEqual(@as(u29, 17), far.landing_pad_offset);
     try testing.expectEqual(@as(u32, 9), far.segment_id);
+    try testing.expect(far.isDoubleFar());
+    try testing.expect(!far.isSingleFar());
+    try testing.expectEqual(@as(usize, 17), far.landingPadWordIndex());
+    try testing.expectEqual(@as(u32, 9), far.landingPadSegmentId());
+    try testing.expect(far.matchesLandingPadWordIndex(17));
+    try testing.expect(far.matchesSegmentId(9));
+
+    const single_far = decodeFar(try encodeFar(false, 3, 2));
+    try testing.expect(single_far.isSingleFar());
+    try testing.expect(!single_far.isDoubleFar());
 
     const cap_raw = encodeCapability(1234);
     const cap = try decodeOther(cap_raw);
     try testing.expectEqual(@as(u32, 1234), cap.index);
+    try testing.expectEqual(@as(u32, 1234), cap.capabilityIndex());
+    try testing.expect(cap.matchesIndex(1234));
 }
