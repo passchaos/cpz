@@ -1529,12 +1529,19 @@ test "generated struct list builders can copy elements from readers" {
     var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer target_builder.deinit();
     const target_person_builder = try generated.Person.initRootTyped(&target_builder);
-    const children = try target_person_builder.init_children(5);
+    const children = try target_person_builder.init_children(6);
     try children.set(0, source_person);
     try children.copyFrom(1, source_children, 0);
     try children.copyFromBuilder(2, source_children_builder, 0);
     try children.copyRangeFrom(3, source_children, 0, 1);
     try children.copyRangeFromBuilder(4, source_children_builder, 0, 1);
+
+    var direct_source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer direct_source_builder.deinit();
+    const direct_builder_child = try generated.Person.initRootTyped(&direct_source_builder);
+    try direct_builder_child.set_id(777);
+    try direct_builder_child.set_name("DirectBuilder");
+    try children.setFromBuilder(5, direct_builder_child);
 
     var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
     const target_person = generated.Person.fromReader(try target_reader.getRoot());
@@ -1554,6 +1561,9 @@ test "generated struct list builders can copy elements from readers" {
     const copied_builder_range_child = try read_children.get(4);
     try std.testing.expectEqual(@as(u32, 654), copied_builder_range_child.id());
     try std.testing.expectEqualSlices(u8, "ElementCopy", try copied_builder_range_child.name());
+    const direct_builder_copied_child = try read_children.get(5);
+    try std.testing.expectEqual(@as(u32, 777), direct_builder_copied_child.id());
+    try std.testing.expectEqualSlices(u8, "DirectBuilder", try direct_builder_copied_child.name());
 }
 
 test "generated builders can copy whole list fields from readers" {

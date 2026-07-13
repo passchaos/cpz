@@ -8454,11 +8454,15 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return (try self.list.getStructElement(index)).copyFromReader(new_value.reader);
                 \\        }}
                 \\
+                \\        pub fn setFromBuilder(self: @This(), index: usize, new_value: {s}.Builder) !void {{
+                \\            return (try self.list.getStructElement(index)).copyFromBuilder(new_value.builder);
+                \\        }}
+                \\
                 \\        pub fn clear(self: @This(), index: usize) !void {{
                 \\            return self.list.clearStructElement(index);
                 \\        }}
                 \\
-            , .{ zig_type, zig_type, zig_type });
+            , .{ zig_type, zig_type, zig_type, zig_type });
         },
         .optional => {},
     }
@@ -9910,6 +9914,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(new_value.reader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setFromBuilder(self: @This(), index: usize, new_value: @\"cpz.schema\".Person.Builder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromBuilder(new_value.builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try self.list.getPointerElement(index)).getText();") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearPointerElement(index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearStructElement(index);") != null);
