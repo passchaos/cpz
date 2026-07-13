@@ -778,24 +778,48 @@ pub const Orphanage = struct {
         return self.message.newOrphanCopyStruct(source);
     }
 
+    pub fn newCopyStructCanonical(self: Orphanage, source: StructReader) Error!Orphan {
+        return self.message.newOrphanCopyStructCanonical(source);
+    }
+
     pub fn newCopyStructFromBuilder(self: Orphanage, source: StructBuilder) Error!Orphan {
         return self.message.newOrphanCopyStructFromBuilder(source);
+    }
+
+    pub fn newCopyStructCanonicalFromBuilder(self: Orphanage, source: StructBuilder) Error!Orphan {
+        return self.message.newOrphanCopyStructCanonicalFromBuilder(source);
     }
 
     pub fn newCopyList(self: Orphanage, source: ListReader) Error!Orphan {
         return self.message.newOrphanCopyList(source);
     }
 
+    pub fn newCopyListCanonical(self: Orphanage, source: ListReader) Error!Orphan {
+        return self.message.newOrphanCopyListCanonical(source);
+    }
+
     pub fn newCopyListFromBuilder(self: Orphanage, source: ListBuilder) Error!Orphan {
         return self.message.newOrphanCopyListFromBuilder(source);
+    }
+
+    pub fn newCopyListCanonicalFromBuilder(self: Orphanage, source: ListBuilder) Error!Orphan {
+        return self.message.newOrphanCopyListCanonicalFromBuilder(source);
     }
 
     pub fn newCopyPointer(self: Orphanage, source: PointerReader) Error!Orphan {
         return self.message.newOrphanCopyPointer(source);
     }
 
+    pub fn newCopyPointerCanonical(self: Orphanage, source: PointerReader) Error!Orphan {
+        return self.message.newOrphanCopyPointerCanonical(source);
+    }
+
     pub fn newCopyPointerFromBuilder(self: Orphanage, source: PointerBuilder) Error!Orphan {
         return self.message.newOrphanCopyPointerFromBuilder(source);
+    }
+
+    pub fn newCopyPointerCanonicalFromBuilder(self: Orphanage, source: PointerBuilder) Error!Orphan {
+        return self.message.newOrphanCopyPointerCanonicalFromBuilder(source);
     }
 };
 
@@ -899,9 +923,21 @@ pub const MessageBuilder = struct {
         return slot.disown();
     }
 
+    pub fn newOrphanCopyStructCanonical(self: *MessageBuilder, source: StructReader) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyStructFromCanonical(source);
+        return slot.disown();
+    }
+
     pub fn newOrphanCopyStructFromBuilder(self: *MessageBuilder, source: StructBuilder) Error!Orphan {
         const slot = try self.newOrphanPointer();
         try slot.copyStructFromBuilder(source);
+        return slot.disown();
+    }
+
+    pub fn newOrphanCopyStructCanonicalFromBuilder(self: *MessageBuilder, source: StructBuilder) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyStructFromCanonicalBuilder(source);
         return slot.disown();
     }
 
@@ -911,9 +947,21 @@ pub const MessageBuilder = struct {
         return slot.disown();
     }
 
+    pub fn newOrphanCopyListCanonical(self: *MessageBuilder, source: ListReader) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyListFromCanonical(source);
+        return slot.disown();
+    }
+
     pub fn newOrphanCopyListFromBuilder(self: *MessageBuilder, source: ListBuilder) Error!Orphan {
         const slot = try self.newOrphanPointer();
         try slot.copyListFromBuilder(source);
+        return slot.disown();
+    }
+
+    pub fn newOrphanCopyListCanonicalFromBuilder(self: *MessageBuilder, source: ListBuilder) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyListFromCanonicalBuilder(source);
         return slot.disown();
     }
 
@@ -923,9 +971,21 @@ pub const MessageBuilder = struct {
         return slot.disown();
     }
 
+    pub fn newOrphanCopyPointerCanonical(self: *MessageBuilder, source: PointerReader) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyFromCanonical(source);
+        return slot.disown();
+    }
+
     pub fn newOrphanCopyPointerFromBuilder(self: *MessageBuilder, source: PointerBuilder) Error!Orphan {
         const slot = try self.newOrphanPointer();
         try slot.copyFromBuilder(source);
+        return slot.disown();
+    }
+
+    pub fn newOrphanCopyPointerCanonicalFromBuilder(self: *MessageBuilder, source: PointerBuilder) Error!Orphan {
+        const slot = try self.newOrphanPointer();
+        try slot.copyFromCanonicalBuilder(source);
         return slot.disown();
     }
 
@@ -4929,6 +4989,63 @@ test "orphanages allocate copies from builders" {
     const copied_list_2 = try read_root.getPointerField(4).getList(.two_bytes);
     try testing.expectEqual(@as(u16, 100), copied_list_2.getUInt16(0));
     try testing.expectEqualSlices(u8, "builder orphan", try read_root.getPointerField(5).getText());
+}
+
+test "orphanages allocate canonical copies" {
+    const testing = std.testing;
+    var source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
+    defer source.deinit();
+    const source_root = try source.initRoot(.{ .data_words = 2, .pointer_count = 2 });
+    const source_list = try (try source_root.getPointerField(1)).initStructList(1, .{ .data_words = 2, .pointer_count = 2 });
+    const source_item = try source_list.getStructElement(0);
+    try source_item.setUInt32(0, 0x5150, 0);
+    try source_item.setText(0, "canonical list orphan");
+    var source_reader = MessageReader.init(try source.segmentsConst(), .{});
+    const source_root_reader = try source_reader.getRoot();
+    const source_root_pointer = try source_reader.getRootPointer();
+    const source_list_reader = try source_root_reader.getPointerField(1).getList(.composite);
+
+    var wide_source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer wide_source.deinit();
+    const wide_source_root = try wide_source.initRoot(.{ .data_words = 2, .pointer_count = 2 });
+    try wide_source_root.setUInt32(0, 0xc0ffee, 0);
+    try wide_source_root.setText(0, "canonical orphan");
+    var wide_source_reader = MessageReader.init(try wide_source.segmentsConst(), .{});
+    const wide_source_root_reader = try wide_source_reader.getRoot();
+
+    var target = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
+    defer target.deinit();
+    var struct_orphan = try target.newOrphanCopyStructCanonical(wide_source_root_reader);
+    var list_orphan = try target.newOrphanCopyListCanonical(source_list_reader);
+    var pointer_orphan = try target.newOrphanCopyPointerCanonical(source_root_pointer);
+    const orphanage = Orphanage.init(&target);
+    var struct_orphan_from_builder = try orphanage.newCopyStructCanonicalFromBuilder(wide_source_root);
+    var list_orphan_from_builder = try orphanage.newCopyListCanonicalFromBuilder(source_list);
+    var pointer_orphan_from_builder = try orphanage.newCopyPointerCanonicalFromBuilder(try source.getRootPointer());
+
+    const target_root = try target.initRoot(.{ .data_words = 0, .pointer_count = 6 });
+    try (try target_root.getPointerField(0)).adopt(&struct_orphan);
+    try (try target_root.getPointerField(1)).adopt(&list_orphan);
+    try (try target_root.getPointerField(2)).adopt(&pointer_orphan);
+    try (try target_root.getPointerField(3)).adopt(&struct_orphan_from_builder);
+    try (try target_root.getPointerField(4)).adopt(&list_orphan_from_builder);
+    try (try target_root.getPointerField(5)).adopt(&pointer_orphan_from_builder);
+
+    var reader = MessageReader.init(try target.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    const copied_struct = try read_root.getPointerField(0).getStruct(null);
+    try testing.expectEqual(@as(u16, 1), copied_struct.pointer_count);
+    try testing.expectEqual(@as(u32, 0xc0ffee), copied_struct.getUInt32(0, 0));
+    const copied_list = try read_root.getPointerField(1).getList(.composite);
+    try testing.expectEqual(@as(u16, 1), copied_list.structElementSize().pointer_count);
+    const copied_pointer_struct = try read_root.getPointerField(2).getStruct(null);
+    try testing.expectEqual(@as(u16, 2), copied_pointer_struct.pointer_count);
+    const copied_struct_from_builder = try read_root.getPointerField(3).getStruct(null);
+    try testing.expectEqual(@as(u16, 1), copied_struct_from_builder.pointer_count);
+    const copied_list_from_builder = try read_root.getPointerField(4).getList(.composite);
+    try testing.expectEqual(@as(u16, 1), copied_list_from_builder.structElementSize().pointer_count);
+    const copied_pointer_from_builder = try read_root.getPointerField(5).getStruct(null);
+    try testing.expectEqual(@as(u16, 2), copied_pointer_from_builder.pointer_count);
 }
 
 test "signed integer and floating-point scalar accessors" {
