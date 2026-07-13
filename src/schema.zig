@@ -4231,10 +4231,11 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         try appendFmt(allocator, out,
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.index": usize = {};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.name": []const u8 = {s};
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.metadata": cpz.schema.MethodField = @This().@"cpz.method.{s}.{s}.fields"[{}];
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.type": []const u8 = {s};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.resolvedType": []const u8 = {s};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.default": ?[]const u8 = 
-        , .{ indent, method_name, kind, field_name, field.index, indent, method_name, kind, field_name, name_literal, indent, method_name, kind, field_name, type_literal, indent, method_name, kind, field_name, resolved_type_literal, indent, method_name, kind, field_name });
+        , .{ indent, method_name, kind, field_name, field.index, indent, method_name, kind, field_name, name_literal, indent, method_name, kind, field_name, method_name, kind, field.index, indent, method_name, kind, field_name, type_literal, indent, method_name, kind, field_name, resolved_type_literal, indent, method_name, kind, field_name });
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
