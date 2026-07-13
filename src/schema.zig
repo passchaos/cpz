@@ -3740,6 +3740,8 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\}}
         \\
         \\pub fn @"cpz.enum.{s}.name"(value: {s}) []const u8 {{
+        \\    const raw = @intFromEnum(value);
+        \\    for (@"cpz.enum.{s}.values") |item| if (item.ordinal == raw) return item.name;
         \\    return @tagName(value);
         \\}}
         \\
@@ -3748,7 +3750,7 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\    return @"cpz.enum.{s}.name"(value);
         \\}}
         \\
-    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
+    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
     try appendFmt(allocator, out,
         \\pub const @"cpz.enum.{s}.values": []const cpz.schema.EnumValueMetadata = &[_]cpz.schema.EnumValueMetadata{{
     , .{enum_name});
