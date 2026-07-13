@@ -1948,6 +1948,16 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
     try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methods"[1].name);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.methods"[1].parameters);
+    try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.methods"[1].param_fields.len);
+    try std.testing.expectEqualStrings("request", generated.Service.@"cpz.methods"[1].param_fields[0].name);
+    try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.methods"[1].param_fields[0].resolved_ty);
+    try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.methods"[1].param_fields[1].name);
+    try std.testing.expectEqualStrings("3", generated.Service.@"cpz.methods"[1].param_fields[1].default_literal.?);
+    try std.testing.expect(generated.Service.@"cpz.methods"[1].param_fields[1].has_explicit_default);
+    try std.testing.expectEqualStrings("$schemaNote(\"attempts\")", generated.Service.@"cpz.methods"[1].param_fields[1].annotations);
+    try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.methods"[1].result_fields.len);
+    try std.testing.expectEqualStrings("response", generated.Service.@"cpz.methods"[1].result_fields[0].name);
+    try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.methods"[1].result_fields[0].resolved_ty);
     try std.testing.expect(!generated.Service.@"cpz.method.ping.streaming");
     try std.testing.expectEqualStrings("[Req, Resp] (request :Req $schemaNote(\"request\"), attempts :UInt32 = 3 $schemaNote(\"attempts\")) -> (response :Resp)", generated.Service.@"cpz.method.ping.signature");
     try std.testing.expectEqualStrings("(request :Req $schemaNote(\"request\"), attempts :UInt32 = 3 $schemaNote(\"attempts\"))", generated.Service.@"cpz.method.ping.params");
@@ -2012,6 +2022,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].results_type);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].resolved_params_type);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].resolved_results_type);
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.methods"[3].param_fields.len);
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.methods"[3].result_fields.len);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.paramsType");
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resultsType");
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resolvedParamsType");
@@ -2098,6 +2110,10 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService_detailNote.@"cpz.annotation");
     try std.testing.expect(generated.ExtendedService_detailNote.Type == generated.ExtendedService_Details);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.Callback.@"cpz.methods"[0].param_fields.len);
+    try std.testing.expectEqualStrings("details", generated.ExtendedService.Callback.@"cpz.methods"[0].param_fields[0].name);
+    try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.Callback.@"cpz.methods"[0].param_fields[0].resolved_ty);
+    try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.Callback.@"cpz.methods"[0].result_fields.len);
     try std.testing.expectEqualStrings("(details :Details) -> ()", generated.ExtendedService.Callback.@"cpz.method.done.signature");
     try std.testing.expectEqualStrings("(details :Details)", generated.ExtendedService.Callback.@"cpz.method.done.params");
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.Callback.@"cpz.method.done.params.fields"[0].resolved_ty);
