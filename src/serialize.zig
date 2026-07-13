@@ -224,13 +224,38 @@ pub fn writeMessageToWriter(writer: *std.Io.Writer, segments: []const ConstSegme
 /// packing to the framed bytes. This is the format used by C++'s packed
 /// stream helpers.
 pub fn messageToPackedBytes(allocator: std.mem.Allocator, segments: []const ConstSegment) Error![]u8 {
-    const flat = try messageToFlatBytes(allocator, segments);
-    defer allocator.free(flat);
-    return packing.pack(allocator, flat);
+    const table_len = try segmentTableByteLen(segments.len);
+    const table = try allocator.alloc(u8, table_len);
+    defer allocator.free(table);
+    const packed_len = try packedMessageSizeWithTableBuffer(table, segments);
+    const out = try allocator.alloc(u8, packed_len);
+    errdefer allocator.free(out);
+    const written = try messageToPackedBytesInto(table, out, segments);
+    std.debug.assert(written == packed_len);
+    return out;
 }
 
 pub fn maxPackedMessageSize(segments: []const ConstSegment) Error!usize {
     return packing.maxPackedSize(try computeSerializedSize(segments));
+}
+
+pub fn packedMessageSize(allocator: std.mem.Allocator, segments: []const ConstSegment) Error!usize {
+    const table = try serializeSegmentTable(allocator, segments);
+    defer allocator.free(table);
+    return packedMessageSizeFromTable(table, segments);
+}
+
+pub fn packedMessageSizeWithTableBuffer(table_buffer: []u8, segments: []const ConstSegment) Error!usize {
+    const table_len = try writeSegmentTable(table_buffer, segments);
+    return packedMessageSizeFromTable(table_buffer[0..table_len], segments);
+}
+
+fn packedMessageSizeFromTable(table: []const u8, segments: []const ConstSegment) Error!usize {
+    var total = try packing.packedSize(table);
+    for (segments) |segment| {
+        total = std.math.add(usize, total, try packing.packedSize(segment)) catch return error.SerializedSizeOverflow;
+    }
+    return total;
 }
 
 /// Serialize segments as a packed stream into caller-provided buffers. The
@@ -239,6 +264,8 @@ pub fn maxPackedMessageSize(segments: []const ConstSegment) Error!usize {
 pub fn messageToPackedBytesInto(table_buffer: []u8, dest: []u8, segments: []const ConstSegment) Error!usize {
     _ = try computeSerializedSize(segments);
     const table_len = try writeSegmentTable(table_buffer, segments);
+    const packed_len = try packedMessageSizeFromTable(table_buffer[0..table_len], segments);
+    if (dest.len < packed_len) return error.PackedOutputTooSmall;
     var out_i: usize = 0;
 
     const packed_table_len = try packing.packInto(dest[out_i..], table_buffer[0..table_len]);
@@ -944,6 +971,10 @@ test "packed stream framing writes directly to Io writer" {
     var writer = std.Io.Writer.fixed(&buffer);
     try writePackedMessageToWriter(allocator, &writer, &segments);
     const packed_bytes = std.Io.Writer.buffered(&writer);
+    const packed_message_size = try packedMessageSize(allocator, &segments);
+    try testing.expectEqual(packed_bytes.len, packed_message_size);
+    var size_table_buffer: [16]u8 = undefined;
+    try testing.expectEqual(packed_bytes.len, try packedMessageSizeWithTableBuffer(&size_table_buffer, &segments));
 
     const unpacked = try packing.unpack(allocator, packed_bytes);
     defer allocator.free(unpacked);
@@ -964,6 +995,7 @@ test "packed stream framing writes directly to Io writer" {
     const packed_message_max = try maxPackedMessageSize(&segments);
     try testing.expect(packed_message_max >= packed_bytes.len);
     const packed_into_len = try messageToPackedBytesInto(&packed_into_table_buffer, &packed_into_buffer, &segments);
+    try testing.expectEqual(packed_message_size, packed_into_len);
     try testing.expect(packed_message_max >= packed_into_len);
     try testing.expectEqualSlices(u8, std.Io.Writer.buffered(&buffered_writer), packed_into_buffer[0..packed_into_len]);
     var parsed_into = try readPackedMessage(allocator, packed_into_buffer[0..packed_into_len]);

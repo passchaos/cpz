@@ -6675,6 +6675,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".toPackedBytes(@"cpz.allocator");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.packedSize"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader) !usize {{
+        \\        return @"cpz.reader".packedSize(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.packedSizeWithTableBuffer"(@"cpz.reader": *cpz.MessageReader, @"cpz.tableBuffer": []u8) !usize {{
+        \\        return @"cpz.reader".packedSizeWithTableBuffer(@"cpz.tableBuffer");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.maxPackedSize"(@"cpz.reader": *cpz.MessageReader) !usize {{
         \\        return @"cpz.reader".maxPackedSize();
         \\    }}
@@ -6905,6 +6913,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.toPackedBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{
         \\        return @"cpz.builder".toPackedBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.packedSize"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
+        \\        return @"cpz.builder".packedSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.packedSizeWithTableBuffer"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.tableBuffer": []u8) !usize {{
+        \\        return @"cpz.builder".packedSizeWithTableBuffer(@"cpz.tableBuffer");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.maxPackedSize"(@"cpz.builder": *cpz.MessageBuilder) !usize {{

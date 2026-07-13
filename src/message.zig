@@ -350,6 +350,14 @@ pub const OwnedMessageReader = struct {
         return self.reader.toPackedBytes(allocator);
     }
 
+    pub fn packedSize(self: *const OwnedMessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)!usize {
+        return self.reader.packedSize(allocator);
+    }
+
+    pub fn packedSizeWithTableBuffer(self: *const OwnedMessageReader, table_buffer: []u8) (Error || serialize.Error)!usize {
+        return self.reader.packedSizeWithTableBuffer(table_buffer);
+    }
+
     pub fn maxPackedSize(self: *const OwnedMessageReader) (Error || serialize.Error)!usize {
         return self.reader.maxPackedSize();
     }
@@ -563,6 +571,14 @@ pub const MessageReaderView = struct {
 
     pub fn toPackedBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
         return self.reader.toPackedBytes(allocator);
+    }
+
+    pub fn packedSize(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)!usize {
+        return self.reader.packedSize(allocator);
+    }
+
+    pub fn packedSizeWithTableBuffer(self: *const MessageReaderView, table_buffer: []u8) (Error || serialize.Error)!usize {
+        return self.reader.packedSizeWithTableBuffer(table_buffer);
     }
 
     pub fn maxPackedSize(self: *const MessageReaderView) (Error || serialize.Error)!usize {
@@ -1220,6 +1236,14 @@ pub const MessageBuilder = struct {
         return serialize.messageToPackedBytes(self.allocator, try self.segmentsConst());
     }
 
+    pub fn packedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
+        return serialize.packedMessageSize(self.allocator, try self.segmentsConst());
+    }
+
+    pub fn packedSizeWithTableBuffer(self: *MessageBuilder, table_buffer: []u8) (Error || serialize.Error)!usize {
+        return serialize.packedMessageSizeWithTableBuffer(table_buffer, try self.segmentsConst());
+    }
+
     pub fn maxPackedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
         return serialize.maxPackedMessageSize(try self.segmentsConst());
     }
@@ -1493,6 +1517,14 @@ pub const MessageReader = struct {
 
     pub fn toPackedBytes(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
         return serialize.messageToPackedBytes(allocator, self.segments);
+    }
+
+    pub fn packedSize(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)!usize {
+        return serialize.packedMessageSize(allocator, self.segments);
+    }
+
+    pub fn packedSizeWithTableBuffer(self: *const MessageReader, table_buffer: []u8) (Error || serialize.Error)!usize {
+        return serialize.packedMessageSizeWithTableBuffer(table_buffer, self.segments);
     }
 
     pub fn maxPackedSize(self: *const MessageReader) (Error || serialize.Error)!usize {
@@ -3610,9 +3642,12 @@ test "message builder serializes flat, packed, and canonical bytes directly" {
     const packed_bytes = try builder.toPackedBytes();
     defer testing.allocator.free(packed_bytes);
     try testing.expect((try builder.maxPackedSize()) >= packed_bytes.len);
+    try testing.expectEqual(packed_bytes.len, try builder.packedSize());
     var builder_packed_table_buffer: [8]u8 = undefined;
+    try testing.expectEqual(packed_bytes.len, try builder.packedSizeWithTableBuffer(&builder_packed_table_buffer));
     var builder_packed_buffer: [128]u8 = undefined;
     const builder_packed_len = try builder.toPackedBytesInto(&builder_packed_table_buffer, &builder_packed_buffer);
+    try testing.expectEqual(packed_bytes.len, builder_packed_len);
     var builder_packed_parsed = try serialize.readPackedMessage(testing.allocator, builder_packed_buffer[0..builder_packed_len]);
     defer builder_packed_parsed.deinit(testing.allocator);
     try testing.expectEqualSlices(u8, flat, builder_packed_parsed.bytes);
@@ -3676,9 +3711,12 @@ test "owned message readers parse flat and packed bytes" {
     const owned_packed_bytes = try owned_flat.toPackedBytes(testing.allocator);
     defer testing.allocator.free(owned_packed_bytes);
     try testing.expect((try owned_flat.maxPackedSize()) >= owned_packed_bytes.len);
+    try testing.expectEqual(owned_packed_bytes.len, try owned_flat.packedSize(testing.allocator));
     var owned_packed_into_table: [8]u8 = undefined;
+    try testing.expectEqual(owned_packed_bytes.len, try owned_flat.packedSizeWithTableBuffer(&owned_packed_into_table));
     var owned_packed_into_buffer: [128]u8 = undefined;
     const owned_packed_into_len = try owned_flat.toPackedBytesInto(&owned_packed_into_table, &owned_packed_into_buffer);
+    try testing.expectEqual(owned_packed_bytes.len, owned_packed_into_len);
     var owned_packed_into = try serialize.readPackedMessage(testing.allocator, owned_packed_into_buffer[0..owned_packed_into_len]);
     defer owned_packed_into.deinit(testing.allocator);
     try testing.expectEqualSlices(u8, flat, owned_packed_into.bytes);
@@ -3853,11 +3891,15 @@ test "message reader views parse flat bytes without copying message data" {
     var view_packed_write_buffer: [128]u8 = undefined;
     var view_packed_writer = std.Io.Writer.fixed(&view_packed_write_buffer);
     try view.writePackedToWriter(testing.allocator, &view_packed_writer);
-    try testing.expect((try view.maxPackedSize()) >= std.Io.Writer.buffered(&view_packed_writer).len);
+    const view_packed_bytes = std.Io.Writer.buffered(&view_packed_writer);
+    try testing.expect((try view.maxPackedSize()) >= view_packed_bytes.len);
+    try testing.expectEqual(view_packed_bytes.len, try view.packedSize(testing.allocator));
     var view_packed_into_table: [8]u8 = undefined;
+    try testing.expectEqual(view_packed_bytes.len, try view.packedSizeWithTableBuffer(&view_packed_into_table));
     var view_packed_into_buffer: [128]u8 = undefined;
     const view_packed_into_len = try view.toPackedBytesInto(&view_packed_into_table, &view_packed_into_buffer);
-    try testing.expectEqualSlices(u8, std.Io.Writer.buffered(&view_packed_writer), view_packed_into_buffer[0..view_packed_into_len]);
+    try testing.expectEqual(view_packed_bytes.len, view_packed_into_len);
+    try testing.expectEqualSlices(u8, view_packed_bytes, view_packed_into_buffer[0..view_packed_into_len]);
     var view_packed_table_buffer: [8]u8 = undefined;
     var view_packed_no_alloc_buffer: [128]u8 = undefined;
     var view_packed_no_alloc_writer = std.Io.Writer.fixed(&view_packed_no_alloc_buffer);
