@@ -573,6 +573,11 @@ test "generated reader and builder accessors compile and round-trip" {
     var packed_writer = std.Io.Writer.fixed(&packed_writer_buffer);
     try generated.Person.@"cpz.builderRoot.writePackedToWriter"(&builder, &packed_writer);
     try std.testing.expect(std.Io.Writer.buffered(&packed_writer).len > 0);
+    var packed_table_buffer: [64]u8 = undefined;
+    var packed_no_alloc_buffer: [256]u8 = undefined;
+    var packed_no_alloc_writer = std.Io.Writer.fixed(&packed_no_alloc_buffer);
+    try generated.Person.@"cpz.builderRoot.writePackedToWriterWithTableBuffer"(&builder, &packed_table_buffer, &packed_no_alloc_writer);
+    try std.testing.expectEqualSlices(u8, std.Io.Writer.buffered(&packed_writer), std.Io.Writer.buffered(&packed_no_alloc_writer));
     const canonical_root_bytes = try generated.Person.@"cpz.builderRoot.toCanonicalSegmentBytes"(&builder, .{});
     defer std.testing.allocator.free(canonical_root_bytes);
     try std.testing.expect(canonical_root_bytes.len > 0);
@@ -782,6 +787,11 @@ test "generated reader and builder accessors compile and round-trip" {
     var reader_packed_writer = std.Io.Writer.fixed(&reader_packed_buffer);
     try generated.Person.@"cpz.root.writePackedToWriter"(std.testing.allocator, &reader, &reader_packed_writer);
     try std.testing.expect(std.Io.Writer.buffered(&reader_packed_writer).len > 0);
+    var reader_packed_table_buffer: [64]u8 = undefined;
+    var reader_packed_no_alloc_buffer: [2048]u8 = undefined;
+    var reader_packed_no_alloc_writer = std.Io.Writer.fixed(&reader_packed_no_alloc_buffer);
+    try generated.Person.@"cpz.root.writePackedToWriterWithTableBuffer"(&reader, &reader_packed_table_buffer, &reader_packed_no_alloc_writer);
+    try std.testing.expectEqualSlices(u8, std.Io.Writer.buffered(&reader_packed_writer), std.Io.Writer.buffered(&reader_packed_no_alloc_writer));
     var validating_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(@as(usize, 8 * 1024 * 1024), generated.Person.@"cpz.root.traversalLimitWords"(&validating_reader));
     try std.testing.expectEqual(@as(u16, 64), generated.Person.@"cpz.root.nestingLimit"(&validating_reader));

@@ -184,6 +184,18 @@ pub fn writePackedMessageToWriter(allocator: std.mem.Allocator, writer: *std.Io.
     }
 }
 
+/// Write packed stream framing directly to an Io writer using caller-provided
+/// scratch space for the segment table. This avoids allocator traffic on the
+/// packed writer path while still streaming table and segment chunks.
+pub fn writePackedMessageToWriterWithTableBuffer(table_buffer: []u8, writer: *std.Io.Writer, segments: []const ConstSegment) (Error || std.Io.Writer.Error)!void {
+    _ = try computeSerializedSize(segments);
+    const table_len = try writeSegmentTable(table_buffer, segments);
+    try packing.packToWriter(writer, table_buffer[0..table_len]);
+    for (segments) |segment| {
+        try packing.packToWriter(writer, segment);
+    }
+}
+
 /// Parse a flat serialized message and copy exactly the consumed message bytes.
 /// Extra trailing data is allowed and reported via `consumed_len`.
 pub fn readFlatMessage(allocator: std.mem.Allocator, bytes: []const u8) Error!FlatMessage {
@@ -632,6 +644,16 @@ test "packed stream framing writes directly to Io writer" {
     defer parsed.deinit(allocator);
     try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
     try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
+
+    var table_buffer: [16]u8 = undefined;
+    var buffered_writer_storage: [256]u8 = undefined;
+    var buffered_writer = std.Io.Writer.fixed(&buffered_writer_storage);
+    try writePackedMessageToWriterWithTableBuffer(&table_buffer, &buffered_writer, &segments);
+    try testing.expectEqualSlices(u8, packed_bytes, std.Io.Writer.buffered(&buffered_writer));
+    var short_table_buffer: [8]u8 = undefined;
+    var short_table_writer_storage: [256]u8 = undefined;
+    var short_table_writer = std.Io.Writer.fixed(&short_table_writer_storage);
+    try testing.expectError(error.SegmentTableTruncated, writePackedMessageToWriterWithTableBuffer(&short_table_buffer, &short_table_writer, &segments));
 }
 
 test "packed stream framing reads one message from Io reader" {

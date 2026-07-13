@@ -358,6 +358,10 @@ pub const OwnedMessageReader = struct {
         return self.reader.writePackedToWriter(allocator, writer);
     }
 
+    pub fn writePackedToWriterWithTableBuffer(self: *const OwnedMessageReader, table_buffer: []u8, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return self.reader.writePackedToWriterWithTableBuffer(table_buffer, writer);
+    }
+
     pub fn toCanonicalSegmentBytes(self: *const OwnedMessageReader, allocator: std.mem.Allocator) Error![]u8 {
         return self.reader.toCanonicalSegmentBytes(allocator);
     }
@@ -527,6 +531,10 @@ pub const MessageReaderView = struct {
 
     pub fn writePackedToWriter(self: *const MessageReaderView, allocator: std.mem.Allocator, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
         return self.reader.writePackedToWriter(allocator, writer);
+    }
+
+    pub fn writePackedToWriterWithTableBuffer(self: *const MessageReaderView, table_buffer: []u8, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return self.reader.writePackedToWriterWithTableBuffer(table_buffer, writer);
     }
 
     pub fn toCanonicalSegmentBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) Error![]u8 {
@@ -1050,6 +1058,10 @@ pub const MessageBuilder = struct {
         return serialize.writePackedMessageToWriter(self.allocator, writer, try self.segmentsConst());
     }
 
+    pub fn writePackedToWriterWithTableBuffer(self: *MessageBuilder, table_buffer: []u8, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return serialize.writePackedMessageToWriterWithTableBuffer(table_buffer, writer, try self.segmentsConst());
+    }
+
     pub fn toCanonicalSegmentBytes(self: *MessageBuilder, options: ReaderOptions) Error![]u8 {
         var reader = MessageReader.init(try self.segmentsConst(), options);
         return messageToCanonicalSegmentBytes(self.allocator, &reader);
@@ -1311,6 +1323,10 @@ pub const MessageReader = struct {
 
     pub fn writePackedToWriter(self: *const MessageReader, allocator: std.mem.Allocator, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
         return serialize.writePackedMessageToWriter(allocator, writer, self.segments);
+    }
+
+    pub fn writePackedToWriterWithTableBuffer(self: *const MessageReader, table_buffer: []u8, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return serialize.writePackedMessageToWriterWithTableBuffer(table_buffer, writer, self.segments);
     }
 
     pub fn toCanonicalSegmentBytes(self: *const MessageReader, allocator: std.mem.Allocator) Error![]u8 {
@@ -3324,6 +3340,11 @@ test "owned message readers parse flat and packed bytes" {
     var owned_packed_write_buffer: [128]u8 = undefined;
     var owned_packed_writer = std.Io.Writer.fixed(&owned_packed_write_buffer);
     try owned_flat.writePackedToWriter(testing.allocator, &owned_packed_writer);
+    var owned_packed_table_buffer: [8]u8 = undefined;
+    var owned_packed_no_alloc_buffer: [128]u8 = undefined;
+    var owned_packed_no_alloc_writer = std.Io.Writer.fixed(&owned_packed_no_alloc_buffer);
+    try owned_flat.writePackedToWriterWithTableBuffer(&owned_packed_table_buffer, &owned_packed_no_alloc_writer);
+    try testing.expectEqualSlices(u8, std.Io.Writer.buffered(&owned_packed_writer), std.Io.Writer.buffered(&owned_packed_no_alloc_writer));
     var owned_packed_stream = try serialize.readPackedMessage(testing.allocator, std.Io.Writer.buffered(&owned_packed_writer));
     defer owned_packed_stream.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_packed_stream.consumed_len);
@@ -3448,6 +3469,11 @@ test "message reader views parse flat bytes without copying message data" {
     var view_packed_write_buffer: [128]u8 = undefined;
     var view_packed_writer = std.Io.Writer.fixed(&view_packed_write_buffer);
     try view.writePackedToWriter(testing.allocator, &view_packed_writer);
+    var view_packed_table_buffer: [8]u8 = undefined;
+    var view_packed_no_alloc_buffer: [128]u8 = undefined;
+    var view_packed_no_alloc_writer = std.Io.Writer.fixed(&view_packed_no_alloc_buffer);
+    try view.writePackedToWriterWithTableBuffer(&view_packed_table_buffer, &view_packed_no_alloc_writer);
+    try testing.expectEqualSlices(u8, std.Io.Writer.buffered(&view_packed_writer), std.Io.Writer.buffered(&view_packed_no_alloc_writer));
     var view_packed_stream = try serialize.readPackedMessage(testing.allocator, std.Io.Writer.buffered(&view_packed_writer));
     defer view_packed_stream.deinit(testing.allocator);
     try testing.expectEqual(flat.len, view_packed_stream.consumed_len);
@@ -3502,6 +3528,11 @@ test "message builder writes flat and packed streams directly" {
     var packed_buffer: [128]u8 = undefined;
     var packed_writer = std.Io.Writer.fixed(&packed_buffer);
     try builder.writePackedToWriter(&packed_writer);
+    var packed_table_buffer: [8]u8 = undefined;
+    var packed_no_alloc_buffer: [128]u8 = undefined;
+    var packed_no_alloc_writer = std.Io.Writer.fixed(&packed_no_alloc_buffer);
+    try builder.writePackedToWriterWithTableBuffer(&packed_table_buffer, &packed_no_alloc_writer);
+    try testing.expectEqualSlices(u8, std.Io.Writer.buffered(&packed_writer), std.Io.Writer.buffered(&packed_no_alloc_writer));
     var parsed = try serialize.readPackedMessage(testing.allocator, std.Io.Writer.buffered(&packed_writer));
     defer parsed.deinit(testing.allocator);
     var reader = MessageReader.init(parsed.segments, .{});
