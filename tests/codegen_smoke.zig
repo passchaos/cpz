@@ -443,6 +443,19 @@ test "generated root move and copy helpers work" {
     try std.testing.expect(orphan.isNull());
     const moved_person = try generated.Person.getRootTyped(&move_builder);
     try std.testing.expectEqual(@as(u32, 3030), try moved_person.get_id());
+
+    var typed_move_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer typed_move_builder.deinit();
+    const typed_move_person = try generated.Person.initRootTyped(&typed_move_builder);
+    try typed_move_person.set_id(4040);
+    var typed_orphan = try generated.Person.@"cpz.root.disownTyped"(&typed_move_builder);
+    try std.testing.expect(try generated.Person.@"cpz.root.isNull"(&typed_move_builder));
+    const orphan_builder = try typed_orphan.get();
+    try std.testing.expectEqual(@as(u32, 4040), try orphan_builder.get_id());
+    _ = try generated.Person.@"cpz.root.adoptTyped"(&typed_move_builder, &typed_orphan);
+    try std.testing.expect(typed_orphan.isNull());
+    const typed_moved_person = try generated.Person.getRootTyped(&typed_move_builder);
+    try std.testing.expectEqual(@as(u32, 4040), try typed_moved_person.get_id());
 }
 
 test "generated accessors honor scalar defaults" {

@@ -4784,6 +4784,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".adoptRoot(@"cpz.orphan");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.disownTyped"(@"cpz.builder": *cpz.MessageBuilder) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.builder".disownRoot());
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.adoptTyped"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.orphan": *Orphan) !cpz.PointerBuilder {{
+        \\        return @"cpz.builder".adoptRoot(&@"cpz.orphan".orphan);
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.copyFrom"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": *cpz.MessageReader) !Builder {{
         \\        return Builder.fromBuilder(try @"cpz.builder".copyRootFrom(@"cpz.source"));
         \\    }}
