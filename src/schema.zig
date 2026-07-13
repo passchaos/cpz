@@ -5569,6 +5569,16 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     }
     try out.appendSlice(allocator, "};\n");
     try out.appendSlice(allocator,
+        \\    pub fn @"cpz.unionByDiscriminantByte"(@"cpz.byte": usize) ?cpz.schema.UnionMetadata {
+        \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".discriminant_byte == @"cpz.byte") return @"cpz.union";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.unionByPointer"(@"cpz.pointer": usize) ?cpz.schema.UnionMetadata {
+        \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".pointer != null and @"cpz.union".pointer.? == @"cpz.pointer") return @"cpz.union";
+        \\        return null;
+        \\    }
+        \\
         \\    pub fn @"cpz.unionByIndex"(@"cpz.index": u32) ?cpz.schema.UnionMetadata {
         \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".index == @"cpz.index") return @"cpz.union";
         \\        return null;
