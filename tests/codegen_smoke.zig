@@ -362,6 +362,12 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("12345", generated.@"cpz.consts"[0].literal);
+    try std.testing.expect(generated.@"cpz.consts"[0].matchesName("globalId"));
+    try std.testing.expect(generated.@"cpz.consts"[0].matchesType("UInt32"));
+    try std.testing.expect(generated.@"cpz.consts"[8].matchesResolvedType("List(Text)"));
+    try std.testing.expect(generated.@"cpz.consts"[0].matchesLiteral("12345"));
+    try std.testing.expect(generated.@"cpz.consts"[0].matchesAnnotations("$schemaNote(\"global-id\")"));
+    try std.testing.expect(!generated.@"cpz.consts"[0].matchesName("missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.index");
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.const.globalId.metadata".name);
     try std.testing.expectEqualStrings("12345", generated.@"cpz.const.globalId.metadata".literal);

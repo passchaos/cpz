@@ -127,6 +127,26 @@ pub const ConstMetadata = struct {
     list_item_count: usize = 0,
     list_items: []const ConstListItem = &.{},
 
+    pub fn matchesName(self: ConstMetadata, const_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, const_name);
+    }
+
+    pub fn matchesType(self: ConstMetadata, const_type: []const u8) bool {
+        return std.mem.eql(u8, self.ty, const_type);
+    }
+
+    pub fn matchesResolvedType(self: ConstMetadata, const_type: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_ty, const_type);
+    }
+
+    pub fn matchesLiteral(self: ConstMetadata, const_literal: []const u8) bool {
+        return std.mem.eql(u8, self.literal, const_literal);
+    }
+
+    pub fn matchesAnnotations(self: ConstMetadata, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
+    }
+
     pub fn listItemByIndex(self: ConstMetadata, item_index: usize) ?ConstListItem {
         if (item_index >= self.list_items.len) return null;
         return self.list_items[item_index];
