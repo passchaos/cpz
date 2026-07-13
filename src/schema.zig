@@ -2510,6 +2510,9 @@ pub const Parser = struct {
             child.* = try self.parseType();
             return .{ .optional = child };
         }
+        if (self.isKeyword("import")) {
+            return self.parseInlineImportType();
+        }
         const first = self.lookahead;
         const name = try self.expectIdentifier();
         if (std.mem.eql(u8, name, "List")) {
@@ -2560,6 +2563,45 @@ pub const Parser = struct {
             }
         }
         return last_end;
+    }
+
+    fn parseInlineImportType(self: *Parser) Error!Type {
+        try self.advance();
+        if (self.lookahead.tag != .string) return error.UnexpectedToken;
+        const path = self.lookahead.lexeme;
+        try self.advance();
+        try self.expect(.dot);
+
+        const first = self.lookahead;
+        _ = try self.expectIdentifier();
+        var end = first.end;
+        if (try self.skipTypeApplications()) |app_end| end = app_end;
+        while (self.lookahead.tag == .dot) {
+            try self.expect(.dot);
+            const part = self.lookahead;
+            _ = try self.expectIdentifier();
+            end = part.end;
+            if (try self.skipTypeApplications()) |app_end| end = app_end;
+        }
+
+        const member = self.lexer.source[first.start..end];
+        const name = anonymousAliasName(.{ .named = member }) orelse return error.UnexpectedToken;
+        try self.recordInlineImport(name, path, member);
+        return .{ .named = name };
+    }
+
+    fn recordInlineImport(self: *Parser, name: []const u8, path: []const u8, member: []const u8) Error!void {
+        const imports = self.parsed_imports orelse return;
+        for (imports.items) |import_decl| {
+            if (!std.mem.eql(u8, import_decl.name, name)) continue;
+            if (std.mem.eql(u8, import_decl.path, path) and import_decl.member != null and std.mem.eql(u8, import_decl.member.?, member)) return;
+            return error.NameCollision;
+        }
+        if (self.parsed_decl_names) |decl_names| {
+            const entry = try decl_names.getOrPut(name);
+            if (entry.found_existing) return error.NameCollision;
+        }
+        try imports.append(self.allocator, .{ .name = name, .path = path, .member = member });
     }
 
     fn scalarOrNamed(name: []const u8) Type {
@@ -9699,6 +9741,30 @@ test "schema code generator emits external import type references" {
     try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"Shared\").Shared.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @import(\"Other\").External.fromReader(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @import(\"Other\").External.size)") != null);
+}
+
+test "schema code generator records inline import type references" {
+    const source =
+        \\struct Holder {
+        \\  external @0 :import "other.capnp".External;
+        \\  externalList @1 :List(import "other.capnp".External);
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), file.imports.len);
+    try std.testing.expectEqualStrings("External", file.imports[0].name);
+    try std.testing.expectEqualStrings("other.capnp", file.imports[0].path);
+    try std.testing.expectEqualStrings("External", file.imports[0].member.?);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "@import(\"External\").External.fromReader") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"External\").External.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @import(\"External\").External.size)") != null);
 }
 
 test "schema code generator lowers generic type parameters to pointer accessors" {

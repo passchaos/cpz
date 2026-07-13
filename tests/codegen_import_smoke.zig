@@ -81,6 +81,13 @@ test "generated schemas reference imported modules" {
     const list_extra = try extras_builder.get(0);
     try list_extra.set_code(654);
     try list_extra.set_label("Anonymous import list extra");
+    const direct_child_builder = try holder_builder.init_directChild();
+    try direct_child_builder.set_id(888);
+    try direct_child_builder.set_name("Direct inline import child");
+    const direct_children_builder = try holder_builder.init_directChildren(1);
+    const direct_list_child = try direct_children_builder.get(0);
+    try direct_list_child.set_id(889);
+    try direct_list_child.set_name("Direct inline import list child");
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const holder = try generated.Holder.getRoot(&reader);
@@ -101,6 +108,13 @@ test "generated schemas reference imported modules" {
     const read_list_extra = try extras.get(0);
     try std.testing.expectEqual(@as(u16, 654), read_list_extra.code());
     try std.testing.expectEqualSlices(u8, "Anonymous import list extra", try read_list_extra.label());
+    const direct_child = try holder.directChild();
+    try std.testing.expectEqual(@as(u32, 888), direct_child.id());
+    try std.testing.expectEqualSlices(u8, "Direct inline import child", try direct_child.name());
+    const direct_children = try holder.directChildren();
+    const read_direct_child = try direct_children.get(0);
+    try std.testing.expectEqual(@as(u32, 889), read_direct_child.id());
+    try std.testing.expectEqualSlices(u8, "Direct inline import list child", try read_direct_child.name());
 }
 
 test "generated schemas reference scoped imported modules" {

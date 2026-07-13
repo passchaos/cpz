@@ -10,6 +10,8 @@ struct Holder {
   shared @2 :Child;
   extra @3 :Extra;
   extras @4 :List(Extra);
+  directChild @5 :import "schema_import_base.capnp".Child;
+  directChildren @6 :List(import "schema_import_base.capnp".Child);
 }
 
 struct ScopedImportHolder {
