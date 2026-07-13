@@ -218,6 +218,7 @@ pub const DeclarationMetadata = struct {
     kind: DeclarationKind,
     id: ?u64 = null,
     annotations: []const u8 = "",
+    parameter_count: usize = 0,
     parameters: []const []const u8 = &.{},
 };
 
@@ -4597,8 +4598,9 @@ fn emitDeclarationMetadataConstants(
     }
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.declaration.{s}.annotations": []const u8 = {s};
+        \\{s}pub const @"cpz.declaration.{s}.parameterCount": usize = {};
         \\{s}pub const @"cpz.declaration.{s}.parameters": []const []const u8 = 
-    , .{ indent, decl_name, annotations_literal, indent, decl_name });
+    , .{ indent, decl_name, annotations_literal, indent, decl_name, parameters.len, indent, decl_name });
     try appendParameterListLiteral(allocator, out, parameters);
     try out.appendSlice(allocator, ";\n\n");
 }
@@ -4620,6 +4622,7 @@ fn appendDeclarationMetadataLiteral(
     try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .kind = .{s}", .{ index, name_literal, kind });
     if (id) |value| try appendFmt(allocator, out, ", .id = 0x{x}", .{value});
     if (annotations.len != 0) try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
+    if (parameters.len != 0) try appendFmt(allocator, out, ", .parameter_count = {}", .{parameters.len});
     if (parameters.len != 0) {
         try out.appendSlice(allocator, ", .parameters = ");
         try appendParameterListLiteral(allocator, out, parameters);
