@@ -83,6 +83,12 @@ test "generated simple constants compile" {
     try std.testing.expectEqualSlices(u8, "beta", generated.globalNames[1]);
     try std.testing.expectEqualSlices(u8, "delta", generated.globalNamesAlias[1]);
     try std.testing.expectEqual(generated.Color.blue, generated.globalShades[1]);
+    try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.consts".len);
+    try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.consts"[0].name);
+    try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.consts"[0].ty);
+    try std.testing.expectEqualStrings("99", generated.Person.@"cpz.consts"[0].literal);
+    try std.testing.expectEqualStrings("[7, 8, 9]", generated.Person.@"cpz.consts"[3].literal);
+    try std.testing.expectEqualStrings("8", generated.Person.@"cpz.consts"[3].list_items[1].literal);
     try std.testing.expectEqual(@as(u16, 99), generated.Person.defaultAge);
     try std.testing.expectEqualSlices(u8, "nested const", generated.Person.defaultAlias);
     try std.testing.expectEqual(generated.Color.red, generated.Person.defaultColor);
@@ -1387,6 +1393,12 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.Details == generated.ExtendedService_Details);
     try std.testing.expect(generated.ExtendedService.Callback == generated.ExtendedService_Callback);
     try std.testing.expect(generated.ExtendedService.DetailsAlias == generated.ExtendedService_Details);
+    try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.consts".len);
+    try std.testing.expectEqualStrings("defaultLimit", generated.ExtendedService.@"cpz.consts"[0].name);
+    try std.testing.expectEqualStrings("UInt16", generated.ExtendedService.@"cpz.consts"[0].ty);
+    try std.testing.expectEqualStrings("12", generated.ExtendedService.@"cpz.consts"[0].literal);
+    try std.testing.expectEqualStrings("defaultLabel", generated.ExtendedService.@"cpz.consts"[1].name);
+    try std.testing.expectEqualStrings("extended", generated.ExtendedService.@"cpz.consts"[1].literal);
     try std.testing.expectEqual(@as(u16, 12), generated.ExtendedService.defaultLimit);
     try std.testing.expectEqualSlices(u8, "extended", generated.ExtendedService.defaultLabel);
     try std.testing.expect(generated.ExtendedService_detailNote.@"cpz.annotation");

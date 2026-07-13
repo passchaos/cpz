@@ -3721,6 +3721,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     for (decl.consts) |*nested_const| {
         try emitNestedConst(allocator, out, file, &alias_scope, nested_const);
     }
+    try emitConstMetadataTable(allocator, out, decl.consts, "    ");
     try appendInterfaceMethodTable(allocator, out, decl.methods, "    ");
     for (decl.methods) |method| {
         const method_name = try zigIdentAlloc(allocator, method.name);
@@ -4340,6 +4341,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         try emitNestedConst(allocator, out, file, layout.decl, decl);
     }
 
+    try emitConstMetadataTable(allocator, out, layout.decl.consts, "    ");
     try emitStructFieldMetadata(allocator, out, layout);
 
     try appendFmt(allocator, out,
