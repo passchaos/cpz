@@ -1460,9 +1460,10 @@ test "generated struct list builders can copy elements from readers" {
     var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer target_builder.deinit();
     const target_person_builder = try generated.Person.initRootTyped(&target_builder);
-    const children = try target_person_builder.init_children(2);
+    const children = try target_person_builder.init_children(3);
     try children.set(0, source_person);
     try children.copyFrom(1, source_children, 0);
+    try children.copyFromBuilder(2, source_children_builder, 0);
 
     var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
     const target_person = generated.Person.fromReader(try target_reader.getRoot());
@@ -1473,6 +1474,9 @@ test "generated struct list builders can copy elements from readers" {
     const copied_child = try read_children.get(1);
     try std.testing.expectEqual(@as(u32, 654), copied_child.id());
     try std.testing.expectEqualSlices(u8, "ElementCopy", try copied_child.name());
+    const copied_builder_child = try read_children.get(2);
+    try std.testing.expectEqual(@as(u32, 654), copied_builder_child.id());
+    try std.testing.expectEqualSlices(u8, "ElementCopy", try copied_builder_child.name());
 }
 
 test "generated builders can copy whole list fields from readers" {

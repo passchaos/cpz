@@ -2868,6 +2868,11 @@ pub const ListBuilder = struct {
         }
     }
 
+    pub fn copyElementFromBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyElementFrom(index, source.asReader(&reader), source_index);
+    }
+
     fn setPrimitive(self: ListBuilder, comptime T: type, index: usize, value: T) Error!void {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
@@ -4028,20 +4033,29 @@ test "builders can copy individual list elements from readers" {
     const target_people = try (try target_root.getPointerField(3)).initStructList(2, .{ .data_words = 1, .pointer_count = 1 });
 
     try target_ints.copyElementFrom(0, try read_source_root.getPointerField(0).getList(.four_bytes), 1);
+    try target_ints.copyElementFromBuilder(1, source_ints, 0);
     try target_bits.copyElementFrom(1, try read_source_root.getPointerField(1).getList(.bit), 0);
     try target_names.copyElementFrom(0, try read_source_root.getPointerField(2).getList(.pointer), 1);
+    try target_names.copyElementFromBuilder(1, source_names, 0);
     try target_people.copyElementFrom(0, try read_source_root.getPointerField(3).getList(.composite), 1);
+    try target_people.copyElementFromBuilder(1, source_people, 1);
     try testing.expectError(error.IncompatibleListShape, target_ints.copyElementFrom(1, try read_source_root.getPointerField(1).getList(.bit), 0));
     try testing.expectError(error.PointerOutOfBounds, target_ints.copyElementFrom(2, try read_source_root.getPointerField(0).getList(.four_bytes), 0));
 
     var target_reader = MessageReader.init(try target_builder.segmentsConst(), .{});
     const read_target_root = try target_reader.getRoot();
     try testing.expectEqual(@as(u32, 200), (try read_target_root.getPointerField(0).getList(.four_bytes)).getUInt32(0));
+    try testing.expectEqual(@as(u32, 100), (try read_target_root.getPointerField(0).getList(.four_bytes)).getUInt32(1));
     try testing.expect((try read_target_root.getPointerField(1).getList(.bit)).getBool(1));
-    try testing.expectEqualSlices(u8, "one", try (try (try read_target_root.getPointerField(2).getList(.pointer)).getPointerElement(0)).getText());
+    const read_names = try read_target_root.getPointerField(2).getList(.pointer);
+    try testing.expectEqualSlices(u8, "one", try (try read_names.getPointerElement(0)).getText());
+    try testing.expectEqualSlices(u8, "zero", try (try read_names.getPointerElement(1)).getText());
     const read_person = try (try read_target_root.getPointerField(3).getList(.composite)).getStructElement(0);
     try testing.expectEqual(@as(u32, 321), read_person.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "copied element", try read_person.getPointerField(0).getText());
+    const read_person_from_builder = try (try read_target_root.getPointerField(3).getList(.composite)).getStructElement(1);
+    try testing.expectEqual(@as(u32, 321), read_person_from_builder.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "copied element", try read_person_from_builder.getPointerField(0).getText());
 }
 
 test "pointer builders can disown and adopt within a message" {
