@@ -239,6 +239,7 @@ pub const MethodField = struct {
     index: usize = 0,
     name: []const u8,
     ty: []const u8,
+    resolved_ty: []const u8 = "",
     default_literal: ?[]const u8 = null,
     has_explicit_default: bool = false,
     annotations: []const u8 = "",
@@ -3936,8 +3937,8 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\
         , .{ method_name, method.is_streaming });
         try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
-        try appendMethodFieldMetadata(allocator, out, method_name, "params", method.param_fields, "    ");
-        try appendMethodFieldMetadata(allocator, out, method_name, "results", method.result_fields, "    ");
+        try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "params", method.param_fields, "    ");
+        try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "results", method.result_fields, "    ");
     }
     try appendFmt(allocator, out,
         \\}};
@@ -4135,7 +4136,7 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
     try emitParameterLookupHelpers(allocator, out, method_parameters_name, indent);
 }
 
-fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
+fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.method.{s}.{s}.fieldCount": usize = {};
         \\
@@ -4147,12 +4148,17 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         defer allocator.free(name_literal);
         const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
         defer allocator.free(type_literal);
+        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, field.ty);
+        defer allocator.free(resolved_type_name);
+        const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
+        defer allocator.free(resolved_type_literal);
         try appendFmt(allocator, out,
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.index": usize = {};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.name": []const u8 = {s};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.type": []const u8 = {s};
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.resolvedType": []const u8 = {s};
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.default": ?[]const u8 = 
-        , .{ indent, method_name, kind, field_name, field.index, indent, method_name, kind, field_name, name_literal, indent, method_name, kind, field_name, type_literal, indent, method_name, kind, field_name });
+        , .{ indent, method_name, kind, field_name, field.index, indent, method_name, kind, field_name, name_literal, indent, method_name, kind, field_name, type_literal, indent, method_name, kind, field_name, resolved_type_literal, indent, method_name, kind, field_name });
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
@@ -4175,16 +4181,20 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         defer allocator.free(name_literal);
         const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
         defer allocator.free(type_literal);
+        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, field.ty);
+        defer allocator.free(resolved_type_name);
+        const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
+        defer allocator.free(resolved_type_literal);
         const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         if (field.default_literal) |default_raw| {
             const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .default_literal = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, default_literal, field.has_explicit_default, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .default_literal = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, default_literal, field.has_explicit_default, annotations_literal });
         } else if (field.annotations.len != 0) {
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, field.has_explicit_default, annotations_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, field.has_explicit_default, annotations_literal });
         } else {
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .has_explicit_default = {} }}", .{ field.index, name_literal, type_literal, field.has_explicit_default });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .has_explicit_default = {} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, field.has_explicit_default });
         }
     }
     try out.appendSlice(allocator, "};\n");
@@ -4268,6 +4278,16 @@ fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         decl.targets.param,
         decl.targets.annotation_decl,
     });
+}
+
+fn methodFieldResolvedTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const InterfaceDecl, raw: []const u8) LayoutError![]u8 {
+    const source = try std.fmt.allocPrint(allocator, "struct T {{ f @0 :{s}; }}", .{raw});
+    defer allocator.free(source);
+    var parsed = try parse(allocator, source);
+    defer parsed.deinit(allocator);
+    if (parsed.structs.len == 0 or parsed.structs[0].fields.len == 0) return error.UnexpectedToken;
+    const owner_name = if (scope) |decl| decl.name else null;
+    return schemaResolvedTypeNameInOwnerScopeAlloc(allocator, file, owner_name, parsed.structs[0].fields[0].ty);
 }
 
 fn annotationOwnerName(annotation_name: []const u8) ?[]const u8 {

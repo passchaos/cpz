@@ -1971,11 +1971,14 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(1).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByIndex"(99));
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.fields"[0].ty);
+    try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.fields"[0].resolved_ty);
+    try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.params.field.request.resolvedType");
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Service.@"cpz.method.ping.params.fields"[0].default_literal);
     try std.testing.expect(!generated.Service.@"cpz.method.ping.params.fields"[0].has_explicit_default);
     try std.testing.expectEqualStrings("$schemaNote(\"request\")", generated.Service.@"cpz.method.ping.params.fields"[0].annotations);
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields"[1].name);
     try std.testing.expectEqualStrings("UInt32", generated.Service.@"cpz.method.ping.params.fields"[1].ty);
+    try std.testing.expectEqualStrings("UInt32", generated.Service.@"cpz.method.ping.params.fields"[1].resolved_ty);
     try std.testing.expectEqualStrings("3", generated.Service.@"cpz.method.ping.params.fields"[1].default_literal.?);
     try std.testing.expect(generated.Service.@"cpz.method.ping.params.fields"[1].has_explicit_default);
     try std.testing.expect(generated.Service.@"cpz.method.ping.params.fields.fieldByName"("attempts").?.has_explicit_default);
@@ -1993,6 +1996,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByName"("response").?.name);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields.fieldByIndex"(0).?.name);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.results.fields"[0].ty);
+    try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.results.fields"[0].resolved_ty);
     try std.testing.expectEqual(@as(u16, 2), generated.Service.streamIt);
     try std.testing.expectEqualStrings("(chunk :Data) -> stream", generated.Service.@"cpz.method.streamIt.signature");
     try std.testing.expectEqualStrings("(chunk :Data)", generated.Service.@"cpz.method.streamIt.params");
@@ -2084,6 +2088,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
     try std.testing.expectEqualStrings("(details :Details) -> ()", generated.ExtendedService.Callback.@"cpz.method.done.signature");
     try std.testing.expectEqualStrings("(details :Details)", generated.ExtendedService.Callback.@"cpz.method.done.params");
+    try std.testing.expectEqualStrings("Details", generated.ExtendedService.Callback.@"cpz.method.done.params.fields"[0].resolved_ty);
+    try std.testing.expectEqualStrings("Details", generated.ExtendedService.Callback.@"cpz.method.done.params.field.details.resolvedType");
     try std.testing.expectEqualStrings("()", generated.ExtendedService.Callback.@"cpz.method.done.results");
     try std.testing.expectEqualStrings("", generated.ExtendedService.Callback.@"cpz.method.done.annotations");
 }
