@@ -865,6 +865,10 @@ pub const AnnotationMetadata = struct {
         return self.targets.count();
     }
 
+    pub fn matchesTargetCount(self: AnnotationMetadata, count: usize) bool {
+        return self.target_count == count;
+    }
+
     pub fn matchesName(self: AnnotationMetadata, annotation_name: []const u8) bool {
         return std.mem.eql(u8, self.name, annotation_name);
     }
@@ -5572,12 +5576,17 @@ fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.annotationByTargetCount"(@"cpz.count": usize) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (@"cpz.annotation".target_count == @"cpz.count") return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.annotationByIndex"(@"cpz.index": usize) ?cpz.schema.AnnotationMetadata {{
         \\{s}    if (@"cpz.index" >= @This().@"cpz.annotation_decls".len) return null;
         \\{s}    return @This().@"cpz.annotation_decls"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
 fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, index: usize, decl: *const AnnotationDecl, indent: []const u8) LayoutError!void {
