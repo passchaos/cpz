@@ -292,9 +292,17 @@ test "generated reader and builder accessors compile and round-trip" {
     const flat_root_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&builder);
     defer std.testing.allocator.free(flat_root_bytes);
     try std.testing.expect(flat_root_bytes.len > 0);
+    var flat_writer_buffer: [256]u8 = undefined;
+    var flat_writer = std.Io.Writer.fixed(&flat_writer_buffer);
+    try generated.Person.@"cpz.builderRoot.writeToWriter"(&builder, &flat_writer);
+    try std.testing.expectEqualSlices(u8, flat_root_bytes, std.Io.Writer.buffered(&flat_writer));
     const packed_root_bytes = try generated.Person.@"cpz.builderRoot.toPackedBytes"(&builder);
     defer std.testing.allocator.free(packed_root_bytes);
     try std.testing.expect(packed_root_bytes.len > 0);
+    var packed_writer_buffer: [256]u8 = undefined;
+    var packed_writer = std.Io.Writer.fixed(&packed_writer_buffer);
+    try generated.Person.@"cpz.builderRoot.writePackedToWriter"(&builder, &packed_writer);
+    try std.testing.expect(std.Io.Writer.buffered(&packed_writer).len > 0);
     const canonical_root_bytes = try generated.Person.@"cpz.builderRoot.toCanonicalSegmentBytes"(&builder, .{});
     defer std.testing.allocator.free(canonical_root_bytes);
     try std.testing.expect(canonical_root_bytes.len > 0);
