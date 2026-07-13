@@ -297,6 +297,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const flat_root_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&builder);
     defer std.testing.allocator.free(flat_root_bytes);
     try std.testing.expect(flat_root_bytes.len > 0);
+    try std.testing.expectEqual(flat_root_bytes.len, try generated.Person.@"cpz.builderRoot.serializedSize"(&builder));
+    try std.testing.expectEqual(flat_root_bytes.len / @sizeOf(cpz.Word), try generated.Person.@"cpz.builderRoot.serializedSizeInWords"(&builder));
     var flat_writer_buffer: [256]u8 = undefined;
     var flat_writer = std.Io.Writer.fixed(&flat_writer_buffer);
     try generated.Person.@"cpz.builderRoot.writeToWriter"(&builder, &flat_writer);
