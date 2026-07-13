@@ -35,12 +35,17 @@ pub const FlatMessage = struct {
 pub const FlatMessageView = struct {
     /// Segment slices point into caller-owned serialized bytes. The caller must
     /// keep those bytes alive while this view is used.
+    bytes: []const u8,
     segments: []ConstSegment,
     consumed_len: usize,
 
     pub fn deinit(self: *FlatMessageView, allocator: std.mem.Allocator) void {
         allocator.free(self.segments);
         self.* = undefined;
+    }
+
+    pub fn consumedBytes(self: FlatMessageView) []const u8 {
+        return self.bytes[0..self.consumed_len];
     }
 };
 
@@ -181,7 +186,7 @@ pub fn readFlatMessageView(allocator: std.mem.Allocator, bytes: []const u8) Erro
         off += len;
     }
 
-    return .{ .segments = segments, .consumed_len = expected_len };
+    return .{ .bytes = bytes, .segments = segments, .consumed_len = expected_len };
 }
 
 /// Parse a packed Cap'n Proto stream message. The returned FlatMessage owns
@@ -386,6 +391,7 @@ test "flat message view parses without copying segment bytes" {
     var view = try readFlatMessageView(allocator, combined);
     defer view.deinit(allocator);
     try testing.expectEqual(bytes.len, view.consumed_len);
+    try testing.expectEqualSlices(u8, bytes, view.consumedBytes());
     try testing.expectEqual(@as(usize, 1), view.segments.len);
     try testing.expectEqualSlices(u8, &segment, view.segments[0]);
     try testing.expectEqual(@intFromPtr(combined.ptr) + 8, @intFromPtr(view.segments[0].ptr));

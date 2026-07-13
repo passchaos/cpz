@@ -404,6 +404,10 @@ pub const MessageReaderView = struct {
     pub fn consumedLen(self: *const MessageReaderView) usize {
         return self.flat.consumed_len;
     }
+
+    pub fn bytes(self: *const MessageReaderView) []const u8 {
+        return self.flat.consumedBytes();
+    }
 };
 
 pub const BuilderOptions = struct {
@@ -3087,6 +3091,7 @@ test "message reader views parse flat bytes without copying message data" {
     var view = try MessageReaderView.initFlat(testing.allocator, flat_with_trailer, .{});
     defer view.deinit(testing.allocator);
     try testing.expectEqual(flat.len, view.consumedLen());
+    try testing.expectEqualSlices(u8, flat, view.bytes());
     try testing.expectEqual(@as(u32, 6160), (try view.asReader().getRoot()).getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "view", try (try view.asReader().getRoot()).getPointerField(0).getText());
     try testing.expectEqual(@as(u32, 6160), (try view.getRoot()).getUInt32(0, 0));
