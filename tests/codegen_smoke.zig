@@ -356,6 +356,12 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.consts"[6].list_items.len);
     try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].list_items[1].literal);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].list_items[1].index);
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].listItemByIndex(1).?.index);
+    try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].listItemByLiteral("20").?.literal);
+    try std.testing.expectEqualStrings("10", generated.@"cpz.consts"[6].listItemByHexData(false).?.literal);
+    try std.testing.expectEqualStrings("10", generated.@"cpz.consts"[6].listItemByAnnotations("").?.literal);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.consts"[6].listItemByIndex(99));
+    try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.consts"[6].listItemByLiteral("missing"));
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.metadata".list_item_count);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItems".len);
@@ -373,6 +379,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("globalDataItems", generated.@"cpz.consts"[10].name);
     try std.testing.expectEqualStrings("List(Data)", generated.@"cpz.consts"[10].ty);
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalDataItems.listItemCount");
+    try std.testing.expectEqualStrings("aa bb", generated.@"cpz.consts"[10].listItemByHexData(true).?.literal);
+    try std.testing.expectEqualStrings("plain", generated.@"cpz.consts"[10].listItemByHexData(false).?.literal);
     try std.testing.expectEqualStrings("aa bb", generated.@"cpz.const.globalDataItems.listItemByHexData"(true).?.literal);
     try std.testing.expectEqualStrings("plain", generated.@"cpz.const.globalDataItems.listItemByHexData"(false).?.literal);
     try std.testing.expectEqualStrings("aa bb", generated.@"cpz.const.globalDataItems.listItemByAnnotations"("").?.literal);

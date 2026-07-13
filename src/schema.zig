@@ -114,6 +114,26 @@ pub const ConstMetadata = struct {
     annotations: []const u8 = "",
     list_item_count: usize = 0,
     list_items: []const ConstListItem = &.{},
+
+    pub fn listItemByIndex(self: ConstMetadata, item_index: usize) ?ConstListItem {
+        if (item_index >= self.list_items.len) return null;
+        return self.list_items[item_index];
+    }
+
+    pub fn listItemByLiteral(self: ConstMetadata, literal: []const u8) ?ConstListItem {
+        for (self.list_items) |item| if (std.mem.eql(u8, item.literal, literal)) return item;
+        return null;
+    }
+
+    pub fn listItemByHexData(self: ConstMetadata, is_hex: bool) ?ConstListItem {
+        for (self.list_items) |item| if (item.is_hex_data == is_hex) return item;
+        return null;
+    }
+
+    pub fn listItemByAnnotations(self: ConstMetadata, annotations: []const u8) ?ConstListItem {
+        for (self.list_items) |item| if (std.mem.eql(u8, item.annotations, annotations)) return item;
+        return null;
+    }
 };
 
 pub const ImportDecl = struct {
