@@ -377,6 +377,9 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByLiteral"("missing"));
     try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByIndex"(3).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByIndex"(99));
+    try std.testing.expectEqualStrings("globalId", generated.@"cpz.constByListItemCount"(0).?.name);
+    try std.testing.expectEqualStrings("globalScores", generated.@"cpz.constByListItemCount"(3).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByListItemCount"(99));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("12345", generated.@"cpz.consts"[0].literal);
     try std.testing.expect(generated.@"cpz.consts"[0].matchesName("globalId"));
@@ -492,6 +495,9 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByLiteral"("99").?.name);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByEmitted"(true).?.name);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByHexData"(false).?.name);
+    try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByListItemCount"(0).?.name);
+    try std.testing.expectEqualStrings("defaultScores", generated.Person.@"cpz.constByListItemCount"(3).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByListItemCount"(99));
     try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByIndex"(2).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.consts"[0].ty);
