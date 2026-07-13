@@ -3916,8 +3916,9 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.index": usize = {};
             \\    pub const @"cpz.method.{s}.name": []const u8 = {s};
             \\    pub const @"cpz.method.{s}.ordinal": u16 = {};
+            \\    pub const @"cpz.method.{s}.metadata": cpz.schema.InterfaceMethodMetadata = @This().@"cpz.methods"[{}];
             \\
-        , .{ method_name, method.ordinal, method_name, method_index, method_name, method_name_literal, method_name, method.ordinal });
+        , .{ method_name, method.ordinal, method_name, method_index, method_name, method_name_literal, method_name, method.ordinal, method_name, method_index });
         const signature_literal = try zigStringLiteralAlloc(allocator, method.signature);
         defer allocator.free(signature_literal);
         try appendFmt(allocator, out,

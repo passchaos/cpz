@@ -2018,6 +2018,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("typed", generated.Service.@"cpz.methodByIndex"(3).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByIndex"(99));
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.call.index");
+    try std.testing.expectEqualStrings("call", generated.Service.@"cpz.method.call.metadata".name);
+    try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.method.call.metadata".annotations);
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.method.call.name");
     try std.testing.expectEqual(@as(u16, 0), generated.Service.@"cpz.method.call.ordinal");
     try std.testing.expectEqualStrings("() -> () $marker", generated.Service.@"cpz.method.call.signature");
@@ -2025,6 +2027,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("()", generated.Service.@"cpz.method.call.results");
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.method.call.annotations");
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
+    try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.method.ping.metadata".name);
+    try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.method.ping.metadata".parameter_count);
     try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methods"[1].name);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.methods"[1].parameters);
     try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.methods"[1].parameter_count);
@@ -2206,6 +2210,8 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService_detailNote.@"cpz.annotation");
     try std.testing.expect(generated.ExtendedService_detailNote.Type == generated.ExtendedService_Details);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
+    try std.testing.expectEqualStrings("done", generated.ExtendedService.Callback.@"cpz.method.done.metadata".name);
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.Callback.@"cpz.method.done.metadata".param_field_count);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.Callback.@"cpz.methods"[0].parameter_count);
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.Callback.@"cpz.methods"[0].param_field_count);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.Callback.@"cpz.methods"[0].result_field_count);
