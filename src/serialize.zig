@@ -312,6 +312,59 @@ pub fn readPackedMessage(allocator: std.mem.Allocator, packed_bytes: []const u8)
     }
 }
 
+/// Parse one packed Cap'n Proto stream message from a byte slice into
+/// caller-owned flat-message storage, returning a zero-copy view over the
+/// unpacked message. Extra trailing packed data is allowed; sourceConsumedLen()
+/// reports how many packed bytes were consumed.
+pub fn readPackedMessageViewInto(segment_table: []ConstSegment, flat_buffer: []u8, packed_bytes: []const u8) Error!FlatMessageView {
+    var out_i: usize = 0;
+    var i: usize = 0;
+
+    while (true) {
+        if (i >= packed_bytes.len) return error.MessageTruncated;
+        const tag = packed_bytes[i];
+        i += 1;
+        if (flat_buffer.len - out_i < wire.bytes_per_word) return error.PackedOutputTooSmall;
+        @memset(flat_buffer[out_i .. out_i + wire.bytes_per_word], 0);
+        inline for (0..wire.bytes_per_word) |j| {
+            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                if (i >= packed_bytes.len) return error.PackedInputTruncated;
+                flat_buffer[out_i + j] = packed_bytes[i];
+                i += 1;
+            }
+        }
+        out_i += wire.bytes_per_word;
+
+        if (tag == 0x00) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const additional_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
+            i += 1;
+            if (flat_buffer.len - out_i < additional_bytes) return error.PackedOutputTooSmall;
+            @memset(flat_buffer[out_i .. out_i + additional_bytes], 0);
+            out_i += additional_bytes;
+        } else if (tag == 0xff) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const raw_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
+            i += 1;
+            if (packed_bytes.len - i < raw_bytes) return error.PackedInputTruncated;
+            if (flat_buffer.len - out_i < raw_bytes) return error.PackedOutputTooSmall;
+            @memcpy(flat_buffer[out_i .. out_i + raw_bytes], packed_bytes[i .. i + raw_bytes]);
+            i += raw_bytes;
+            out_i += raw_bytes;
+        }
+
+        if (out_i >= wire.bytes_per_word) {
+            const expected_len = try expectedSize(flat_buffer[0..out_i]);
+            if (out_i >= expected_len) {
+                if (out_i != expected_len) return error.PackedOutputLengthMismatch;
+                var view = try readFlatMessageViewInto(segment_table, flat_buffer[0..expected_len]);
+                view.source_consumed_len = i;
+                return view;
+            }
+        }
+    }
+}
+
 /// Read one packed stream-framed message from an Io reader. Decoding stops
 /// exactly when the unpacked stream framing says the message is complete,
 /// leaving any following bytes buffered for the next message.
@@ -775,6 +828,21 @@ test "packed stream framing round-trips through unpacked parser" {
     try testing.expectEqual(packed_bytes.len, parsed_with_trailer.sourceConsumedLen());
     try testing.expectEqualSlices(u8, flat, parsed_with_trailer.consumedBytes());
     try testing.expectEqualSlices(u8, &s0, parsed_with_trailer.segments[0]);
+    var view_segments: [2]ConstSegment = undefined;
+    var view_buffer: [128]u8 = undefined;
+    var parsed_view = try readPackedMessageViewInto(&view_segments, &view_buffer, with_trailer);
+    defer parsed_view.deinit(allocator);
+    try testing.expect(!parsed_view.owns_segments);
+    try testing.expectEqual(flat.len, parsed_view.consumed_len);
+    try testing.expectEqual(packed_bytes.len, parsed_view.sourceConsumedLen());
+    try testing.expectEqualSlices(u8, flat, parsed_view.consumedBytes());
+    try testing.expectEqualSlices(u8, &s1, parsed_view.segments[1]);
+    var small_view_segments: [2]ConstSegment = undefined;
+    var small_view_buffer: [8]u8 = undefined;
+    try testing.expectError(error.PackedOutputTooSmall, readPackedMessageViewInto(&small_view_segments, &small_view_buffer, with_trailer));
+    var short_view_segments: [1]ConstSegment = undefined;
+    var short_view_buffer: [128]u8 = undefined;
+    try testing.expectError(error.SegmentTableTruncated, readPackedMessageViewInto(&short_view_segments, &short_view_buffer, with_trailer));
 
     try testing.expectError(error.PackedInputTruncated, readPackedMessage(allocator, packed_bytes[0 .. packed_bytes.len - 1]));
 }

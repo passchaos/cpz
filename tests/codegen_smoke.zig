@@ -1030,6 +1030,13 @@ test "generated scalar root helpers work" {
     try std.testing.expectEqual(flat_text_bytes.len, generated.Person.@"cpz.owned.consumedLen"(&owned_packed_text_reader));
     try std.testing.expectEqual(packed_text_bytes.len, generated.Person.@"cpz.owned.sourceConsumedLen"(&owned_packed_text_reader));
     try std.testing.expectEqualSlices(u8, flat_text_bytes, generated.Person.@"cpz.owned.bytes"(&owned_packed_text_reader));
+    var packed_text_view_segments: [4]cpz.serialize.ConstSegment = undefined;
+    var packed_text_view_buffer: [128]u8 = undefined;
+    var packed_text_view = try generated.Person.@"cpz.root.viewPackedBytesInto"(&packed_text_view_segments, &packed_text_view_buffer, packed_text_bytes, .{});
+    defer packed_text_view.deinit(std.testing.allocator);
+    try std.testing.expectEqual(flat_text_bytes.len, generated.Person.@"cpz.view.consumedLen"(&packed_text_view));
+    try std.testing.expectEqual(packed_text_bytes.len, generated.Person.@"cpz.view.sourceConsumedLen"(&packed_text_view));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(packed_text_view.asReader()));
     const packed_trailer = [_]u8{ 0x5a, 0x5b };
     const packed_text_with_trailer = try std.mem.concat(std.testing.allocator, u8, &.{ packed_text_bytes, &packed_trailer });
     defer std.testing.allocator.free(packed_text_with_trailer);

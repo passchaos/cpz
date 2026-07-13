@@ -88,6 +88,7 @@ pub const readFlatMessage = serialize.readFlatMessage;
 pub const readFlatMessageView = serialize.readFlatMessageView;
 pub const readFlatMessageViewInto = serialize.readFlatMessageViewInto;
 pub const readPackedMessage = serialize.readPackedMessage;
+pub const readPackedMessageViewInto = serialize.readPackedMessageViewInto;
 pub const readMessageFromReader = serialize.readMessageFromReader;
 pub const readMessageViewFromReaderInto = serialize.readMessageViewFromReaderInto;
 pub const readPackedMessageFromReader = serialize.readPackedMessageFromReader;
