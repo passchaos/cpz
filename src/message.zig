@@ -2875,9 +2875,22 @@ pub const ListBuilder = struct {
         }
     }
 
+    pub fn copyElementsFrom(self: ListBuilder, index: usize, source: ListReader, source_index: usize, count: usize) Error!void {
+        if (index > self.element_count or self.element_count - index < count) return error.PointerOutOfBounds;
+        if (source_index > source.element_count or source.element_count - source_index < count) return error.PointerOutOfBounds;
+        for (0..count) |offset| {
+            try self.copyElementFrom(index + offset, source, source_index + offset);
+        }
+    }
+
     pub fn copyElementFromBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize) Error!void {
         var reader = MessageReader.init(try source.message.segmentsConst(), .{});
         return self.copyElementFrom(index, source.asReader(&reader), source_index);
+    }
+
+    pub fn copyElementsFromBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize, count: usize) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyElementsFrom(index, source.asReader(&reader), source_index, count);
     }
 
     fn setPrimitive(self: ListBuilder, comptime T: type, index: usize, value: T) Error!void {
@@ -4025,6 +4038,9 @@ test "builders can copy individual list elements from readers" {
     try (try source_names.getPointerElement(0)).setText("zero");
     try (try source_names.getPointerElement(1)).setText("one");
     const source_people = try (try source_root.getPointerField(3)).initStructList(2, .{ .data_words = 1, .pointer_count = 1 });
+    const source_person0 = try source_people.getStructElement(0);
+    try source_person0.setUInt32(0, 123, 0);
+    try source_person0.setText(0, "range element");
     const source_person = try source_people.getStructElement(1);
     try source_person.setUInt32(0, 321, 0);
     try source_person.setText(0, "copied element");
@@ -4035,35 +4051,52 @@ test "builders can copy individual list elements from readers" {
     var target_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
     defer target_builder.deinit();
     const target_root = try target_builder.initRoot(.{ .data_words = 0, .pointer_count = 4 });
-    const target_ints = try (try target_root.getPointerField(0)).initList(.four_bytes, 2);
+    const target_ints = try (try target_root.getPointerField(0)).initList(.four_bytes, 4);
     const target_bits = try (try target_root.getPointerField(1)).initList(.bit, 2);
-    const target_names = try (try target_root.getPointerField(2)).initList(.pointer, 2);
-    const target_people = try (try target_root.getPointerField(3)).initStructList(2, .{ .data_words = 1, .pointer_count = 1 });
+    const target_names = try (try target_root.getPointerField(2)).initList(.pointer, 4);
+    const target_people = try (try target_root.getPointerField(3)).initStructList(4, .{ .data_words = 1, .pointer_count = 1 });
 
-    try target_ints.copyElementFrom(0, try read_source_root.getPointerField(0).getList(.four_bytes), 1);
+    const read_source_ints = try read_source_root.getPointerField(0).getList(.four_bytes);
+    const read_source_names = try read_source_root.getPointerField(2).getList(.pointer);
+    try target_ints.copyElementFrom(0, read_source_ints, 1);
     try target_ints.copyElementFromBuilder(1, source_ints, 0);
+    try target_ints.copyElementsFrom(2, read_source_ints, 0, 2);
     try target_bits.copyElementFrom(1, try read_source_root.getPointerField(1).getList(.bit), 0);
-    try target_names.copyElementFrom(0, try read_source_root.getPointerField(2).getList(.pointer), 1);
+    try target_names.copyElementFrom(0, read_source_names, 1);
     try target_names.copyElementFromBuilder(1, source_names, 0);
+    try target_names.copyElementsFrom(2, read_source_names, 0, 2);
     try target_people.copyElementFrom(0, try read_source_root.getPointerField(3).getList(.composite), 1);
     try target_people.copyElementFromBuilder(1, source_people, 1);
+    try target_people.copyElementsFromBuilder(2, source_people, 0, 2);
     try testing.expectError(error.IncompatibleListShape, target_ints.copyElementFrom(1, try read_source_root.getPointerField(1).getList(.bit), 0));
-    try testing.expectError(error.PointerOutOfBounds, target_ints.copyElementFrom(2, try read_source_root.getPointerField(0).getList(.four_bytes), 0));
+    try testing.expectError(error.PointerOutOfBounds, target_ints.copyElementFrom(4, read_source_ints, 0));
+    try testing.expectError(error.PointerOutOfBounds, target_ints.copyElementsFrom(3, read_source_ints, 0, 2));
 
     var target_reader = MessageReader.init(try target_builder.segmentsConst(), .{});
     const read_target_root = try target_reader.getRoot();
-    try testing.expectEqual(@as(u32, 200), (try read_target_root.getPointerField(0).getList(.four_bytes)).getUInt32(0));
-    try testing.expectEqual(@as(u32, 100), (try read_target_root.getPointerField(0).getList(.four_bytes)).getUInt32(1));
+    const read_target_ints = try read_target_root.getPointerField(0).getList(.four_bytes);
+    try testing.expectEqual(@as(u32, 200), read_target_ints.getUInt32(0));
+    try testing.expectEqual(@as(u32, 100), read_target_ints.getUInt32(1));
+    try testing.expectEqual(@as(u32, 100), read_target_ints.getUInt32(2));
+    try testing.expectEqual(@as(u32, 200), read_target_ints.getUInt32(3));
     try testing.expect((try read_target_root.getPointerField(1).getList(.bit)).getBool(1));
     const read_names = try read_target_root.getPointerField(2).getList(.pointer);
     try testing.expectEqualSlices(u8, "one", try (try read_names.getPointerElement(0)).getText());
     try testing.expectEqualSlices(u8, "zero", try (try read_names.getPointerElement(1)).getText());
+    try testing.expectEqualSlices(u8, "zero", try (try read_names.getPointerElement(2)).getText());
+    try testing.expectEqualSlices(u8, "one", try (try read_names.getPointerElement(3)).getText());
     const read_person = try (try read_target_root.getPointerField(3).getList(.composite)).getStructElement(0);
     try testing.expectEqual(@as(u32, 321), read_person.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "copied element", try read_person.getPointerField(0).getText());
     const read_person_from_builder = try (try read_target_root.getPointerField(3).getList(.composite)).getStructElement(1);
     try testing.expectEqual(@as(u32, 321), read_person_from_builder.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "copied element", try read_person_from_builder.getPointerField(0).getText());
+    const read_range_person0 = try (try read_target_root.getPointerField(3).getList(.composite)).getStructElement(2);
+    try testing.expectEqual(@as(u32, 123), read_range_person0.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "range element", try read_range_person0.getPointerField(0).getText());
+    const read_range_person1 = try (try read_target_root.getPointerField(3).getList(.composite)).getStructElement(3);
+    try testing.expectEqual(@as(u32, 321), read_range_person1.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "copied element", try read_range_person1.getPointerField(0).getText());
 }
 
 test "pointer builders can disown and adopt within a message" {
