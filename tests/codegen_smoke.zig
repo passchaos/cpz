@@ -1505,6 +1505,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.Service.@"cpz.methods"[0].ordinal);
     try std.testing.expectEqualStrings("() -> () $marker", generated.Service.@"cpz.methods"[0].signature);
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.methods"[0].annotations);
+    try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByName"("ping").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByName"("missing"));
+    try std.testing.expectEqualStrings("typed", generated.Service.@"cpz.methodByOrdinal"(3).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByOrdinal"(99));
     try std.testing.expectEqualStrings("() -> () $marker", generated.Service.@"cpz.method.call.signature");
     try std.testing.expectEqualStrings("()", generated.Service.@"cpz.method.call.params");
     try std.testing.expectEqualStrings("()", generated.Service.@"cpz.method.call.results");

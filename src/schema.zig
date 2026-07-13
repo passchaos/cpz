@@ -3951,6 +3951,18 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         try out.appendSlice(allocator, " }");
     }
     try out.appendSlice(allocator, "};\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.methodByName"(@"cpz.name": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".name, @"cpz.name")) return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.methodByOrdinal"(@"cpz.ordinal": u16) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (@"cpz.method".ordinal == @"cpz.ordinal") return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (methods.len != 0) try out.append(allocator, '\n');
 }
 
