@@ -269,6 +269,8 @@ pub const InterfaceMethodMetadata = struct {
     results: []const u8 = "",
     params_type: []const u8 = "",
     results_type: []const u8 = "",
+    resolved_params_type: []const u8 = "",
+    resolved_results_type: []const u8 = "",
     annotations: []const u8 = "",
     streaming: bool = false,
     parameters: []const []const u8 = &.{},
@@ -3883,7 +3885,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     }
     try emitConstMetadataTable(allocator, out, file, &alias_scope, decl.consts, "    ");
     try emitScopedAnnotationMetadataTable(allocator, out, file, decl.name, "    ");
-    try appendInterfaceMethodTable(allocator, out, decl.methods, "    ");
+    try appendInterfaceMethodTable(allocator, out, file, decl, decl.methods, "    ");
     for (decl.methods, 0..) |method, method_index| {
         const method_name = try zigIdentAlloc(allocator, method.name);
         defer allocator.free(method_name);
@@ -3914,6 +3916,14 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.paramsType": []const u8 = {s};
             \\
         , .{ method_name, params_type_literal });
+        const resolved_params_type = if (method.params_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, decl, method.params_type) else try allocator.dupe(u8, "");
+        defer allocator.free(resolved_params_type);
+        const resolved_params_type_literal = try zigStringLiteralAlloc(allocator, resolved_params_type);
+        defer allocator.free(resolved_params_type_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.resolvedParamsType": []const u8 = {s};
+            \\
+        , .{ method_name, resolved_params_type_literal });
         const results_signature_literal = try zigStringLiteralAlloc(allocator, method.results_signature);
         defer allocator.free(results_signature_literal);
         try appendFmt(allocator, out,
@@ -3926,6 +3936,14 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.resultsType": []const u8 = {s};
             \\
         , .{ method_name, results_type_literal });
+        const resolved_results_type = if (method.results_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, decl, method.results_type) else try allocator.dupe(u8, "");
+        defer allocator.free(resolved_results_type);
+        const resolved_results_type_literal = try zigStringLiteralAlloc(allocator, resolved_results_type);
+        defer allocator.free(resolved_results_type_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.resolvedResultsType": []const u8 = {s};
+            \\
+        , .{ method_name, resolved_results_type_literal });
         const annotation_signature_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
         defer allocator.free(annotation_signature_literal);
         try appendFmt(allocator, out,
@@ -3988,7 +4006,7 @@ fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.Array
     if (superclasses.len != 0) try out.append(allocator, '\n');
 }
 
-fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), methods: []const InterfaceMethod, indent: []const u8) LayoutError!void {
+fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, methods: []const InterfaceMethod, indent: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.methodCount": usize = {};
         \\
@@ -4008,6 +4026,14 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         defer allocator.free(params_type_literal);
         const results_type_literal = try zigStringLiteralAlloc(allocator, method.results_type);
         defer allocator.free(results_type_literal);
+        const resolved_params_type = if (method.params_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method.params_type) else try allocator.dupe(u8, "");
+        defer allocator.free(resolved_params_type);
+        const resolved_params_type_literal = try zigStringLiteralAlloc(allocator, resolved_params_type);
+        defer allocator.free(resolved_params_type_literal);
+        const resolved_results_type = if (method.results_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method.results_type) else try allocator.dupe(u8, "");
+        defer allocator.free(resolved_results_type);
+        const resolved_results_type_literal = try zigStringLiteralAlloc(allocator, resolved_results_type);
+        defer allocator.free(resolved_results_type_literal);
         const annotations_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
         defer allocator.free(annotations_literal);
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .signature = {s}, .params = {s}, .results = {s}", .{
@@ -4019,10 +4045,10 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
             results_literal,
         });
         if (method.params_type.len != 0) {
-            try appendFmt(allocator, out, ", .params_type = {s}", .{params_type_literal});
+            try appendFmt(allocator, out, ", .params_type = {s}, .resolved_params_type = {s}", .{ params_type_literal, resolved_params_type_literal });
         }
         if (method.results_type.len != 0) {
-            try appendFmt(allocator, out, ", .results_type = {s}", .{results_type_literal});
+            try appendFmt(allocator, out, ", .results_type = {s}, .resolved_results_type = {s}", .{ results_type_literal, resolved_results_type_literal });
         }
         if (method.annotation_signature.len != 0) {
             try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
@@ -4344,6 +4370,9 @@ fn resolveNamedAliasInOwnerScope(file: *const File, owner_name: ?[]const u8, nam
         }
         if (findInterfaceDirect(file, owner)) |decl| {
             if (resolveNamedAliasInList(decl.aliases, file, owner_name, name, depth)) |resolved| return resolved;
+        }
+        if (lastTopLevelDot(owner)) |dot| {
+            if (resolveNamedAliasInOwnerScope(file, owner[0..dot], name, depth + 1)) |resolved| return resolved;
         }
     }
     return resolveNamedAliasInList(file.aliases, file, null, name, depth);

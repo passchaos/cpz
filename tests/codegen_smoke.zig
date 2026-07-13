@@ -2008,8 +2008,12 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Details -> Details", generated.Service.@"cpz.method.typed.signature");
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].params_type);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].results_type);
+    try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].resolved_params_type);
+    try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].resolved_results_type);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.paramsType");
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resultsType");
+    try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resolvedParamsType");
+    try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resolvedResultsType");
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.params.fields".len);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fieldCount");
@@ -2088,8 +2092,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
     try std.testing.expectEqualStrings("(details :Details) -> ()", generated.ExtendedService.Callback.@"cpz.method.done.signature");
     try std.testing.expectEqualStrings("(details :Details)", generated.ExtendedService.Callback.@"cpz.method.done.params");
-    try std.testing.expectEqualStrings("Details", generated.ExtendedService.Callback.@"cpz.method.done.params.fields"[0].resolved_ty);
-    try std.testing.expectEqualStrings("Details", generated.ExtendedService.Callback.@"cpz.method.done.params.field.details.resolvedType");
+    try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.Callback.@"cpz.method.done.params.fields"[0].resolved_ty);
+    try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.Callback.@"cpz.method.done.params.field.details.resolvedType");
     try std.testing.expectEqualStrings("()", generated.ExtendedService.Callback.@"cpz.method.done.results");
     try std.testing.expectEqualStrings("", generated.ExtendedService.Callback.@"cpz.method.done.annotations");
 }
