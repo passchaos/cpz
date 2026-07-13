@@ -418,6 +418,10 @@ pub const MessageBuilder = struct {
         return MessageReader.init(try self.segmentsConst(), options);
     }
 
+    pub fn segmentCount(self: *MessageBuilder) usize {
+        return self.segments.items.len;
+    }
+
     pub fn serializedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
         return serialize.computeSerializedSize(try self.segmentsConst());
     }
@@ -601,6 +605,10 @@ pub const MessageReader = struct {
     pub fn totalSize(self: *MessageReader) Error!MessageSize {
         const stats = try self.validate();
         return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
+    }
+
+    pub fn segmentCount(self: *const MessageReader) usize {
+        return self.segments.len;
     }
 
     pub fn serializedSize(self: *const MessageReader) (Error || serialize.Error)!usize {

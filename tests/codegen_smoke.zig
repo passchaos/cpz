@@ -291,6 +291,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.root.pointerKind"(&builder_message_reader)).?);
     const builder_segments = try generated.Person.@"cpz.builderRoot.segments"(&builder);
     try std.testing.expect(builder_segments.len > 0);
+    try std.testing.expectEqual(builder_segments.len, generated.Person.@"cpz.builderRoot.segmentCount"(&builder));
+    try std.testing.expectEqual(builder_segments.len, builder.segmentCount());
     try std.testing.expect(builder_segments[0].len >= @sizeOf(cpz.Word));
     const builder_validation_stats = try generated.Person.@"cpz.builderRoot.validate"(&builder);
     try std.testing.expect(builder_validation_stats.total_words >= builder_root_size.word_count);
@@ -467,6 +469,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(reader_root_size.word_count > 0);
     const reader_segments = generated.Person.@"cpz.root.segments"(&reader);
     try std.testing.expect(reader_segments.len > 0);
+    try std.testing.expectEqual(reader_segments.len, generated.Person.@"cpz.root.segmentCount"(&reader));
+    try std.testing.expectEqual(reader_segments.len, reader.segmentCount());
     const reader_serialized_size = try generated.Person.@"cpz.root.serializedSize"(&reader);
     try std.testing.expect(reader_serialized_size > 0);
     try std.testing.expectEqual(reader_serialized_size, try reader.serializedSize());
