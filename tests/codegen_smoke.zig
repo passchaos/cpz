@@ -212,6 +212,7 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
+    try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.constCount");
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
@@ -266,6 +267,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqualSlices(u8, "beta", generated.globalNames[1]);
     try std.testing.expectEqualSlices(u8, "delta", generated.globalNamesAlias[1]);
     try std.testing.expectEqual(generated.Color.blue, generated.globalShades[1]);
+    try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.constCount");
     try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.consts".len);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.consts"[0].index);
@@ -2042,6 +2044,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.@"cpz.annotation_decls"[0].resolved_ty);
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.@"cpz.annotationDecl.ExtendedService_detailNote.resolvedType");
     try std.testing.expect(generated.ExtendedService.@"cpz.annotation_decls"[0].targets.field);
+    try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.constCount");
     try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.consts".len);
     try std.testing.expectEqualStrings("defaultLimit", generated.ExtendedService.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.consts"[0].index);

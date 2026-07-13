@@ -4696,6 +4696,10 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 }
 
 fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, consts: []const ConstDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.constCount": usize = {};
+        \\
+    , .{ indent, consts.len });
     try appendFmt(allocator, out, "{s}pub const @\"cpz.consts\": []const cpz.schema.ConstMetadata = &[_]cpz.schema.ConstMetadata{{", .{indent});
     for (consts, 0..) |decl, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
