@@ -208,6 +208,61 @@ pub const UnionMetadata = struct {
     pointer: ?usize = null,
     field_count: usize = 0,
     fields: []const FieldMetadata = &.{},
+
+    pub fn fieldByName(self: UnionMetadata, name: []const u8) ?FieldMetadata {
+        for (self.fields) |field| if (std.mem.eql(u8, field.name, name)) return field;
+        return null;
+    }
+
+    pub fn fieldByType(self: UnionMetadata, ty: []const u8) ?FieldMetadata {
+        for (self.fields) |field| if (std.mem.eql(u8, field.ty, ty)) return field;
+        return null;
+    }
+
+    pub fn fieldByResolvedType(self: UnionMetadata, ty: []const u8) ?FieldMetadata {
+        for (self.fields) |field| if (std.mem.eql(u8, field.resolved_ty, ty)) return field;
+        return null;
+    }
+
+    pub fn fieldBySlot(self: UnionMetadata, slot: []const u8, offset: usize) ?FieldMetadata {
+        for (self.fields) |field| if (std.mem.eql(u8, field.slot, slot) and field.offset == offset) return field;
+        return null;
+    }
+
+    pub fn fieldByDefault(self: UnionMetadata, default_value: []const u8) ?FieldMetadata {
+        for (self.fields) |field| if (std.mem.eql(u8, field.default, default_value)) return field;
+        return null;
+    }
+
+    pub fn fieldByExplicitDefault(self: UnionMetadata, has_default: bool) ?FieldMetadata {
+        for (self.fields) |field| if (field.has_explicit_default == has_default) return field;
+        return null;
+    }
+
+    pub fn fieldByHexDefault(self: UnionMetadata, is_hex: bool) ?FieldMetadata {
+        for (self.fields) |field| if (field.default_is_hex_data == is_hex) return field;
+        return null;
+    }
+
+    pub fn fieldByAnnotations(self: UnionMetadata, annotations: []const u8) ?FieldMetadata {
+        for (self.fields) |field| if (std.mem.eql(u8, field.annotations, annotations)) return field;
+        return null;
+    }
+
+    pub fn fieldByDiscriminant(self: UnionMetadata, discriminant: u16) ?FieldMetadata {
+        for (self.fields) |field| if (field.union_discriminant == discriminant) return field;
+        return null;
+    }
+
+    pub fn fieldByOrdinal(self: UnionMetadata, ordinal: u32) ?FieldMetadata {
+        for (self.fields) |field| if (field.ordinal == ordinal) return field;
+        return null;
+    }
+
+    pub fn fieldByIndex(self: UnionMetadata, field_index: usize) ?FieldMetadata {
+        if (field_index >= self.fields.len) return null;
+        return self.fields[field_index];
+    }
 };
 
 pub const DeclarationKind = enum {
