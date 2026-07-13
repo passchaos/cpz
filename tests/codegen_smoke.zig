@@ -36,6 +36,7 @@ test "generated annotation declarations expose ids types and targets" {
 
 test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$enumNote(\"palette\")", generated.Color.@"cpz.annotations");
+    try std.testing.expectEqualStrings("$labels([\"cool\", \"primary\"])", generated.@"cpz.enumerant.Color.blue.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.Person.@"cpz.annotations");
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");

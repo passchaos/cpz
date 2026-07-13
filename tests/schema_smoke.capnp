@@ -5,7 +5,7 @@ annotation enumNote(enum) :Text;
 enum Color @0xc010 $enumNote("palette") {
   red @0;
   green @1;
-  blue @2;
+  blue @2 $labels(["cool", "primary"]);
 }
 
 using Id = UInt32;

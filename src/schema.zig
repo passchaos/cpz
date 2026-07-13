@@ -139,6 +139,7 @@ pub const Struct = struct {
 pub const EnumValue = struct {
     name: []const u8,
     ordinal: u16,
+    annotations: []const u8 = "",
 };
 
 pub const EnumDecl = struct {
@@ -1713,8 +1714,8 @@ pub const Parser = struct {
             const ordinal: u16 = @intCast(ordinal_u64);
             const entry = try occupied_ordinals.getOrPut(ordinal);
             if (entry.found_existing) return error.OrdinalCollision;
-            try self.skipUntilSemicolon();
-            try values.append(self.allocator, .{ .name = value_name, .ordinal = ordinal });
+            const value_annotations = try self.takeRawUntilSemicolon();
+            try values.append(self.allocator, .{ .name = value_name, .ordinal = ordinal, .annotations = value_annotations });
         }
         try self.expect(.r_brace);
         return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .annotations = annotations, .values = try values.toOwnedSlice(self.allocator) };
@@ -3455,8 +3456,21 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
     try appendFmt(allocator, out,
         \\}};
         \\
-        \\
     , .{});
+    for (decl.values) |value| {
+        if (value.annotations.len == 0) continue;
+        const enum_name_for_const = try zigIdentAlloc(allocator, decl.name);
+        defer allocator.free(enum_name_for_const);
+        const value_name = try zigIdentAlloc(allocator, value.name);
+        defer allocator.free(value_name);
+        const annotation_literal = try zigStringLiteralAlloc(allocator, value.annotations);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out,
+            \\pub const @"cpz.enumerant.{s}.{s}.annotations": []const u8 = {s};
+            \\
+        , .{ enum_name_for_const, value_name, annotation_literal });
+    }
+    try out.append(allocator, '\n');
 }
 
 fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const InterfaceDecl) LayoutError!void {
