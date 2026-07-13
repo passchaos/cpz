@@ -4656,6 +4656,10 @@ fn appendAnnotationTargetsLiteral(allocator: std.mem.Allocator, out: *std.ArrayL
 }
 
 fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, aliases: []const AliasDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.aliasCount": usize = {};
+        \\
+    , .{ indent, aliases.len });
     try appendFmt(allocator, out, "{s}pub const @\"cpz.aliases\": []const cpz.schema.AliasMetadata = &[_]cpz.schema.AliasMetadata{{", .{indent});
     for (aliases, 0..) |alias, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
