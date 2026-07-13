@@ -5519,8 +5519,17 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\    pub const @"cpz.field.{s}.type": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.slot": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.offset": usize = {};
+        \\    pub const @"cpz.field.{s}.unionIndex": ?u32 = 
+    , .{ field_name, type_literal, field_name, slot_literal, field_name, slot.offset, field_name });
+    if (field.union_index) |union_index| {
+        try appendFmt(allocator, out, "{};\n", .{union_index});
+    } else {
+        try out.appendSlice(allocator, "null;\n");
+    }
+    try appendFmt(allocator, out,
+        \\    pub const @"cpz.field.{s}.unionDiscriminant": u16 = {};
         \\
-    , .{ field_name, type_literal, field_name, slot_literal, field_name, slot.offset });
+    , .{ field_name, field.union_discriminant });
     if (field.default_expression.len != 0) {
         const default_expression_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
         defer allocator.free(default_expression_literal);

@@ -1245,6 +1245,9 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?usize, 1), generated.Choice.@"cpz.union.0.pointer");
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.fields"[4].union_index.?);
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.fields"[4].union_discriminant);
+    try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.field.before.unionIndex");
+    try std.testing.expectEqual(@as(?u32, 0), generated.Choice.@"cpz.field.name.unionIndex");
+    try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.field.name.unionDiscriminant");
 
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
