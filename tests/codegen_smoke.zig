@@ -2122,6 +2122,9 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByParamsType"("Missing"));
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methodByStreaming"(false).?.name);
     try std.testing.expectEqualStrings("streamIt", generated.Service.@"cpz.methodByStreaming"(true).?.name);
+    try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByParameter"("Req").?.name);
+    try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByParameter"("Resp").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByParameter"("Missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.call.index");
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.method.call.metadata".name);
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.method.call.metadata".annotations);
@@ -2339,6 +2342,7 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService_detailNote.Type == generated.ExtendedService_Details);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.Callback.@"cpz.methodByParamsType"("Details"));
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.Callback.@"cpz.methodByParameter"("Req"));
     try std.testing.expectEqualStrings("done", generated.ExtendedService.Callback.@"cpz.method.done.metadata".name);
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.Callback.@"cpz.method.done.metadata".param_field_count);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.Callback.@"cpz.methods"[0].parameter_count);
