@@ -300,6 +300,16 @@ pub const DeclarationMetadata = struct {
     annotations: []const u8 = "",
     parameter_count: usize = 0,
     parameters: []const []const u8 = &.{},
+
+    pub fn parameterByName(self: DeclarationMetadata, parameter: []const u8) ?[]const u8 {
+        for (self.parameters) |item| if (std.mem.eql(u8, item, parameter)) return item;
+        return null;
+    }
+
+    pub fn parameterByIndex(self: DeclarationMetadata, parameter_index: usize) ?[]const u8 {
+        if (parameter_index >= self.parameters.len) return null;
+        return self.parameters[parameter_index];
+    }
 };
 
 pub const EnumDecl = struct {

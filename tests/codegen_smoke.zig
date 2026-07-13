@@ -51,6 +51,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declaration.GenericBox.metadata".kind);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.declarations"[10].parameter_count);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declarations"[10].parameters);
+    try std.testing.expectEqualStrings("T", generated.@"cpz.declarations"[10].parameterByName("T").?);
+    try std.testing.expectEqualStrings("T", generated.@"cpz.declarations"[10].parameterByIndex(0).?);
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.@"cpz.declarations"[10].parameterByName("Missing"));
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.@"cpz.declarations"[10].parameterByIndex(99));
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.declaration.GenericBox.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declaration.GenericBox.parameters");
     try std.testing.expectEqualStrings("T", generated.@"cpz.declaration.GenericBox.parameters.parameterByName"("T").?);
@@ -72,6 +76,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.declaration.ExtendedService.parameterCount");
     try std.testing.expectEqualStrings("ExtendedService", generated.@"cpz.declaration.ExtendedService.metadata".name);
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.declaration.ExtendedService.metadata".parameter_count);
+    try std.testing.expectEqualStrings("Req", generated.@"cpz.declaration.ExtendedService.metadata".parameterByName("Req").?);
+    try std.testing.expectEqualStrings("Resp", generated.@"cpz.declaration.ExtendedService.metadata".parameterByIndex(1).?);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.@"cpz.declaration.ExtendedService.parameters");
     try std.testing.expectEqualStrings("Req", generated.@"cpz.declaration.ExtendedService.parameters.parameterByName"("Req").?);
     try std.testing.expectEqualStrings("Resp", generated.@"cpz.declaration.ExtendedService.parameters.parameterByIndex"(1).?);
