@@ -1363,12 +1363,53 @@ pub const Parser = struct {
             return;
         }
         if (std.mem.eql(u8, kind, "union")) {
+            const union_entry = try member_names.getOrPut(name);
+            if (union_entry.found_existing) return error.NameCollision;
+            const union_prefix = if (parent_prefix) |prefix|
+                try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ prefix, name })
+            else
+                try self.allocator.dupe(u8, name);
+            defer self.allocator.free(union_prefix);
             try self.skipUntil(.l_brace);
-            try self.skipCurrentBracedBody();
-            if (ordinal) |value| try self.appendSyntheticVoidField(fields, field_names, member_names, name, value);
+            const union_index: u32 = @intCast(unions.items.len);
+            try unions.append(self.allocator, UnionBuilder.init(self.allocator));
+            _ = ordinal;
+            try self.parseNamedUnionBody(union_prefix, &unions.items[union_index], union_index);
             return;
         }
         return error.UnexpectedToken;
+    }
+
+    fn parseNamedUnionBody(self: *Parser, union_prefix: []const u8, union_builder: *UnionBuilder, union_index: u32) Error!void {
+        try self.expect(.l_brace);
+        while (self.lookahead.tag != .r_brace) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                try self.skipBracedDeclaration();
+                continue;
+            }
+            if (try self.isNamedAggregateStart()) {
+                try self.skipNamedAggregate();
+                continue;
+            }
+            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+                try self.skipRawUntilSemicolon();
+                continue;
+            }
+            var field = try self.parseField();
+            var keep_field = false;
+            errdefer if (!keep_field) field.deinit(self.allocator);
+            const synthetic_name = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ union_prefix, field.name });
+            field.name = synthetic_name;
+            field.owns_name = true;
+            field.union_index = union_index;
+            if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
+            try union_builder.fields.append(self.allocator, field);
+            keep_field = true;
+        }
+        try self.expect(.r_brace);
+        try self.assignUnionDiscriminants(union_builder.fields.items);
     }
 
     fn parseNamedGroupBody(self: *Parser, group_prefix: []const u8, fields: *std.ArrayList(Field), field_names: *std.StringHashMap(void), member_names: *std.StringHashMap(void), unions: *std.ArrayList(UnionBuilder)) Error!void {
@@ -2601,15 +2642,20 @@ test "schema parser lowers simple named group declarations" {
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
-    try std.testing.expectEqual(@as(usize, 4), file.structs[0].fields.len);
+    try std.testing.expectEqual(@as(usize, 5), file.structs[0].fields.len);
     try std.testing.expectEqualStrings("before", file.structs[0].fields[0].name);
-    try std.testing.expectEqualStrings("selected", file.structs[0].fields[1].name);
-    try std.testing.expectEqual(Type.void, file.structs[0].fields[1].ty);
-    try std.testing.expectEqual(@as(u32, 1), file.structs[0].fields[1].ordinal);
-    try std.testing.expectEqualStrings("metadata_created", file.structs[0].fields[2].name);
-    try std.testing.expectEqual(Type.uint64, file.structs[0].fields[2].ty);
-    try std.testing.expectEqual(@as(u32, 4), file.structs[0].fields[2].ordinal);
-    try std.testing.expectEqualStrings("keep", file.structs[0].fields[3].name);
+    try std.testing.expectEqualStrings("metadata_created", file.structs[0].fields[1].name);
+    try std.testing.expectEqual(Type.uint64, file.structs[0].fields[1].ty);
+    try std.testing.expectEqual(@as(u32, 4), file.structs[0].fields[1].ordinal);
+    try std.testing.expectEqualStrings("keep", file.structs[0].fields[2].name);
+    try std.testing.expectEqualStrings("selected_text", file.structs[0].fields[3].name);
+    try std.testing.expect(file.structs[0].fields[3].ty == .text);
+    try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[3].union_index);
+    try std.testing.expectEqual(@as(u16, 0), file.structs[0].fields[3].union_discriminant);
+    try std.testing.expectEqualStrings("selected_id", file.structs[0].fields[4].name);
+    try std.testing.expectEqual(Type.uint32, file.structs[0].fields[4].ty);
+    try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[4].union_index);
+    try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[4].union_discriminant);
 }
 
 test "schema parser accepts TypeList shorthand" {

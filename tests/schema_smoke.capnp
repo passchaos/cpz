@@ -70,6 +70,10 @@ struct Choice {
     created @4 :UInt64;
     label @5 :Text;
   }
+  selected :union {
+    text @6 :Text;
+    code @7 :UInt32;
+  }
   after @3 :Text;
 }
 
