@@ -512,6 +512,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const validation_stats = try generated.Person.@"cpz.root.validate"(&validating_reader);
     try std.testing.expect(validation_stats.pointer_slots >= generated.Person.size.pointer_count);
     try std.testing.expect(validation_stats.total_words >= reader_root_size.word_count);
+    try std.testing.expectEqual(validation_stats.total_words, validation_stats.size().word_count);
+    try std.testing.expectEqual(validation_stats.capabilities, validation_stats.size().cap_count);
     var canonical_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const direct_reader_canonical_bytes = try canonical_reader.toCanonicalSegmentBytes(std.testing.allocator);
     defer std.testing.allocator.free(direct_reader_canonical_bytes);

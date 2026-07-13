@@ -31,6 +31,10 @@ pub const MessageStats = struct {
     data_words: usize = 0,
     pointer_words: usize = 0,
     total_words: usize = 0,
+
+    pub fn size(self: MessageStats) MessageSize {
+        return .{ .word_count = self.total_words, .cap_count = self.capabilities };
+    }
 };
 
 pub const MessageSize = struct {
@@ -638,7 +642,7 @@ pub const MessageReader = struct {
 
     pub fn totalSize(self: *MessageReader) Error!MessageSize {
         const stats = try self.validate();
-        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
+        return stats.size();
     }
 
     pub fn segmentCount(self: *const MessageReader) usize {
@@ -1226,7 +1230,7 @@ pub const PointerReader = struct {
     pub fn totalSize(self: PointerReader) Error!MessageSize {
         var stats: MessageStats = .{};
         try validatePointer(self, &stats);
-        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
+        return stats.size();
     }
 
     pub fn getStruct(self: PointerReader, default_value: ?StructReader) Error!StructReader {
@@ -1765,7 +1769,7 @@ pub const StructReader = struct {
     pub fn totalSize(self: StructReader) Error!MessageSize {
         var stats: MessageStats = .{};
         try collectStructStats(self, &stats);
-        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
+        return stats.size();
     }
 
     pub fn size(self: StructReader) wire.StructSize {
@@ -2178,7 +2182,7 @@ pub const ListReader = struct {
     pub fn totalSize(self: ListReader) Error!MessageSize {
         var stats: MessageStats = .{};
         try collectListStats(self, &stats);
-        return .{ .word_count = stats.total_words, .cap_count = stats.capabilities };
+        return stats.size();
     }
 };
 
