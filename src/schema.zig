@@ -3813,11 +3813,16 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\    return null;
         \\}}
         \\
+        \\pub fn @"cpz.enum.{s}.metadataByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.EnumValueMetadata {{
+        \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.annotations, @"cpz.annotationFilter")) return item;
+        \\    return null;
+        \\}}
+        \\
         \\pub fn @"cpz.enum.{s}.metadataByIndex"(@"cpz.index": usize) ?cpz.schema.EnumValueMetadata {{
         \\    if (@"cpz.index" >= @"cpz.enum.{s}.values".len) return null;
         \\    return @"cpz.enum.{s}.values"[@"cpz.index"];
         \\}}
-    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
+    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
     try appendFmt(allocator, out,
         \\pub const @"cpz.enum.{s}.valueCount": usize = {};
         \\
