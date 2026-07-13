@@ -998,6 +998,72 @@ const Token = struct {
     end: usize = 0,
 };
 
+fn skipLineCommentIndex(source: []const u8, start: usize) usize {
+    var index = start;
+    while (index < source.len and source[index] != '\n') index += 1;
+    return index;
+}
+
+fn skipBlockCommentIndexOrNull(source: []const u8, start: usize) ?usize {
+    var index = start + 2;
+    while (index + 1 < source.len) : (index += 1) {
+        if (source[index] == '*' and source[index + 1] == '/') return index + 2;
+    }
+    return null;
+}
+
+fn skipBlockCommentIndex(source: []const u8, start: usize) Error!usize {
+    return skipBlockCommentIndexOrNull(source, start) orelse error.InvalidToken;
+}
+
+fn skipRawSlashIndex(source: []const u8, start: usize) Error!usize {
+    if (start + 1 < source.len and source[start + 1] == '/') return skipLineCommentIndex(source, start + 2);
+    if (start + 1 < source.len and source[start + 1] == '*') return try skipBlockCommentIndex(source, start);
+    return start + 1;
+}
+
+fn skipTriviaIndex(source: []const u8, start: usize) Error!usize {
+    var index = start;
+    while (index < source.len) {
+        switch (source[index]) {
+            ' ', '\t', '\r', '\n' => index += 1,
+            '#' => index = skipLineCommentIndex(source, index),
+            '/' => {
+                if (index + 1 < source.len and source[index + 1] == '/') {
+                    index = skipLineCommentIndex(source, index + 2);
+                } else if (index + 1 < source.len and source[index + 1] == '*') {
+                    index = try skipBlockCommentIndex(source, index);
+                } else {
+                    return index;
+                }
+            },
+            else => return index,
+        }
+    }
+    return index;
+}
+
+fn skipTriviaIndexOrNull(source: []const u8, start: usize) ?usize {
+    var index = start;
+    while (index < source.len) {
+        switch (source[index]) {
+            ' ', '\t', '\r', '\n' => index += 1,
+            '#' => index = skipLineCommentIndex(source, index),
+            '/' => {
+                if (index + 1 < source.len and source[index + 1] == '/') {
+                    index = skipLineCommentIndex(source, index + 2);
+                } else if (index + 1 < source.len and source[index + 1] == '*') {
+                    index = skipBlockCommentIndexOrNull(source, index) orelse return null;
+                } else {
+                    return index;
+                }
+            },
+            else => return index,
+        }
+    }
+    return index;
+}
+
 const Lexer = struct {
     source: []const u8,
     index: usize = 0,
@@ -1087,21 +1153,7 @@ const Lexer = struct {
     }
 
     fn skipSpaceAndComments(self: *Lexer) Error!void {
-        while (self.index < self.source.len) {
-            switch (self.source[self.index]) {
-                ' ', '\t', '\r', '\n' => self.index += 1,
-                '#' => {
-                    while (self.index < self.source.len and self.source[self.index] != '\n') self.index += 1;
-                },
-                '/' => {
-                    if (self.index + 1 < self.source.len and self.source[self.index + 1] == '/') {
-                        self.index += 2;
-                        while (self.index < self.source.len and self.source[self.index] != '\n') self.index += 1;
-                    } else return;
-                },
-                else => return,
-            }
-        }
+        self.index = try skipTriviaIndex(self.source, self.index);
     }
 };
 
@@ -1967,6 +2019,16 @@ pub const Parser = struct {
                     }
                     if (index >= source.len) return error.UnexpectedToken;
                 },
+                '#' => index = skipLineCommentIndex(source, index),
+                '/' => {
+                    if (index + 1 < source.len and source[index + 1] == '/') {
+                        index = skipLineCommentIndex(source, index + 2);
+                    } else if (index + 1 < source.len and source[index + 1] == '*') {
+                        index = (try skipBlockCommentIndex(source, index)) - 1;
+                    } else {
+                        index += 1;
+                    }
+                },
                 '(' => paren_depth += 1,
                 ')' => {
                     if (paren_depth != 0) paren_depth -= 1;
@@ -2031,25 +2093,9 @@ pub const Parser = struct {
 
     fn constLiteralStartIndex(self: *const Parser) ?usize {
         const source = self.lexer.source;
-        var index = self.lexer.index;
-        while (index < source.len) {
-            switch (source[index]) {
-                ' ', '\t', '\r', '\n' => index += 1,
-                '#' => {
-                    while (index < source.len and source[index] != '\n') index += 1;
-                },
-                '/' => {
-                    if (index + 1 < source.len and source[index + 1] == '/') {
-                        index += 2;
-                        while (index < source.len and source[index] != '\n') index += 1;
-                    } else {
-                        return index;
-                    }
-                },
-                else => return index,
-            }
-        }
-        return null;
+        const index = skipTriviaIndexOrNull(source, self.lexer.index) orelse return null;
+        if (index >= source.len) return null;
+        return index;
     }
 
     fn parseUsingOrSkip(self: *Parser, aliases: *std.ArrayList(AliasDecl), imports: ?*std.ArrayList(ImportDecl), decl_names: *std.StringHashMap(void)) Error!void {
@@ -2769,8 +2815,7 @@ pub const Parser = struct {
 
     fn parseBlockTextLiteralAfterEqual(self: *Parser) Error![]const u8 {
         const source = self.lexer.source;
-        var index = self.lexer.index;
-        while (index < source.len and (source[index] == ' ' or source[index] == '\t' or source[index] == '\r' or source[index] == '\n')) : (index += 1) {}
+        var index = try skipTriviaIndex(source, self.lexer.index);
         if (index >= source.len or source[index] != '`') return error.UnexpectedToken;
         index += 1;
         const start = index;
@@ -2827,6 +2872,15 @@ pub const Parser = struct {
                         } else if (raw[index] == '"') {
                             break;
                         }
+                    }
+                },
+                '#' => index = skipLineCommentIndex(raw, index),
+                '/' => {
+                    if (index + 1 < raw.len and raw[index + 1] == '/') {
+                        index = skipLineCommentIndex(raw, index + 2);
+                    } else if (index + 1 < raw.len and raw[index + 1] == '*') {
+                        index = skipBlockCommentIndexOrNull(raw, index) orelse raw.len;
+                        if (index != 0) index -= 1;
                     }
                 },
                 '(' => paren_depth += 1,
@@ -2889,14 +2943,7 @@ pub const Parser = struct {
                 '#' => {
                     while (index < source.len and source[index] != '\n') index += 1;
                 },
-                '/' => {
-                    if (index + 1 < source.len and source[index + 1] == '/') {
-                        index += 2;
-                        while (index < source.len and source[index] != '\n') index += 1;
-                    } else {
-                        index += 1;
-                    }
-                },
+                '/' => index = try skipRawSlashIndex(source, index),
                 '(' => {
                     paren_depth += 1;
                     index += 1;
@@ -2971,14 +3018,7 @@ pub const Parser = struct {
                 '#' => {
                     while (index < source.len and source[index] != '\n') index += 1;
                 },
-                '/' => {
-                    if (index + 1 < source.len and source[index + 1] == '/') {
-                        index += 2;
-                        while (index < source.len and source[index] != '\n') index += 1;
-                    } else {
-                        index += 1;
-                    }
-                },
+                '/' => index = try skipRawSlashIndex(source, index),
                 '(' => {
                     paren_depth += 1;
                     index += 1;
@@ -3043,14 +3083,7 @@ pub const Parser = struct {
                 '#' => {
                     while (index < source.len and source[index] != '\n') index += 1;
                 },
-                '/' => {
-                    if (index + 1 < source.len and source[index + 1] == '/') {
-                        index += 2;
-                        while (index < source.len and source[index] != '\n') index += 1;
-                    } else {
-                        index += 1;
-                    }
-                },
+                '/' => index = try skipRawSlashIndex(source, index),
                 '(' => {
                     paren_depth += 1;
                     index += 1;
@@ -3576,12 +3609,16 @@ fn isNumberContinue(c: u8) bool {
 
 test "schema parser handles structs, file ids, lists, comments" {
     const source =
+        \\/* leading block comment */
         \\@0xabcdef;
         \\# a comment
+        \\/* declaration block comment */
         \\struct Person {
         \\  id @0 :UInt32 = 123;
+        \\  /* field block comment with ; braces {} and brackets [] */
         \\  name @1 :Text;
         \\  scores @2 :List(Int32);
+        \\  /* trailing block comment before a field */
         \\  bestFriend @3 :Person;
         \\}
     ;
