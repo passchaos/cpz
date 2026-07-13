@@ -44,6 +44,8 @@ test "generated schemas reference imported modules" {
     try std.testing.expect(generated.@"cpz.importByMember"("Extra").?.has_member);
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.importByMember"("Extra").?.name);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.importByMember"("Extra").?.index);
+    try std.testing.expectEqualStrings("Base", generated.@"cpz.importByMemberFlag"(false).?.name);
+    try std.testing.expectEqualStrings("Child", generated.@"cpz.importByMemberFlag"(true).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByMember"("Missing"));
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.importByIndex"(3).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByIndex"(99));
