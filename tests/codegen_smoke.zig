@@ -1298,14 +1298,16 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
 
 test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.Service.call);
-    try std.testing.expectEqualStrings("() -> ()", generated.Service.@"cpz.method.call.signature");
+    try std.testing.expectEqualStrings("() -> () $marker", generated.Service.@"cpz.method.call.signature");
     try std.testing.expectEqualStrings("()", generated.Service.@"cpz.method.call.params");
     try std.testing.expectEqualStrings("()", generated.Service.@"cpz.method.call.results");
+    try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.method.call.annotations");
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
     try std.testing.expect(!generated.Service.@"cpz.method.ping.streaming");
     try std.testing.expectEqualStrings("[Req, Resp] (request :Req, attempts :UInt32 = 3) -> (response :Resp)", generated.Service.@"cpz.method.ping.signature");
     try std.testing.expectEqualStrings("(request :Req, attempts :UInt32 = 3)", generated.Service.@"cpz.method.ping.params");
     try std.testing.expectEqualStrings("(response :Resp)", generated.Service.@"cpz.method.ping.results");
+    try std.testing.expectEqualStrings("", generated.Service.@"cpz.method.ping.annotations");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.method.ping.parameters");
     try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.method.ping.params.fields".len);
     try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields"[0].name);
@@ -1321,6 +1323,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("(chunk :Data) -> stream", generated.Service.@"cpz.method.streamIt.signature");
     try std.testing.expectEqualStrings("(chunk :Data)", generated.Service.@"cpz.method.streamIt.params");
     try std.testing.expectEqualStrings("stream", generated.Service.@"cpz.method.streamIt.results");
+    try std.testing.expectEqualStrings("", generated.Service.@"cpz.method.streamIt.annotations");
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.streaming");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
@@ -1336,6 +1339,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("(details :Details) -> ()", generated.ExtendedService.Callback.@"cpz.method.done.signature");
     try std.testing.expectEqualStrings("(details :Details)", generated.ExtendedService.Callback.@"cpz.method.done.params");
     try std.testing.expectEqualStrings("()", generated.ExtendedService.Callback.@"cpz.method.done.results");
+    try std.testing.expectEqualStrings("", generated.ExtendedService.Callback.@"cpz.method.done.annotations");
 }
 
 test "generated interface capability accessors round-trip" {

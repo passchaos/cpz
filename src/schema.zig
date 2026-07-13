@@ -164,6 +164,7 @@ pub const InterfaceMethod = struct {
     signature: []const u8 = "",
     params_signature: []const u8 = "",
     results_signature: []const u8 = "",
+    annotation_signature: []const u8 = "",
     is_streaming: bool = false,
     parameters: []const []const u8 = &.{},
     param_fields: []const MethodField = &.{},
@@ -812,6 +813,7 @@ pub const Parser = struct {
                 .signature = signature,
                 .params_signature = parts.params,
                 .results_signature = parts.results,
+                .annotation_signature = parts.annotations,
                 .is_streaming = std.mem.eql(u8, parts.results, "stream"),
                 .parameters = parameters,
                 .param_fields = param_fields,
@@ -952,7 +954,7 @@ pub const Parser = struct {
         return fields.toOwnedSlice(self.allocator);
     }
 
-    fn splitMethodSignature(signature: []const u8) struct { params: []const u8, results: []const u8 } {
+    fn splitMethodSignature(signature: []const u8) struct { params: []const u8, results: []const u8, annotations: []const u8 } {
         var index: usize = 0;
         if (signature.len != 0 and signature[0] == '[') {
             var bracket_depth: usize = 1;
@@ -976,13 +978,49 @@ pub const Parser = struct {
                 },
                 '-' => if (paren_depth == 0 and index + 1 < signature.len and signature[index + 1] == '>') {
                     const params = std.mem.trim(u8, signature[params_start..index], " \t\r\n");
-                    const results = std.mem.trim(u8, signature[index + 2 ..], " \t\r\n");
-                    return .{ .params = params, .results = results };
+                    const result_parts = splitResultAndAnnotations(std.mem.trim(u8, signature[index + 2 ..], " \t\r\n"));
+                    return .{ .params = params, .results = result_parts.results, .annotations = result_parts.annotations };
                 },
                 else => {},
             }
         }
-        return .{ .params = std.mem.trim(u8, signature[params_start..], " \t\r\n"), .results = "" };
+        return .{ .params = std.mem.trim(u8, signature[params_start..], " \t\r\n"), .results = "", .annotations = "" };
+    }
+
+    fn splitResultAndAnnotations(raw: []const u8) struct { results: []const u8, annotations: []const u8 } {
+        if (raw.len == 0) return .{ .results = "", .annotations = "" };
+        var index: usize = 0;
+        if (raw[0] == '(') {
+            var paren_depth: usize = 1;
+            index = 1;
+            while (index < raw.len and paren_depth != 0) : (index += 1) {
+                switch (raw[index]) {
+                    '(' => paren_depth += 1,
+                    ')' => paren_depth -= 1,
+                    else => {},
+                }
+            }
+            const result_end = index;
+            return .{
+                .results = std.mem.trim(u8, raw[0..result_end], " \t\r\n"),
+                .annotations = std.mem.trim(u8, raw[result_end..], " \t\r\n"),
+            };
+        }
+        var paren_depth: usize = 0;
+        while (index < raw.len) : (index += 1) {
+            switch (raw[index]) {
+                '(' => paren_depth += 1,
+                ')' => {
+                    if (paren_depth != 0) paren_depth -= 1;
+                },
+                ' ', '\t', '\r', '\n' => if (paren_depth == 0) break,
+                else => {},
+            }
+        }
+        return .{
+            .results = std.mem.trim(u8, raw[0..index], " \t\r\n"),
+            .annotations = std.mem.trim(u8, raw[index..], " \t\r\n"),
+        };
     }
 
     fn qualifiedDeclName(self: *Parser, prefix: ?[]const u8, local_name: []const u8) std.mem.Allocator.Error!QualifiedName {
@@ -3398,6 +3436,12 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.results": []const u8 = {s};
             \\
         , .{ method_name, results_signature_literal });
+        const annotation_signature_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
+        defer allocator.free(annotation_signature_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.annotations": []const u8 = {s};
+            \\
+        , .{ method_name, annotation_signature_literal });
         try appendFmt(allocator, out,
             \\    pub const @"cpz.method.{s}.streaming": bool = {};
             \\
