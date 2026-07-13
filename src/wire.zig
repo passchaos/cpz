@@ -40,8 +40,36 @@ pub const StructSize = struct {
     data_words: u16 = 0,
     pointer_count: u16 = 0,
 
+    pub fn dataWordCount(self: StructSize) u16 {
+        return self.data_words;
+    }
+
+    pub fn pointerCount(self: StructSize) u16 {
+        return self.pointer_count;
+    }
+
     pub fn totalWords(self: StructSize) usize {
         return @as(usize, self.data_words) + @as(usize, self.pointer_count);
+    }
+
+    pub fn isEmpty(self: StructSize) bool {
+        return self.data_words == 0 and self.pointer_count == 0;
+    }
+
+    pub fn hasDataWords(self: StructSize) bool {
+        return self.data_words != 0;
+    }
+
+    pub fn hasPointers(self: StructSize) bool {
+        return self.pointer_count != 0;
+    }
+
+    pub fn matchesDataWords(self: StructSize, count: u16) bool {
+        return self.data_words == count;
+    }
+
+    pub fn matchesPointerCount(self: StructSize, count: u16) bool {
+        return self.pointer_count == count;
     }
 };
 

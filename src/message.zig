@@ -3474,6 +3474,13 @@ test "primitive and struct lists" {
 
     const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
     try testing.expectEqual(wire.StructSize{ .data_words = 0, .pointer_count = 2 }, root.size());
+    try testing.expect(!root.size().isEmpty());
+    try testing.expect(!root.size().hasDataWords());
+    try testing.expect(root.size().hasPointers());
+    try testing.expect(root.size().matchesDataWords(0));
+    try testing.expect(root.size().matchesPointerCount(2));
+    try testing.expectEqual(@as(u16, 0), root.size().dataWordCount());
+    try testing.expectEqual(@as(u16, 2), root.size().pointerCount());
     const nums = try (try root.getPointerField(0)).initList(.two_bytes, 3);
     try testing.expectEqual(wire.ElementSize.two_bytes, nums.elementSize());
     try nums.setUInt16(0, 10);
@@ -3483,6 +3490,7 @@ test "primitive and struct lists" {
     const people = try (try root.getPointerField(1)).initStructList(2, .{ .data_words = 1, .pointer_count = 1 });
     try testing.expectEqual(wire.ElementSize.composite, people.elementSize());
     try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, people.structElementSize());
+    try testing.expectEqual(@as(usize, 2), people.structElementSize().totalWords());
     const p0 = try people.getStructElement(0);
     try p0.setUInt32(0, 1, 0);
     try p0.setText(0, "a");
