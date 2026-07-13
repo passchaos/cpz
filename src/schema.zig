@@ -626,6 +626,14 @@ pub const InterfaceMethodMetadata = struct {
         return self.parameter_count == count;
     }
 
+    pub fn matchesParamFieldCount(self: InterfaceMethodMetadata, count: usize) bool {
+        return self.param_field_count == count;
+    }
+
+    pub fn matchesResultFieldCount(self: InterfaceMethodMetadata, count: usize) bool {
+        return self.result_field_count == count;
+    }
+
     pub fn matchesParameter(self: InterfaceMethodMetadata, parameter: []const u8) bool {
         return self.parameterByName(parameter) != null;
     }
@@ -4840,12 +4848,27 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.methodByParameterCount"(@"cpz.count": usize) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (@"cpz.method".parameter_count == @"cpz.count") return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.methodByParamFieldCount"(@"cpz.count": usize) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (@"cpz.method".param_field_count == @"cpz.count") return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.methodByResultFieldCount"(@"cpz.count": usize) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (@"cpz.method".result_field_count == @"cpz.count") return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.methodByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
         \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".annotations, @"cpz.annotationFilter")) return @"cpz.method";
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (methods.len != 0) try out.append(allocator, '\n');
 }
 

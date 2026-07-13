@@ -2910,6 +2910,16 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByParameter"("Req").?.name);
     try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByParameter"("Resp").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByParameter"("Missing"));
+    try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methodByParameterCount"(0).?.name);
+    try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByParameterCount"(2).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByParameterCount"(99));
+    try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methodByParamFieldCount"(0).?.name);
+    try std.testing.expectEqualStrings("streamIt", generated.Service.@"cpz.methodByParamFieldCount"(1).?.name);
+    try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByParamFieldCount"(2).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByParamFieldCount"(99));
+    try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methodByResultFieldCount"(0).?.name);
+    try std.testing.expectEqualStrings("ping", generated.Service.@"cpz.methodByResultFieldCount"(1).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByResultFieldCount"(99));
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.call.index");
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.method.call.metadata".name);
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.method.call.metadata".annotations);
@@ -2947,6 +2957,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Req", ping_metadata.parameterByName("Req").?);
     try std.testing.expectEqualStrings("Resp", ping_metadata.parameterByIndex(1).?);
     try std.testing.expect(ping_metadata.matchesParameterCount(2));
+    try std.testing.expect(ping_metadata.matchesParamFieldCount(2));
+    try std.testing.expect(ping_metadata.matchesResultFieldCount(1));
     try std.testing.expect(ping_metadata.matchesParameter("Req"));
     try std.testing.expect(!ping_metadata.matchesParameter("Missing"));
     try std.testing.expectEqual(@as(?[]const u8, null), ping_metadata.parameterByName("Missing"));
@@ -3180,6 +3192,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.Callback.@"cpz.methodByParamsType"("Details"));
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.Callback.@"cpz.methodByParameter"("Req"));
+    try std.testing.expectEqualStrings("done", generated.ExtendedService.Callback.@"cpz.methodByParameterCount"(0).?.name);
+    try std.testing.expectEqualStrings("done", generated.ExtendedService.Callback.@"cpz.methodByParamFieldCount"(1).?.name);
+    try std.testing.expectEqualStrings("done", generated.ExtendedService.Callback.@"cpz.methodByResultFieldCount"(0).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.Callback.@"cpz.methodByParameterCount"(99));
     try std.testing.expectEqualStrings("done", generated.ExtendedService.Callback.@"cpz.method.done.metadata".name);
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.Callback.@"cpz.method.done.metadata".param_field_count);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.Callback.@"cpz.methods"[0].parameter_count);
