@@ -1528,6 +1528,7 @@ test "generated anonymous union accessors activate and guard fields" {
 }
 
 test "generated generic type applications lower to base accessors" {
+    try std.testing.expectEqual(@as(usize, 1), generated.GenericBox.@"cpz.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.GenericBox.@"cpz.parameters");
     try std.testing.expectEqual(@as(usize, 0), generated.GenericBox.@"cpz.parameter.T.index");
     try std.testing.expectEqualStrings("T", generated.GenericBox.@"cpz.parameter.T.name");
@@ -1943,6 +1944,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("(request :Req $schemaNote(\"request\"), attempts :UInt32 = 3 $schemaNote(\"attempts\"))", generated.Service.@"cpz.method.ping.params");
     try std.testing.expectEqualStrings("(response :Resp)", generated.Service.@"cpz.method.ping.results");
     try std.testing.expectEqualStrings("", generated.Service.@"cpz.method.ping.annotations");
+    try std.testing.expectEqual(@as(usize, 2), generated.Service.@"cpz.method.ping.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.method.ping.parameters");
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.parameter.Req.index");
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.parameter.Req.name");
@@ -1999,6 +2001,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fields".len);
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.methodCount");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
+    try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.parameter.Req.index");
     try std.testing.expectEqualStrings("Req", generated.ExtendedService.@"cpz.parameter.Req.name");
