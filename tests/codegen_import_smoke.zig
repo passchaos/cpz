@@ -13,13 +13,16 @@ test "generated schemas reference imported modules" {
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByName"("Missing"));
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.imports"[0].path);
     try std.testing.expectEqualStrings("", generated.@"cpz.imports"[0].member);
+    try std.testing.expect(!generated.@"cpz.imports"[0].has_member);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.import.Base.index");
     try std.testing.expectEqualStrings("Base", generated.@"cpz.import.Base.name");
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.import.Base.path");
     try std.testing.expectEqualStrings("", generated.@"cpz.import.Base.member");
+    try std.testing.expect(!generated.@"cpz.import.Base.hasMember");
     try std.testing.expectEqualStrings("Child", generated.@"cpz.imports"[1].name);
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.imports"[1].path);
     try std.testing.expectEqualStrings("Child", generated.@"cpz.imports"[1].member);
+    try std.testing.expect(generated.@"cpz.imports"[1].has_member);
     try std.testing.expectEqualStrings("Local", generated.@"cpz.imports"[2].name);
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.imports"[2].path);
     try std.testing.expectEqualStrings("", generated.@"cpz.imports"[2].member);
@@ -30,6 +33,8 @@ test "generated schemas reference imported modules" {
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.import.Extra.name");
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.import.Extra.path");
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.import.Extra.member");
+    try std.testing.expect(generated.@"cpz.import.Extra.hasMember");
+    try std.testing.expect(generated.@"cpz.importByMember"("Extra").?.has_member);
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.importByMember"("Extra").?.name);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.importByMember"("Extra").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByMember"("Missing"));

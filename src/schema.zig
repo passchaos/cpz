@@ -127,6 +127,7 @@ pub const ImportMetadata = struct {
     name: []const u8,
     path: []const u8,
     member: []const u8 = "",
+    has_member: bool = false,
 };
 
 const UnionBuilder = struct {
@@ -4652,8 +4653,9 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\{s}pub const @"cpz.import.{s}.name": []const u8 = {s};
             \\{s}pub const @"cpz.import.{s}.path": []const u8 = {s};
             \\{s}pub const @"cpz.import.{s}.member": []const u8 = {s};
+            \\{s}pub const @"cpz.import.{s}.hasMember": bool = {};
             \\
-        , .{ indent, import_name, index, indent, import_name, name_literal, indent, import_name, path_literal, indent, import_name, member_literal });
+        , .{ indent, import_name, index, indent, import_name, name_literal, indent, import_name, path_literal, indent, import_name, member_literal, indent, import_name, import_decl.member != null });
     }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.imports\": []const cpz.schema.ImportMetadata = &[_]cpz.schema.ImportMetadata{{", .{indent});
     for (imports, 0..) |import_decl, index| {
@@ -4666,7 +4668,7 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(member_literal);
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .path = {s}", .{ index, name_literal, path_literal });
         if (import_decl.member != null) {
-            try appendFmt(allocator, out, ", .member = {s}", .{member_literal});
+            try appendFmt(allocator, out, ", .member = {s}, .has_member = true", .{member_literal});
         }
         try out.appendSlice(allocator, " }");
     }
