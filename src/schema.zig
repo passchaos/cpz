@@ -206,6 +206,7 @@ pub const UnionMetadata = struct {
     data_bits: usize = 0,
     pointer: ?usize = null,
     field_count: usize = 0,
+    fields: []const FieldMetadata = &.{},
 };
 
 pub const DeclarationKind = enum {
@@ -5258,7 +5259,7 @@ fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError!
     return zigDataLiteralAlloc(allocator, item.literal, item.is_hex_data);
 }
 
-fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
+fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
     try appendFmt(allocator, out,
         \\    pub const @"cpz.unionCount": usize = {};
         \\
@@ -5282,7 +5283,8 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
-        try appendFmt(allocator, out, ".{{ .index = {}, .discriminant_byte = {}, .field_count = {}", .{ index, union_layout.discriminant_byte, unionFieldCount(layout, @intCast(index)) });
+        try appendFmt(allocator, out, ".{{ .index = {}, .discriminant_byte = {}, .field_count = {}, .fields = ", .{ index, union_layout.discriminant_byte, unionFieldCount(layout, @intCast(index)) });
+        try appendUnionFieldMetadataLiteral(allocator, out, file, layout, @intCast(index));
         if (union_layout.data_bits != 0) {
             try appendFmt(allocator, out, ", .data_bit = {}, .data_bits = {}", .{ union_layout.data_bit, union_layout.data_bits });
         }
@@ -5299,6 +5301,46 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\    }
         \\
     );
+}
+
+fn appendUnionFieldMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, union_index: u32) LayoutError!void {
+    try out.appendSlice(allocator, "&[_]cpz.schema.FieldMetadata{");
+    var emitted: usize = 0;
+    for (layout.fields, 0..) |field_layout, index| {
+        const field = field_layout.field;
+        if (field.union_index == null or field.union_index.? != union_index) continue;
+        if (emitted != 0) try out.appendSlice(allocator, ", ");
+        emitted += 1;
+        const field_name = try zigStringLiteralAlloc(allocator, field.name);
+        defer allocator.free(field_name);
+        const type_name = try schemaTypeNameAlloc(allocator, field.ty);
+        defer allocator.free(type_name);
+        const type_literal = try zigStringLiteralAlloc(allocator, type_name);
+        defer allocator.free(type_literal);
+        const resolved_type_name = try schemaResolvedTypeNameAlloc(allocator, file, layout.decl, field.ty);
+        defer allocator.free(resolved_type_name);
+        const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
+        defer allocator.free(resolved_type_literal);
+        const default_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
+        defer allocator.free(default_literal);
+        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        defer allocator.free(annotations_literal);
+        const slot = fieldSlotMetadata(field_layout.slot);
+        const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
+        defer allocator.free(slot_literal);
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .ty = {s}, .resolved_ty = {s}, .slot = {s}, .offset = {}", .{ index, field_name, field.ordinal, type_literal, resolved_type_literal, slot_literal, slot.offset });
+        if (field.default_expression.len != 0) {
+            try appendFmt(allocator, out, ", .default = {s}, .has_explicit_default = true", .{default_literal});
+        }
+        if (field.default_is_hex_data) {
+            try out.appendSlice(allocator, ", .default_is_hex_data = true");
+        }
+        if (field.annotations.len != 0) {
+            try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
+        }
+        try appendFmt(allocator, out, ", .union_index = {}, .union_discriminant = {} }}", .{ union_index, field.union_discriminant });
+    }
+    try out.appendSlice(allocator, "}");
 }
 
 fn unionFieldCount(layout: *const StructLayout, union_index: u32) usize {
@@ -5417,7 +5459,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
 
     try emitConstMetadataTable(allocator, out, file, layout.decl, layout.decl.consts, "    ");
     try emitScopedAnnotationMetadataTable(allocator, out, file, layout.decl.name, "    ");
-    try emitStructUnionMetadata(allocator, out, layout);
+    try emitStructUnionMetadata(allocator, out, file, layout);
     try emitStructFieldMetadata(allocator, out, file, layout);
 
     try appendFmt(allocator, out,
