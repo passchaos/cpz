@@ -4358,6 +4358,10 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
     defer allocator.free(by_explicit_default);
     const by_explicit_default_ident = try zigStringLiteralAlloc(allocator, by_explicit_default);
     defer allocator.free(by_explicit_default_ident);
+    const by_hex_default = try std.fmt.allocPrint(allocator, "{s}.fieldByHexDefault", .{metadata_name});
+    defer allocator.free(by_hex_default);
+    const by_hex_default_ident = try zigStringLiteralAlloc(allocator, by_hex_default);
+    defer allocator.free(by_hex_default_ident);
     const by_annotations = try std.fmt.allocPrint(allocator, "{s}.fieldByAnnotations", .{metadata_name});
     defer allocator.free(by_annotations);
     const by_annotations_ident = try zigStringLiteralAlloc(allocator, by_annotations);
@@ -4394,6 +4398,11 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @{s}(@"cpz.isHex": bool) ?cpz.schema.MethodField {{
+        \\{s}    for (@This().@{s}) |@"cpz.field"| if (@"cpz.field".default_is_hex_data == @"cpz.isHex") return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @{s}(@"cpz.annotationFilter": []const u8) ?cpz.schema.MethodField {{
         \\{s}    for (@This().@{s}) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".annotations, @"cpz.annotationFilter")) return @"cpz.field";
         \\{s}    return null;
@@ -4404,7 +4413,7 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    return @This().@{s}[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, by_default_ident, indent, metadata_ident, indent, indent, indent, by_explicit_default_ident, indent, metadata_ident, indent, indent, indent, by_annotations_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
+    , .{ indent, by_default_ident, indent, metadata_ident, indent, indent, indent, by_explicit_default_ident, indent, metadata_ident, indent, indent, indent, by_hex_default_ident, indent, metadata_ident, indent, indent, indent, by_annotations_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
 }
 
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {

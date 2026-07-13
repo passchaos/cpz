@@ -2158,6 +2158,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByDefault"("3").?.name);
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByExplicitDefault"(true).?.name);
     try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields.fieldByExplicitDefault"(false).?.name);
+    try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields.fieldByHexDefault"(false).?.name);
     try std.testing.expectEqualStrings("request", generated.Service.@"cpz.method.ping.params.fields.fieldByAnnotations"("$schemaNote(\"request\")").?.name);
     try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.fields.fieldByAnnotations"("$schemaNote(\"attempts\")").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.MethodField, null), generated.Service.@"cpz.method.ping.params.fields.fieldByDefault"("missing"));
@@ -2209,6 +2210,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("0x\"de ad\"", generated.Service.@"cpz.methods"[2].param_fields[0].default_literal.?);
     try std.testing.expect(generated.Service.@"cpz.methods"[2].param_fields[0].default_is_hex_data);
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.fields"[0].default_is_hex_data);
+    try std.testing.expectEqualStrings("chunk", generated.Service.@"cpz.method.streamIt.params.fields.fieldByHexDefault"(true).?.name);
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultIsHexData");
     try std.testing.expect(generated.Service.@"cpz.methods"[2].streaming);
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.streaming");
