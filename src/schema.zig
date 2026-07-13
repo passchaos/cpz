@@ -3814,9 +3814,7 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
             \\pub const @"cpz.enumerant.{s}.{s}.index": usize = {};
             \\pub const @"cpz.enumerant.{s}.{s}.name": []const u8 = {s};
             \\pub const @"cpz.enumerant.{s}.{s}.ordinal": u16 = {};
-            \\
         , .{ enum_name_for_const, value_name, value.index, enum_name_for_const, value_name, value_name_literal, enum_name_for_const, value_name, value.ordinal });
-        if (value.annotations.len == 0) continue;
         const annotation_literal = try zigStringLiteralAlloc(allocator, value.annotations);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
