@@ -33,6 +33,9 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("Color", generated.@"cpz.declarationById"(0xc010).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationById"(0xdead));
     try std.testing.expectEqualStrings("Person", generated.@"cpz.declarationByKind"(.struct_decl).?.name);
+    try std.testing.expectEqualStrings("Person", generated.@"cpz.declarationByAnnotations"("$schemaNote(\"person\")").?.name);
+    try std.testing.expectEqualStrings("Choice", generated.@"cpz.declarationByAnnotations"("").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByAnnotations"("missing"));
     try std.testing.expectEqualStrings("Color", generated.@"cpz.declarationByKind"(.enum_decl).?.name);
     try std.testing.expectEqualStrings("Service", generated.@"cpz.declarationByKind"(.interface_decl).?.name);
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.declarationByKind"(.annotation_decl).?.name);
