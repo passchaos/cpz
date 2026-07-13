@@ -8977,6 +8977,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyListFrom(new_value.list);
                 \\        }}
                 \\
+                \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: {s}_{s}_BuilderList) !void {{
+            , .{ index, field_name, owner_name, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyListFromBuilder(new_value.list);
+                \\        }}
+                \\
                 \\        pub fn disown_{s}_typed(self: Builder) !{s}_{s}_Orphan {{
             , .{ index, field_name, owner_name, field_name });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
@@ -9789,6 +9796,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFrom(index, source.list, source_index, count);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromBuilder(index, source.list, source_index, count);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(start, count);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_fromBuilder(self: Builder, new_value: Person_scores_BuilderList) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value.list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(new_value.reader)") != null);

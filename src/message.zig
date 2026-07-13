@@ -1802,6 +1802,11 @@ pub const PointerBuilder = struct {
         try self.copyListFromMode(source, false);
     }
 
+    pub fn copyListFromBuilder(self: PointerBuilder, source: ListBuilder) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyListFrom(source.asReader(&reader));
+    }
+
     pub fn copyListFromCanonical(self: PointerBuilder, source: ListReader) Error!void {
         try self.copyListFromMode(source, true);
     }
@@ -4698,6 +4703,45 @@ test "struct and pointer builders copy from builders" {
     const copied = try read_root.getPointerField(1).getStruct(null);
     try testing.expectEqual(@as(u32, 77), copied.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "builder copy", try copied.getPointerField(0).getText());
+}
+
+test "pointer builders copy lists from builders" {
+    const testing = std.testing;
+    var source = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer source.deinit();
+    const source_root = try source.initRoot(.{ .data_words = 0, .pointer_count = 3 });
+    const source_numbers = try (try source_root.getPointerField(0)).initList(.four_bytes, 3);
+    try source_numbers.setUInt32(0, 11);
+    try source_numbers.setUInt32(1, 22);
+    try source_numbers.setUInt32(2, 33);
+    const source_texts = try (try source_root.getPointerField(1)).initList(.pointer, 2);
+    try (try source_texts.getPointerElement(0)).setText("alpha");
+    try (try source_texts.getPointerElement(1)).setText("beta");
+    const source_structs = try (try source_root.getPointerField(2)).initStructList(1, .{ .data_words = 1, .pointer_count = 1 });
+    const source_struct = try source_structs.getStructElement(0);
+    try source_struct.setUInt32(0, 44, 0);
+    try source_struct.setText(0, "nested");
+
+    var target = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer target.deinit();
+    const target_root = try target.initRoot(.{ .data_words = 0, .pointer_count = 3 });
+    try (try target_root.getPointerField(0)).copyListFromBuilder(source_numbers);
+    try (try target_root.getPointerField(1)).copyListFromBuilder(source_texts);
+    try (try target_root.getPointerField(2)).copyListFromBuilder(source_structs);
+
+    var reader = MessageReader.init(try target.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    const numbers = try read_root.getPointerField(0).getList(.four_bytes);
+    try testing.expectEqual(@as(u32, 11), numbers.getUInt32(0));
+    try testing.expectEqual(@as(u32, 22), numbers.getUInt32(1));
+    try testing.expectEqual(@as(u32, 33), numbers.getUInt32(2));
+    const texts = try read_root.getPointerField(1).getList(.pointer);
+    try testing.expectEqualSlices(u8, "alpha", try (try texts.getPointerElement(0)).getText());
+    try testing.expectEqualSlices(u8, "beta", try (try texts.getPointerElement(1)).getText());
+    const structs = try read_root.getPointerField(2).getList(.composite);
+    const read_struct = try structs.getStructElement(0);
+    try testing.expectEqual(@as(u32, 44), read_struct.getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "nested", try read_struct.getPointerField(0).getText());
 }
 
 test "signed integer and floating-point scalar accessors" {

@@ -1537,6 +1537,28 @@ test "generated builders can copy whole list fields from readers" {
     try std.testing.expectEqualSlices(u8, "CopiedAlias", try target_aliases.get(0));
     const target_groups = try target_person.scoreGroups();
     try std.testing.expectEqual(@as(u32, 777), (try target_groups.get(0)).getUInt32(0));
+
+    var builder_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder_target.deinit();
+    const builder_target_person_builder = try generated.Person.initRootTyped(&builder_target);
+    try builder_target_person_builder.set_scores_fromBuilder(source_scores);
+    try builder_target_person_builder.set_children_fromBuilder(source_children);
+    try builder_target_person_builder.set_aliases_fromBuilder(source_aliases);
+    try builder_target_person_builder.set_scoreGroups_fromBuilder(source_groups);
+
+    var builder_target_reader = cpz.MessageReader.init(try builder_target.segmentsConst(), .{});
+    const builder_target_person = generated.Person.fromReader(try builder_target_reader.getRoot());
+    const builder_target_scores = try builder_target_person.scores();
+    try std.testing.expectEqual(@as(u32, 12), builder_target_scores.get(0));
+    try std.testing.expectEqual(@as(u32, 34), builder_target_scores.get(1));
+    const builder_target_children = try builder_target_person.children();
+    const builder_target_child = try builder_target_children.get(0);
+    try std.testing.expectEqual(@as(u32, 901), builder_target_child.id());
+    try std.testing.expectEqualSlices(u8, "WholeListCopy", try builder_target_child.name());
+    const builder_target_aliases = try builder_target_person.aliases();
+    try std.testing.expectEqualSlices(u8, "CopiedAlias", try builder_target_aliases.get(0));
+    const builder_target_groups = try builder_target_person.scoreGroups();
+    try std.testing.expectEqual(@as(u32, 777), (try builder_target_groups.get(0)).getUInt32(0));
 }
 
 test "generated builders can use typed list field orphans" {
