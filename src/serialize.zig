@@ -175,6 +175,10 @@ pub fn messageToPackedBytes(allocator: std.mem.Allocator, segments: []const Cons
     return packing.pack(allocator, flat);
 }
 
+pub fn maxPackedMessageSize(segments: []const ConstSegment) Error!usize {
+    return packing.maxPackedSize(try computeSerializedSize(segments));
+}
+
 /// Serialize segments as a packed stream into caller-provided buffers. The
 /// `table_buffer` stores the temporary flat segment table, while `dest`
 /// receives the packed stream bytes. Returns bytes written to `dest`.
@@ -878,7 +882,10 @@ test "packed stream framing writes directly to Io writer" {
     try testing.expectEqualSlices(u8, packed_bytes, std.Io.Writer.buffered(&buffered_writer));
     var packed_into_table_buffer: [16]u8 = undefined;
     var packed_into_buffer: [256]u8 = undefined;
+    const packed_message_max = try maxPackedMessageSize(&segments);
+    try testing.expect(packed_message_max >= packed_bytes.len);
     const packed_into_len = try messageToPackedBytesInto(&packed_into_table_buffer, &packed_into_buffer, &segments);
+    try testing.expect(packed_message_max >= packed_into_len);
     try testing.expectEqualSlices(u8, std.Io.Writer.buffered(&buffered_writer), packed_into_buffer[0..packed_into_len]);
     var parsed_into = try readPackedMessage(allocator, packed_into_buffer[0..packed_into_len]);
     defer parsed_into.deinit(allocator);

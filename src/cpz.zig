@@ -81,6 +81,7 @@ pub const messageToFlatBytes = serialize.messageToFlatBytes;
 pub const messageToFlatBytesInto = serialize.messageToFlatBytesInto;
 pub const writeMessageToWriter = serialize.writeMessageToWriter;
 pub const messageToPackedBytes = serialize.messageToPackedBytes;
+pub const maxPackedMessageSize = serialize.maxPackedMessageSize;
 pub const messageToPackedBytesInto = serialize.messageToPackedBytesInto;
 pub const writePackedMessageToWriter = serialize.writePackedMessageToWriter;
 pub const writePackedMessageToWriterWithTableBuffer = serialize.writePackedMessageToWriterWithTableBuffer;
@@ -142,6 +143,7 @@ test "top-level stream framing helpers round-trip" {
 
     const packed_bytes = try messageToPackedBytes(testing.allocator, segments);
     defer testing.allocator.free(packed_bytes);
+    try testing.expect((try maxPackedMessageSize(segments)) >= packed_bytes.len);
     var packed_into_table_buffer: [8]u8 = undefined;
     var packed_into_buffer: [128]u8 = undefined;
     const packed_into_len = try messageToPackedBytesInto(&packed_into_table_buffer, &packed_into_buffer, segments);

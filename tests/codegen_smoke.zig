@@ -572,6 +572,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const packed_root_bytes = try generated.Person.@"cpz.builderRoot.toPackedBytes"(&builder);
     defer std.testing.allocator.free(packed_root_bytes);
     try std.testing.expect(packed_root_bytes.len > 0);
+    try std.testing.expect((try generated.Person.@"cpz.builderRoot.maxPackedSize"(&builder)) >= packed_root_bytes.len);
     var packed_root_table_buffer: [64]u8 = undefined;
     var packed_root_buffer: [2048]u8 = undefined;
     const packed_root_buffer_len = try generated.Person.@"cpz.builderRoot.toPackedBytesInto"(&builder, &packed_root_table_buffer, &packed_root_buffer);
@@ -795,6 +796,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const reader_packed_bytes = try generated.Person.@"cpz.root.toPackedBytes"(std.testing.allocator, &reader);
     defer std.testing.allocator.free(reader_packed_bytes);
     try std.testing.expect(reader_packed_bytes.len > 0);
+    try std.testing.expect((try generated.Person.@"cpz.root.maxPackedSize"(&reader)) >= reader_packed_bytes.len);
     var reader_packed_into_table: [64]u8 = undefined;
     var reader_packed_into_buffer: [2048]u8 = undefined;
     const reader_packed_into_len = try generated.Person.@"cpz.root.toPackedBytesInto"(&reader, &reader_packed_into_table, &reader_packed_into_buffer);

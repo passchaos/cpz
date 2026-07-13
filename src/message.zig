@@ -350,6 +350,10 @@ pub const OwnedMessageReader = struct {
         return self.reader.toPackedBytes(allocator);
     }
 
+    pub fn maxPackedSize(self: *const OwnedMessageReader) (Error || serialize.Error)!usize {
+        return self.reader.maxPackedSize();
+    }
+
     pub fn toPackedBytesInto(self: *const OwnedMessageReader, table_buffer: []u8, dest: []u8) (Error || serialize.Error)!usize {
         return self.reader.toPackedBytesInto(table_buffer, dest);
     }
@@ -559,6 +563,10 @@ pub const MessageReaderView = struct {
 
     pub fn toPackedBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
         return self.reader.toPackedBytes(allocator);
+    }
+
+    pub fn maxPackedSize(self: *const MessageReaderView) (Error || serialize.Error)!usize {
+        return self.reader.maxPackedSize();
     }
 
     pub fn toPackedBytesInto(self: *const MessageReaderView, table_buffer: []u8, dest: []u8) (Error || serialize.Error)!usize {
@@ -1090,6 +1098,10 @@ pub const MessageBuilder = struct {
         return serialize.messageToPackedBytes(self.allocator, try self.segmentsConst());
     }
 
+    pub fn maxPackedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
+        return serialize.maxPackedMessageSize(try self.segmentsConst());
+    }
+
     pub fn toPackedBytesInto(self: *MessageBuilder, table_buffer: []u8, dest: []u8) (Error || serialize.Error)!usize {
         return serialize.messageToPackedBytesInto(table_buffer, dest, try self.segmentsConst());
     }
@@ -1359,6 +1371,10 @@ pub const MessageReader = struct {
 
     pub fn toPackedBytes(self: *const MessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
         return serialize.messageToPackedBytes(allocator, self.segments);
+    }
+
+    pub fn maxPackedSize(self: *const MessageReader) (Error || serialize.Error)!usize {
+        return serialize.maxPackedMessageSize(self.segments);
     }
 
     pub fn toPackedBytesInto(self: *const MessageReader, table_buffer: []u8, dest: []u8) (Error || serialize.Error)!usize {
@@ -3319,6 +3335,7 @@ test "message builder serializes flat, packed, and canonical bytes directly" {
 
     const packed_bytes = try builder.toPackedBytes();
     defer testing.allocator.free(packed_bytes);
+    try testing.expect((try builder.maxPackedSize()) >= packed_bytes.len);
     var builder_packed_table_buffer: [8]u8 = undefined;
     var builder_packed_buffer: [128]u8 = undefined;
     const builder_packed_len = try builder.toPackedBytesInto(&builder_packed_table_buffer, &builder_packed_buffer);
@@ -3384,6 +3401,7 @@ test "owned message readers parse flat and packed bytes" {
     try testing.expectEqualSlices(u8, flat, owned_flat_into_buffer[0..owned_flat_into_len]);
     const owned_packed_bytes = try owned_flat.toPackedBytes(testing.allocator);
     defer testing.allocator.free(owned_packed_bytes);
+    try testing.expect((try owned_flat.maxPackedSize()) >= owned_packed_bytes.len);
     var owned_packed_into_table: [8]u8 = undefined;
     var owned_packed_into_buffer: [128]u8 = undefined;
     const owned_packed_into_len = try owned_flat.toPackedBytesInto(&owned_packed_into_table, &owned_packed_into_buffer);
@@ -3561,6 +3579,7 @@ test "message reader views parse flat bytes without copying message data" {
     var view_packed_write_buffer: [128]u8 = undefined;
     var view_packed_writer = std.Io.Writer.fixed(&view_packed_write_buffer);
     try view.writePackedToWriter(testing.allocator, &view_packed_writer);
+    try testing.expect((try view.maxPackedSize()) >= std.Io.Writer.buffered(&view_packed_writer).len);
     var view_packed_into_table: [8]u8 = undefined;
     var view_packed_into_buffer: [128]u8 = undefined;
     const view_packed_into_len = try view.toPackedBytesInto(&view_packed_into_table, &view_packed_into_buffer);
