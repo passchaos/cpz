@@ -254,6 +254,7 @@ pub const InterfaceMethod = struct {
 };
 
 pub const InterfaceMethodMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     ordinal: u16,
     signature: []const u8 = "",
@@ -3965,7 +3966,8 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         defer allocator.free(results_type_literal);
         const annotations_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
         defer allocator.free(annotations_literal);
-        try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {}, .signature = {s}, .params = {s}, .results = {s}", .{
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .signature = {s}, .params = {s}, .results = {s}", .{
+            index,
             name_literal,
             method.ordinal,
             signature_literal,
@@ -4002,7 +4004,12 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+        \\{s}pub fn @"cpz.methodByIndex"(@"cpz.index": usize) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    if (@"cpz.index" >= @"cpz.methods".len) return null;
+        \\{s}    return @"cpz.methods"[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (methods.len != 0) try out.append(allocator, '\n');
 }
 
