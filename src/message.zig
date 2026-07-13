@@ -742,6 +742,11 @@ pub const MessageBuilder = struct {
         return dst_root;
     }
 
+    pub fn copyRootTo(self: *MessageBuilder, target: *MessageBuilder) Error!PointerBuilder {
+        var reader = MessageReader.init(try self.segmentsConst(), .{});
+        return target.copyRootPointerFrom(try reader.getRootPointer());
+    }
+
     pub fn copyRootCanonicalFrom(self: *MessageBuilder, source: *MessageReader) Error!StructBuilder {
         const dst_root = try self.getRootPointer();
         const src_root = try source.getRootPointer();
@@ -753,6 +758,11 @@ pub const MessageBuilder = struct {
         const dst_root = try self.getRootPointer();
         try dst_root.copyFromCanonical(source);
         return dst_root;
+    }
+
+    pub fn copyRootCanonicalTo(self: *MessageBuilder, target: *MessageBuilder) Error!PointerBuilder {
+        var reader = MessageReader.init(try self.segmentsConst(), .{});
+        return target.copyRootPointerCanonicalFrom(try reader.getRootPointer());
     }
 
     pub fn getRoot(self: *MessageBuilder) Error!StructBuilder {
@@ -3945,6 +3955,20 @@ test "message builder copies arbitrary root pointers" {
     var canonical_reader = MessageReader.init(try canonical_copy.segmentsConst(), .{});
     const canonical_list = try (try canonical_reader.getRootPointer()).getList(.pointer);
     try testing.expectEqualSlices(u8, "root pointer copy", try (try canonical_list.getPointerElement(0)).getText());
+
+    var builder_copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_copy.deinit();
+    _ = try source.copyRootTo(&builder_copy);
+    var builder_copy_reader = MessageReader.init(try builder_copy.segmentsConst(), .{});
+    const builder_copy_list = try (try builder_copy_reader.getRootPointer()).getList(.pointer);
+    try testing.expectEqualSlices(u8, "root pointer copy", try (try builder_copy_list.getPointerElement(0)).getText());
+
+    var builder_canonical_copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_canonical_copy.deinit();
+    _ = try source.copyRootCanonicalTo(&builder_canonical_copy);
+    var builder_canonical_reader = MessageReader.init(try builder_canonical_copy.segmentsConst(), .{});
+    const builder_canonical_list = try (try builder_canonical_reader.getRootPointer()).getList(.pointer);
+    try testing.expectEqualSlices(u8, "root pointer copy", try (try builder_canonical_list.getPointerElement(0)).getText());
 }
 
 test "message builder and reader expose scalar root pointer helpers" {
