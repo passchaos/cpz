@@ -163,12 +163,14 @@ pub const Struct = struct {
 };
 
 pub const EnumValue = struct {
+    index: usize = 0,
     name: []const u8,
     ordinal: u16,
     annotations: []const u8 = "",
 };
 
 pub const EnumValueMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     ordinal: u16,
     annotations: []const u8 = "",
@@ -1901,7 +1903,7 @@ pub const Parser = struct {
             const entry = try occupied_ordinals.getOrPut(ordinal);
             if (entry.found_existing) return error.OrdinalCollision;
             const value_annotations = try self.takeRawUntilSemicolon();
-            try values.append(self.allocator, .{ .name = value_name, .ordinal = ordinal, .annotations = value_annotations });
+            try values.append(self.allocator, .{ .index = values.items.len, .name = value_name, .ordinal = ordinal, .annotations = value_annotations });
         }
         try self.expect(.r_brace);
         return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .annotations = annotations, .values = try values.toOwnedSlice(self.allocator) };
@@ -3772,7 +3774,12 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\    for (@"cpz.enum.{s}.values") |item| if (item.ordinal == raw) return item;
         \\    return null;
         \\}}
-    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
+        \\
+        \\pub fn @"cpz.enum.{s}.metadataByIndex"(@"cpz.index": usize) ?cpz.schema.EnumValueMetadata {{
+        \\    if (@"cpz.index" >= @"cpz.enum.{s}.values".len) return null;
+        \\    return @"cpz.enum.{s}.values"[@"cpz.index"];
+        \\}}
+    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
     try appendFmt(allocator, out,
         \\pub const @"cpz.enum.{s}.values": []const cpz.schema.EnumValueMetadata = &[_]cpz.schema.EnumValueMetadata{{
     , .{enum_name});
@@ -3783,9 +3790,9 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         const annotation_literal = try zigStringLiteralAlloc(allocator, value.annotations);
         defer allocator.free(annotation_literal);
         if (value.annotations.len != 0) {
-            try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {}, .annotations = {s} }}", .{ value_name_literal, value.ordinal, annotation_literal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .annotations = {s} }}", .{ value.index, value_name_literal, value.ordinal, annotation_literal });
         } else {
-            try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {} }}", .{ value_name_literal, value.ordinal });
+            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {} }}", .{ value.index, value_name_literal, value.ordinal });
         }
     }
     try out.appendSlice(allocator, "};\n");
