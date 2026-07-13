@@ -274,6 +274,9 @@ pub const InterfaceMethodMetadata = struct {
     resolved_results_type: []const u8 = "",
     annotations: []const u8 = "",
     streaming: bool = false,
+    parameter_count: usize = 0,
+    param_field_count: usize = 0,
+    result_field_count: usize = 0,
     parameters: []const []const u8 = &.{},
     param_fields: []const MethodField = &.{},
     result_fields: []const MethodField = &.{},
@@ -4069,6 +4072,11 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
             signature_literal,
             params_literal,
             results_literal,
+        });
+        try appendFmt(allocator, out, ", .parameter_count = {}, .param_field_count = {}, .result_field_count = {}", .{
+            method.parameters.len,
+            method.param_fields.len,
+            method.result_fields.len,
         });
         if (method.params_type.len != 0) {
             try appendFmt(allocator, out, ", .params_type = {s}, .resolved_params_type = {s}", .{ params_type_literal, resolved_params_type_literal });
