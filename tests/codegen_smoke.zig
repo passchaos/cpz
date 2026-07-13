@@ -391,6 +391,9 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].list_items[1].index);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].listItemByIndex(1).?.index);
     try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].listItemByLiteral("20").?.literal);
+    try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesLiteral("20"));
+    try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesAnnotations(""));
+    try std.testing.expect(!generated.@"cpz.consts"[6].list_items[1].matchesLiteral("missing"));
     try std.testing.expectEqualStrings("10", generated.@"cpz.consts"[6].listItemByHexData(false).?.literal);
     try std.testing.expectEqualStrings("10", generated.@"cpz.consts"[6].listItemByAnnotations("").?.literal);
     try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.consts"[6].listItemByIndex(99));

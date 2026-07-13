@@ -113,6 +113,14 @@ pub const ConstListItem = struct {
     literal: []const u8,
     is_hex_data: bool = false,
     annotations: []const u8 = "",
+
+    pub fn matchesLiteral(self: ConstListItem, item_literal: []const u8) bool {
+        return std.mem.eql(u8, self.literal, item_literal);
+    }
+
+    pub fn matchesAnnotations(self: ConstListItem, item_annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, item_annotations);
+    }
 };
 
 pub const ConstMetadata = struct {
