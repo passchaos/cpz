@@ -175,8 +175,12 @@ pub const FieldMetadata = struct {
     name: []const u8,
     ordinal: u32,
     ty: []const u8,
+    slot: []const u8 = "",
+    offset: usize = 0,
     default: []const u8 = "",
     annotations: []const u8 = "",
+    union_index: ?u32 = null,
+    union_discriminant: u16 = 0,
 };
 
 pub const DeclarationKind = enum {
@@ -4471,7 +4475,8 @@ fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError!
 
 fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
     try out.appendSlice(allocator, "    pub const @\"cpz.fields\": []const cpz.schema.FieldMetadata = &[_]cpz.schema.FieldMetadata{");
-    for (layout.decl.fields, 0..) |field, index| {
+    for (layout.fields, 0..) |field_layout, index| {
+        const field = field_layout.field;
         if (index != 0) try out.appendSlice(allocator, ", ");
         const field_name = try zigStringLiteralAlloc(allocator, field.name);
         defer allocator.free(field_name);
@@ -4483,16 +4488,31 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(default_literal);
         const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
-        try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {}, .ty = {s}", .{ field_name, field.ordinal, type_literal });
+        const slot = fieldSlotMetadata(field_layout.slot);
+        const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
+        defer allocator.free(slot_literal);
+        try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {}, .ty = {s}, .slot = {s}, .offset = {}", .{ field_name, field.ordinal, type_literal, slot_literal, slot.offset });
         if (field.default_expression.len != 0) {
             try appendFmt(allocator, out, ", .default = {s}", .{default_literal});
         }
         if (field.annotations.len != 0) {
             try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
         }
+        if (field.union_index) |union_index| {
+            try appendFmt(allocator, out, ", .union_index = {}, .union_discriminant = {}", .{ union_index, field.union_discriminant });
+        }
         try out.appendSlice(allocator, " }");
     }
     try out.appendSlice(allocator, "};\n\n");
+}
+
+fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize } {
+    return switch (slot) {
+        .void => .{ .name = "void", .offset = 0 },
+        .data_bit => |bit| .{ .name = "data_bit", .offset = bit },
+        .data_byte => |byte| .{ .name = "data_byte", .offset = byte },
+        .pointer => |index| .{ .name = "pointer", .offset = index },
+    };
 }
 
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {

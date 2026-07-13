@@ -82,12 +82,18 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fields"[0].name);
     try std.testing.expectEqual(@as(u32, 0), generated.Person.@"cpz.fields"[0].ordinal);
     try std.testing.expectEqualStrings("UInt32", generated.Person.@"cpz.fields"[0].ty);
+    try std.testing.expectEqualStrings("data_byte", generated.Person.@"cpz.fields"[0].slot);
+    try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[0].offset);
     try std.testing.expectEqualStrings("42", generated.Person.@"cpz.fields"[0].default);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fields"[2].name);
+    try std.testing.expectEqualStrings("pointer", generated.Person.@"cpz.fields"[2].slot);
+    try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[2].offset);
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.fields"[2].annotations);
     try std.testing.expectEqual(@as(u32, 2), generated.Person.@"cpz.field.name.ordinal");
     try std.testing.expectEqualStrings("Text", generated.Person.@"cpz.field.name.type");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.field.name.annotations");
+    try std.testing.expectEqualStrings("data_bit", generated.Person.@"cpz.fields"[1].slot);
+    try std.testing.expectEqual(@as(usize, 32), generated.Person.@"cpz.fields"[1].offset);
     try std.testing.expectEqual(@as(u32, 4), generated.Person.@"cpz.field.scores.ordinal");
     try std.testing.expectEqualStrings("List(UInt32)", generated.Person.@"cpz.field.scores.type");
     try std.testing.expectEqualStrings("Color.green", generated.Person.@"cpz.field.favorite.default");
