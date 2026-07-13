@@ -4660,7 +4660,14 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         }
         try out.appendSlice(allocator, " }");
     }
-    try out.appendSlice(allocator, "};\n\n");
+    try out.appendSlice(allocator, "};\n");
+    try out.appendSlice(allocator,
+        \\    pub fn @"cpz.unionByIndex"(@"cpz.index": u32) ?cpz.schema.UnionMetadata {
+        \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".index == @"cpz.index") return @"cpz.union";
+        \\        return null;
+        \\    }
+        \\
+    );
 }
 
 fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
