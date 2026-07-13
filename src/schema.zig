@@ -103,6 +103,7 @@ pub const ConstListItem = struct {
 };
 
 pub const ConstMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     ty: []const u8,
     literal: []const u8 = "",
@@ -4464,7 +4465,7 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
     try appendFmt(allocator, out, "{s}pub const @\"cpz.consts\": []const cpz.schema.ConstMetadata = &[_]cpz.schema.ConstMetadata{{", .{indent});
     for (consts, 0..) |decl, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
-        try appendConstMetadataLiteral(allocator, out, &decl);
+        try appendConstMetadataLiteral(allocator, out, index, &decl);
     }
     try out.appendSlice(allocator, "};\n");
     try appendFmt(allocator, out,
@@ -4473,11 +4474,16 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent });
+        \\{s}pub fn @"cpz.constByIndex"(@"cpz.index": usize) ?cpz.schema.ConstMetadata {{
+        \\{s}    if (@"cpz.index" >= @This().@"cpz.consts".len) return null;
+        \\{s}    return @This().@"cpz.consts"[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (consts.len != 0) try out.append(allocator, '\n');
 }
 
-fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const ConstDecl) LayoutError!void {
+fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), index: usize, decl: *const ConstDecl) LayoutError!void {
     const name_literal = try zigStringLiteralAlloc(allocator, decl.name);
     defer allocator.free(name_literal);
     const type_name = try schemaTypeNameAlloc(allocator, decl.ty);
@@ -4488,7 +4494,7 @@ fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
     defer allocator.free(value_literal);
     const annotations_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
     defer allocator.free(annotations_literal);
-    try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}", .{ name_literal, type_literal });
+    try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}", .{ index, name_literal, type_literal });
     if (decl.literal.len != 0) {
         try appendFmt(allocator, out, ", .literal = {s}", .{value_literal});
     }

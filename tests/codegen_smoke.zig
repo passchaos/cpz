@@ -156,8 +156,12 @@ test "generated declaration and field annotation metadata compiles" {
 test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
+    try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByName"("globalPayload").?.name);
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.constByName"("globalPayload").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByName"("missing"));
+    try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByIndex"(3).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("12345", generated.@"cpz.consts"[0].literal);
     try std.testing.expectEqualStrings("$schemaNote(\"global-id\")", generated.@"cpz.consts"[0].annotations);
@@ -186,8 +190,12 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(generated.Color.blue, generated.globalShades[1]);
     try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.consts".len);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.consts"[0].name);
+    try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.consts"[0].index);
     try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByName"("defaultColor").?.name);
+    try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.constByName"("defaultColor").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByName"("missing"));
+    try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByIndex"(2).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("99", generated.Person.@"cpz.consts"[0].literal);
     try std.testing.expectEqualStrings("[7, 8, 9]", generated.Person.@"cpz.consts"[3].literal);
@@ -1672,8 +1680,12 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.@"cpz.annotation_decls"[0].targets.field);
     try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.consts".len);
     try std.testing.expectEqualStrings("defaultLimit", generated.ExtendedService.@"cpz.consts"[0].name);
+    try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.consts"[0].index);
     try std.testing.expectEqualStrings("defaultLabel", generated.ExtendedService.@"cpz.constByName"("defaultLabel").?.name);
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.constByName"("defaultLabel").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.ExtendedService.@"cpz.constByName"("missing"));
+    try std.testing.expectEqualStrings("defaultLabel", generated.ExtendedService.@"cpz.constByIndex"(1).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.ExtendedService.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt16", generated.ExtendedService.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("12", generated.ExtendedService.@"cpz.consts"[0].literal);
     try std.testing.expectEqualStrings("defaultLabel", generated.ExtendedService.@"cpz.consts"[1].name);
