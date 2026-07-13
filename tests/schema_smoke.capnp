@@ -50,6 +50,7 @@ struct Person $schemaNote("person") {
     ;
   aliases @9 :TextList;
   payloads @10 :DataList;
+  defaultPayload @21 :Data = 0x"ca fe";
   flags @11 :BoolList;
   ratios @12 :Float32List;
   weights @13 :Float64List;

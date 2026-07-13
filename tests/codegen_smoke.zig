@@ -157,7 +157,7 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("$labels([\"cool\", \"primary\"])", generated.@"cpz.enumerant.Color.blue.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.Person.@"cpz.annotations");
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.annotations");
-    try std.testing.expectEqual(@as(usize, 21), generated.Person.@"cpz.fields".len);
+    try std.testing.expectEqual(@as(usize, 22), generated.Person.@"cpz.fields".len);
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fields"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[0].index);
     try std.testing.expectEqual(@as(u32, 0), generated.Person.@"cpz.fields"[0].ordinal);
@@ -165,6 +165,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("data_byte", generated.Person.@"cpz.fields"[0].slot);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[0].offset);
     try std.testing.expectEqualStrings("42", generated.Person.@"cpz.fields"[0].default);
+    try std.testing.expect(generated.Person.@"cpz.fields"[0].has_explicit_default);
+    try std.testing.expect(!generated.Person.@"cpz.fields"[0].default_is_hex_data);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fields"[2].name);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByName"("name").?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByName"("name").?.index);
@@ -189,9 +191,17 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("List(UInt32)", generated.Person.@"cpz.field.scores.type");
     try std.testing.expectEqualStrings("Color.green", generated.Person.@"cpz.field.favorite.default");
     try std.testing.expectEqualStrings("[1, 2, 3]", generated.Person.@"cpz.field.scores.default");
+    try std.testing.expect(generated.Person.@"cpz.field.scores.hasExplicitDefault");
+    try std.testing.expect(!generated.Person.@"cpz.field.scores.defaultIsHexData");
     try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.default");
+    try std.testing.expect(!generated.Person.@"cpz.field.children.hasExplicitDefault");
     try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.annotations");
     try std.testing.expectEqualStrings("?Text", generated.Person.@"cpz.field.maybeName.type");
+    try std.testing.expectEqualStrings("0x\"ca fe\"", generated.Person.@"cpz.field.defaultPayload.default");
+    try std.testing.expect(generated.Person.@"cpz.field.defaultPayload.hasExplicitDefault");
+    try std.testing.expect(generated.Person.@"cpz.field.defaultPayload.defaultIsHexData");
+    try std.testing.expect(generated.Person.@"cpz.fieldByName"("defaultPayload").?.has_explicit_default);
+    try std.testing.expect(generated.Person.@"cpz.fieldByName"("defaultPayload").?.default_is_hex_data);
 }
 
 test "generated simple constants compile" {
@@ -463,6 +473,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try payloads.set(0, &[_]u8{ 4, 5, 6 });
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try payloads.elementAsData(0));
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try payloads.get(0));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xca, 0xfe }, try person_builder.get_defaultPayload());
     const flags = try person_builder.init_flags(3);
     try flags.set(0, true);
     try flags.set(1, false);
@@ -642,6 +653,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_payloads = try person.payloads();
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try read_payloads.get(0));
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 5, 6 }, try read_payloads.elementAsData(0));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xca, 0xfe }, try person.defaultPayload());
     const read_flags = try person.flags();
     try std.testing.expectEqual(true, read_flags.get(0));
     try std.testing.expectEqual(false, read_flags.get(1));

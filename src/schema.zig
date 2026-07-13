@@ -188,6 +188,8 @@ pub const FieldMetadata = struct {
     slot: []const u8 = "",
     offset: usize = 0,
     default: []const u8 = "",
+    has_explicit_default: bool = false,
+    default_is_hex_data: bool = false,
     annotations: []const u8 = "",
     union_index: ?u32 = null,
     union_discriminant: u16 = 0,
@@ -5086,6 +5088,10 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .ty = {s}, .slot = {s}, .offset = {}", .{ index, field_name, field.ordinal, type_literal, slot_literal, slot.offset });
         if (field.default_expression.len != 0) {
             try appendFmt(allocator, out, ", .default = {s}", .{default_literal});
+            try out.appendSlice(allocator, ", .has_explicit_default = true");
+        }
+        if (field.default_is_hex_data) {
+            try out.appendSlice(allocator, ", .default_is_hex_data = true");
         }
         if (field.annotations.len != 0) {
             try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
@@ -5780,9 +5786,11 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     defer allocator.free(annotation_literal);
     try appendFmt(allocator, out,
         \\    pub const @"cpz.field.{s}.default": []const u8 = {s};
+        \\    pub const @"cpz.field.{s}.hasExplicitDefault": bool = {};
+        \\    pub const @"cpz.field.{s}.defaultIsHexData": bool = {};
         \\    pub const @"cpz.field.{s}.annotations": []const u8 = {s};
         \\
-    , .{ field_name, default_expression_literal, field_name, annotation_literal });
+    , .{ field_name, default_expression_literal, field_name, field.default_expression.len != 0, field_name, field.default_is_hex_data, field_name, annotation_literal });
     switch (field_layout.slot) {
         .void => if (unionLayoutForField(layout, field)) |union_layout| try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) !void {{
