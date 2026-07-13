@@ -1757,7 +1757,7 @@ pub const PointerReader = struct {
         const l = try wire.decodeList(resolved.raw);
         const struct_list_upgrade = if (expected) |exp| blk: {
             if (exp == l.element_size) break :blk false;
-            if (exp != .composite or l.element_size == .bit) return error.IncompatibleListShape;
+            if (exp != .composite) return error.IncompatibleListShape;
             break :blk true;
         } else false;
         const target = try wire.targetWordIndex(resolved.pointer_word_index, l.offset_words);
@@ -2807,9 +2807,9 @@ fn primitivePointerCount(size: wire.ElementSize) u16 {
 fn upgradedStructListShape(size: wire.ElementSize) Error!struct { data_words: u16, pointer_count: u16 } {
     return switch (size) {
         .void => .{ .data_words = 0, .pointer_count = 0 },
-        .byte, .two_bytes, .four_bytes, .eight_bytes => .{ .data_words = 1, .pointer_count = 0 },
+        .bit, .byte, .two_bytes, .four_bytes, .eight_bytes => .{ .data_words = 1, .pointer_count = 0 },
         .pointer => .{ .data_words = 0, .pointer_count = 1 },
-        .bit, .composite => error.IncompatibleListShape,
+        .composite => error.IncompatibleListShape,
     };
 }
 
@@ -4162,7 +4162,7 @@ test "non-bit primitive and pointer lists can be read as struct lists" {
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
 
-    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 5 });
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 6 });
 
     const ptrs = try (try root.getPointerField(0)).initList(.pointer, 2);
     try (try ptrs.getPointerElement(0)).setText("zero");
@@ -4184,6 +4184,11 @@ test "non-bit primitive and pointer lists can be read as struct lists" {
     const double_words = try (try root.getPointerField(4)).initList(.four_bytes, 2);
     try double_words.setUInt32(0, 0x8899_aabb);
     try double_words.setUInt32(1, 0xccdd_eeff);
+
+    const bits = try (try root.getPointerField(5)).initList(.bit, 3);
+    try bits.setBool(0, true);
+    try bits.setBool(1, false);
+    try bits.setBool(2, true);
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const read_root = try reader.getRoot();
@@ -4216,4 +4221,12 @@ test "non-bit primitive and pointer lists can be read as struct lists" {
     const double_word_structs = try read_root.getPointerField(4).getList(.composite);
     try testing.expectEqual(@as(u32, 0x8899_aabb), (try double_word_structs.getStructElement(0)).getUInt32(0, 0));
     try testing.expectEqual(@as(u32, 0xccdd_eeff), (try double_word_structs.getStructElement(1)).getUInt32(0, 0));
+
+    const bit_structs = try read_root.getPointerField(5).getList(.composite);
+    try testing.expectEqual(@as(usize, 3), bit_structs.len());
+    try testing.expect((try bit_structs.getStructElement(0)).getBool(0, false));
+    try testing.expect(!(try bit_structs.getStructElement(1)).getBool(0, false));
+    try testing.expect((try bit_structs.getStructElement(2)).getBool(0, false));
+    try testing.expectEqual(@as(u8, 0xee), (try bit_structs.getStructElement(0)).getUInt8(0, 0xee));
+    try testing.expectEqual(@as(usize, 1), (try bit_structs.totalSize()).word_count);
 }
