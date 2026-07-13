@@ -1448,6 +1448,9 @@ test "generated builders can copy and clear whole structs" {
     try target_person_builder.clear();
     try std.testing.expectEqual(@as(u32, 42), try target_person_builder.get_id());
     try std.testing.expectEqual(false, try target_person_builder.has_name());
+    try target_person_builder.copyFromBuilder(source_person_builder);
+    try std.testing.expectEqual(@as(u32, 909), try target_person_builder.get_id());
+    try std.testing.expectEqualSlices(u8, "WholeCopy", try target_person_builder.get_name());
 }
 
 test "generated struct list builders can copy elements from readers" {

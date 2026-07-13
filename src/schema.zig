@@ -6996,6 +6996,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.builder.copyFromReader(@"cpz.value".reader);
         \\        }}
         \\
+        \\        pub fn copyFromBuilder(self: Builder, @"cpz.value": Builder) !void {{
+        \\            return self.builder.copyFromBuilder(@"cpz.value".builder);
+        \\        }}
+        \\
         \\        pub fn orphanage(self: Builder) cpz.Orphanage {{
         \\            return self.builder.orphanage();
         \\        }}
@@ -9814,6 +9818,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_fromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value.builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn copyFromBuilder(self: Builder, @\"cpz.value\": Builder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.copyFromBuilder(@\"cpz.value\".builder);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "cpz.root.toFlatBytesInto") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "cpz.builderRoot.toFlatBytesInto") != null);
