@@ -5245,6 +5245,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootPointer();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.pointerIsNull"(@"cpz.reader": *cpz.MessageReader) !bool {{
+        \\        return (try @"cpz.reader".getRootPointer()).isNull();
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.rawPointer"(@"cpz.reader": *cpz.MessageReader) !cpz.Word {{
         \\        return @"cpz.reader".getRootRawPointer();
         \\    }}
@@ -5319,6 +5323,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.pointer"(@"cpz.builder": *cpz.MessageBuilder) !cpz.PointerBuilder {{
         \\        return @"cpz.builder".getRootPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.pointerIsNull"(@"cpz.builder": *cpz.MessageBuilder) !bool {{
+        \\        return (try @"cpz.builder".getRootPointer()).isNull();
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.rawPointer"(@"cpz.builder": *cpz.MessageBuilder) !cpz.Word {{
