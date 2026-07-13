@@ -162,6 +162,74 @@ pub const OwnedMessageReader = struct {
         return self.reader.totalSizeWithOptions(options);
     }
 
+    pub fn isRootNull(self: *OwnedMessageReader) Error!bool {
+        return self.reader.isRootNull();
+    }
+
+    pub fn getRootPointerKind(self: *OwnedMessageReader) Error!?wire.PointerType {
+        return self.reader.getRootPointerKind();
+    }
+
+    pub fn getRootRawPointer(self: *OwnedMessageReader) Error!wire.Word {
+        return self.reader.getRootRawPointer();
+    }
+
+    pub fn getRootDecodedPointer(self: *OwnedMessageReader) Error!?wire.DecodedPointer {
+        return self.reader.getRootDecodedPointer();
+    }
+
+    pub fn segmentCount(self: *const OwnedMessageReader) usize {
+        return self.reader.segmentCount();
+    }
+
+    pub fn segmentBytes(self: *const OwnedMessageReader, index: usize) Error!serialize.ConstSegment {
+        return self.reader.segmentBytes(index);
+    }
+
+    pub fn segmentByteLen(self: *const OwnedMessageReader, index: usize) Error!usize {
+        return self.reader.segmentByteLen(index);
+    }
+
+    pub fn segmentWordLen(self: *const OwnedMessageReader, index: usize) (Error || serialize.Error)!usize {
+        return self.reader.segmentWordLen(index);
+    }
+
+    pub fn serializedSize(self: *const OwnedMessageReader) (Error || serialize.Error)!usize {
+        return self.reader.serializedSize();
+    }
+
+    pub fn serializedSizeInWords(self: *const OwnedMessageReader) (Error || serialize.Error)!usize {
+        return self.reader.serializedSizeInWords();
+    }
+
+    pub fn traversalLimitWords(self: *const OwnedMessageReader) usize {
+        return self.reader.traversalLimitWords();
+    }
+
+    pub fn traversalRemainingWords(self: *const OwnedMessageReader) usize {
+        return self.reader.traversalRemainingWords();
+    }
+
+    pub fn nestingLimit(self: *const OwnedMessageReader) u16 {
+        return self.reader.nestingLimit();
+    }
+
+    pub fn capabilityCountLimit(self: *const OwnedMessageReader) ?usize {
+        return self.reader.capabilityCountLimit();
+    }
+
+    pub fn serializeSegmentTable(self: *const OwnedMessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.serializeSegmentTable(allocator);
+    }
+
+    pub fn toFlatBytes(self: *const OwnedMessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.toFlatBytes(allocator);
+    }
+
+    pub fn toPackedBytes(self: *const OwnedMessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.toPackedBytes(allocator);
+    }
+
     pub fn consumedLen(self: *const OwnedMessageReader) usize {
         return self.flat.consumed_len;
     }
@@ -231,6 +299,74 @@ pub const MessageReaderView = struct {
 
     pub fn totalSizeWithOptions(self: *const MessageReaderView, options: ReaderOptions) Error!MessageSize {
         return self.reader.totalSizeWithOptions(options);
+    }
+
+    pub fn isRootNull(self: *MessageReaderView) Error!bool {
+        return self.reader.isRootNull();
+    }
+
+    pub fn getRootPointerKind(self: *MessageReaderView) Error!?wire.PointerType {
+        return self.reader.getRootPointerKind();
+    }
+
+    pub fn getRootRawPointer(self: *MessageReaderView) Error!wire.Word {
+        return self.reader.getRootRawPointer();
+    }
+
+    pub fn getRootDecodedPointer(self: *MessageReaderView) Error!?wire.DecodedPointer {
+        return self.reader.getRootDecodedPointer();
+    }
+
+    pub fn segmentCount(self: *const MessageReaderView) usize {
+        return self.reader.segmentCount();
+    }
+
+    pub fn segmentBytes(self: *const MessageReaderView, index: usize) Error!serialize.ConstSegment {
+        return self.reader.segmentBytes(index);
+    }
+
+    pub fn segmentByteLen(self: *const MessageReaderView, index: usize) Error!usize {
+        return self.reader.segmentByteLen(index);
+    }
+
+    pub fn segmentWordLen(self: *const MessageReaderView, index: usize) (Error || serialize.Error)!usize {
+        return self.reader.segmentWordLen(index);
+    }
+
+    pub fn serializedSize(self: *const MessageReaderView) (Error || serialize.Error)!usize {
+        return self.reader.serializedSize();
+    }
+
+    pub fn serializedSizeInWords(self: *const MessageReaderView) (Error || serialize.Error)!usize {
+        return self.reader.serializedSizeInWords();
+    }
+
+    pub fn traversalLimitWords(self: *const MessageReaderView) usize {
+        return self.reader.traversalLimitWords();
+    }
+
+    pub fn traversalRemainingWords(self: *const MessageReaderView) usize {
+        return self.reader.traversalRemainingWords();
+    }
+
+    pub fn nestingLimit(self: *const MessageReaderView) u16 {
+        return self.reader.nestingLimit();
+    }
+
+    pub fn capabilityCountLimit(self: *const MessageReaderView) ?usize {
+        return self.reader.capabilityCountLimit();
+    }
+
+    pub fn serializeSegmentTable(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.serializeSegmentTable(allocator);
+    }
+
+    pub fn toFlatBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.toFlatBytes(allocator);
+    }
+
+    pub fn toPackedBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.toPackedBytes(allocator);
     }
 
     pub fn consumedLen(self: *const MessageReaderView) usize {
@@ -2831,6 +2967,32 @@ test "owned message readers parse flat and packed bytes" {
     try testing.expectEqualSlices(u8, "owned", try (try owned_flat.getRoot()).getPointerField(0).getText());
     const owned_root_pointer = try owned_flat.getRootPointer();
     try testing.expectEqual(wire.PointerType.struct_ptr, (try owned_root_pointer.pointerType()).?);
+    try testing.expect(!try owned_flat.isRootNull());
+    try testing.expectEqual(wire.PointerType.struct_ptr, (try owned_flat.getRootPointerKind()).?);
+    try testing.expectEqual(wire.PointerType.struct_ptr, wire.pointerType(try owned_flat.getRootRawPointer()));
+    switch ((try owned_flat.getRootDecodedPointer()).?) {
+        .struct_ptr => {},
+        else => return error.TestUnexpectedResult,
+    }
+    try testing.expectEqual(@as(usize, 1), owned_flat.segmentCount());
+    try testing.expect((try owned_flat.segmentByteLen(0)) > 0);
+    try testing.expect((try owned_flat.segmentWordLen(0)) > 0);
+    try testing.expectEqual(flat.len, try owned_flat.serializedSize());
+    try testing.expectEqual(flat.len / wire.bytes_per_word, try owned_flat.serializedSizeInWords());
+    try testing.expectEqual(@as(usize, 8 * 1024 * 1024), owned_flat.traversalLimitWords());
+    try testing.expectEqual(@as(u16, 64), owned_flat.nestingLimit());
+    try testing.expectEqual(@as(?usize, null), owned_flat.capabilityCountLimit());
+    const owned_table = try owned_flat.serializeSegmentTable(testing.allocator);
+    defer testing.allocator.free(owned_table);
+    try testing.expectEqual(serialize.segmentTableWords(owned_flat.segmentCount()) * wire.bytes_per_word, owned_table.len);
+    const owned_flat_bytes = try owned_flat.toFlatBytes(testing.allocator);
+    defer testing.allocator.free(owned_flat_bytes);
+    try testing.expectEqualSlices(u8, flat, owned_flat_bytes);
+    const owned_packed_bytes = try owned_flat.toPackedBytes(testing.allocator);
+    defer testing.allocator.free(owned_packed_bytes);
+    var owned_roundtrip = try serialize.readPackedMessage(testing.allocator, owned_packed_bytes);
+    defer owned_roundtrip.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_roundtrip.consumed_len);
     try testing.expect((try owned_flat.validate()).total_words > 0);
     try testing.expect((try owned_flat.totalSize()).word_count > 0);
 
@@ -2883,6 +3045,15 @@ test "message reader views parse flat bytes without copying message data" {
     try testing.expectEqualSlices(u8, "view", try (try view.getRoot()).getPointerField(0).getText());
     const view_root_pointer = try view.getRootPointer();
     try testing.expectEqual(wire.PointerType.struct_ptr, (try view_root_pointer.pointerType()).?);
+    try testing.expect(!try view.isRootNull());
+    try testing.expectEqual(wire.PointerType.struct_ptr, (try view.getRootPointerKind()).?);
+    try testing.expectEqual(wire.PointerType.struct_ptr, wire.pointerType(try view.getRootRawPointer()));
+    try testing.expectEqual(@as(usize, 1), view.segmentCount());
+    try testing.expect((try view.segmentByteLen(0)) > 0);
+    try testing.expectEqual(flat.len, try view.serializedSize());
+    const view_flat_bytes = try view.toFlatBytes(testing.allocator);
+    defer testing.allocator.free(view_flat_bytes);
+    try testing.expectEqualSlices(u8, flat, view_flat_bytes);
     try testing.expect((try view.validate()).total_words > 0);
     try testing.expect((try view.totalSize()).word_count > 0);
     const segment0 = try view.asReader().segmentBytes(0);
