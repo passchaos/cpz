@@ -5098,6 +5098,10 @@ fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError!
 }
 
 fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\    pub const @"cpz.unionCount": usize = {};
+        \\
+    , .{layout.unions.len});
     for (layout.unions, 0..) |union_layout, index| {
         try appendFmt(allocator, out,
             \\    pub const @"cpz.union.{}.index": u32 = {};

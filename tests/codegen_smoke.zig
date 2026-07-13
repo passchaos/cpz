@@ -1467,6 +1467,7 @@ test "generated enum raw setters preserve unknown ordinals" {
 }
 
 test "generated anonymous union accessors activate and guard fields" {
+    try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unionCount");
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions".len);
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unions"[0].index);
     try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByIndex"(1).?.index);
