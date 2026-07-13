@@ -77,6 +77,9 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqual(generated.Color.green, generated.@"cpz.enum.Color.fromRaw"(1).?);
     try std.testing.expectEqual(@as(?generated.Color, null), generated.@"cpz.enum.Color.fromRaw"(99));
     try std.testing.expectEqual(@as(u16, 2), generated.@"cpz.enum.Color.toRaw"(.blue));
+    try std.testing.expectEqualStrings("blue", generated.@"cpz.enum.Color.name"(.blue));
+    try std.testing.expectEqualStrings("green", generated.@"cpz.enum.Color.nameFromRaw"(1).?);
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.@"cpz.enum.Color.nameFromRaw"(99));
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.enum.Color.values".len);
     try std.testing.expectEqualStrings("green", generated.@"cpz.enum.Color.values"[1].name);
     try std.testing.expectEqual(@as(u16, 1), generated.@"cpz.enum.Color.values"[1].ordinal);
