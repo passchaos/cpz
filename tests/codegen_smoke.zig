@@ -1395,11 +1395,21 @@ test "generated structs can allocate typed orphan copies" {
     try target_person_builder.adopt_friend_typed(&orphan);
     var orphanage_copy = try generated.Person.newOrphanCopyIn(cpz.Orphanage.init(&target_builder), source_person);
     try target_person_builder.adopt_maybeFriend_typed(&orphanage_copy);
+    const reader_copied_friend_builder = try target_person_builder.get_friend();
+    try std.testing.expectEqual(@as(u32, 6161), try reader_copied_friend_builder.get_id());
+    const reader_copied_maybe_friend_builder = try target_person_builder.get_maybeFriend();
+    try std.testing.expectEqual(@as(u32, 6161), try reader_copied_maybe_friend_builder.get_id());
+    var builder_orphan = try generated.Person.newOrphanCopyFromBuilder(&target_builder, source_person_builder);
+    const builder_orphan_builder = try builder_orphan.get();
+    try builder_orphan_builder.set_id(6262);
+    try target_person_builder.adopt_friend_typed(&builder_orphan);
+    var builder_orphanage_copy = try generated.Person.newOrphanCopyFromBuilderIn(cpz.Orphanage.init(&target_builder), source_person_builder);
+    try target_person_builder.adopt_maybeFriend_typed(&builder_orphanage_copy);
 
     var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
     const target_person = generated.Person.fromReader(try target_reader.getRoot());
     const friend = try target_person.friend();
-    try std.testing.expectEqual(@as(u32, 6161), friend.id());
+    try std.testing.expectEqual(@as(u32, 6262), friend.id());
     try std.testing.expectEqualSlices(u8, "Copied orphan", try friend.name());
     const maybe_friend = try target_person.maybeFriend();
     try std.testing.expectEqual(@as(u32, 6161), maybe_friend.id());
@@ -1682,6 +1692,27 @@ test "generated list orphan wrappers can allocate orphan copies" {
     const target_copy_person = generated.Person.fromReader(try target_copy_reader.getRoot());
     const copied_scores = try target_copy_person.scores();
     try std.testing.expectEqual(@as(u32, 14), copied_scores.get(1));
+
+    var builder_copy_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder_copy_target.deinit();
+    const builder_copy_person_builder = try generated.Person.initRootTyped(&builder_copy_target);
+    var scores_builder_orphan = try generated.Person.Person_scores_Orphan.newOrphanCopyFromBuilder(&builder_copy_target, try source_person_builder.get_scores());
+    try builder_copy_person_builder.adopt_scores_typed(&scores_builder_orphan);
+    var builder_copy_reader = cpz.MessageReader.init(try builder_copy_target.segmentsConst(), .{});
+    const builder_copy_person = generated.Person.fromReader(try builder_copy_reader.getRoot());
+    const builder_copy_scores = try builder_copy_person.scores();
+    try std.testing.expectEqual(@as(u32, 7), builder_copy_scores.get(0));
+    try std.testing.expectEqual(@as(u32, 14), builder_copy_scores.get(1));
+
+    var builder_copy_orphanage_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder_copy_orphanage_target.deinit();
+    const builder_copy_orphanage_person_builder = try generated.Person.initRootTyped(&builder_copy_orphanage_target);
+    var scores_builder_orphanage = try generated.Person.Person_scores_Orphan.newOrphanCopyFromBuilderIn(builder_copy_orphanage_person_builder.orphanage(), try source_person_builder.get_scores());
+    try builder_copy_orphanage_person_builder.adopt_scores_typed(&scores_builder_orphanage);
+    var builder_copy_orphanage_reader = cpz.MessageReader.init(try builder_copy_orphanage_target.segmentsConst(), .{});
+    const builder_copy_orphanage_person = generated.Person.fromReader(try builder_copy_orphanage_reader.getRoot());
+    const builder_copy_orphanage_scores = try builder_copy_orphanage_person.scores();
+    try std.testing.expectEqual(@as(u32, 14), builder_copy_orphanage_scores.get(1));
 }
 
 test "generated builders can set whole list fields from slices" {
@@ -2217,7 +2248,7 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.elementTotalSizeWithOptions(1, .{ .capability_count_limit = 90 }));
     try std.testing.expectEqual(@as(u32, 88), try read_caps.elementAsCapability(0));
 
-    const any_items = try box_builder.init_anyListItems(5);
+    const any_items = try box_builder.init_anyListItems(6);
     try any_items.setText(0, "list any text");
     try any_items.setData(1, &[_]u8{ 4, 5 });
     var any_item_cap = try any_items.newCapabilityOrphan(6060);
@@ -2230,11 +2261,14 @@ test "generated builtin any and capability accessors round-trip" {
     try any_items.adopt(4, &any_item_list_orphan);
     var any_item_copy_orphan = try any_items.newCopyOrphan(source_struct.getPointerField(0));
     try any_items.adopt(1, &any_item_copy_orphan);
+    var any_item_builder_copy_orphan = try any_items.newCopyOrphanFromBuilder(try source_root.getPointerField(0));
+    try any_items.adopt(5, &any_item_builder_copy_orphan);
     try std.testing.expectEqualSlices(u8, "list any text", try any_items.getAsText(0));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(1));
     try std.testing.expectEqual(@as(u32, 6060), try any_items.getAsCapability(2));
     try std.testing.expectEqual(@as(u32, 0x7777), (try any_items.getAsStruct(3)).getUInt32(0, 0));
     try std.testing.expectEqual(@as(u32, 5151), (try any_items.getAsList(4, .four_bytes)).getUInt32(0));
+    try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(5));
 
     const any_struct_items = try box_builder.init_anyStructItems(1);
     const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });
@@ -2242,6 +2276,8 @@ test "generated builtin any and capability accessors round-trip" {
     try any_struct_item.setText(0, "list any struct");
     var any_struct_item_copy = try any_struct_items.newCopyOrphan(source_struct);
     try any_struct_items.adopt(0, &any_struct_item_copy);
+    var any_struct_item_builder_copy = try any_struct_items.newCopyOrphanFromBuilder(source_root);
+    try any_struct_items.adopt(0, &any_struct_item_builder_copy);
     const read_any_struct_item = try any_struct_items.get(0);
     try std.testing.expectEqual(@as(u32, 0xdecafbad), try read_any_struct_item.getUInt32(0, 0));
     try std.testing.expectEqualSlices(u8, "dynamic", try (try read_any_struct_item.getPointerField(0)).getText());
@@ -2266,6 +2302,8 @@ test "generated builtin any and capability accessors round-trip" {
     try any_list_item.setUInt32(1, 8484);
     var any_list_item_copy = try any_list_items.newCopyOrphan(list_copy_source_view);
     try any_list_items.adopt(0, &any_list_item_copy);
+    var any_list_item_builder_copy = try any_list_items.newCopyOrphanFromBuilder(list_copy_source);
+    try any_list_items.adopt(0, &any_list_item_builder_copy);
     const read_any_list_item = try any_list_items.get(0);
     try std.testing.expectEqual(@as(u16, 222), read_any_list_item.getUInt16(1));
     try std.testing.expectEqual(cpz.ElementSize.two_bytes, try any_list_items.elementSizeAt(0));
@@ -2315,6 +2353,8 @@ test "generated builtin any and capability accessors round-trip" {
     const copy_orphan_box_builder = try generated.DynamicBox.initRootTyped(&copy_orphan_builder_message);
     var copy_orphan = try copy_orphan_box_builder.new_any_copyOrphan(source_struct.getPointerField(0));
     try copy_orphan_box_builder.adopt_any(&copy_orphan);
+    var copy_orphan_from_builder = try copy_orphan_box_builder.new_any_copyOrphanFromBuilder(try source_root.getPointerField(0));
+    try copy_orphan_box_builder.adopt_any(&copy_orphan_from_builder);
     var copy_orphan_reader = cpz.MessageReader.init(try copy_orphan_builder_message.segmentsConst(), .{});
     const copy_orphan_box = generated.DynamicBox.fromReader(try copy_orphan_reader.getRoot());
     try std.testing.expectEqualSlices(u8, "dynamic", try (try copy_orphan_box.any()).getText());

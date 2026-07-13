@@ -6894,8 +6894,16 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanCopyStruct(@"cpz.value".reader));
         \\    }}
         \\
+        \\    pub fn newOrphanCopyFromBuilder(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": Builder) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanCopyStructFromBuilder(@"cpz.value".builder));
+        \\    }}
+        \\
         \\    pub fn newOrphanCopyIn(@"cpz.orphanage": cpz.Orphanage, @"cpz.value": @This()) !Orphan {{
         \\        return Orphan.fromOrphan(try @"cpz.orphanage".newCopyStruct(@"cpz.value".reader));
+        \\    }}
+        \\
+        \\    pub fn newOrphanCopyFromBuilderIn(@"cpz.orphanage": cpz.Orphanage, @"cpz.value": Builder) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.orphanage".newCopyStructFromBuilder(@"cpz.value".builder));
         \\    }}
         \\
         \\    pub fn fromReader(@"cpz.reader": cpz.StructReader) {s} {{
@@ -7768,11 +7776,19 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return fromOrphan(try builder.newOrphanCopyList(@"cpz.value".list));
             \\        }}
             \\
+            \\        pub fn newOrphanCopyFromBuilder(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+            \\            return fromOrphan(try builder.newOrphanCopyListFromBuilder(@"cpz.value".list));
+            \\        }}
+            \\
             \\        pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_List) !@This() {{
             \\            return fromOrphan(try orphanage.newCopyList(@"cpz.value".list));
             \\        }}
             \\
-        , .{ zig_type, zig_type, owner_name, field_name, owner_name, field_name });
+            \\        pub fn newOrphanCopyFromBuilderIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+            \\            return fromOrphan(try orphanage.newCopyListFromBuilder(@"cpz.value".list));
+            \\        }}
+            \\
+        , .{ zig_type, zig_type, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
     } else try std.fmt.allocPrint(allocator,
         \\        pub fn newOrphan(builder: *cpz.MessageBuilder, count: usize) !@This() {{
         \\            return fromOrphan(try builder.newOrphanList({s}, count));
@@ -7786,11 +7802,19 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return fromOrphan(try builder.newOrphanCopyList(@"cpz.value".list));
         \\        }}
         \\
+        \\        pub fn newOrphanCopyFromBuilder(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+        \\            return fromOrphan(try builder.newOrphanCopyListFromBuilder(@"cpz.value".list));
+        \\        }}
+        \\
         \\        pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_List) !@This() {{
         \\            return fromOrphan(try orphanage.newCopyList(@"cpz.value".list));
         \\        }}
         \\
-    , .{ try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), owner_name, field_name, owner_name, field_name });
+        \\        pub fn newOrphanCopyFromBuilderIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+        \\            return fromOrphan(try orphanage.newCopyListFromBuilder(@"cpz.value".list));
+        \\        }}
+        \\
+    , .{ try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
     defer allocator.free(list_orphan_new);
 
     try appendFmt(allocator, out,
@@ -8130,6 +8154,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newCopyPointer(new_value);
             \\        }}
             \\
+            \\        pub fn newCopyOrphanFromBuilder(self: @This(), new_value: cpz.PointerBuilder) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyPointerFromBuilder(new_value);
+            \\        }}
+            \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
             \\            return self.list.clearPointerElement(index);
             \\        }}
@@ -8170,6 +8198,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn newCopyOrphan(self: @This(), new_value: cpz.StructReader) !cpz.Orphan {{
             \\            return self.orphanage().newCopyStruct(new_value);
+            \\        }}
+            \\
+            \\        pub fn newCopyOrphanFromBuilder(self: @This(), new_value: cpz.StructBuilder) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyStructFromBuilder(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -8220,6 +8252,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
             \\        pub fn newCopyOrphan(self: @This(), new_value: cpz.ListReader) !cpz.Orphan {{
             \\            return self.orphanage().newCopyList(new_value);
+            \\        }}
+            \\
+            \\        pub fn newCopyOrphanFromBuilder(self: @This(), new_value: cpz.ListBuilder) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyListFromBuilder(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -9143,7 +9179,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.orphanage().newCopyPointer(new_value);
                 \\        }}
                 \\
-            , .{ index, field_name, field_name, field_name, field_name, field_name, field_name, field_name });
+                \\        pub fn new_{s}_copyOrphanFromBuilder(self: Builder, new_value: cpz.PointerBuilder) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyPointerFromBuilder(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name, field_name, field_name, field_name, field_name, field_name, field_name, field_name });
         },
         .any_struct => {
             try appendFmt(allocator, out,
@@ -9197,7 +9237,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.orphanage().newCopyStruct(new_value);
                 \\        }}
                 \\
-            , .{ index, field_name, field_name });
+                \\        pub fn new_{s}_copyOrphanFromBuilder(self: Builder, new_value: cpz.StructBuilder) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyStructFromBuilder(new_value);
+                \\        }}
+                \\
+            , .{ index, field_name, field_name, field_name });
         },
         .any_list => {
             try appendFmt(allocator, out,
@@ -9234,8 +9278,12 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.orphanage().newCopyList(new_value);
                 \\        }}
                 \\
+                \\        pub fn new_{s}_copyOrphanFromBuilder(self: Builder, new_value: cpz.ListBuilder) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyListFromBuilder(new_value);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_from(self: Builder, new_value: cpz.PointerReader) !void {{
-            , .{ index, field_name, field_name, field_name, field_name });
+            , .{ index, field_name, field_name, field_name, field_name, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
@@ -9350,8 +9398,12 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return {s}.Orphan.fromOrphan(try self.orphanage().newCopyStruct(new_value.reader));
                 \\        }}
                 \\
+                \\        pub fn new_{s}_copyOrphanFromBuilder(self: Builder, new_value: {s}.Builder) !{s}.Orphan {{
+                \\            return {s}.Orphan.fromOrphan(try self.orphanage().newCopyStructFromBuilder(new_value.builder));
+                \\        }}
+                \\
                 \\        pub fn disown_{s}_typed(self: Builder) !{s}.Orphan {{
-            , .{ index, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type });
+            , .{ index, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\            return {s}.Orphan.fromOrphan((try self.builder.getPointerField({})).disown());
@@ -9819,6 +9871,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(start, count);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_fromBuilder(self: Builder, new_value: Person_scores_BuilderList) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value.list)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyFromBuilder(builder: *cpz.MessageBuilder, @\"cpz.value\": Person_scores_BuilderList) !@This()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListFromBuilder(@\"cpz.value\".list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(new_value.reader)") != null);
@@ -9848,6 +9902,9 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_fromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value.builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_friend_copyOrphanFromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !@\"cpz.schema\".Person.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructFromBuilder(new_value.builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyFromBuilder(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Builder) !Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn copyFromBuilder(self: Builder, @\"cpz.value\": Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.copyFromBuilder(@\"cpz.value\".builder);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
@@ -9872,10 +9929,16 @@ test "schema code generator emits builtin any builder copy helpers" {
 
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_any_fromBuilder(self: Builder, new_value: cpz.PointerBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_any_copyOrphanFromBuilder(self: Builder, new_value: cpz.PointerBuilder) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyStruct_fromBuilder(self: Builder, new_value: cpz.StructBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_anyStruct_copyOrphanFromBuilder(self: Builder, new_value: cpz.StructBuilder) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyList_fromBuilder(self: Builder, new_value: cpz.ListBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_anyList_copyOrphanFromBuilder(self: Builder, new_value: cpz.ListBuilder) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyListFromBuilder(new_value)") != null);
 }
 
 test "schema code generator emits external import type references" {
