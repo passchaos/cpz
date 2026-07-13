@@ -6928,16 +6928,32 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanCopyStruct(@"cpz.value".reader));
         \\    }}
         \\
+        \\    pub fn newOrphanCopyCanonical(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": @This()) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanCopyStructCanonical(@"cpz.value".reader));
+        \\    }}
+        \\
         \\    pub fn newOrphanCopyFromBuilder(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": Builder) !Orphan {{
         \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanCopyStructFromBuilder(@"cpz.value".builder));
+        \\    }}
+        \\
+        \\    pub fn newOrphanCopyCanonicalFromBuilder(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": Builder) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.builder".newOrphanCopyStructCanonicalFromBuilder(@"cpz.value".builder));
         \\    }}
         \\
         \\    pub fn newOrphanCopyIn(@"cpz.orphanage": cpz.Orphanage, @"cpz.value": @This()) !Orphan {{
         \\        return Orphan.fromOrphan(try @"cpz.orphanage".newCopyStruct(@"cpz.value".reader));
         \\    }}
         \\
+        \\    pub fn newOrphanCopyCanonicalIn(@"cpz.orphanage": cpz.Orphanage, @"cpz.value": @This()) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.orphanage".newCopyStructCanonical(@"cpz.value".reader));
+        \\    }}
+        \\
         \\    pub fn newOrphanCopyFromBuilderIn(@"cpz.orphanage": cpz.Orphanage, @"cpz.value": Builder) !Orphan {{
         \\        return Orphan.fromOrphan(try @"cpz.orphanage".newCopyStructFromBuilder(@"cpz.value".builder));
+        \\    }}
+        \\
+        \\    pub fn newOrphanCopyCanonicalFromBuilderIn(@"cpz.orphanage": cpz.Orphanage, @"cpz.value": Builder) !Orphan {{
+        \\        return Orphan.fromOrphan(try @"cpz.orphanage".newCopyStructCanonicalFromBuilder(@"cpz.value".builder));
         \\    }}
         \\
         \\    pub fn fromReader(@"cpz.reader": cpz.StructReader) {s} {{
@@ -9506,12 +9522,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return {s}.Orphan.fromOrphan(try self.orphanage().newCopyStruct(new_value.reader));
                 \\        }}
                 \\
+                \\        pub fn new_{s}_copyOrphanCanonical(self: Builder, new_value: {s}) !{s}.Orphan {{
+                \\            return {s}.Orphan.fromOrphan(try self.orphanage().newCopyStructCanonical(new_value.reader));
+                \\        }}
+                \\
                 \\        pub fn new_{s}_copyOrphanFromBuilder(self: Builder, new_value: {s}.Builder) !{s}.Orphan {{
                 \\            return {s}.Orphan.fromOrphan(try self.orphanage().newCopyStructFromBuilder(new_value.builder));
                 \\        }}
                 \\
+                \\        pub fn new_{s}_copyOrphanCanonicalFromBuilder(self: Builder, new_value: {s}.Builder) !{s}.Orphan {{
+                \\            return {s}.Orphan.fromOrphan(try self.orphanage().newCopyStructCanonicalFromBuilder(new_value.builder));
+                \\        }}
+                \\
                 \\        pub fn disown_{s}_typed(self: Builder) !{s}.Orphan {{
-            , .{ index, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type });
+            , .{ index, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type, zig_type, zig_type, field_name, zig_type });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\            return {s}.Orphan.fromOrphan((try self.builder.getPointerField({})).disown());
@@ -10020,6 +10044,10 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value.builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_canonicalFromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromCanonicalBuilder(new_value.builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_friend_copyOrphanCanonical(self: Builder, new_value: @\"cpz.schema\".Person) !@\"cpz.schema\".Person.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructCanonical(new_value.reader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_friend_copyOrphanCanonicalFromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !@\"cpz.schema\".Person.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructCanonicalFromBuilder(new_value.builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_friend_copyOrphanFromBuilder(self: Builder, new_value: @\"cpz.schema\".Person.Builder) !@\"cpz.schema\".Person.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructFromBuilder(new_value.builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyFromBuilder(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Builder) !Orphan") != null);

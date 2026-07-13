@@ -1437,6 +1437,22 @@ test "generated structs can allocate typed orphan copies" {
     var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
     const source_person = generated.Person.fromReader(try source_reader.getRoot());
 
+    var canonical_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer canonical_builder.deinit();
+    var top_canonical = try generated.Person.newOrphanCopyCanonical(&canonical_builder, source_person);
+    var top_canonical_from_builder = try generated.Person.newOrphanCopyCanonicalFromBuilder(&canonical_builder, source_person_builder);
+    var top_canonical_in = try generated.Person.newOrphanCopyCanonicalIn(cpz.Orphanage.init(&canonical_builder), source_person);
+    var top_canonical_from_builder_in = try generated.Person.newOrphanCopyCanonicalFromBuilderIn(cpz.Orphanage.init(&canonical_builder), source_person_builder);
+    const canonical_target_builder = try generated.Person.initRootTyped(&canonical_builder);
+    try canonical_target_builder.adopt_friend_typed(&top_canonical);
+    try canonical_target_builder.adopt_maybeFriend_typed(&top_canonical_from_builder);
+    const canonical_friend = try canonical_target_builder.get_friend();
+    try std.testing.expect(canonical_friend.actualSize().pointer_count < generated.Person.size.pointer_count);
+    const canonical_maybe_friend = try canonical_target_builder.get_maybeFriend();
+    try std.testing.expect(canonical_maybe_friend.actualSize().pointer_count < generated.Person.size.pointer_count);
+    try canonical_target_builder.adopt_friend_typed(&top_canonical_in);
+    try canonical_target_builder.adopt_maybeFriend_typed(&top_canonical_from_builder_in);
+
     var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer target_builder.deinit();
     const target_person_builder = try generated.Person.initRootTyped(&target_builder);
@@ -1454,14 +1470,20 @@ test "generated structs can allocate typed orphan copies" {
     try target_person_builder.adopt_friend_typed(&builder_orphan);
     var builder_orphanage_copy = try generated.Person.newOrphanCopyFromBuilderIn(cpz.Orphanage.init(&target_builder), source_person_builder);
     try target_person_builder.adopt_maybeFriend_typed(&builder_orphanage_copy);
+    var field_canonical_orphan = try target_person_builder.new_friend_copyOrphanCanonical(source_person);
+    try target_person_builder.adopt_friend_typed(&field_canonical_orphan);
+    var field_canonical_builder_orphan = try target_person_builder.new_maybeFriend_copyOrphanCanonicalFromBuilder(source_person_builder);
+    try target_person_builder.adopt_maybeFriend_typed(&field_canonical_builder_orphan);
 
     var target_reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
     const target_person = generated.Person.fromReader(try target_reader.getRoot());
     const friend = try target_person.friend();
-    try std.testing.expectEqual(@as(u32, 6262), friend.id());
+    try std.testing.expectEqual(@as(u32, 6161), friend.id());
     try std.testing.expectEqualSlices(u8, "Copied orphan", try friend.name());
     const maybe_friend = try target_person.maybeFriend();
     try std.testing.expectEqual(@as(u32, 6161), maybe_friend.id());
+    try std.testing.expect(friend.actualSize().pointer_count < generated.Person.size.pointer_count);
+    try std.testing.expect(maybe_friend.actualSize().pointer_count < generated.Person.size.pointer_count);
 }
 
 test "generated builders can copy nested struct fields from readers" {
