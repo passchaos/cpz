@@ -448,6 +448,10 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.consts"[11].name);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[11].ty);
     try std.testing.expectEqualStrings("(id = 9, name = \"raw\")", generated.@"cpz.consts"[11].literal);
+    try std.testing.expect(generated.@"cpz.consts"[11].is_struct_literal);
+    try std.testing.expect(generated.@"cpz.consts"[11].matchesStructLiteral(true));
+    try std.testing.expect(generated.@"cpz.const.globalRawPerson.isStructLiteral");
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructLiteral"(true).?.name);
     try std.testing.expect(!generated.@"cpz.consts"[11].emitted);
     try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.consts"[12].name);
     try std.testing.expectEqualStrings("Data", generated.@"cpz.consts"[12].ty);
