@@ -193,11 +193,55 @@ pub fn readFlatMessageView(allocator: std.mem.Allocator, bytes: []const u8) Erro
     return .{ .bytes = bytes, .segments = segments, .consumed_len = expected_len };
 }
 
-/// Parse a packed Cap'n Proto stream message. The returned FlatMessage owns
-/// the unpacked flat bytes and its segment slices point into that allocation.
+/// Parse one packed Cap'n Proto stream message from a byte slice. Decoding
+/// stops exactly when the unpacked stream framing says the first message is
+/// complete; extra trailing packed data is allowed. The returned FlatMessage
+/// owns the unpacked flat bytes for the consumed message and its segment
+/// slices point into that allocation.
 pub fn readPackedMessage(allocator: std.mem.Allocator, packed_bytes: []const u8) Error!FlatMessage {
-    const flat = try packing.unpack(allocator, packed_bytes);
-    return readOwnedFlatMessage(allocator, flat);
+    var unpacked = std.ArrayList(u8).empty;
+    errdefer unpacked.deinit(allocator);
+
+    var i: usize = 0;
+    while (true) {
+        if (i >= packed_bytes.len) return error.MessageTruncated;
+        const tag = packed_bytes[i];
+        i += 1;
+
+        var word = [_]u8{0} ** wire.bytes_per_word;
+        inline for (0..wire.bytes_per_word) |j| {
+            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                if (i >= packed_bytes.len) return error.PackedInputTruncated;
+                word[j] = packed_bytes[i];
+                i += 1;
+            }
+        }
+        try unpacked.appendSlice(allocator, &word);
+
+        if (tag == 0x00) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const additional_words = @as(usize, packed_bytes[i]);
+            i += 1;
+            try unpacked.appendNTimes(allocator, 0, additional_words * wire.bytes_per_word);
+        } else if (tag == 0xff) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const raw_words = @as(usize, packed_bytes[i]);
+            i += 1;
+            const raw_bytes = raw_words * wire.bytes_per_word;
+            if (packed_bytes.len - i < raw_bytes) return error.PackedInputTruncated;
+            try unpacked.appendSlice(allocator, packed_bytes[i .. i + raw_bytes]);
+            i += raw_bytes;
+        }
+
+        if (unpacked.items.len >= wire.bytes_per_word) {
+            const expected_len = try expectedSize(unpacked.items);
+            if (unpacked.items.len >= expected_len) {
+                if (unpacked.items.len != expected_len) return error.PackedOutputLengthMismatch;
+                const owned = try unpacked.toOwnedSlice(allocator);
+                return readOwnedFlatMessage(allocator, owned);
+            }
+        }
+    }
 }
 
 /// Read one packed stream-framed message from an Io reader. Decoding stops
@@ -505,9 +549,21 @@ test "packed stream framing round-trips through unpacked parser" {
     var parsed = try readPackedMessage(allocator, packed_bytes);
     defer parsed.deinit(allocator);
     try testing.expectEqual(flat.len, parsed.consumed_len);
+    try testing.expectEqualSlices(u8, flat, parsed.consumedBytes());
     try testing.expectEqual(@as(usize, 2), parsed.segments.len);
     try testing.expectEqualSlices(u8, &s0, parsed.segments[0]);
     try testing.expectEqualSlices(u8, &s1, parsed.segments[1]);
+
+    const trailer = [_]u8{ 0x44, 0x55, 0x66 };
+    const with_trailer = try std.mem.concat(allocator, u8, &.{ packed_bytes, &trailer });
+    defer allocator.free(with_trailer);
+    var parsed_with_trailer = try readPackedMessage(allocator, with_trailer);
+    defer parsed_with_trailer.deinit(allocator);
+    try testing.expectEqual(flat.len, parsed_with_trailer.consumed_len);
+    try testing.expectEqualSlices(u8, flat, parsed_with_trailer.consumedBytes());
+    try testing.expectEqualSlices(u8, &s0, parsed_with_trailer.segments[0]);
+
+    try testing.expectError(error.PackedInputTruncated, readPackedMessage(allocator, packed_bytes[0 .. packed_bytes.len - 1]));
 }
 
 test "packed stream framing writes directly to Io writer" {

@@ -3318,6 +3318,10 @@ test "owned message readers parse flat and packed bytes" {
 
     const packed_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ packed_bytes, &trailer });
     defer testing.allocator.free(packed_with_trailer);
+    var owned_packed_with_trailer = try OwnedMessageReader.initPacked(testing.allocator, packed_with_trailer, .{});
+    defer owned_packed_with_trailer.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_packed_with_trailer.consumedLen());
+    try testing.expectEqualSlices(u8, flat, owned_packed_with_trailer.bytes());
     var packed_stream = std.Io.Reader.fixed(packed_with_trailer);
     var owned_packed_from_reader = try OwnedMessageReader.initPackedFromReader(testing.allocator, &packed_stream, .{});
     defer owned_packed_from_reader.deinit(testing.allocator);
