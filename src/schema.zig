@@ -6496,6 +6496,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".toFlatBytes(@"cpz.allocator");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.toFlatBytesInto"(@"cpz.reader": *cpz.MessageReader, @"cpz.dest": []u8) !usize {{
+        \\        return @"cpz.reader".toFlatBytesInto(@"cpz.dest");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.toPackedBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader) ![]u8 {{
         \\        return @"cpz.reader".toPackedBytes(@"cpz.allocator");
         \\    }}
@@ -6698,6 +6702,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.toFlatBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{
         \\        return @"cpz.builder".toFlatBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.toFlatBytesInto"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.dest": []u8) !usize {{
+        \\        return @"cpz.builder".toFlatBytesInto(@"cpz.dest");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.toPackedBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{
@@ -9746,6 +9754,8 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_friend_from(self: Builder, new_value: @\"cpz.schema\".Person) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFrom(new_value.reader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "cpz.root.toFlatBytesInto") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "cpz.builderRoot.toFlatBytesInto") != null);
 }
 
 test "schema code generator emits external import type references" {

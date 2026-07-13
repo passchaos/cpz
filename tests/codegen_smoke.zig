@@ -554,6 +554,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const flat_root_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&builder);
     defer std.testing.allocator.free(flat_root_bytes);
     try std.testing.expect(flat_root_bytes.len > 0);
+    var flat_root_buffer: [2048]u8 = undefined;
+    const flat_root_buffer_len = try generated.Person.@"cpz.builderRoot.toFlatBytesInto"(&builder, &flat_root_buffer);
+    try std.testing.expectEqualSlices(u8, flat_root_bytes, flat_root_buffer[0..flat_root_buffer_len]);
     try std.testing.expectEqual(flat_root_bytes.len, try builder.serializedSize());
     try std.testing.expectEqual(flat_root_bytes.len, try generated.Person.@"cpz.builderRoot.serializedSize"(&builder));
     try std.testing.expectEqual(flat_root_bytes.len / @sizeOf(cpz.Word), try builder.serializedSizeInWords());
@@ -776,6 +779,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const reader_flat_bytes = try generated.Person.@"cpz.root.toFlatBytes"(std.testing.allocator, &reader);
     defer std.testing.allocator.free(reader_flat_bytes);
     try std.testing.expectEqual(reader_serialized_size, reader_flat_bytes.len);
+    var reader_flat_into_buffer: [2048]u8 = undefined;
+    const reader_flat_into_len = try generated.Person.@"cpz.root.toFlatBytesInto"(&reader, &reader_flat_into_buffer);
+    try std.testing.expectEqualSlices(u8, reader_flat_bytes, reader_flat_into_buffer[0..reader_flat_into_len]);
     var reader_flat_buffer: [2048]u8 = undefined;
     var reader_flat_writer = std.Io.Writer.fixed(&reader_flat_buffer);
     try generated.Person.@"cpz.root.writeToWriter"(&reader, &reader_flat_writer);
