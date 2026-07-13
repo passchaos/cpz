@@ -2645,6 +2645,28 @@ test "generated builtin any builders canonical-copy from readers and builders" {
     try std.testing.expectEqual(@as(u16, 1), builder_any_struct.pointer_count);
     const builder_any_list = try builder_box.anyList();
     try std.testing.expectEqual(@as(u16, 1), builder_any_list.structElementSize().pointer_count);
+
+    var orphan_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer orphan_target.deinit();
+    const orphan_box_builder = try generated.DynamicBox.initRootTyped(&orphan_target);
+    var any_canonical_orphan = try orphan_box_builder.new_any_copyOrphanCanonical(wide_source_root_pointer);
+    var any_struct_canonical_orphan = try orphan_box_builder.new_anyStruct_copyOrphanCanonical(wide_source_root_reader);
+    var any_list_canonical_orphan = try orphan_box_builder.new_anyList_copyOrphanCanonical(source_list_reader);
+    try orphan_box_builder.adopt_any(&any_canonical_orphan);
+    try orphan_box_builder.adopt_anyStruct(&any_struct_canonical_orphan);
+    try orphan_box_builder.adopt_anyList(&any_list_canonical_orphan);
+    var any_canonical_builder_orphan = try orphan_box_builder.new_any_copyOrphanCanonicalFromBuilder(try wide_source_builder.getRootPointer());
+    var any_struct_canonical_builder_orphan = try orphan_box_builder.new_anyStruct_copyOrphanCanonicalFromBuilder(wide_source_root);
+    var any_list_canonical_builder_orphan = try orphan_box_builder.new_anyList_copyOrphanCanonicalFromBuilder(source_struct_list);
+    try orphan_box_builder.adopt_any(&any_canonical_builder_orphan);
+    try orphan_box_builder.adopt_anyStruct(&any_struct_canonical_builder_orphan);
+    try orphan_box_builder.adopt_anyList(&any_list_canonical_builder_orphan);
+    var orphan_target_reader = cpz.MessageReader.init(try orphan_target.segmentsConst(), .{});
+    const orphan_box = generated.DynamicBox.fromReader(try orphan_target_reader.getRoot());
+    const orphan_any_struct = try (try orphan_box.any()).getStruct(null);
+    try std.testing.expectEqual(@as(u16, 1), orphan_any_struct.pointer_count);
+    try std.testing.expectEqual(@as(u16, 1), (try orphan_box.anyStruct()).pointer_count);
+    try std.testing.expectEqual(@as(u16, 1), (try orphan_box.anyList()).structElementSize().pointer_count);
 }
 
 test "generated using aliases resolve for layout and accessors" {
