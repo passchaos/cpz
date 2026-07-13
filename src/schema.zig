@@ -5150,11 +5150,12 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             defer allocator.free(item_annotations);
             try appendFmt(allocator, out,
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.index": usize = {};
+                \\{s}pub const @"cpz.const.{s}.listItem.{}.metadata": cpz.schema.ConstListItem = @This().@"cpz.const.{s}.listItems"[{}];
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.literal": []const u8 = {s};
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.isHexData": bool = {};
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.annotations": []const u8 = {s};
                 \\
-            , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations });
+            , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, const_name, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations });
         }
     }
     try out.appendSlice(allocator,

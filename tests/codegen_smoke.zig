@@ -316,6 +316,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItems".len);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.const.globalScores.listItem.1.index");
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.const.globalScores.listItem.1.metadata".index);
+    try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItem.1.metadata".literal);
     try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItem.1.literal");
     try std.testing.expect(!generated.@"cpz.const.globalScores.listItem.1.isHexData");
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].list_item_count);
@@ -369,6 +371,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 3), generated.Person.@"cpz.const.defaultScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.Person.@"cpz.const.defaultScores.listItems".len);
     try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.const.defaultScores.listItem.1.index");
+    try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.const.defaultScores.listItem.1.metadata".index);
+    try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItem.1.metadata".literal);
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItem.1.literal");
     try std.testing.expectEqual(@as(u16, 99), generated.Person.defaultAge);
     try std.testing.expectEqualSlices(u8, "nested const", generated.Person.defaultAlias);
