@@ -3516,8 +3516,8 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     try emitImportMetadataTable(allocator, &out, file.imports, if (options.namespace != null) "    " else "");
     try emitAliasMetadataTable(allocator, &out, file, null, file.aliases, if (options.namespace != null) "    " else "");
     try emitConstMetadataTable(allocator, &out, file.consts, if (options.namespace != null) "    " else "");
-    for (file.consts) |*decl| {
-        try emitConst(allocator, &out, file, decl);
+    for (file.consts, 0..) |*decl, const_index| {
+        try emitConst(allocator, &out, file, const_index, decl);
     }
     for (file.enums) |*decl| {
         try emitEnum(allocator, &out, decl);
@@ -3867,8 +3867,8 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         try emitAlias(allocator, out, file, &alias_scope, alias, "    ");
     }
     try emitAliasMetadataTable(allocator, out, file, &alias_scope, decl.aliases, "    ");
-    for (decl.consts) |*nested_const| {
-        try emitNestedConst(allocator, out, file, &alias_scope, nested_const);
+    for (decl.consts, 0..) |*nested_const, const_index| {
+        try emitNestedConst(allocator, out, file, &alias_scope, const_index, nested_const);
     }
     try emitConstMetadataTable(allocator, out, decl.consts, "    ");
     try emitScopedAnnotationMetadataTable(allocator, out, file, decl.name, "    ");
@@ -4628,17 +4628,34 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     }
 }
 
-fn emitConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const ConstDecl) LayoutError!void {
-    return emitConstWithIndent(allocator, out, file, null, decl, "");
+fn emitConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, index: usize, decl: *const ConstDecl) LayoutError!void {
+    return emitConstWithIndent(allocator, out, file, null, index, decl, "");
 }
 
-fn emitNestedConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!void {
-    return emitConstWithIndent(allocator, out, file, scope, decl, "    ");
+fn emitNestedConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, index: usize, decl: *const ConstDecl) LayoutError!void {
+    return emitConstWithIndent(allocator, out, file, scope, index, decl, "    ");
 }
 
-fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, decl: *const ConstDecl, indent: []const u8) LayoutError!void {
+fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, index: usize, decl: *const ConstDecl, indent: []const u8) LayoutError!void {
     const const_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(const_name);
+    const name_literal = try zigStringLiteralAlloc(allocator, decl.name);
+    defer allocator.free(name_literal);
+    const const_type_name = try schemaTypeNameAlloc(allocator, decl.ty);
+    defer allocator.free(const_type_name);
+    const type_literal = try zigStringLiteralAlloc(allocator, const_type_name);
+    defer allocator.free(type_literal);
+    const literal_value = try zigStringLiteralAlloc(allocator, decl.literal);
+    defer allocator.free(literal_value);
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.const.{s}.index": usize = {};
+        \\{s}pub const @"cpz.const.{s}.name": []const u8 = {s};
+        \\{s}pub const @"cpz.const.{s}.type": []const u8 = {s};
+        \\{s}pub const @"cpz.const.{s}.literal": []const u8 = {s};
+        \\{s}pub const @"cpz.const.{s}.isHexData": bool = {};
+        \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
+        \\
+    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data, indent, const_name, decl.emit_value });
     if (decl.annotations.len != 0) {
         const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
         defer allocator.free(annotation_literal);
@@ -4914,8 +4931,8 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     }
     try emitAliasMetadataTable(allocator, out, file, layout.decl, layout.decl.aliases, "    ");
 
-    for (layout.decl.consts) |*decl| {
-        try emitNestedConst(allocator, out, file, layout.decl, decl);
+    for (layout.decl.consts, 0..) |*decl, const_index| {
+        try emitNestedConst(allocator, out, file, layout.decl, const_index, decl);
     }
 
     try emitConstMetadataTable(allocator, out, layout.decl.consts, "    ");
