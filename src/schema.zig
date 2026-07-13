@@ -5273,6 +5273,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".getRootPointerTotalSize();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.list"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.ListReader {{
+        \\        return @"cpz.reader".getRootList(@"cpz.elementSize");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.initList"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+        \\        return @"cpz.builder".initRootList(@"cpz.elementSize", @"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.initStructList"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize, @"cpz.size": cpz.StructSize) !cpz.ListBuilder {{
+        \\        return @"cpz.builder".initRootStructList(@"cpz.count", @"cpz.size");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.list"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !cpz.ListBuilder {{
+        \\        return @"cpz.builder".getRootList(@"cpz.elementSize");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.text"(@"cpz.reader": *cpz.MessageReader) ![]const u8 {{
         \\        return @"cpz.reader".getRootText();
         \\    }}

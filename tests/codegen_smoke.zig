@@ -537,6 +537,32 @@ test "generated scalar root helpers work" {
     try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.root.capability"(&cap_reader));
 }
 
+test "generated list root helpers work" {
+    var scalar_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer scalar_builder.deinit();
+    const values = try generated.Person.@"cpz.builderRoot.initList"(&scalar_builder, .two_bytes, 2);
+    try values.setUInt16(0, 123);
+    try values.setUInt16(1, 456);
+    const values_view = try generated.Person.@"cpz.builderRoot.list"(&scalar_builder, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 456), try values_view.getUInt16(1));
+    var scalar_reader = cpz.MessageReader.init(try scalar_builder.segmentsConst(), .{});
+    const read_values = try generated.Person.@"cpz.root.list"(&scalar_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 123), read_values.getUInt16(0));
+    try std.testing.expectEqual(@as(u16, 456), read_values.getUInt16(1));
+
+    var struct_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer struct_builder.deinit();
+    const people = try generated.Person.@"cpz.builderRoot.initStructList"(&struct_builder, 1, generated.Person.size);
+    const person = generated.Person.Builder.fromBuilder(try people.getStructElement(0));
+    try person.set_id(987);
+    try person.set_name("list root");
+    var struct_reader = cpz.MessageReader.init(try struct_builder.segmentsConst(), .{});
+    const read_people = try generated.Person.@"cpz.root.list"(&struct_reader, .composite);
+    const read_person = generated.Person.fromReader(try read_people.getStructElement(0));
+    try std.testing.expectEqual(@as(u32, 987), read_person.id());
+    try std.testing.expectEqualSlices(u8, "list root", try read_person.name());
+}
+
 test "generated root move and copy helpers work" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 64 });
     defer source_builder.deinit();
