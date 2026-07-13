@@ -5293,6 +5293,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".asReader(@"cpz.options");
         \\    }}
         \\
+        \\    pub fn @"cpz.builderRoot.segments"(@"cpz.builder": *cpz.MessageBuilder) ![]const cpz.serialize.ConstSegment {{
+        \\        return @"cpz.builder".segmentsConst();
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.validate"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageStats {{
         \\        var @"cpz.reader" = try @"cpz.builder".asReader(.{{}});
         \\        return @"cpz.reader".validate();
