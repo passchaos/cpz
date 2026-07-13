@@ -313,9 +313,11 @@ test "generated reader and builder accessors compile and round-trip" {
     const canonical_root_bytes = try generated.Person.@"cpz.builderRoot.toCanonicalSegmentBytes"(&builder, .{});
     defer std.testing.allocator.free(canonical_root_bytes);
     try std.testing.expect(canonical_root_bytes.len > 0);
+    const direct_single_segment_bytes = try builder.toSingleSegmentFlatBytes(.{});
+    defer std.testing.allocator.free(direct_single_segment_bytes);
     const single_segment_bytes = try generated.Person.@"cpz.builderRoot.toSingleSegmentFlatBytes"(&builder, .{});
     defer std.testing.allocator.free(single_segment_bytes);
-    try std.testing.expect(single_segment_bytes.len > 0);
+    try std.testing.expectEqualSlices(u8, direct_single_segment_bytes, single_segment_bytes);
     try person_builder.set_id(7);
     try std.testing.expectEqual(@as(u32, 7), try person_builder.get_id());
     try std.testing.expectEqual(generated.Person.size, person_builder.actualSize());

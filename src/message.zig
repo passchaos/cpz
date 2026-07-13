@@ -439,6 +439,11 @@ pub const MessageBuilder = struct {
         return messageToCanonicalSegmentBytes(self.allocator, &reader);
     }
 
+    pub fn toSingleSegmentFlatBytes(self: *MessageBuilder, options: ReaderOptions) (Error || serialize.Error)![]u8 {
+        var reader = MessageReader.init(try self.segmentsConst(), options);
+        return messageToSingleSegmentFlatBytes(self.allocator, &reader);
+    }
+
     pub fn totalSize(self: *MessageBuilder) Error!MessageSize {
         var reader = MessageReader.init(try self.segmentsConst(), .{});
         return reader.totalSize();
@@ -610,6 +615,10 @@ pub const MessageReader = struct {
 /// framing. This is useful as a deterministic, mmap-friendly normalization
 /// step and as a foundation for stricter canonicalization.
 pub fn toSingleSegmentFlatBytes(allocator: std.mem.Allocator, source: *const MessageReader) (Error || serialize.Error)![]u8 {
+    return messageToSingleSegmentFlatBytes(allocator, source);
+}
+
+fn messageToSingleSegmentFlatBytes(allocator: std.mem.Allocator, source: *const MessageReader) (Error || serialize.Error)![]u8 {
     var stats_reader = MessageReader.init(source.segments, source.options);
     const stats = try stats_reader.validate();
     const capacity = std.math.add(usize, stats.total_words, 1) catch return error.SerializedSizeOverflow;
