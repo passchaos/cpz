@@ -4533,6 +4533,10 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
 }
 
 fn emitAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, annotations: []const AnnotationDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.annotationCount": usize = {};
+        \\
+    , .{ indent, annotations.len });
     for (annotations, 0..) |annotation, index| {
         try emitAnnotationMetadataConstants(allocator, out, file, index, &annotation, indent);
     }
@@ -4553,6 +4557,10 @@ fn emitScopedAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Arr
         try emitAnnotationMetadataConstants(allocator, out, file, count, &annotation, indent);
         count += 1;
     }
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.annotationCount": usize = {};
+        \\
+    , .{ indent, count });
     try appendFmt(allocator, out, "{s}pub const @\"cpz.annotation_decls\": []const cpz.schema.AnnotationMetadata = &[_]cpz.schema.AnnotationMetadata{{", .{indent});
     count = 0;
     for (file.annotations) |annotation| {

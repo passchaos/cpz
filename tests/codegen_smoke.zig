@@ -75,6 +75,7 @@ test "generated schema exposes file and type ids" {
 }
 
 test "generated annotation declarations expose ids types and targets" {
+    try std.testing.expectEqual(@as(usize, 7), generated.@"cpz.annotationCount");
     try std.testing.expectEqual(@as(usize, 7), generated.@"cpz.annotation_decls".len);
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotation_decls"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.annotation_decls"[0].index);
@@ -116,6 +117,7 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expect(generated.NestedBox_itemNote.targets.field);
     try std.testing.expect(generated.NestedBox_statusLabels.Type == []const generated.NestedBox_Status);
     try std.testing.expect(generated.NestedBox_statusLabels.targets.enumerant);
+    try std.testing.expectEqual(@as(usize, 2), generated.NestedBox.@"cpz.annotationCount");
     try std.testing.expectEqual(@as(usize, 2), generated.NestedBox.@"cpz.annotation_decls".len);
     try std.testing.expectEqualStrings("NestedBox.itemNote", generated.NestedBox.@"cpz.annotation_decls"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.NestedBox.@"cpz.annotation_decls"[0].index);
@@ -2030,6 +2032,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("DetailsAlias", generated.ExtendedService.@"cpz.aliases"[2].name);
     try std.testing.expectEqualStrings("Details", generated.ExtendedService.@"cpz.aliases"[2].target);
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.@"cpz.aliases"[2].resolved_target);
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.annotationCount");
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.annotation_decls".len);
     try std.testing.expectEqualStrings("ExtendedService.detailNote", generated.ExtendedService.@"cpz.annotation_decls"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.annotation_decls"[0].index);
