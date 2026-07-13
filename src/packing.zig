@@ -8,6 +8,12 @@ pub const Error = error{
     UnpackedInputNotWordAligned,
 } || std.mem.Allocator.Error;
 
+pub fn maxPackedSize(unpacked_len: usize) Error!usize {
+    if (unpacked_len % wire.bytes_per_word != 0) return error.UnpackedInputNotWordAligned;
+    const words = unpacked_len / wire.bytes_per_word;
+    return std.math.mul(usize, words, wire.bytes_per_word + 2) catch return error.OutOfMemory;
+}
+
 /// Cap'n Proto packing encoder. Input must be whole words.
 ///
 /// The implementation keeps the hot path branch-light: collect the tag and
@@ -311,10 +317,12 @@ test "packInto matches allocating encoder and reports small buffers" {
     const expected = try pack(allocator, &unpacked);
     defer allocator.free(expected);
 
-    var buffer: [256]u8 = undefined;
-    const written = try packInto(&buffer, &unpacked);
+    const buffer = try allocator.alloc(u8, try maxPackedSize(unpacked.len));
+    defer allocator.free(buffer);
+    const written = try packInto(buffer, &unpacked);
     try testing.expectEqualSlices(u8, expected, buffer[0..written]);
     try testing.expectError(error.PackedOutputTooSmall, packInto(buffer[0 .. written - 1], &unpacked));
+    try testing.expectError(error.UnpackedInputNotWordAligned, maxPackedSize(unpacked.len - 1));
 }
 
 test "packToWriter matches allocating encoder" {
