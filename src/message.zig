@@ -35,6 +35,14 @@ pub const MessageStats = struct {
     pub fn size(self: MessageStats) MessageSize {
         return .{ .word_count = self.total_words, .cap_count = self.capabilities };
     }
+
+    pub fn isEmpty(self: MessageStats) bool {
+        return self.pointer_slots == 0 and self.total_words == 0 and self.capabilities == 0;
+    }
+
+    pub fn hasCapabilities(self: MessageStats) bool {
+        return self.capabilities != 0;
+    }
 };
 
 pub const MessageSize = struct {
