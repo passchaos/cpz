@@ -198,6 +198,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
     try std.testing.expectEqual(@as(usize, 8), scores.rawBytes().len);
     try std.testing.expectEqual(@as(u8, 10), scores.rawBytes()[0]);
+    try std.testing.expectEqualSlices(u8, scores.rawBytes(), try scores.rawPrimitiveBytes());
     const scores_prefix = try scores.slice(0, 1);
     try std.testing.expectEqual(@as(usize, 1), scores_prefix.len());
     try std.testing.expectEqual(@as(u32, 10), try scores_prefix.get(0));
@@ -214,6 +215,7 @@ test "generated reader and builder accessors compile and round-trip" {
     const same_scores = try person_builder.get_scores();
     try std.testing.expectEqual(@as(u32, 10), try same_scores.get(0));
     const children = try person_builder.init_children(1);
+    try std.testing.expectError(error.IncompatibleListShape, children.rawPrimitiveBytes());
     try std.testing.expectEqual(generated.Person.size, children.structElementSize());
     const child = try children.get(0);
     try child.set_id(99);
@@ -307,6 +309,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u32, 20), read_scores.get(1));
     try std.testing.expectEqual(@as(usize, 8), read_scores.rawBytes().len);
     try std.testing.expectEqual(@as(u8, 20), read_scores.rawBytes()[4]);
+    try std.testing.expectEqualSlices(u8, read_scores.rawBytes(), try read_scores.rawPrimitiveBytes());
     const read_scores_prefix = try read_scores.slice(0, 1);
     try std.testing.expectEqual(@as(usize, 1), read_scores_prefix.len());
     try std.testing.expectEqual(@as(u32, 10), read_scores_prefix.get(0));
@@ -315,6 +318,7 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u32, 20), read_scores_tail.get(0));
     try std.testing.expectEqual(@as(usize, 4), read_scores_tail.rawBytes().len);
     const read_children = try person.children();
+    try std.testing.expectError(error.IncompatibleListShape, read_children.rawPrimitiveBytes());
     try std.testing.expectEqual(generated.Person.size, read_children.structElementSize());
     const read_child = try read_children.get(0);
     try std.testing.expectEqual(@as(u32, 99), read_child.id());
