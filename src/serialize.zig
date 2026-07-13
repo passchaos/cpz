@@ -172,6 +172,23 @@ pub fn messageToPackedBytes(allocator: std.mem.Allocator, segments: []const Cons
     return packing.pack(allocator, flat);
 }
 
+/// Serialize segments as a packed stream into caller-provided buffers. The
+/// `table_buffer` stores the temporary flat segment table, while `dest`
+/// receives the packed stream bytes. Returns bytes written to `dest`.
+pub fn messageToPackedBytesInto(table_buffer: []u8, dest: []u8, segments: []const ConstSegment) Error!usize {
+    _ = try computeSerializedSize(segments);
+    const table_len = try writeSegmentTable(table_buffer, segments);
+    var out_i: usize = 0;
+
+    const packed_table_len = try packing.packInto(dest[out_i..], table_buffer[0..table_len]);
+    out_i += packed_table_len;
+    for (segments) |segment| {
+        const packed_segment_len = try packing.packInto(dest[out_i..], segment);
+        out_i += packed_segment_len;
+    }
+    return out_i;
+}
+
 /// Write packed stream framing directly to an Io writer. This allocates only
 /// the bounded segment table, then streams packed table/segment chunks.
 pub fn writePackedMessageToWriter(allocator: std.mem.Allocator, writer: *std.Io.Writer, segments: []const ConstSegment) (Error || std.Io.Writer.Error)!void {
@@ -650,10 +667,19 @@ test "packed stream framing writes directly to Io writer" {
     var buffered_writer = std.Io.Writer.fixed(&buffered_writer_storage);
     try writePackedMessageToWriterWithTableBuffer(&table_buffer, &buffered_writer, &segments);
     try testing.expectEqualSlices(u8, packed_bytes, std.Io.Writer.buffered(&buffered_writer));
+    var packed_into_table_buffer: [16]u8 = undefined;
+    var packed_into_buffer: [256]u8 = undefined;
+    const packed_into_len = try messageToPackedBytesInto(&packed_into_table_buffer, &packed_into_buffer, &segments);
+    try testing.expectEqualSlices(u8, std.Io.Writer.buffered(&buffered_writer), packed_into_buffer[0..packed_into_len]);
+    var parsed_into = try readPackedMessage(allocator, packed_into_buffer[0..packed_into_len]);
+    defer parsed_into.deinit(allocator);
+    try testing.expectEqualSlices(u8, &s1, parsed_into.segments[1]);
+    try testing.expectError(error.PackedOutputTooSmall, messageToPackedBytesInto(&packed_into_table_buffer, packed_into_buffer[0 .. packed_into_len - 1], &segments));
     var short_table_buffer: [8]u8 = undefined;
     var short_table_writer_storage: [256]u8 = undefined;
     var short_table_writer = std.Io.Writer.fixed(&short_table_writer_storage);
     try testing.expectError(error.SegmentTableTruncated, writePackedMessageToWriterWithTableBuffer(&short_table_buffer, &short_table_writer, &segments));
+    try testing.expectError(error.SegmentTableTruncated, messageToPackedBytesInto(&short_table_buffer, &packed_into_buffer, &segments));
 }
 
 test "packed stream framing reads one message from Io reader" {

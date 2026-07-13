@@ -572,6 +572,12 @@ test "generated reader and builder accessors compile and round-trip" {
     const packed_root_bytes = try generated.Person.@"cpz.builderRoot.toPackedBytes"(&builder);
     defer std.testing.allocator.free(packed_root_bytes);
     try std.testing.expect(packed_root_bytes.len > 0);
+    var packed_root_table_buffer: [64]u8 = undefined;
+    var packed_root_buffer: [2048]u8 = undefined;
+    const packed_root_buffer_len = try generated.Person.@"cpz.builderRoot.toPackedBytesInto"(&builder, &packed_root_table_buffer, &packed_root_buffer);
+    var packed_root_parsed = try cpz.readPackedMessage(std.testing.allocator, packed_root_buffer[0..packed_root_buffer_len]);
+    defer packed_root_parsed.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, flat_root_bytes, packed_root_parsed.bytes);
     var packed_writer_buffer: [256]u8 = undefined;
     var packed_writer = std.Io.Writer.fixed(&packed_writer_buffer);
     try generated.Person.@"cpz.builderRoot.writePackedToWriter"(&builder, &packed_writer);
@@ -789,6 +795,12 @@ test "generated reader and builder accessors compile and round-trip" {
     const reader_packed_bytes = try generated.Person.@"cpz.root.toPackedBytes"(std.testing.allocator, &reader);
     defer std.testing.allocator.free(reader_packed_bytes);
     try std.testing.expect(reader_packed_bytes.len > 0);
+    var reader_packed_into_table: [64]u8 = undefined;
+    var reader_packed_into_buffer: [2048]u8 = undefined;
+    const reader_packed_into_len = try generated.Person.@"cpz.root.toPackedBytesInto"(&reader, &reader_packed_into_table, &reader_packed_into_buffer);
+    var reader_packed_into = try cpz.readPackedMessage(std.testing.allocator, reader_packed_into_buffer[0..reader_packed_into_len]);
+    defer reader_packed_into.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, reader_flat_bytes, reader_packed_into.bytes);
     var reader_packed_buffer: [2048]u8 = undefined;
     var reader_packed_writer = std.Io.Writer.fixed(&reader_packed_buffer);
     try generated.Person.@"cpz.root.writePackedToWriter"(std.testing.allocator, &reader, &reader_packed_writer);
