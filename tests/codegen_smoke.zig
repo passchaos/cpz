@@ -928,6 +928,8 @@ test "generated anonymous union accessors activate and guard fields" {
     const choice_builder = try generated.Choice.initRootTyped(&builder);
     try choice_builder.set_before("pre");
     try choice_builder.set_after("post");
+    try choice_builder.set_metadata_created(123456);
+    try choice_builder.set_metadata_label("group label");
     try choice_builder.set_name("Ada");
     try std.testing.expectEqual(generated.Choice.Union0.name, (try choice_builder.which()).?);
     try std.testing.expectEqual(true, try choice_builder.has_name());
@@ -945,6 +947,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(generated.Choice.Union0.id, choice.which().?);
     try std.testing.expectEqualSlices(u8, "pre", try choice.before());
     try std.testing.expectEqualSlices(u8, "post", try choice.after());
+    try std.testing.expectEqual(@as(u64, 123456), choice.metadata_created());
+    try std.testing.expectEqualSlices(u8, "group label", try choice.metadata_label());
     try std.testing.expectError(error.InactiveUnionField, choice.name());
     try std.testing.expectEqual(@as(u32, 99), try choice.id());
 }
