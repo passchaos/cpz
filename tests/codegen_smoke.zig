@@ -63,6 +63,16 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
+    try std.testing.expectEqual(@as(usize, 10), generated.@"cpz.consts".len);
+    try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
+    try std.testing.expectEqualStrings("UInt32", generated.@"cpz.consts"[0].ty);
+    try std.testing.expectEqualStrings("12345", generated.@"cpz.consts"[0].literal);
+    try std.testing.expectEqualStrings("$schemaNote(\"global-id\")", generated.@"cpz.consts"[0].annotations);
+    try std.testing.expectEqualStrings("de ad be ef", generated.@"cpz.consts"[3].literal);
+    try std.testing.expect(generated.@"cpz.consts"[3].is_hex_data);
+    try std.testing.expectEqualStrings("[10, 20, 30]", generated.@"cpz.consts"[6].literal);
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.consts"[6].list_items.len);
+    try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].list_items[1].literal);
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);

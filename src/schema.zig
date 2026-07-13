@@ -94,6 +94,15 @@ pub const ConstListItem = struct {
     annotations: []const u8 = "",
 };
 
+pub const ConstMetadata = struct {
+    name: []const u8,
+    ty: []const u8,
+    literal: []const u8 = "",
+    is_hex_data: bool = false,
+    annotations: []const u8 = "",
+    list_items: []const ConstListItem = &.{},
+};
+
 pub const ImportDecl = struct {
     name: []const u8,
     path: []const u8,
@@ -1211,12 +1220,14 @@ pub const Parser = struct {
         } else blk: {
             try self.expect(.equal);
             break :blk if (list_literal) list_blk: {
+                const list_start = self.currentTokenStart();
                 list_items = self.parseConstListItems() catch {
                     ty.deinit(self.allocator);
                     try self.skipRawUntilSemicolon();
                     return;
                 };
-                break :list_blk "";
+                const list_end = self.currentTokenStart();
+                break :list_blk std.mem.trim(u8, self.lexer.source[list_start..list_end], " \t\r\n");
             } else if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) data_blk: {
                 try self.expect(.integer);
                 if (self.lookahead.tag != .string) {
@@ -3411,6 +3422,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
         , .{ indent, index, annotation_literal });
     }
     if (file.annotations_raw.len != 0) try out.append(allocator, '\n');
+    try emitConstMetadataTable(allocator, &out, file.consts, if (options.namespace != null) "    " else "");
     for (file.consts) |*decl| {
         try emitConst(allocator, &out, file, decl);
     }
@@ -3982,6 +3994,64 @@ fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_
         };
     }
     return null;
+}
+
+fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), consts: []const ConstDecl, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.consts\": []const cpz.schema.ConstMetadata = &[_]cpz.schema.ConstMetadata{{", .{indent});
+    for (consts, 0..) |decl, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        try appendConstMetadataLiteral(allocator, out, &decl);
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (consts.len != 0) try out.append(allocator, '\n');
+}
+
+fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const ConstDecl) LayoutError!void {
+    const name_literal = try zigStringLiteralAlloc(allocator, decl.name);
+    defer allocator.free(name_literal);
+    const type_name = try schemaTypeNameAlloc(allocator, decl.ty);
+    defer allocator.free(type_name);
+    const type_literal = try zigStringLiteralAlloc(allocator, type_name);
+    defer allocator.free(type_literal);
+    const value_literal = try zigStringLiteralAlloc(allocator, decl.literal);
+    defer allocator.free(value_literal);
+    const annotations_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    defer allocator.free(annotations_literal);
+    try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}", .{ name_literal, type_literal });
+    if (decl.literal.len != 0) {
+        try appendFmt(allocator, out, ", .literal = {s}", .{value_literal});
+    }
+    if (decl.is_hex_data) {
+        try out.appendSlice(allocator, ", .is_hex_data = true");
+    }
+    if (decl.annotations.len != 0) {
+        try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
+    }
+    if (decl.list_items) |items| {
+        try out.appendSlice(allocator, ", .list_items = ");
+        try appendConstListItemsLiteral(allocator, out, items);
+    }
+    try out.appendSlice(allocator, " }");
+}
+
+fn appendConstListItemsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), items: []const ConstListItem) LayoutError!void {
+    try out.appendSlice(allocator, "&[_]cpz.schema.ConstListItem{");
+    for (items, 0..) |item, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const literal = try zigStringLiteralAlloc(allocator, item.literal);
+        defer allocator.free(literal);
+        const annotations = try zigStringLiteralAlloc(allocator, item.annotations);
+        defer allocator.free(annotations);
+        try appendFmt(allocator, out, ".{{ .literal = {s}", .{literal});
+        if (item.is_hex_data) {
+            try out.appendSlice(allocator, ", .is_hex_data = true");
+        }
+        if (item.annotations.len != 0) {
+            try appendFmt(allocator, out, ", .annotations = {s}", .{annotations});
+        }
+        try out.appendSlice(allocator, " }");
+    }
+    try out.appendSlice(allocator, "}");
 }
 
 fn emitAlias(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, decl: *const AliasDecl, indent: []const u8) LayoutError!void {
