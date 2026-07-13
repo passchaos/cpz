@@ -5262,11 +5262,11 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\    }}
         \\
         \\    pub fn @"cpz.root.serializedSize"(@"cpz.reader": *cpz.MessageReader) !usize {{
-        \\        return cpz.serialize.computeSerializedSize(@"cpz.reader".segments);
+        \\        return @"cpz.reader".serializedSize();
         \\    }}
         \\
         \\    pub fn @"cpz.root.serializedSizeInWords"(@"cpz.reader": *cpz.MessageReader) !usize {{
-        \\        return cpz.serialize.computeSerializedSizeInWords(@"cpz.reader".segments);
+        \\        return @"cpz.reader".serializedSizeInWords();
         \\    }}
         \\
         \\    pub fn @"cpz.root.toFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *cpz.MessageReader) ![]u8 {{
@@ -5326,11 +5326,11 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.serializedSize"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
-        \\        return cpz.serialize.computeSerializedSize(try @"cpz.builder".segmentsConst());
+        \\        return @"cpz.builder".serializedSize();
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.serializedSizeInWords"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
-        \\        return cpz.serialize.computeSerializedSizeInWords(try @"cpz.builder".segmentsConst());
+        \\        return @"cpz.builder".serializedSizeInWords();
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.validate"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageStats {{
