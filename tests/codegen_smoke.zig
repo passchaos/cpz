@@ -1197,6 +1197,18 @@ test "generated root move and copy helpers work" {
     const canonical_person = try generated.Person.getRoot(&canonical_reader);
     try std.testing.expectEqualSlices(u8, "root helper", try canonical_person.name());
 
+    var canonical_builder_source = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer canonical_builder_source.deinit();
+    const canonical_from_builder = try generated.Person.@"cpz.root.copyCanonicalFromBuilder"(&canonical_builder_source, source_person);
+    try std.testing.expectEqualSlices(u8, "root helper", try canonical_from_builder.get_name());
+
+    var canonical_pointer_builder_source = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer canonical_pointer_builder_source.deinit();
+    _ = try generated.Person.@"cpz.root.copyPointerCanonicalFromBuilder"(&canonical_pointer_builder_source, try source_builder.getRootPointer());
+    var canonical_pointer_builder_reader = cpz.MessageReader.init(try canonical_pointer_builder_source.segmentsConst(), .{});
+    const canonical_pointer_builder_person = try generated.Person.getRoot(&canonical_pointer_builder_reader);
+    try std.testing.expectEqualSlices(u8, "root helper", try canonical_pointer_builder_person.name());
+
     var builder_to_builder_canonical = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
     defer builder_to_builder_canonical.deinit();
     _ = try generated.Person.@"cpz.root.copyCanonicalTo"(&source_builder, &builder_to_builder_canonical);
@@ -1204,10 +1216,22 @@ test "generated root move and copy helpers work" {
     const builder_to_builder_canonical_person = try generated.Person.getRoot(&builder_to_builder_canonical_reader);
     try std.testing.expectEqualSlices(u8, "root helper", try builder_to_builder_canonical_person.name());
 
+    var direct_builder_canonical = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer direct_builder_canonical.deinit();
+    _ = try generated.Person.@"cpz.root.copyCanonicalToBuilder"(&source_builder, &direct_builder_canonical);
+    var direct_builder_canonical_reader = cpz.MessageReader.init(try direct_builder_canonical.segmentsConst(), .{});
+    const direct_builder_canonical_person = try generated.Person.getRoot(&direct_builder_canonical_reader);
+    try std.testing.expectEqualSlices(u8, "root helper", try direct_builder_canonical_person.name());
+
     var typed_canonical_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
     defer typed_canonical_target.deinit();
     const typed_canonical_builder = try generated.Person.@"cpz.root.copyCanonicalTypedTo"(&source_builder, &typed_canonical_target);
     try std.testing.expectEqualSlices(u8, "root helper", try typed_canonical_builder.get_name());
+
+    var direct_typed_canonical_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer direct_typed_canonical_target.deinit();
+    const direct_typed_canonical_builder = try generated.Person.@"cpz.root.copyCanonicalTypedToBuilder"(&source_builder, &direct_typed_canonical_target);
+    try std.testing.expectEqualSlices(u8, "root helper", try direct_typed_canonical_builder.get_name());
 
     var move_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer move_builder.deinit();

@@ -980,15 +980,31 @@ pub const MessageBuilder = struct {
         return self.getRoot();
     }
 
+    pub fn copyRootCanonicalFromBuilder(self: *MessageBuilder, source: StructBuilder) Error!StructBuilder {
+        const dst_root = try self.getRootPointer();
+        try dst_root.copyStructFromCanonicalBuilder(source);
+        return self.getRoot();
+    }
+
     pub fn copyRootPointerCanonicalFrom(self: *MessageBuilder, source: PointerReader) Error!PointerBuilder {
         const dst_root = try self.getRootPointer();
         try dst_root.copyFromCanonical(source);
         return dst_root;
     }
 
+    pub fn copyRootPointerCanonicalFromBuilder(self: *MessageBuilder, source: PointerBuilder) Error!PointerBuilder {
+        const dst_root = try self.getRootPointer();
+        try dst_root.copyFromCanonicalBuilder(source);
+        return dst_root;
+    }
+
     pub fn copyRootCanonicalTo(self: *MessageBuilder, target: *MessageBuilder) Error!PointerBuilder {
         var reader = MessageReader.init(try self.segmentsConst(), .{});
         return target.copyRootPointerCanonicalFrom(try reader.getRootPointer());
+    }
+
+    pub fn copyRootCanonicalToBuilder(self: *MessageBuilder, target: *MessageBuilder) Error!PointerBuilder {
+        return target.copyRootPointerCanonicalFromBuilder(try self.getRootPointer());
     }
 
     pub fn getRoot(self: *MessageBuilder) Error!StructBuilder {
@@ -1833,6 +1849,11 @@ pub const PointerBuilder = struct {
         try self.copyFromMode(source, true);
     }
 
+    pub fn copyFromCanonicalBuilder(self: PointerBuilder, source: PointerBuilder) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyFromCanonical(source.asReader(&reader));
+    }
+
     pub fn copyStructFrom(self: PointerBuilder, source: StructReader) Error!void {
         const dst = try self.initStruct(.{
             .data_words = source.data_words,
@@ -1844,9 +1865,23 @@ pub const PointerBuilder = struct {
         }
     }
 
+    pub fn copyStructFromCanonical(self: PointerBuilder, source: StructReader) Error!void {
+        const dst_size = try canonicalStructSize(source);
+        const dst = try self.initStruct(dst_size);
+        @memcpy(dst.dataBytes(), source.dataBytes()[0..dst.dataBytes().len]);
+        for (0..dst_size.pointer_count) |i| {
+            try (try dst.getPointerField(i)).copyFromCanonical(source.getPointerField(i));
+        }
+    }
+
     pub fn copyStructFromBuilder(self: PointerBuilder, source: StructBuilder) Error!void {
         var reader = MessageReader.init(try source.message.segmentsConst(), .{});
         return self.copyStructFrom(source.asReader(&reader));
+    }
+
+    pub fn copyStructFromCanonicalBuilder(self: PointerBuilder, source: StructBuilder) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyStructFromCanonical(source.asReader(&reader));
     }
 
     pub fn copyListFrom(self: PointerBuilder, source: ListReader) Error!void {
@@ -1860,6 +1895,11 @@ pub const PointerBuilder = struct {
 
     pub fn copyListFromCanonical(self: PointerBuilder, source: ListReader) Error!void {
         try self.copyListFromMode(source, true);
+    }
+
+    pub fn copyListFromCanonicalBuilder(self: PointerBuilder, source: ListBuilder) Error!void {
+        var reader = MessageReader.init(try source.message.segmentsConst(), .{});
+        return self.copyListFromCanonical(source.asReader(&reader));
     }
 
     fn copyFromMode(self: PointerBuilder, source: PointerReader, canonical: bool) Error!void {
@@ -5026,6 +5066,27 @@ test "canonical segment bytes truncate trailing zero struct sections" {
     try testing.expectEqual(@as(u32, 99), read_root.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "kept", try read_root.getPointerField(0).getText());
     try testing.expect(read_root.getPointerField(1).isNull());
+
+    var builder_canonical = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer builder_canonical.deinit();
+    const builder_canonical_root = try builder_canonical.copyRootCanonicalFromBuilder(root);
+    try testing.expectEqual(@as(u16, 1), builder_canonical_root.data_words);
+    try testing.expectEqual(@as(u16, 1), builder_canonical_root.pointer_count);
+    try testing.expectEqualSlices(u8, "kept", try (try builder_canonical_root.getPointerField(0)).getText());
+
+    var pointer_canonical = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer pointer_canonical.deinit();
+    const pointer_canonical_root = try pointer_canonical.copyRootPointerCanonicalFromBuilder(try builder.getRootPointer());
+    const pointer_canonical_struct = (try pointer_canonical_root.decode()).?.struct_ptr;
+    try testing.expectEqual(@as(u16, 1), pointer_canonical_struct.data_words);
+    try testing.expectEqual(@as(u16, 1), pointer_canonical_struct.pointer_count);
+
+    var target_canonical = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1, .next_segment_min_words = 1 });
+    defer target_canonical.deinit();
+    _ = try builder.copyRootCanonicalToBuilder(&target_canonical);
+    const target_canonical_root = try target_canonical.getRoot();
+    try testing.expectEqual(@as(u16, 1), target_canonical_root.data_words);
+    try testing.expectEqual(@as(u16, 1), target_canonical_root.pointer_count);
 }
 
 test "canonical segment bytes truncate trailing zero struct-list sections" {

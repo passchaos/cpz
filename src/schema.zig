@@ -6886,16 +6886,33 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return Builder.fromBuilder(try @"cpz.builder".copyRootCanonicalFrom(@"cpz.source"));
         \\    }}
         \\
+        \\    pub fn @"cpz.root.copyCanonicalFromBuilder"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": Builder) !Builder {{
+        \\        return Builder.fromBuilder(try @"cpz.builder".copyRootCanonicalFromBuilder(@"cpz.source".builder));
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.copyPointerCanonicalFrom"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": cpz.PointerReader) !cpz.PointerBuilder {{
         \\        return @"cpz.builder".copyRootPointerCanonicalFrom(@"cpz.source");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.copyPointerCanonicalFromBuilder"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": cpz.PointerBuilder) !cpz.PointerBuilder {{
+        \\        return @"cpz.builder".copyRootPointerCanonicalFromBuilder(@"cpz.source");
         \\    }}
         \\
         \\    pub fn @"cpz.root.copyCanonicalTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !cpz.PointerBuilder {{
         \\        return @"cpz.source".copyRootCanonicalTo(@"cpz.target");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.copyCanonicalToBuilder"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !cpz.PointerBuilder {{
+        \\        return @"cpz.source".copyRootCanonicalToBuilder(@"cpz.target");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.copyCanonicalTypedTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !Builder {{
         \\        _ = try @"cpz.source".copyRootCanonicalTo(@"cpz.target");
+        \\        return getRootTyped(@"cpz.target");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.copyCanonicalTypedToBuilder"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !Builder {{
+        \\        _ = try @"cpz.source".copyRootCanonicalToBuilder(@"cpz.target");
         \\        return getRootTyped(@"cpz.target");
         \\    }}
         \\
@@ -9929,6 +9946,13 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyToBuilder\"(@\"cpz.source\": *cpz.MessageBuilder, @\"cpz.target\": *cpz.MessageBuilder) !cpz.PointerBuilder") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyRootToBuilder(@\"cpz.target\")") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyTypedToBuilder\"(@\"cpz.source\": *cpz.MessageBuilder, @\"cpz.target\": *cpz.MessageBuilder) !Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyCanonicalFromBuilder\"(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.source\": Builder) !Builder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyRootCanonicalFromBuilder(@\"cpz.source\".builder)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyPointerCanonicalFromBuilder\"(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.source\": cpz.PointerBuilder) !cpz.PointerBuilder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyRootPointerCanonicalFromBuilder(@\"cpz.source\")") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyCanonicalToBuilder\"(@\"cpz.source\": *cpz.MessageBuilder, @\"cpz.target\": *cpz.MessageBuilder) !cpz.PointerBuilder") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyRootCanonicalToBuilder(@\"cpz.target\")") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn @\"cpz.root.copyCanonicalTypedToBuilder\"(@\"cpz.source\": *cpz.MessageBuilder, @\"cpz.target\": *cpz.MessageBuilder) !Builder") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn copyFromBuilder(self: Builder, @\"cpz.value\": Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.copyFromBuilder(@\"cpz.value\".builder);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
