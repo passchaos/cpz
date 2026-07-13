@@ -195,6 +195,7 @@ pub const FieldMetadata = struct {
     has_explicit_default: bool = false,
     default_is_hex_data: bool = false,
     annotations: []const u8 = "",
+    is_union_member: bool = false,
     union_index: ?u32 = null,
     union_discriminant: u16 = 0,
 };
@@ -5354,7 +5355,7 @@ fn appendUnionFieldMetadataLiteral(allocator: std.mem.Allocator, out: *std.Array
         if (field.annotations.len != 0) {
             try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
         }
-        try appendFmt(allocator, out, ", .union_index = {}, .union_discriminant = {} }}", .{ union_index, field.union_discriminant });
+        try appendFmt(allocator, out, ", .is_union_member = true, .union_index = {}, .union_discriminant = {} }}", .{ union_index, field.union_discriminant });
     }
     try out.appendSlice(allocator, "}");
 }
@@ -5407,7 +5408,7 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
         }
         if (field.union_index) |union_index| {
-            try appendFmt(allocator, out, ", .union_index = {}, .union_discriminant = {}", .{ union_index, field.union_discriminant });
+            try appendFmt(allocator, out, ", .is_union_member = true, .union_index = {}, .union_discriminant = {}", .{ union_index, field.union_discriminant });
         }
         try out.appendSlice(allocator, " }");
     }
@@ -6143,8 +6144,9 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\    pub const @"cpz.field.{s}.resolvedType": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.slot": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.offset": usize = {};
+        \\    pub const @"cpz.field.{s}.isUnionMember": bool = {};
         \\    pub const @"cpz.field.{s}.unionIndex": ?u32 = 
-    , .{ field_name, type_literal, field_name, resolved_type_literal, field_name, slot_literal, field_name, slot.offset, field_name });
+    , .{ field_name, type_literal, field_name, resolved_type_literal, field_name, slot_literal, field_name, slot.offset, field_name, field.union_index != null, field_name });
     if (field.union_index) |union_index| {
         try appendFmt(allocator, out, "{};\n", .{union_index});
     } else {

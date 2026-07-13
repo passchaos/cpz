@@ -1507,6 +1507,7 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[0].fields.len);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.union.0.fields".len);
     try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.unions"[0].fields[0].name);
+    try std.testing.expect(generated.Choice.@"cpz.unions"[0].fields[0].is_union_member);
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.unions"[0].fields[0].union_discriminant);
     try std.testing.expectEqualStrings("id", generated.Choice.@"cpz.unions"[0].fields[1].name);
     try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByName"("name").?.name);
@@ -1536,9 +1537,13 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?usize, 1), generated.Choice.@"cpz.union.0.pointer");
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.fields"[4].union_index.?);
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.fields"[4].union_discriminant);
+    try std.testing.expect(!generated.Choice.@"cpz.fields"[0].is_union_member);
+    try std.testing.expect(generated.Choice.@"cpz.fields"[4].is_union_member);
     try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.field.before.unionIndex");
+    try std.testing.expect(!generated.Choice.@"cpz.field.before.isUnionMember");
     try std.testing.expectEqualStrings("before", generated.Choice.@"cpz.field.before.name");
     try std.testing.expectEqual(@as(?u32, 0), generated.Choice.@"cpz.field.name.unionIndex");
+    try std.testing.expect(generated.Choice.@"cpz.field.name.isUnionMember");
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.field.name.unionDiscriminant");
 
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
