@@ -2903,6 +2903,22 @@ pub const ListBuilder = struct {
     }
 
     pub fn copyElementsFromBuilder(self: ListBuilder, index: usize, source: ListBuilder, source_index: usize, count: usize) Error!void {
+        if (index > self.element_count or self.element_count - index < count) return error.PointerOutOfBounds;
+        if (source_index > source.element_count or source.element_count - source_index < count) return error.PointerOutOfBounds;
+        if (self.element_size != source.element_size) return error.IncompatibleListShape;
+        switch (self.element_size) {
+            .byte, .two_bytes, .four_bytes, .eight_bytes => {
+                const bytes_per_element = wire.bitsPerElement(self.element_size) / 8;
+                const byte_count = std.math.mul(usize, count, bytes_per_element) catch return error.MessageTooLarge;
+                const dst_start = std.math.mul(usize, index, bytes_per_element) catch return error.MessageTooLarge;
+                const src_start = std.math.mul(usize, source_index, bytes_per_element) catch return error.MessageTooLarge;
+                const source_bytes = try source.rawPrimitiveBytes();
+                const dest_bytes = try self.rawPrimitiveBytes();
+                @memmove(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
+                return;
+            },
+            else => {},
+        }
         var reader = MessageReader.init(try source.message.segmentsConst(), .{});
         return self.copyElementsFrom(index, source.asReader(&reader), source_index, count);
     }
@@ -4111,6 +4127,35 @@ test "builders can copy individual list elements from readers" {
     const read_range_person1 = try (try read_target_root.getPointerField(3).getList(.composite)).getStructElement(3);
     try testing.expectEqual(@as(u32, 321), read_range_person1.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "copied element", try read_range_person1.getPointerField(0).getText());
+}
+
+test "builders can copy overlapping primitive list ranges" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    const forward = try (try root.getPointerField(0)).initList(.four_bytes, 4);
+    try forward.setUInt32(0, 1);
+    try forward.setUInt32(1, 2);
+    try forward.setUInt32(2, 3);
+    try forward.setUInt32(3, 4);
+    try forward.copyElementsFromBuilder(1, forward, 0, 3);
+    try testing.expectEqual(@as(u32, 1), try forward.getUInt32(0));
+    try testing.expectEqual(@as(u32, 1), try forward.getUInt32(1));
+    try testing.expectEqual(@as(u32, 2), try forward.getUInt32(2));
+    try testing.expectEqual(@as(u32, 3), try forward.getUInt32(3));
+
+    const backward = try (try root.getPointerField(1)).initList(.two_bytes, 4);
+    try backward.setUInt16(0, 10);
+    try backward.setUInt16(1, 20);
+    try backward.setUInt16(2, 30);
+    try backward.setUInt16(3, 40);
+    try backward.copyElementsFromBuilder(0, backward, 1, 3);
+    try testing.expectEqual(@as(u16, 20), try backward.getUInt16(0));
+    try testing.expectEqual(@as(u16, 30), try backward.getUInt16(1));
+    try testing.expectEqual(@as(u16, 40), try backward.getUInt16(2));
+    try testing.expectEqual(@as(u16, 40), try backward.getUInt16(3));
 }
 
 test "pointer builders can disown and adopt within a message" {
