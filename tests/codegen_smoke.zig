@@ -2357,6 +2357,35 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, "any list struct", try read_composite_item.getPointerField(0).getText());
 }
 
+test "generated builtin any builders copy from builders" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer source_builder.deinit();
+    const source_root = try source_builder.initRoot(.{ .data_words = 1, .pointer_count = 2 });
+    try source_root.setUInt32(0, 0x13579bdf, 0);
+    try source_root.setText(0, "builder any copy");
+    const source_list = try (try source_root.getPointerField(1)).initList(.two_bytes, 2);
+    try source_list.setUInt16(0, 1111);
+    try source_list.setUInt16(1, 2222);
+
+    var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer target_builder.deinit();
+    const target_box_builder = try generated.DynamicBox.initRootTyped(&target_builder);
+    try target_box_builder.set_any_fromBuilder(try source_root.getPointerField(0));
+    try target_box_builder.set_anyStruct_fromBuilder(source_root);
+    try target_box_builder.set_anyList_fromBuilder(source_list);
+
+    var reader = cpz.MessageReader.init(try target_builder.segmentsConst(), .{});
+    const box = generated.DynamicBox.fromReader(try reader.getRoot());
+    try std.testing.expectEqualSlices(u8, "builder any copy", try box.anyAsText());
+    const any_struct = try box.anyStruct();
+    try std.testing.expectEqual(@as(u32, 0x13579bdf), any_struct.getUInt32(0, 0));
+    try std.testing.expectEqualSlices(u8, "builder any copy", try any_struct.getPointerField(0).getText());
+    try std.testing.expectEqual(@as(u16, 2222), (try any_struct.getPointerField(1).getList(.two_bytes)).getUInt16(1));
+    const any_list = try box.anyList();
+    try std.testing.expectEqual(@as(u16, 1111), any_list.getUInt16(0));
+    try std.testing.expectEqual(@as(u16, 2222), any_list.getUInt16(1));
+}
+
 test "generated using aliases resolve for layout and accessors" {
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();

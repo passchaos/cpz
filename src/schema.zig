@@ -9066,6 +9066,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: cpz.PointerBuilder) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyFromBuilder(new_value);
+                \\        }}
+                \\
                 \\        pub fn set_{s}_text(self: Builder, new_value: []const u8) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
@@ -9161,6 +9168,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).copyStructFrom(new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: cpz.StructBuilder) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyStructFromBuilder(new_value);
+                \\        }}
+                \\
                 \\        pub fn get_{s}PointerSection(self: Builder) !cpz.ListBuilder {{
             , .{ index, field_name });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
@@ -9225,6 +9239,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}_fromBuilder(self: Builder, new_value: cpz.ListBuilder) !void {{
+            , .{ index, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return (try self.builder.getPointerField({})).copyListFromBuilder(new_value);
                 \\        }}
                 \\
             , .{index});
@@ -9832,6 +9853,29 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn clear_scores(self: Builder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "cpz.root.toFlatBytesInto") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "cpz.builderRoot.toFlatBytesInto") != null);
+}
+
+test "schema code generator emits builtin any builder copy helpers" {
+    const source =
+        \\struct DynamicBox {
+        \\  any @0 :AnyPointer;
+        \\  anyStruct @1 :AnyStruct;
+        \\  anyList @2 :AnyList;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_any_fromBuilder(self: Builder, new_value: cpz.PointerBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyStruct_fromBuilder(self: Builder, new_value: cpz.StructBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyList_fromBuilder(self: Builder, new_value: cpz.ListBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value)") != null);
 }
 
 test "schema code generator emits external import type references" {
