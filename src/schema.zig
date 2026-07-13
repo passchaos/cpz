@@ -8252,8 +8252,16 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newCopyPointer(new_value);
             \\        }}
             \\
+            \\        pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.PointerReader) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyPointerCanonical(new_value);
+            \\        }}
+            \\
             \\        pub fn newCopyOrphanFromBuilder(self: @This(), new_value: cpz.PointerBuilder) !cpz.Orphan {{
             \\            return self.orphanage().newCopyPointerFromBuilder(new_value);
+            \\        }}
+            \\
+            \\        pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.PointerBuilder) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyPointerCanonicalFromBuilder(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -8298,8 +8306,16 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newCopyStruct(new_value);
             \\        }}
             \\
+            \\        pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.StructReader) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyStructCanonical(new_value);
+            \\        }}
+            \\
             \\        pub fn newCopyOrphanFromBuilder(self: @This(), new_value: cpz.StructBuilder) !cpz.Orphan {{
             \\            return self.orphanage().newCopyStructFromBuilder(new_value);
+            \\        }}
+            \\
+            \\        pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.StructBuilder) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyStructCanonicalFromBuilder(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -8352,8 +8368,16 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newCopyList(new_value);
             \\        }}
             \\
+            \\        pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.ListReader) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyListCanonical(new_value);
+            \\        }}
+            \\
             \\        pub fn newCopyOrphanFromBuilder(self: @This(), new_value: cpz.ListBuilder) !cpz.Orphan {{
             \\            return self.orphanage().newCopyListFromBuilder(new_value);
+            \\        }}
+            \\
+            \\        pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.ListBuilder) !cpz.Orphan {{
+            \\            return self.orphanage().newCopyListCanonicalFromBuilder(new_value);
             \\        }}
             \\
             \\        pub fn clear(self: @This(), index: usize) !void {{
@@ -10158,6 +10182,9 @@ test "schema code generator emits builtin any builder copy helpers" {
         \\  any @0 :AnyPointer;
         \\  anyStruct @1 :AnyStruct;
         \\  anyList @2 :AnyList;
+        \\  anyItems @3 :List(AnyPointer);
+        \\  anyStructItems @4 :List(AnyStruct);
+        \\  anyListItems @5 :List(AnyList);
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
@@ -10179,6 +10206,10 @@ test "schema code generator emits builtin any builder copy helpers" {
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonical(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_any_copyOrphanCanonicalFromBuilder(self: Builder, new_value: cpz.PointerBuilder) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonicalFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.PointerReader) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.PointerBuilder) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonicalFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyStruct_fromBuilder(self: Builder, new_value: cpz.StructBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyStructFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyStruct_canonicalFrom(self: Builder, new_value: cpz.StructReader) !void") != null);
@@ -10191,6 +10222,10 @@ test "schema code generator emits builtin any builder copy helpers" {
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructCanonical(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_anyStruct_copyOrphanCanonicalFromBuilder(self: Builder, new_value: cpz.StructBuilder) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructCanonicalFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.StructReader) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.StructBuilder) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyStructCanonicalFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyList_fromBuilder(self: Builder, new_value: cpz.ListBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_anyList_canonicalFrom(self: Builder, new_value: cpz.ListReader) !void") != null);
@@ -10202,6 +10237,10 @@ test "schema code generator emits builtin any builder copy helpers" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_anyList_copyOrphanCanonical(self: Builder, new_value: cpz.ListReader) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyListCanonical(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_anyList_copyOrphanCanonicalFromBuilder(self: Builder, new_value: cpz.ListBuilder) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyListCanonicalFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.ListReader) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyListCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.ListBuilder) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyListCanonicalFromBuilder(new_value)") != null);
 }
 

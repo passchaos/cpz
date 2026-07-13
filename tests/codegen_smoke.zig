@@ -2426,7 +2426,7 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.elementTotalSizeWithOptions(1, .{ .capability_count_limit = 90 }));
     try std.testing.expectEqual(@as(u32, 88), try read_caps.elementAsCapability(0));
 
-    const any_items = try box_builder.init_anyListItems(6);
+    const any_items = try box_builder.init_anyListItems(8);
     try any_items.setText(0, "list any text");
     try any_items.setData(1, &[_]u8{ 4, 5 });
     var any_item_cap = try any_items.newCapabilityOrphan(6060);
@@ -2441,12 +2441,18 @@ test "generated builtin any and capability accessors round-trip" {
     try any_items.adopt(1, &any_item_copy_orphan);
     var any_item_builder_copy_orphan = try any_items.newCopyOrphanFromBuilder(try source_root.getPointerField(0));
     try any_items.adopt(5, &any_item_builder_copy_orphan);
+    var any_item_canonical_orphan = try any_items.newCopyOrphanCanonical(source_struct.getPointerField(0));
+    try any_items.adopt(6, &any_item_canonical_orphan);
+    var any_item_canonical_builder_orphan = try any_items.newCopyOrphanCanonicalFromBuilder(try source_root.getPointerField(0));
+    try any_items.adopt(7, &any_item_canonical_builder_orphan);
     try std.testing.expectEqualSlices(u8, "list any text", try any_items.getAsText(0));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(1));
     try std.testing.expectEqual(@as(u32, 6060), try any_items.getAsCapability(2));
     try std.testing.expectEqual(@as(u32, 0x7777), (try any_items.getAsStruct(3)).getUInt32(0, 0));
     try std.testing.expectEqual(@as(u32, 5151), (try any_items.getAsList(4, .four_bytes)).getUInt32(0));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(5));
+    try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(6));
+    try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(7));
 
     const any_struct_items = try box_builder.init_anyStructItems(1);
     const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });
@@ -2456,6 +2462,10 @@ test "generated builtin any and capability accessors round-trip" {
     try any_struct_items.adopt(0, &any_struct_item_copy);
     var any_struct_item_builder_copy = try any_struct_items.newCopyOrphanFromBuilder(source_root);
     try any_struct_items.adopt(0, &any_struct_item_builder_copy);
+    var any_struct_item_canonical = try any_struct_items.newCopyOrphanCanonical(source_struct);
+    try any_struct_items.adopt(0, &any_struct_item_canonical);
+    var any_struct_item_canonical_builder = try any_struct_items.newCopyOrphanCanonicalFromBuilder(source_root);
+    try any_struct_items.adopt(0, &any_struct_item_canonical_builder);
     const read_any_struct_item = try any_struct_items.get(0);
     try std.testing.expectEqual(@as(u32, 0xdecafbad), try read_any_struct_item.getUInt32(0, 0));
     try std.testing.expectEqualSlices(u8, "dynamic", try (try read_any_struct_item.getPointerField(0)).getText());
@@ -2482,6 +2492,10 @@ test "generated builtin any and capability accessors round-trip" {
     try any_list_items.adopt(0, &any_list_item_copy);
     var any_list_item_builder_copy = try any_list_items.newCopyOrphanFromBuilder(list_copy_source);
     try any_list_items.adopt(0, &any_list_item_builder_copy);
+    var any_list_item_canonical = try any_list_items.newCopyOrphanCanonical(list_copy_source_view);
+    try any_list_items.adopt(0, &any_list_item_canonical);
+    var any_list_item_canonical_builder = try any_list_items.newCopyOrphanCanonicalFromBuilder(list_copy_source);
+    try any_list_items.adopt(0, &any_list_item_canonical_builder);
     const read_any_list_item = try any_list_items.get(0);
     try std.testing.expectEqual(@as(u16, 222), read_any_list_item.getUInt16(1));
     try std.testing.expectEqual(cpz.ElementSize.two_bytes, try any_list_items.elementSizeAt(0));
