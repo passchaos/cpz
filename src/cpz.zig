@@ -60,6 +60,7 @@ pub const BuilderOptions = message.BuilderOptions;
 pub const MessageStats = message.MessageStats;
 pub const MessageSize = message.MessageSize;
 pub const maxPackedSize = packing.maxPackedSize;
+pub const packedSize = packing.packedSize;
 pub const unpackedSize = packing.unpackedSize;
 pub const pack = packing.pack;
 pub const packInto = packing.packInto;
@@ -161,6 +162,7 @@ test "top-level stream framing helpers round-trip" {
 
     const packed_flat = try pack(testing.allocator, flat);
     defer testing.allocator.free(packed_flat);
+    try testing.expectEqual(packed_flat.len, try packedSize(flat));
     const unpacked_flat = try unpack(testing.allocator, packed_flat);
     defer testing.allocator.free(unpacked_flat);
     try testing.expectEqualSlices(u8, flat, unpacked_flat);

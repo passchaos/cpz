@@ -14,6 +14,43 @@ pub fn maxPackedSize(unpacked_len: usize) Error!usize {
     return std.math.mul(usize, words, wire.bytes_per_word + 2) catch return error.OutOfMemory;
 }
 
+pub fn packedSize(unpacked_bytes: []const u8) Error!usize {
+    if (unpacked_bytes.len % wire.bytes_per_word != 0) return error.UnpackedInputNotWordAligned;
+
+    var packed_len: usize = 0;
+    var i: usize = 0;
+    while (i < unpacked_bytes.len) {
+        var tag: u8 = 0;
+        var payload_len: usize = 0;
+        inline for (0..wire.bytes_per_word) |j| {
+            const b = unpacked_bytes[i + j];
+            if (b != 0) {
+                tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                payload_len += 1;
+            }
+        }
+        packed_len = std.math.add(usize, packed_len, 1 + payload_len) catch return error.OutOfMemory;
+        i += wire.bytes_per_word;
+
+        if (tag == 0x00) {
+            var run_words: usize = 0;
+            while (i < unpacked_bytes.len and run_words < 255 and isZeroWord(unpacked_bytes[i..][0..wire.bytes_per_word])) {
+                i += wire.bytes_per_word;
+                run_words += 1;
+            }
+            packed_len = std.math.add(usize, packed_len, 1) catch return error.OutOfMemory;
+        } else if (tag == 0xff) {
+            var run_words: usize = 0;
+            while (i < unpacked_bytes.len and run_words < 255 and shouldCopyRaw(unpacked_bytes[i..][0..wire.bytes_per_word])) {
+                i += wire.bytes_per_word;
+                run_words += 1;
+            }
+            packed_len = std.math.add(usize, packed_len, 1 + run_words * wire.bytes_per_word) catch return error.OutOfMemory;
+        }
+    }
+    return packed_len;
+}
+
 pub fn unpackedSize(packed_bytes: []const u8) Error!usize {
     var out_len: usize = 0;
     var i: usize = 0;
@@ -52,7 +89,7 @@ pub fn unpackedSize(packed_bytes: []const u8) Error!usize {
 pub fn pack(allocator: std.mem.Allocator, unpacked_bytes: []const u8) Error![]u8 {
     if (unpacked_bytes.len % wire.bytes_per_word != 0) return error.UnpackedInputNotWordAligned;
 
-    var out = std.ArrayList(u8).empty;
+    var out = try std.ArrayList(u8).initCapacity(allocator, try packedSize(unpacked_bytes));
     errdefer out.deinit(allocator);
 
     var i: usize = 0;
@@ -309,6 +346,7 @@ test "packing spec examples" {
     const unpacked1 = [_]u8{0} ** 32;
     const packed1 = try pack(allocator, &unpacked1);
     defer allocator.free(packed1);
+    try testing.expectEqual(packed1.len, try packedSize(&unpacked1));
     try testing.expectEqualSlices(u8, &[_]u8{ 0x00, 0x03 }, packed1);
     const round1 = try unpack(allocator, packed1);
     defer allocator.free(round1);
@@ -317,6 +355,7 @@ test "packing spec examples" {
     const unpacked2 = [_]u8{0x8a} ** 32;
     const packed2 = try pack(allocator, &unpacked2);
     defer allocator.free(packed2);
+    try testing.expectEqual(packed2.len, try packedSize(&unpacked2));
     try testing.expectEqualSlices(u8, &([_]u8{0xff} ++ ([_]u8{0x8a} ** 8) ++ [_]u8{0x03} ++ ([_]u8{0x8a} ** 24)), packed2);
     const round2 = try unpack(allocator, packed2);
     defer allocator.free(round2);
@@ -333,6 +372,7 @@ test "packing pointer example" {
     };
     const packed_out = try pack(allocator, &unpacked);
     defer allocator.free(packed_out);
+    try testing.expectEqual(packed_out.len, try packedSize(&unpacked));
     try testing.expectEqualSlices(u8, &[_]u8{ 0x51, 0x08, 0x03, 0x02, 0x31, 0x19, 0xaa, 0x01 }, packed_out);
 }
 
@@ -346,6 +386,7 @@ test "packInto matches allocating encoder and reports small buffers" {
     };
     const expected = try pack(allocator, &unpacked);
     defer allocator.free(expected);
+    try testing.expectEqual(expected.len, try packedSize(&unpacked));
     try testing.expectEqual(unpacked.len, try unpackedSize(expected));
 
     const buffer = try allocator.alloc(u8, try maxPackedSize(unpacked.len));
@@ -354,6 +395,7 @@ test "packInto matches allocating encoder and reports small buffers" {
     try testing.expectEqualSlices(u8, expected, buffer[0..written]);
     try testing.expectError(error.PackedOutputTooSmall, packInto(buffer[0 .. written - 1], &unpacked));
     try testing.expectError(error.UnpackedInputNotWordAligned, maxPackedSize(unpacked.len - 1));
+    try testing.expectError(error.UnpackedInputNotWordAligned, packedSize(unpacked[0 .. unpacked.len - 1]));
     try testing.expectError(error.PackedInputTruncated, unpackedSize(expected[0 .. expected.len - 1]));
 }
 
