@@ -5075,6 +5075,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.const.{s}.index": usize = {};
         \\{s}pub const @"cpz.const.{s}.name": []const u8 = {s};
+        \\{s}pub const @"cpz.const.{s}.metadata": cpz.schema.ConstMetadata = @This().@"cpz.consts"[{}];
         \\{s}pub const @"cpz.const.{s}.type": []const u8 = {s};
         \\{s}pub const @"cpz.const.{s}.resolvedType": []const u8 = {s};
         \\{s}pub const @"cpz.const.{s}.literal": []const u8 = {s};
@@ -5082,7 +5083,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
         \\{s}pub const @"cpz.const.{s}.listItemCount": usize = {};
         \\{s}pub const @"cpz.const.{s}.listItems": []const cpz.schema.ConstListItem = 
-    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, type_literal, indent, const_name, resolved_type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data, indent, const_name, decl.emit_value, indent, const_name, if (decl.list_items) |items| items.len else 0, indent, const_name });
+    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, index, indent, const_name, type_literal, indent, const_name, resolved_type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data, indent, const_name, decl.emit_value, indent, const_name, if (decl.list_items) |items| items.len else 0, indent, const_name });
     if (decl.list_items) |items| {
         try appendConstListItemsLiteral(allocator, out, items);
     } else {

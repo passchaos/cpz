@@ -262,6 +262,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("12345", generated.@"cpz.consts"[0].literal);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.index");
+    try std.testing.expectEqualStrings("globalId", generated.@"cpz.const.globalId.metadata".name);
+    try std.testing.expectEqualStrings("12345", generated.@"cpz.const.globalId.metadata".literal);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.const.globalId.name");
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.const.globalId.type");
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.const.globalId.resolvedType");
@@ -280,6 +282,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.consts"[6].list_items.len);
     try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].list_items[1].literal);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].list_items[1].index);
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.metadata".list_item_count);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItems".len);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.const.globalScores.listItem.1.index");
@@ -321,6 +324,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("99", generated.Person.@"cpz.consts"[0].literal);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.const.defaultAge.index");
+    try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.const.defaultAge.metadata".name);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.const.defaultAge.name");
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.const.defaultAge.type");
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.const.defaultAge.resolvedType");
