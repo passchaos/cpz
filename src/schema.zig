@@ -4126,12 +4126,32 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.methodByParamsType"(@"cpz.type": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".params_type, @"cpz.type")) return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.methodByResultsType"(@"cpz.type": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".results_type, @"cpz.type")) return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.methodByResolvedParamsType"(@"cpz.type": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".resolved_params_type, @"cpz.type")) return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.methodByResolvedResultsType"(@"cpz.type": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".resolved_results_type, @"cpz.type")) return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.methodByIndex"(@"cpz.index": usize) ?cpz.schema.InterfaceMethodMetadata {{
         \\{s}    if (@"cpz.index" >= @"cpz.methods".len) return null;
         \\{s}    return @"cpz.methods"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (methods.len != 0) try out.append(allocator, '\n');
 }
 
