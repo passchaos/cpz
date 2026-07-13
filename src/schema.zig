@@ -4039,6 +4039,7 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
 }
 
 fn emitParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    try emitParameterConstants(allocator, out, "cpz.parameter", parameters, indent);
     try appendFmt(allocator, out, "{s}pub const @\"cpz.parameters\": []const []const u8 = ", .{indent});
     try appendParameterListLiteral(allocator, out, parameters);
     try out.appendSlice(allocator, ";\n");
@@ -4071,6 +4072,20 @@ fn emitParameterLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(
     , .{ indent, by_name_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
 }
 
+fn emitParameterConstants(allocator: std.mem.Allocator, out: *std.ArrayList(u8), prefix: []const u8, parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    for (parameters, 0..) |parameter, index| {
+        const parameter_name = try zigIdentAlloc(allocator, parameter);
+        defer allocator.free(parameter_name);
+        const parameter_literal = try zigStringLiteralAlloc(allocator, parameter);
+        defer allocator.free(parameter_literal);
+        try appendFmt(allocator, out,
+            \\{s}pub const @"{s}.{s}.index": usize = {};
+            \\{s}pub const @"{s}.{s}.name": []const u8 = {s};
+            \\
+        , .{ indent, prefix, parameter_name, index, indent, prefix, parameter_name, parameter_literal });
+    }
+}
+
 fn appendParameterListLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8) LayoutError!void {
     try out.appendSlice(allocator, "&[_][]const u8{");
     for (parameters, 0..) |parameter, index| {
@@ -4083,6 +4098,9 @@ fn appendParameterListLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
 }
 
 fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    const method_parameter_prefix = try std.fmt.allocPrint(allocator, "cpz.method.{s}.parameter", .{method_name});
+    defer allocator.free(method_parameter_prefix);
+    try emitParameterConstants(allocator, out, method_parameter_prefix, parameters, indent);
     try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.parameters\": []const []const u8 = ", .{ indent, method_name });
     try appendParameterListLiteral(allocator, out, parameters);
     try out.appendSlice(allocator, ";\n");

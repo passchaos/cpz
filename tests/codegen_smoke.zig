@@ -1290,6 +1290,8 @@ test "generated anonymous union accessors activate and guard fields" {
 
 test "generated generic type applications lower to base accessors" {
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.GenericBox.@"cpz.parameters");
+    try std.testing.expectEqual(@as(usize, 0), generated.GenericBox.@"cpz.parameter.T.index");
+    try std.testing.expectEqualStrings("T", generated.GenericBox.@"cpz.parameter.T.name");
     try std.testing.expectEqualStrings("T", generated.GenericBox.@"cpz.parameters.parameterByName"("T").?);
     try std.testing.expectEqualStrings("T", generated.GenericBox.@"cpz.parameters.parameterByIndex"(0).?);
     try std.testing.expectEqual(@as(?[]const u8, null), generated.GenericBox.@"cpz.parameters.parameterByName"("Missing"));
@@ -1672,6 +1674,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("(response :Resp)", generated.Service.@"cpz.method.ping.results");
     try std.testing.expectEqualStrings("", generated.Service.@"cpz.method.ping.annotations");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.Service.@"cpz.method.ping.parameters");
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.parameter.Req.index");
+    try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.parameter.Req.name");
+    try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.parameter.Resp.index");
+    try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.parameter.Resp.name");
     try std.testing.expectEqualStrings("Req", generated.Service.@"cpz.method.ping.parameters.parameterByName"("Req").?);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.method.ping.parameters.parameterByIndex"(1).?);
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Service.@"cpz.method.ping.parameters.parameterByIndex"(9));
@@ -1719,6 +1725,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fields".len);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
+    try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.parameter.Req.index");
+    try std.testing.expectEqualStrings("Req", generated.ExtendedService.@"cpz.parameter.Req.name");
     try std.testing.expectEqualStrings("Req", generated.ExtendedService.@"cpz.parameters.parameterByName"("Req").?);
     try std.testing.expectEqualStrings("Resp", generated.ExtendedService.@"cpz.parameters.parameterByIndex"(1).?);
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.superclasses".len);
