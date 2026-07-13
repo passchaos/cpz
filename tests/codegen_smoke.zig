@@ -954,6 +954,8 @@ test "generated anonymous union accessors activate and guard fields" {
 }
 
 test "generated generic type applications lower to base accessors" {
+    try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.GenericBox.@"cpz.parameters");
+
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();
     const source_person_builder = try generated.Person.initRootTyped(&source_builder);
@@ -1289,6 +1291,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(u16, 1), generated.Service.ping);
     try std.testing.expectEqualStrings("(request :Text) -> (response :Text)", generated.Service.@"cpz.method.ping.signature");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
+    try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);
     try std.testing.expect(generated.ExtendedService.Details == generated.ExtendedService_Details);
     try std.testing.expect(generated.ExtendedService.Callback == generated.ExtendedService_Callback);

@@ -116,6 +116,7 @@ pub const Struct = struct {
     name: []const u8,
     owns_name: bool = false,
     id: ?u64 = null,
+    parameters: []const []const u8 = &.{},
     fields: []Field,
     consts: []ConstDecl,
     aliases: []AliasDecl,
@@ -127,6 +128,7 @@ pub const Struct = struct {
         allocator.free(self.consts);
         for (self.aliases) |*a| a.deinit(allocator);
         allocator.free(self.aliases);
+        allocator.free(self.parameters);
         if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
@@ -160,6 +162,7 @@ pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
     id: ?u64 = null,
+    parameters: []const []const u8 = &.{},
     methods: []InterfaceMethod = &.{},
     superclasses: []Type = &.{},
     consts: []ConstDecl = &.{},
@@ -173,6 +176,7 @@ pub const InterfaceDecl = struct {
         allocator.free(self.consts);
         for (self.aliases) |*a| a.deinit(allocator);
         allocator.free(self.aliases);
+        allocator.free(self.parameters);
         if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
@@ -547,6 +551,8 @@ pub const Parser = struct {
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         const decl_id = try self.parseOptionalDeclarationId();
+        const parameters = try self.parseDeclarationParameters();
+        errdefer self.allocator.free(parameters);
         const superclasses = try self.parseInterfaceExtendsOrEmpty();
         errdefer {
             for (superclasses) |*superclass| superclass.deinit(self.allocator);
@@ -571,6 +577,7 @@ pub const Parser = struct {
             .name = qualified.name,
             .owns_name = qualified.owns_name,
             .id = decl_id,
+            .parameters = parameters,
             .methods = methods,
             .superclasses = superclasses,
             .consts = try consts.toOwnedSlice(self.allocator),
@@ -655,6 +662,29 @@ pub const Parser = struct {
         }
         try self.expect(.r_paren);
         return superclasses.toOwnedSlice(self.allocator);
+    }
+
+    fn parseDeclarationParameters(self: *Parser) Error![]const []const u8 {
+        if (self.lookahead.tag != .l_paren) return try self.allocator.alloc([]const u8, 0);
+        try self.expect(.l_paren);
+        var parameters = std.ArrayList([]const u8).empty;
+        errdefer parameters.deinit(self.allocator);
+        var names = std.StringHashMap(void).init(self.allocator);
+        defer names.deinit();
+        while (self.lookahead.tag != .r_paren) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            const name = try self.expectIdentifier();
+            const entry = try names.getOrPut(name);
+            if (entry.found_existing) return error.NameCollision;
+            try parameters.append(self.allocator, name);
+            if (self.lookahead.tag == .comma) {
+                try self.expect(.comma);
+            } else if (self.lookahead.tag != .r_paren) {
+                return error.UnexpectedToken;
+            }
+        }
+        try self.expect(.r_paren);
+        return parameters.toOwnedSlice(self.allocator);
     }
 
     fn parseInterfaceBody(self: *Parser, interface_name: []const u8, aliases: *std.ArrayList(AliasDecl), consts: *std.ArrayList(ConstDecl), member_names: *std.StringHashMap(void)) Error![]InterfaceMethod {
@@ -1102,6 +1132,8 @@ pub const Parser = struct {
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         const decl_id = try self.parseOptionalDeclarationId();
+        const parameters = try self.parseDeclarationParameters();
+        errdefer self.allocator.free(parameters);
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
@@ -1214,6 +1246,7 @@ pub const Parser = struct {
             .name = qualified.name,
             .owns_name = qualified.owns_name,
             .id = decl_id,
+            .parameters = parameters,
             .fields = try fields.toOwnedSlice(self.allocator),
             .consts = try consts.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
@@ -3060,6 +3093,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\
         , .{id});
     }
+    try emitParameterMetadata(allocator, out, decl.parameters, "    ");
     for (decl.superclasses, 0..) |superclass, index| {
         switch (resolveType(file, superclass)) {
             .named => |type_name| {
@@ -3105,6 +3139,20 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         \\
         \\
     , .{});
+}
+
+fn emitParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.parameters": []const []const u8 = &[_][]const u8{{
+    , .{indent});
+    for (parameters, 0..) |parameter, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const literal = try zigStringLiteralAlloc(allocator, parameter);
+        defer allocator.free(literal);
+        try out.appendSlice(allocator, literal);
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (parameters.len != 0) try out.append(allocator, '\n');
 }
 
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {
@@ -3439,6 +3487,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
             \\
         , .{id});
     }
+    try emitParameterMetadata(allocator, out, layout.decl.parameters, "    ");
 
     for (layout.decl.aliases) |*decl| {
         try emitAlias(allocator, out, file, layout.decl, decl, "    ");

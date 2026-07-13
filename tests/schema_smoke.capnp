@@ -121,7 +121,7 @@ interface Service {
   ping @1 (request :Text) -> (response :Text);
 }
 
-interface ExtendedService @0xe57e0001 extends(Service) {
+interface ExtendedService @0xe57e0001(Req, Resp) extends(Service) {
   struct Details {
     message @0 :Text;
   }
