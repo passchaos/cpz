@@ -1574,6 +1574,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.superclasses".len);
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.superclasses"[0].index);
     try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclasses"[0].name);
+    try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclassByName"("Service").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceSuperclassMetadata, null), generated.ExtendedService.@"cpz.superclassByName"("Missing"));
+    try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclassByIndex"(0).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceSuperclassMetadata, null), generated.ExtendedService.@"cpz.superclassByIndex"(99));
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);
     try std.testing.expect(generated.ExtendedService.Details == generated.ExtendedService_Details);
     try std.testing.expect(generated.ExtendedService.Callback == generated.ExtendedService_Callback);

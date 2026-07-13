@@ -3904,6 +3904,18 @@ fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.Array
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s} }}", .{ index, superclass_literal });
     }
     try out.appendSlice(allocator, "};\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.superclassByName"(@"cpz.name": []const u8) ?cpz.schema.InterfaceSuperclassMetadata {{
+        \\{s}    for (@This().@"cpz.superclasses") |@"cpz.superclass"| if (std.mem.eql(u8, @"cpz.superclass".name, @"cpz.name")) return @"cpz.superclass";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.superclassByIndex"(@"cpz.index": usize) ?cpz.schema.InterfaceSuperclassMetadata {{
+        \\{s}    for (@This().@"cpz.superclasses") |@"cpz.superclass"| if (@"cpz.superclass".index == @"cpz.index") return @"cpz.superclass";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (superclasses.len != 0) try out.append(allocator, '\n');
 }
 
