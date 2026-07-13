@@ -6,6 +6,8 @@ const generated = @import("generated_import_use");
 test "generated schemas reference imported modules" {
     try std.testing.expectEqual(@as(usize, 4), generated.@"cpz.imports".len);
     try std.testing.expectEqualStrings("Base", generated.@"cpz.imports"[0].name);
+    try std.testing.expectEqualStrings("Base", generated.@"cpz.importByName"("Base").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByName"("Missing"));
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.imports"[0].path);
     try std.testing.expectEqualStrings("", generated.@"cpz.imports"[0].member);
     try std.testing.expectEqualStrings("Child", generated.@"cpz.imports"[1].name);
@@ -17,6 +19,8 @@ test "generated schemas reference imported modules" {
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.imports"[3].name);
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.imports"[3].path);
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.imports"[3].member);
+    try std.testing.expectEqualStrings("Extra", generated.@"cpz.importByMember"("Extra").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByMember"("Missing"));
 
     var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer source_builder.deinit();

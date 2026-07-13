@@ -4226,6 +4226,18 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         try out.appendSlice(allocator, " }");
     }
     try out.appendSlice(allocator, "};\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.importByName"(@"cpz.name": []const u8) ?cpz.schema.ImportMetadata {{
+        \\{s}    for (@This().@"cpz.imports") |@"cpz.import"| if (std.mem.eql(u8, @"cpz.import".name, @"cpz.name")) return @"cpz.import";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.importByMember"(@"cpz.member": []const u8) ?cpz.schema.ImportMetadata {{
+        \\{s}    for (@This().@"cpz.imports") |@"cpz.import"| if (std.mem.eql(u8, @"cpz.import".member, @"cpz.member")) return @"cpz.import";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (imports.len != 0) try out.append(allocator, '\n');
 }
 
