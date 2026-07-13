@@ -316,6 +316,10 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalScores.listItems".len);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.const.globalScores.listItem.1.index");
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.const.globalScores.listItemByIndex"(1).?.index);
+    try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItemByLiteral"("20").?.literal);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.const.globalScores.listItemByIndex"(99));
+    try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.const.globalScores.listItemByLiteral"("missing"));
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.const.globalScores.listItem.1.metadata".index);
     try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItem.1.metadata".literal);
     try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItem.1.literal");
@@ -371,6 +375,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 3), generated.Person.@"cpz.const.defaultScores.listItemCount");
     try std.testing.expectEqual(@as(usize, 3), generated.Person.@"cpz.const.defaultScores.listItems".len);
     try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.const.defaultScores.listItem.1.index");
+    try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItemByLiteral"("8").?.literal);
     try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.const.defaultScores.listItem.1.metadata".index);
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItem.1.metadata".literal);
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItem.1.literal");

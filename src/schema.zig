@@ -5142,6 +5142,18 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         try out.appendSlice(allocator, "&[_]cpz.schema.ConstListItem{}");
     }
     try out.appendSlice(allocator, ";\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.const.{s}.listItemByIndex"(@"cpz.index": usize) ?cpz.schema.ConstListItem {{
+        \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.listItems".len) return null;
+        \\{s}    return @This().@"cpz.const.{s}.listItems"[@"cpz.index"];
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.const.{s}.listItemByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".literal, @"cpz.literal")) return @"cpz.item";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent });
     if (decl.list_items) |items| {
         for (items) |item| {
             const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
