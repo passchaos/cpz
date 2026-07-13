@@ -241,6 +241,10 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("children", generated.Person.@"cpz.fieldByResolvedType"("List(Person)").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByType"("Missing"));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByResolvedType"("Missing"));
+    try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldBySlot"("data_byte", 0).?.name);
+    try std.testing.expectEqualStrings("active", generated.Person.@"cpz.fieldBySlot"("data_bit", 32).?.name);
+    try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldBySlot"("pointer", 0).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldBySlot"("missing", 0));
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByOrdinal"(2).?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByOrdinal"(2).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByOrdinal"(999));
@@ -1588,6 +1592,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bit);
     try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bits);
     try std.testing.expectEqual(@as(?usize, 1), generated.Choice.@"cpz.unions"[0].pointer);
+    try std.testing.expectEqualStrings("id", generated.Choice.@"cpz.fieldBySlot"("data_byte", 4).?.name);
+    try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.fieldBySlot"("pointer", 1).?.name);
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.union.0.index");
     try std.testing.expectEqual(@as(usize, 0), generated.Choice.@"cpz.union.0.discriminantByte");
     try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.union.0.dataBit");
