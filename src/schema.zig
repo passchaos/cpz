@@ -4278,6 +4278,23 @@ fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Array
 }
 
 fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, indent: []const u8) LayoutError!void {
+    var constant_index: usize = 0;
+    for (file.structs) |decl| {
+        try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "struct_decl", decl.id, decl.annotations, decl.parameters, indent);
+        constant_index += 1;
+    }
+    for (file.enums) |decl| {
+        try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "enum_decl", decl.id, decl.annotations, &.{}, indent);
+        constant_index += 1;
+    }
+    for (file.interfaces) |decl| {
+        try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "interface_decl", decl.id, decl.annotations, decl.parameters, indent);
+        constant_index += 1;
+    }
+    for (file.annotations) |decl| {
+        try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "annotation_decl", decl.id, "", &.{}, indent);
+        constant_index += 1;
+    }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.declarations\": []const cpz.schema.DeclarationMetadata = &[_]cpz.schema.DeclarationMetadata{{", .{indent});
     var count: usize = 0;
     for (file.structs) |decl| {
@@ -4319,6 +4336,42 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\
     , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (count != 0) try out.append(allocator, '\n');
+}
+
+fn emitDeclarationMetadataConstants(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    index: usize,
+    name: []const u8,
+    kind: []const u8,
+    id: ?u64,
+    annotations: []const u8,
+    parameters: []const []const u8,
+    indent: []const u8,
+) LayoutError!void {
+    const decl_name = try zigIdentAlloc(allocator, name);
+    defer allocator.free(decl_name);
+    const name_literal = try zigStringLiteralAlloc(allocator, name);
+    defer allocator.free(name_literal);
+    const annotations_literal = try zigStringLiteralAlloc(allocator, annotations);
+    defer allocator.free(annotations_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.declaration.{s}.index": usize = {};
+        \\{s}pub const @"cpz.declaration.{s}.name": []const u8 = {s};
+        \\{s}pub const @"cpz.declaration.{s}.kind": cpz.schema.DeclarationKind = .{s};
+        \\{s}pub const @"cpz.declaration.{s}.id": ?u64 = 
+    , .{ indent, decl_name, index, indent, decl_name, name_literal, indent, decl_name, kind, indent, decl_name });
+    if (id) |value| {
+        try appendFmt(allocator, out, "0x{x};\n", .{value});
+    } else {
+        try out.appendSlice(allocator, "null;\n");
+    }
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.declaration.{s}.annotations": []const u8 = {s};
+        \\{s}pub const @"cpz.declaration.{s}.parameters": []const []const u8 = 
+    , .{ indent, decl_name, annotations_literal, indent, decl_name });
+    try appendParameterListLiteral(allocator, out, parameters);
+    try out.appendSlice(allocator, ";\n\n");
 }
 
 fn appendDeclarationMetadataLiteral(

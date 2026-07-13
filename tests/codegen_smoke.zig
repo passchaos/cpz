@@ -15,6 +15,11 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(usize, 24), generated.@"cpz.declarations".len);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.declarations"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.declarations"[0].index);
+    try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.declaration.Person.index");
+    try std.testing.expectEqualStrings("Person", generated.@"cpz.declaration.Person.name");
+    try std.testing.expectEqual(.struct_decl, generated.@"cpz.declaration.Person.kind");
+    try std.testing.expectEqual(@as(?u64, null), generated.@"cpz.declaration.Person.id");
+    try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.@"cpz.declaration.Person.annotations");
     try std.testing.expectEqualStrings("Color", generated.@"cpz.declarationByName"("Color").?.name);
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.declarationByName"("Color").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByName"("Missing"));
@@ -26,12 +31,16 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.@"cpz.declarations"[0].annotations);
     try std.testing.expectEqualStrings("GenericBox", generated.@"cpz.declarations"[10].name);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declarations"[10].parameters);
+    try std.testing.expectEqualSlices([]const u8, &[_][]const u8{"T"}, generated.@"cpz.declaration.GenericBox.parameters");
     try std.testing.expectEqualStrings("Color", generated.@"cpz.declarations"[12].name);
     try std.testing.expectEqual(.enum_decl, generated.@"cpz.declarations"[12].kind);
     try std.testing.expectEqual(@as(?u64, 0xc010), generated.@"cpz.declarations"[12].id);
+    try std.testing.expectEqual(@as(?u64, 0xc010), generated.@"cpz.declaration.Color.id");
+    try std.testing.expectEqual(.enum_decl, generated.@"cpz.declaration.Color.kind");
     try std.testing.expectEqualStrings("ExtendedService", generated.@"cpz.declarations"[16].name);
     try std.testing.expectEqual(.interface_decl, generated.@"cpz.declarations"[16].kind);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.@"cpz.declarations"[16].parameters);
+    try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.@"cpz.declaration.ExtendedService.parameters");
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.declarations"[18].name);
     try std.testing.expectEqual(.annotation_decl, generated.@"cpz.declarations"[18].kind);
     try std.testing.expectEqual(@as(?u64, 0xa110ca110c), generated.@"cpz.declarations"[18].id);
