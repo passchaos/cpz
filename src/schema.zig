@@ -1898,7 +1898,8 @@ pub const Parser = struct {
                 is_hex_data = true;
                 break :blk value;
             } else (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
-            try items.append(self.allocator, .{ .index = items.items.len, .literal = literal, .is_hex_data = is_hex_data });
+            const annotations = if (self.lookahead.tag == .dollar) try self.takeRawUntilConstListItemEnd() else "";
+            try items.append(self.allocator, .{ .index = items.items.len, .literal = literal, .is_hex_data = is_hex_data, .annotations = annotations });
 
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
@@ -1908,6 +1909,46 @@ pub const Parser = struct {
         }
         try self.expect(.r_bracket);
         return items.toOwnedSlice(self.allocator);
+    }
+
+    fn takeRawUntilConstListItemEnd(self: *Parser) Error![]const u8 {
+        const source = self.lexer.source;
+        const start = self.currentTokenStart();
+        var index = start;
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        while (index < source.len) {
+            const c = source[index];
+            switch (c) {
+                '"' => {
+                    index += 1;
+                    while (index < source.len) : (index += 1) {
+                        if (source[index] == '\\') {
+                            index += 1;
+                        } else if (source[index] == '"') {
+                            break;
+                        }
+                    }
+                    if (index >= source.len) return error.UnexpectedToken;
+                },
+                '(' => paren_depth += 1,
+                ')' => {
+                    if (paren_depth != 0) paren_depth -= 1;
+                },
+                '[' => bracket_depth += 1,
+                ']' => {
+                    if (paren_depth == 0 and bracket_depth == 0) break;
+                    if (bracket_depth != 0) bracket_depth -= 1;
+                },
+                ',' => if (paren_depth == 0 and bracket_depth == 0) break,
+                else => {},
+            }
+            index += 1;
+        }
+        if (index >= source.len) return error.UnexpectedToken;
+        self.lexer.index = index;
+        try self.advance();
+        return std.mem.trim(u8, source[start..index], " \t\r\n");
     }
 
     fn constLiteralStartsList(self: *const Parser) bool {

@@ -441,7 +441,9 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("plain", generated.@"cpz.consts"[10].listItemByHexData(false).?.literal);
     try std.testing.expectEqualStrings("aa bb", generated.@"cpz.const.globalDataItems.listItemByHexData"(true).?.literal);
     try std.testing.expectEqualStrings("plain", generated.@"cpz.const.globalDataItems.listItemByHexData"(false).?.literal);
-    try std.testing.expectEqualStrings("aa bb", generated.@"cpz.const.globalDataItems.listItemByAnnotations"("").?.literal);
+    try std.testing.expectEqualStrings("aa bb", generated.@"cpz.const.globalDataItems.listItemByAnnotations"("$schemaNote(\"hex-item\")").?.literal);
+    try std.testing.expect(generated.@"cpz.const.globalDataItems.listItems"[0].matchesAnnotations("$schemaNote(\"hex-item\")"));
+    try std.testing.expectEqualStrings("plain", generated.@"cpz.const.globalDataItems.listItemByAnnotations"("").?.literal);
     try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.const.globalDataItems.listItemByAnnotations"("missing"));
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.consts"[11].name);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[11].ty);
