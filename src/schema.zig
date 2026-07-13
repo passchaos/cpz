@@ -234,6 +234,18 @@ pub const ImportMetadata = struct {
     pub fn matchesMember(self: ImportMetadata, import_member: []const u8) bool {
         return self.has_member and std.mem.eql(u8, self.member, import_member);
     }
+
+    pub fn matchesMemberFlag(self: ImportMetadata, has_member: bool) bool {
+        return self.has_member == has_member;
+    }
+
+    pub fn matchesPathAndMember(self: ImportMetadata, import_path: []const u8, import_member: []const u8) bool {
+        return self.has_member and std.mem.eql(u8, self.path, import_path) and std.mem.eql(u8, self.member, import_member);
+    }
+
+    pub fn matchesPathAndMemberFlag(self: ImportMetadata, import_path: []const u8, has_member: bool) bool {
+        return self.has_member == has_member and std.mem.eql(u8, self.path, import_path);
+    }
 };
 
 const UnionBuilder = struct {
@@ -5430,8 +5442,18 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.importByPathAndMember"(@"cpz.path": []const u8, @"cpz.member": []const u8) ?cpz.schema.ImportMetadata {{
+        \\{s}    for (@This().@"cpz.imports") |@"cpz.import"| if (@"cpz.import".has_member and std.mem.eql(u8, @"cpz.import".path, @"cpz.path") and std.mem.eql(u8, @"cpz.import".member, @"cpz.member")) return @"cpz.import";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.importByMemberFlag"(@"cpz.hasMember": bool) ?cpz.schema.ImportMetadata {{
         \\{s}    for (@This().@"cpz.imports") |@"cpz.import"| if (@"cpz.import".has_member == @"cpz.hasMember") return @"cpz.import";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.importByPathAndMemberFlag"(@"cpz.path": []const u8, @"cpz.hasMember": bool) ?cpz.schema.ImportMetadata {{
+        \\{s}    for (@This().@"cpz.imports") |@"cpz.import"| if (std.mem.eql(u8, @"cpz.import".path, @"cpz.path") and @"cpz.import".has_member == @"cpz.hasMember") return @"cpz.import";
         \\{s}    return null;
         \\{s}}}
         \\
@@ -5440,7 +5462,7 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\{s}    return @This().@"cpz.imports"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (imports.len != 0) try out.append(allocator, '\n');
 }
 

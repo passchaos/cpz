@@ -15,6 +15,9 @@ test "generated schemas reference imported modules" {
     try std.testing.expect(generated.@"cpz.imports"[0].matchesName("Base"));
     try std.testing.expect(generated.@"cpz.imports"[0].matchesPath("schema_import_base.capnp"));
     try std.testing.expect(!generated.@"cpz.imports"[0].matchesMember("Base"));
+    try std.testing.expect(generated.@"cpz.imports"[0].matchesMemberFlag(false));
+    try std.testing.expect(generated.@"cpz.imports"[0].matchesPathAndMemberFlag("schema_import_base.capnp", false));
+    try std.testing.expect(!generated.@"cpz.imports"[0].matchesPathAndMember("schema_import_base.capnp", "Base"));
     try std.testing.expectEqualStrings("Base", generated.@"cpz.importByPath"("schema_import_base.capnp").?.name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.importByPath"("schema_import_base.capnp").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByPath"("missing.capnp"));
@@ -39,6 +42,11 @@ test "generated schemas reference imported modules" {
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.imports"[3].member);
     try std.testing.expect(generated.@"cpz.imports"[3].matchesMember("Extra"));
     try std.testing.expect(!generated.@"cpz.imports"[3].matchesMember("Missing"));
+    try std.testing.expect(generated.@"cpz.imports"[3].matchesMemberFlag(true));
+    try std.testing.expect(generated.@"cpz.imports"[3].matchesPathAndMember("schema_import_base.capnp", "Extra"));
+    try std.testing.expect(!generated.@"cpz.imports"[3].matchesPathAndMember("missing.capnp", "Extra"));
+    try std.testing.expect(generated.@"cpz.imports"[3].matchesPathAndMemberFlag("schema_import_base.capnp", true));
+    try std.testing.expect(!generated.@"cpz.imports"[3].matchesPathAndMemberFlag("schema_import_base.capnp", false));
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.import.Extra.index");
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.import.Extra.name");
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.import.Extra.path");
@@ -52,6 +60,14 @@ test "generated schemas reference imported modules" {
     try std.testing.expectEqualStrings("Base", generated.@"cpz.importByMemberFlag"(false).?.name);
     try std.testing.expectEqualStrings("Child", generated.@"cpz.importByMemberFlag"(true).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByMember"("Missing"));
+    try std.testing.expectEqualStrings("Child", generated.@"cpz.importByPathAndMember"("schema_import_base.capnp", "Child").?.name);
+    try std.testing.expectEqualStrings("Extra", generated.@"cpz.importByPathAndMember"("schema_import_base.capnp", "Extra").?.name);
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.importByPathAndMember"("schema_import_base.capnp", "Extra").?.index);
+    try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByPathAndMember"("missing.capnp", "Extra"));
+    try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByPathAndMember"("schema_import_base.capnp", "Missing"));
+    try std.testing.expectEqualStrings("Base", generated.@"cpz.importByPathAndMemberFlag"("schema_import_base.capnp", false).?.name);
+    try std.testing.expectEqualStrings("Child", generated.@"cpz.importByPathAndMemberFlag"("schema_import_base.capnp", true).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByPathAndMemberFlag"("missing.capnp", true));
     try std.testing.expectEqualStrings("Extra", generated.@"cpz.importByIndex"(3).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByIndex"(99));
 
