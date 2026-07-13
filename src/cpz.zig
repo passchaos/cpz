@@ -14,6 +14,12 @@ pub const schema = @import("schema.zig");
 pub const Word = wire.Word;
 pub const ElementSize = wire.ElementSize;
 pub const StructSize = wire.StructSize;
+pub const PointerType = wire.PointerType;
+pub const StructPointer = wire.StructPointer;
+pub const ListPointer = wire.ListPointer;
+pub const FarPointer = wire.FarPointer;
+pub const CapabilityPointer = wire.CapabilityPointer;
+pub const DecodedPointer = wire.DecodedPointer;
 
 pub const MessageBuilder = message.MessageBuilder;
 pub const MessageReader = message.MessageReader;
@@ -143,6 +149,28 @@ test "top-level stream framing helpers round-trip" {
     const stack_table_len = try writeSegmentTable(&stack_table, segments);
     try testing.expectEqual(table.len, stack_table_len);
     try testing.expectEqualSlices(u8, table, stack_table[0..stack_table_len]);
+}
+
+test "top-level wire pointer type exports" {
+    const std = @import("std");
+    const testing = std.testing;
+
+    const raw = try wire.encodeStruct(0, 1, 1);
+    const decoded: DecodedPointer = try wire.decode(raw);
+    try testing.expectEqual(PointerType.struct_ptr, decoded.kind());
+    const ptr: StructPointer = decoded.asStruct().?;
+    try testing.expectEqual(StructSize{ .data_words = 1, .pointer_count = 1 }, ptr.size());
+
+    const list_raw = try wire.encodeList(0, .pointer, 2);
+    const list: ListPointer = (try wire.decode(list_raw)).asList().?;
+    try testing.expectEqual(ElementSize.pointer, list.elementSize());
+
+    const far: FarPointer = wire.decodeFar(try wire.encodeFar(false, 4, 5));
+    try testing.expect(far.isSingleFar());
+    try testing.expectEqual(@as(u32, 5), far.landingPadSegmentId());
+
+    const cap: CapabilityPointer = try wire.decodeOther(wire.encodeCapability(7));
+    try testing.expect(cap.matchesIndex(7));
 }
 
 test {
