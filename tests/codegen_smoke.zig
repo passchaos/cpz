@@ -2090,6 +2090,8 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("typed", generated.Service.@"cpz.methodByResolvedParamsType"("Details").?.name);
     try std.testing.expectEqualStrings("typed", generated.Service.@"cpz.methodByResolvedResultsType"("Details").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByParamsType"("Missing"));
+    try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methodByStreaming"(false).?.name);
+    try std.testing.expectEqualStrings("streamIt", generated.Service.@"cpz.methodByStreaming"(true).?.name);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.call.index");
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.method.call.metadata".name);
     try std.testing.expectEqualStrings("$marker", generated.Service.@"cpz.method.call.metadata".annotations);

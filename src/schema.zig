@@ -4146,12 +4146,17 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.methodByStreaming"(@"cpz.streaming": bool) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (@"cpz.method".streaming == @"cpz.streaming") return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.methodByIndex"(@"cpz.index": usize) ?cpz.schema.InterfaceMethodMetadata {{
         \\{s}    if (@"cpz.index" >= @"cpz.methods".len) return null;
         \\{s}    return @"cpz.methods"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (methods.len != 0) try out.append(allocator, '\n');
 }
 
