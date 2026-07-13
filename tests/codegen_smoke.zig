@@ -650,6 +650,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.ElementSize.four_bytes, scores.elementSize());
     try scores.set(0, 10);
     try scores.set(1, 20);
+    try scores.clearRange(1, 1);
+    try std.testing.expectEqual(@as(u32, 0), try scores.get(1));
+    try scores.set(1, 20);
     try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
     const scores_stats = try scores.validate();
     try std.testing.expect(scores_stats.total_words > 0);

@@ -7935,6 +7935,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.copyElementFromBuilder(index, source.list, source_index);
         \\        }}
         \\
+        \\        pub fn clearRange(self: @This(), start: usize, count: usize) !void {{
+        \\            return self.list.clearElements(start, count);
+        \\        }}
+        \\
     , .{ owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
 
     if (isPointerListElement(file, scope, child)) {
@@ -9763,6 +9767,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(index, new_value);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFrom(index, source.list, source_index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromBuilder(index, source.list, source_index);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(start, count);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.Builder.fromBuilder(try self.list.getStructElement(index));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromReader(new_value.reader)") != null);

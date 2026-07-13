@@ -2849,6 +2849,13 @@ pub const ListBuilder = struct {
         }
     }
 
+    pub fn clearElements(self: ListBuilder, start_index: usize, count: usize) Error!void {
+        if (start_index > self.element_count or self.element_count - start_index < count) return error.PointerOutOfBounds;
+        for (0..count) |offset| {
+            try self.clearElement(start_index + offset);
+        }
+    }
+
     pub fn copyElementFrom(self: ListBuilder, index: usize, source: ListReader, source_index: usize) Error!void {
         if (index >= self.element_count or source_index >= source.element_count) return error.PointerOutOfBounds;
         if (self.element_size != source.element_size) return error.IncompatibleListShape;
@@ -3969,26 +3976,27 @@ test "builders can clear arbitrary list elements" {
     const ints = try (try root.getPointerField(0)).initList(.four_bytes, 2);
     try ints.setUInt32(0, 11);
     try ints.setUInt32(1, 22);
-    try ints.clearElement(1);
-    try testing.expectEqual(@as(u32, 11), try ints.getUInt32(0));
+    try ints.clearElements(0, 2);
+    try testing.expectEqual(@as(u32, 0), try ints.getUInt32(0));
     try testing.expectEqual(@as(u32, 0), try ints.getUInt32(1));
+    try testing.expectError(error.PointerOutOfBounds, ints.clearElements(1, 2));
 
     const bits = try (try root.getPointerField(1)).initList(.bit, 2);
     try bits.setBool(0, true);
     try bits.setBool(1, true);
-    try bits.clearElement(0);
+    try bits.clearElements(0, 1);
     try testing.expectEqual(false, try bits.getBool(0));
     try testing.expectEqual(true, try bits.getBool(1));
 
     const pointers = try (try root.getPointerField(2)).initList(.pointer, 1);
     try (try pointers.getPointerElement(0)).setText("drop");
-    try pointers.clearElement(0);
+    try pointers.clearElements(0, 1);
 
     const structs = try (try root.getPointerField(3)).initStructList(1, .{ .data_words = 1, .pointer_count = 1 });
     const item = try structs.getStructElement(0);
     try item.setUInt16(0, 77, 0);
     try item.setText(0, "drop struct");
-    try structs.clearElement(0);
+    try structs.clearElements(0, 1);
     try testing.expectError(error.PointerOutOfBounds, structs.clearElement(1));
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
