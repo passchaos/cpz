@@ -97,6 +97,7 @@ pub const ConstDecl = struct {
 };
 
 pub const ConstListItem = struct {
+    index: usize = 0,
     literal: []const u8,
     is_hex_data: bool = false,
     annotations: []const u8 = "",
@@ -1373,7 +1374,7 @@ pub const Parser = struct {
                 is_hex_data = true;
                 break :blk value;
             } else (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
-            try items.append(self.allocator, .{ .literal = literal, .is_hex_data = is_hex_data });
+            try items.append(self.allocator, .{ .index = items.items.len, .literal = literal, .is_hex_data = is_hex_data });
 
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
@@ -4541,7 +4542,7 @@ fn appendConstListItemsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList
         defer allocator.free(literal);
         const annotations = try zigStringLiteralAlloc(allocator, item.annotations);
         defer allocator.free(annotations);
-        try appendFmt(allocator, out, ".{{ .literal = {s}", .{literal});
+        try appendFmt(allocator, out, ".{{ .index = {}, .literal = {s}", .{ item.index, literal });
         if (item.is_hex_data) {
             try out.appendSlice(allocator, ", .is_hex_data = true");
         }
