@@ -2348,6 +2348,12 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.methods"[1].result_fields[0].name);
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.methods"[1].result_fields[0].resolved_ty);
     const ping_metadata = generated.Service.@"cpz.methods"[1];
+    try std.testing.expect(ping_metadata.matchesName("ping"));
+    try std.testing.expect(ping_metadata.matchesOrdinal(1));
+    try std.testing.expect(ping_metadata.matchesSignature("[Req, Resp] (request :Req $schemaNote(\"request\"), attempts :UInt32 = 3 $schemaNote(\"attempts\")) -> (response :Resp)"));
+    try std.testing.expect(ping_metadata.matchesAnnotations(""));
+    try std.testing.expect(ping_metadata.matchesStreaming(false));
+    try std.testing.expect(!ping_metadata.matchesName("missing"));
     try std.testing.expectEqualStrings("Req", ping_metadata.parameterByName("Req").?);
     try std.testing.expectEqualStrings("Resp", ping_metadata.parameterByIndex(1).?);
     try std.testing.expectEqual(@as(?[]const u8, null), ping_metadata.parameterByName("Missing"));
@@ -2463,6 +2469,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("chunk", generated.Service.@"cpz.method.streamIt.params.fields.fieldByHexDefault"(true).?.name);
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultIsHexData");
     try std.testing.expect(generated.Service.@"cpz.methods"[2].streaming);
+    try std.testing.expect(generated.Service.@"cpz.methods"[2].matchesStreaming(true));
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.streaming");
     try std.testing.expectEqual(@as(u16, 3), generated.Service.typed);
     try std.testing.expectEqualStrings("Details -> Details", generated.Service.@"cpz.method.typed.signature");
@@ -2470,6 +2477,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].results_type);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].resolved_params_type);
     try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.methods"[3].resolved_results_type);
+    try std.testing.expect(generated.Service.@"cpz.methods"[3].matchesParamsType("Details"));
+    try std.testing.expect(generated.Service.@"cpz.methods"[3].matchesResultsType("Details"));
+    try std.testing.expect(generated.Service.@"cpz.methods"[3].matchesResolvedParamsType("Details"));
+    try std.testing.expect(generated.Service.@"cpz.methods"[3].matchesResolvedResultsType("Details"));
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.methods"[3].parameter_count);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.methods"[3].param_field_count);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.methods"[3].result_field_count);

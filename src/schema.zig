@@ -516,6 +516,42 @@ pub const InterfaceMethodMetadata = struct {
     param_fields: []const MethodField = &.{},
     result_fields: []const MethodField = &.{},
 
+    pub fn matchesName(self: InterfaceMethodMetadata, method_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, method_name);
+    }
+
+    pub fn matchesOrdinal(self: InterfaceMethodMetadata, method_ordinal: u16) bool {
+        return self.ordinal == method_ordinal;
+    }
+
+    pub fn matchesSignature(self: InterfaceMethodMetadata, method_signature: []const u8) bool {
+        return std.mem.eql(u8, self.signature, method_signature);
+    }
+
+    pub fn matchesParamsType(self: InterfaceMethodMetadata, method_type: []const u8) bool {
+        return std.mem.eql(u8, self.params_type, method_type);
+    }
+
+    pub fn matchesResultsType(self: InterfaceMethodMetadata, method_type: []const u8) bool {
+        return std.mem.eql(u8, self.results_type, method_type);
+    }
+
+    pub fn matchesResolvedParamsType(self: InterfaceMethodMetadata, method_type: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_params_type, method_type);
+    }
+
+    pub fn matchesResolvedResultsType(self: InterfaceMethodMetadata, method_type: []const u8) bool {
+        return std.mem.eql(u8, self.resolved_results_type, method_type);
+    }
+
+    pub fn matchesAnnotations(self: InterfaceMethodMetadata, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
+    }
+
+    pub fn matchesStreaming(self: InterfaceMethodMetadata, is_streaming: bool) bool {
+        return self.streaming == is_streaming;
+    }
+
     pub fn parameterByName(self: InterfaceMethodMetadata, parameter: []const u8) ?[]const u8 {
         for (self.parameters) |item| if (std.mem.eql(u8, item, parameter)) return item;
         return null;
