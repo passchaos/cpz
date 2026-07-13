@@ -4868,14 +4868,12 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
     try out.appendSlice(allocator,
         \\
     );
-    if (decl.annotations.len != 0) {
-        const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
-        defer allocator.free(annotation_literal);
-        try appendFmt(allocator, out,
-            \\{s}pub const @"cpz.const.{s}.annotations": []const u8 = {s};
-            \\
-        , .{ indent, const_name, annotation_literal });
-    }
+    const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    defer allocator.free(annotation_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.const.{s}.annotations": []const u8 = {s};
+        \\
+    , .{ indent, const_name, annotation_literal });
     if (!decl.emit_value) return;
     switch (resolveTypeScoped(file, scope, decl.ty)) {
         .void => try appendFmt(allocator, out,

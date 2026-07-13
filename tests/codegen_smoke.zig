@@ -209,6 +209,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.const.globalId.type");
     try std.testing.expectEqualStrings("12345", generated.@"cpz.const.globalId.literal");
     try std.testing.expect(generated.@"cpz.const.globalId.emitted");
+    try std.testing.expectEqualStrings("$schemaNote(\"global-id\")", generated.@"cpz.const.globalId.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"global-id\")", generated.@"cpz.consts"[0].annotations);
     try std.testing.expectEqualStrings("de ad be ef", generated.@"cpz.consts"[3].literal);
     try std.testing.expect(generated.@"cpz.consts"[3].is_hex_data);
@@ -231,6 +232,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 11), generated.@"cpz.const.globalEmbeddedData.index");
     try std.testing.expectEqualStrings("embed \"fixtures/raw.bin\"", generated.@"cpz.const.globalEmbeddedData.literal");
     try std.testing.expect(!generated.@"cpz.const.globalEmbeddedData.emitted");
+    try std.testing.expectEqualStrings("", generated.@"cpz.const.globalEmbeddedData.annotations");
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);
