@@ -121,6 +121,10 @@ pub const ConstListItem = struct {
     pub fn matchesAnnotations(self: ConstListItem, item_annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, item_annotations);
     }
+
+    pub fn matchesHexData(self: ConstListItem, is_hex: bool) bool {
+        return self.is_hex_data == is_hex;
+    }
 };
 
 pub const ConstMetadata = struct {
@@ -153,6 +157,18 @@ pub const ConstMetadata = struct {
 
     pub fn matchesAnnotations(self: ConstMetadata, annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, annotations);
+    }
+
+    pub fn matchesHexData(self: ConstMetadata, is_hex: bool) bool {
+        return self.is_hex_data == is_hex;
+    }
+
+    pub fn matchesEmitted(self: ConstMetadata, is_emitted: bool) bool {
+        return self.emitted == is_emitted;
+    }
+
+    pub fn matchesListItemCount(self: ConstMetadata, count: usize) bool {
+        return self.list_item_count == count;
     }
 
     pub fn listItemByIndex(self: ConstMetadata, item_index: usize) ?ConstListItem {

@@ -381,6 +381,10 @@ test "generated simple constants compile" {
     try std.testing.expect(generated.@"cpz.consts"[8].matchesResolvedType("List(Text)"));
     try std.testing.expect(generated.@"cpz.consts"[0].matchesLiteral("12345"));
     try std.testing.expect(generated.@"cpz.consts"[0].matchesAnnotations("$schemaNote(\"global-id\")"));
+    try std.testing.expect(generated.@"cpz.consts"[3].matchesHexData(true));
+    try std.testing.expect(generated.@"cpz.consts"[0].matchesEmitted(true));
+    try std.testing.expect(generated.@"cpz.consts"[11].matchesEmitted(false));
+    try std.testing.expect(generated.@"cpz.consts"[6].matchesListItemCount(3));
     try std.testing.expect(!generated.@"cpz.consts"[0].matchesName("missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.index");
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.const.globalId.metadata".name);
@@ -407,6 +411,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].listItemByLiteral("20").?.literal);
     try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesLiteral("20"));
     try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesAnnotations(""));
+    try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesHexData(false));
     try std.testing.expect(!generated.@"cpz.consts"[6].list_items[1].matchesLiteral("missing"));
     try std.testing.expectEqualStrings("10", generated.@"cpz.consts"[6].listItemByHexData(false).?.literal);
     try std.testing.expectEqualStrings("10", generated.@"cpz.consts"[6].listItemByAnnotations("").?.literal);
