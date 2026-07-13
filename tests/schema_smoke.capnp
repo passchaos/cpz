@@ -17,6 +17,7 @@ using Shade = Color;
 using DynamicAlias = AnyPointer;
 using CapAlias = Capability;
 using GenericPersonAlias = GenericBox(Person);
+using ServiceAlias = Service;
 
 const globalId :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;
@@ -134,7 +135,7 @@ interface Service $marker {
   typed @3 Details -> Details;
 }
 
-interface ExtendedService @0xe57e0001(Req, Resp) extends(Service) {
+interface ExtendedService @0xe57e0001(Req, Resp) extends(ServiceAlias) {
   struct Details {
     message @0 :Text;
   }

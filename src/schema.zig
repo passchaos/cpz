@@ -279,6 +279,7 @@ pub const InterfaceMethodMetadata = struct {
 pub const InterfaceSuperclassMetadata = struct {
     index: usize,
     name: []const u8,
+    resolved_name: []const u8 = "",
 };
 
 pub const InterfaceDecl = struct {
@@ -3855,9 +3856,9 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     }
     try emitDeclarationAnnotations(allocator, out, decl.annotations, "    ");
     try emitParameterMetadata(allocator, out, decl.parameters, "    ");
-    try emitInterfaceSuperclassMetadata(allocator, out, decl.superclasses, "    ");
+    try emitInterfaceSuperclassMetadata(allocator, out, file, decl, decl.superclasses, "    ");
     for (decl.superclasses, 0..) |superclass, index| {
-        switch (resolveType(file, superclass)) {
+        switch (resolveTypeInOwnerScope(file, decl.name, superclass)) {
             .named => |type_name| {
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
@@ -3965,7 +3966,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     , .{});
 }
 
-fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), superclasses: []const Type, indent: []const u8) LayoutError!void {
+fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, superclasses: []const Type, indent: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.superclassCount": usize = {};
         \\
@@ -3975,20 +3976,31 @@ fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.Array
         defer allocator.free(superclass_name);
         const superclass_literal = try zigStringLiteralAlloc(allocator, superclass_name);
         defer allocator.free(superclass_literal);
+        const owner_name = if (scope) |decl| decl.name else null;
+        const resolved_superclass_name = try schemaResolvedTypeNameInOwnerScopeAlloc(allocator, file, owner_name, superclass);
+        defer allocator.free(resolved_superclass_name);
+        const resolved_superclass_literal = try zigStringLiteralAlloc(allocator, resolved_superclass_name);
+        defer allocator.free(resolved_superclass_literal);
         try appendFmt(allocator, out,
             \\{s}pub const @"cpz.superclass.{}.index": usize = {};
             \\{s}pub const @"cpz.superclass.{}.name": []const u8 = {s};
+            \\{s}pub const @"cpz.superclass.{}.resolvedName": []const u8 = {s};
             \\
-        , .{ indent, index, index, indent, index, superclass_literal });
+        , .{ indent, index, index, indent, index, superclass_literal, indent, index, resolved_superclass_literal });
     }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.superclasses\": []const cpz.schema.InterfaceSuperclassMetadata = &[_]cpz.schema.InterfaceSuperclassMetadata{{", .{indent});
+    const owner_name = if (scope) |decl| decl.name else null;
     for (superclasses, 0..) |superclass, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
         const superclass_name = try schemaTypeNameAlloc(allocator, superclass);
         defer allocator.free(superclass_name);
         const superclass_literal = try zigStringLiteralAlloc(allocator, superclass_name);
         defer allocator.free(superclass_literal);
-        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s} }}", .{ index, superclass_literal });
+        const resolved_superclass_name = try schemaResolvedTypeNameInOwnerScopeAlloc(allocator, file, owner_name, superclass);
+        defer allocator.free(resolved_superclass_name);
+        const resolved_superclass_literal = try zigStringLiteralAlloc(allocator, resolved_superclass_name);
+        defer allocator.free(resolved_superclass_literal);
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .resolved_name = {s} }}", .{ index, superclass_literal, resolved_superclass_literal });
     }
     try out.appendSlice(allocator, "};\n");
     try appendFmt(allocator, out,
@@ -3997,12 +4009,17 @@ fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.Array
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.superclassByResolvedName"(@"cpz.name": []const u8) ?cpz.schema.InterfaceSuperclassMetadata {{
+        \\{s}    for (@This().@"cpz.superclasses") |@"cpz.superclass"| if (std.mem.eql(u8, @"cpz.superclass".resolved_name, @"cpz.name")) return @"cpz.superclass";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.superclassByIndex"(@"cpz.index": usize) ?cpz.schema.InterfaceSuperclassMetadata {{
         \\{s}    for (@This().@"cpz.superclasses") |@"cpz.superclass"| if (@"cpz.superclass".index == @"cpz.index") return @"cpz.superclass";
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (superclasses.len != 0) try out.append(allocator, '\n');
 }
 
