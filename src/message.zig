@@ -131,6 +131,33 @@ pub const OwnedMessageReader = struct {
     }
 };
 
+pub const MessageReaderView = struct {
+    flat: serialize.FlatMessageView,
+    reader: MessageReader,
+
+    pub fn initFlat(allocator: std.mem.Allocator, flat_bytes: []const u8, options: ReaderOptions) (Error || serialize.Error)!MessageReaderView {
+        var flat = try serialize.readFlatMessageView(allocator, flat_bytes);
+        errdefer flat.deinit(allocator);
+        return .{
+            .reader = MessageReader.init(flat.segments, options),
+            .flat = flat,
+        };
+    }
+
+    pub fn deinit(self: *MessageReaderView, allocator: std.mem.Allocator) void {
+        self.flat.deinit(allocator);
+        self.reader = undefined;
+    }
+
+    pub fn asReader(self: *MessageReaderView) *MessageReader {
+        return &self.reader;
+    }
+
+    pub fn consumedLen(self: *const MessageReaderView) usize {
+        return self.flat.consumed_len;
+    }
+};
+
 pub const BuilderOptions = struct {
     first_segment_words: usize = 1024,
     next_segment_min_words: usize = 1024,
@@ -2744,6 +2771,33 @@ test "owned message readers parse flat and packed bytes" {
     defer owned_packed_from_reader.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_packed_from_reader.consumedLen());
     try testing.expectEqualSlices(u8, &trailer, packed_stream.buffered());
+}
+
+test "message reader views parse flat bytes without copying message data" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try root.setUInt32(0, 6160, 0);
+    try root.setText(0, "view");
+
+    const flat = try builder.toFlatBytes();
+    defer testing.allocator.free(flat);
+    const trailer = [_]u8{ 1, 2, 3 };
+    const flat_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ flat, &trailer });
+    defer testing.allocator.free(flat_with_trailer);
+
+    var view = try MessageReaderView.initFlat(testing.allocator, flat_with_trailer, .{});
+    defer view.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, view.consumedLen());
+    try testing.expectEqual(@as(u32, 6160), (try view.asReader().getRoot()).getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "view", try (try view.asReader().getRoot()).getPointerField(0).getText());
+    const segment0 = try view.asReader().segmentBytes(0);
+    const segment0_addr = @intFromPtr(segment0.ptr);
+    const flat_addr = @intFromPtr(flat_with_trailer.ptr);
+    try testing.expect(segment0_addr >= flat_addr);
+    try testing.expect(segment0_addr < flat_addr + flat_with_trailer.len);
 }
 
 test "message builder writes flat and packed streams directly" {

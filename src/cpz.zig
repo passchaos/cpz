@@ -18,6 +18,7 @@ pub const StructSize = wire.StructSize;
 pub const MessageBuilder = message.MessageBuilder;
 pub const MessageReader = message.MessageReader;
 pub const OwnedMessageReader = message.OwnedMessageReader;
+pub const MessageReaderView = message.MessageReaderView;
 pub const StructBuilder = message.StructBuilder;
 pub const StructReader = message.StructReader;
 pub const ListBuilder = message.ListBuilder;
