@@ -5257,6 +5257,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootDecodedPointer();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.stats"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageStats {{
+        \\        return @"cpz.reader".getRootPointerStats();
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.totalSize"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageSize {{
         \\        return @"cpz.reader".getRootPointerTotalSize();
         \\    }}
@@ -5355,6 +5359,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.decodedPointer"(@"cpz.builder": *cpz.MessageBuilder) !?cpz.wire.DecodedPointer {{
         \\        return @"cpz.builder".getRootDecodedPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.stats"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageStats {{
+        \\        return @"cpz.builder".getRootPointerStats();
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.totalSize"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageSize {{
@@ -5553,6 +5561,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return .{{ .reader = @"cpz.reader" }};
         \\    }}
         \\
+        \\    pub fn validate(self: @This()) !cpz.MessageStats {{
+        \\        return self.reader.validate();
+        \\    }}
+        \\
         \\    pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\        return self.reader.totalSize();
         \\    }}
@@ -5597,6 +5609,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\        pub fn asReader(self: Builder, message_reader: *cpz.MessageReader) {s} {{
         \\            return {s}.fromReader(self.builder.asReader(message_reader));
+        \\        }}
+        \\
+        \\        pub fn validate(self: Builder) !cpz.MessageStats {{
+        \\            return self.builder.validate();
         \\        }}
         \\
         \\        pub fn totalSize(self: Builder) !cpz.MessageSize {{
@@ -5905,6 +5921,13 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).decode();
         \\    }}
         \\
+        \\    pub fn {s}Stats(self: @This()) !cpz.MessageStats {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).validate();
+        \\    }}
+        \\
         \\    pub fn {s}TotalSize(self: @This()) !cpz.MessageSize {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
@@ -6151,6 +6174,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn rawPrimitiveBytes(self: @This()) ![]const u8 {{
         \\            return self.list.rawPrimitiveBytes();
+        \\        }}
+        \\
+        \\        pub fn validate(self: @This()) !cpz.MessageStats {{
+        \\            return self.list.validate();
         \\        }}
         \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
@@ -6447,6 +6474,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) {s}_{s}_List {{
         \\            return .{{ .list = self.list.asReader(message_reader) }};
+        \\        }}
+        \\
+        \\        pub fn validate(self: @This()) !cpz.MessageStats {{
+        \\            return self.list.validate();
         \\        }}
         \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
@@ -7343,6 +7374,13 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).decode();
+        \\        }}
+        \\
+        \\        pub fn get_{s}Stats(self: Builder) !cpz.MessageStats {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).validate();
         \\        }}
         \\
         \\        pub fn get_{s}TotalSize(self: Builder) !cpz.MessageSize {{

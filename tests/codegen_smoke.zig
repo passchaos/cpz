@@ -286,8 +286,11 @@ test "generated reader and builder accessors compile and round-trip" {
     const builder_root_decoded = (try generated.Person.@"cpz.builderRoot.decodedPointer"(&builder)).?.struct_ptr;
     try std.testing.expectEqual(generated.Person.size.data_words, builder_root_decoded.data_words);
     try std.testing.expectEqual(generated.Person.size.pointer_count, builder_root_decoded.pointer_count);
+    const builder_root_stats = try generated.Person.@"cpz.builderRoot.stats"(&builder);
+    try std.testing.expect(builder_root_stats.total_words > 0);
     const builder_root_size = try generated.Person.@"cpz.builderRoot.totalSize"(&builder);
     try std.testing.expect(builder_root_size.word_count > 0);
+    try std.testing.expectEqual(builder_root_stats.size().word_count, builder_root_size.word_count);
     var builder_message_reader = try generated.Person.@"cpz.builderRoot.asMessageReader"(&builder, .{});
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.root.pointerKind"(&builder_message_reader)).?);
     try std.testing.expectEqual(@as(usize, 64), generated.Person.@"cpz.builderRoot.firstSegmentWords"(&builder));
@@ -352,8 +355,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(u32, 7), builder_view.id());
     const builder_view_size = try builder_view.totalSize();
     try std.testing.expect(builder_view_size.word_count > 0);
+    const builder_stats = try person_builder.validate();
+    try std.testing.expect(builder_stats.total_words > 0);
     const builder_size = try person_builder.totalSize();
     try std.testing.expect(builder_size.word_count > 0);
+    try std.testing.expectEqual(builder_stats.size().word_count, builder_size.word_count);
     try person_builder.set_active(false);
     try std.testing.expectEqual(false, try person_builder.get_active());
     try std.testing.expectEqual(false, try person_builder.has_name());
@@ -375,8 +381,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(name_raw_pointer));
     const name_decoded = (try person_builder.get_nameDecodedPointer()).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, name_decoded.element_size);
+    const name_stats = try person_builder.get_nameStats();
+    try std.testing.expect(name_stats.total_words > 0);
     const name_total_size = try person_builder.get_nameTotalSize();
     try std.testing.expect(name_total_size.word_count > 0);
+    try std.testing.expectEqual(name_stats.size().word_count, name_total_size.word_count);
     try person_builder.set_favorite(.blue);
     try std.testing.expectEqual(generated.Color.blue, try person_builder.get_favorite());
     try std.testing.expectEqual(@as(u16, 2), try person_builder.get_favorite_raw());
@@ -387,6 +396,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try scores.set(0, 10);
     try scores.set(1, 20);
     try std.testing.expectEqual(@as(u32, 20), try scores.get(1));
+    const scores_stats = try scores.validate();
+    try std.testing.expect(scores_stats.total_words > 0);
     try std.testing.expectEqual(@as(usize, 8), scores.rawBytes().len);
     try std.testing.expectEqual(@as(u8, 10), scores.rawBytes()[0]);
     try std.testing.expectEqualSlices(u8, scores.rawBytes(), try scores.rawPrimitiveBytes());
@@ -485,8 +496,11 @@ test "generated reader and builder accessors compile and round-trip" {
     const reader_root_decoded = (try generated.Person.@"cpz.root.decodedPointer"(&reader)).?.struct_ptr;
     try std.testing.expectEqual(generated.Person.size.data_words, reader_root_decoded.data_words);
     try std.testing.expectEqual(generated.Person.size.pointer_count, reader_root_decoded.pointer_count);
+    const reader_root_stats = try generated.Person.@"cpz.root.stats"(&reader);
+    try std.testing.expect(reader_root_stats.total_words > 0);
     const reader_root_size = try generated.Person.@"cpz.root.totalSize"(&reader);
     try std.testing.expect(reader_root_size.word_count > 0);
+    try std.testing.expectEqual(reader_root_stats.size().word_count, reader_root_size.word_count);
     try std.testing.expect(!reader_root_size.isEmpty());
     try std.testing.expect(!reader_root_size.hasCapabilities());
     const reader_segments = generated.Person.@"cpz.root.segments"(&reader);
@@ -547,6 +561,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqualSlices(u8, direct_reader_single_segment_bytes, reader_single_segment_bytes);
     const person = try generated.Person.getRoot(&reader);
     try std.testing.expectEqual(generated.Person.size, person.actualSize());
+    const person_stats = try person.validate();
+    try std.testing.expect(person_stats.total_words > 0);
     try std.testing.expectEqual(@as(u8, 7 ^ 42), person.dataSection()[0]);
     const person_pointer_section = person.pointerSection();
     try std.testing.expectEqual(@as(usize, generated.Person.size.pointer_count), person_pointer_section.len());
@@ -563,8 +579,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_name_raw_pointer));
     const read_name_decoded = (try person.nameDecodedPointer()).?.list;
     try std.testing.expectEqual(cpz.ElementSize.byte, read_name_decoded.element_size);
+    const read_name_stats = try person.nameStats();
+    try std.testing.expect(read_name_stats.total_words > 0);
     const read_name_total_size = try person.nameTotalSize();
     try std.testing.expect(read_name_total_size.word_count > 0);
+    try std.testing.expectEqual(read_name_stats.size().word_count, read_name_total_size.word_count);
     try std.testing.expect(generated.Color.blue == try person.favorite());
     try std.testing.expectEqual(@as(u16, 2), person.favorite_raw());
     const read_scores = try person.scores();
@@ -572,6 +591,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(usize, 1), try read_scores.lastIndex());
     try std.testing.expectEqual(cpz.ElementSize.four_bytes, read_scores.elementSize());
     try std.testing.expectEqual(@as(u32, 20), read_scores.get(1));
+    const read_scores_stats = try read_scores.validate();
+    try std.testing.expect(read_scores_stats.total_words > 0);
     try std.testing.expectEqual(@as(usize, 8), read_scores.rawBytes().len);
     try std.testing.expectEqual(@as(u8, 20), read_scores.rawBytes()[4]);
     try std.testing.expectEqualSlices(u8, read_scores.rawBytes(), try read_scores.rawPrimitiveBytes());
@@ -593,6 +614,8 @@ test "generated reader and builder accessors compile and round-trip" {
     const children_size = try read_children.totalSize();
     try std.testing.expect(children_size.word_count > 0);
     try std.testing.expectEqual(@as(usize, 0), children_size.cap_count);
+    const children_stats = try read_children.validate();
+    try std.testing.expectEqual(children_size.word_count, children_stats.size().word_count);
     const read_friend = try person.friend();
     try std.testing.expectEqual(@as(u32, 1234), read_friend.id());
     try std.testing.expectEqualSlices(u8, "Lin", try read_friend.name());

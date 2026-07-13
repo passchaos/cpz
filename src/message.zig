@@ -413,8 +413,12 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).decode();
     }
 
+    pub fn getRootPointerStats(self: *MessageBuilder) Error!MessageStats {
+        return (try self.getRootPointer()).validate();
+    }
+
     pub fn getRootPointerTotalSize(self: *MessageBuilder) Error!MessageSize {
-        return (try self.getRootPointer()).totalSize();
+        return (try self.getRootPointerStats()).size();
     }
 
     pub fn getRootText(self: *MessageBuilder) Error![]const u8 {
@@ -637,8 +641,12 @@ pub const MessageReader = struct {
         return (try self.getRootPointer()).decode();
     }
 
+    pub fn getRootPointerStats(self: *MessageReader) Error!MessageStats {
+        return (try self.getRootPointer()).validate();
+    }
+
     pub fn getRootPointerTotalSize(self: *MessageReader) Error!MessageSize {
-        return (try self.getRootPointer()).totalSize();
+        return (try self.getRootPointerStats()).size();
     }
 
     pub fn getRootList(self: *MessageReader, expected: ?wire.ElementSize) Error!ListReader {
@@ -1487,9 +1495,13 @@ pub const StructBuilder = struct {
         };
     }
 
-    pub fn totalSize(self: StructBuilder) Error!MessageSize {
+    pub fn validate(self: StructBuilder) Error!MessageStats {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
-        return self.asReader(&reader).totalSize();
+        return self.asReader(&reader).validate();
+    }
+
+    pub fn totalSize(self: StructBuilder) Error!MessageSize {
+        return (try self.validate()).size();
     }
 
     pub fn size(self: StructBuilder) wire.StructSize {
@@ -1819,10 +1831,14 @@ pub const StructReader = struct {
         return self.message.segments[self.segment_id][self.data_start * wire.bytes_per_word .. (self.data_start + self.data_words) * wire.bytes_per_word];
     }
 
-    pub fn totalSize(self: StructReader) Error!MessageSize {
+    pub fn validate(self: StructReader) Error!MessageStats {
         var stats: MessageStats = .{};
         try collectStructStats(self, &stats);
-        return stats.size();
+        return stats;
+    }
+
+    pub fn totalSize(self: StructReader) Error!MessageSize {
+        return (try self.validate()).size();
     }
 
     pub fn size(self: StructReader) wire.StructSize {
@@ -1904,9 +1920,13 @@ pub const ListBuilder = struct {
         };
     }
 
-    pub fn totalSize(self: ListBuilder) Error!MessageSize {
+    pub fn validate(self: ListBuilder) Error!MessageStats {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
-        return self.asReader(&reader).totalSize();
+        return self.asReader(&reader).validate();
+    }
+
+    pub fn totalSize(self: ListBuilder) Error!MessageSize {
+        return (try self.validate()).size();
     }
 
     pub fn orphanage(self: ListBuilder) Orphanage {
@@ -2232,10 +2252,14 @@ pub const ListReader = struct {
         return std.mem.readInt(T, segment[byte_offset..][0..@sizeOf(T)], .little);
     }
 
-    pub fn totalSize(self: ListReader) Error!MessageSize {
+    pub fn validate(self: ListReader) Error!MessageStats {
         var stats: MessageStats = .{};
         try collectListStats(self, &stats);
-        return stats.size();
+        return stats;
+    }
+
+    pub fn totalSize(self: ListReader) Error!MessageSize {
+        return (try self.validate()).size();
     }
 };
 
