@@ -591,6 +591,18 @@ pub fn expectedSizeInWordsFromPrefix(prefix: []const u8) Error!usize {
     return (try expectedSize(prefix)) / wire.bytes_per_word;
 }
 
+pub fn segmentCountFromPrefix(prefix: []const u8) Error!usize {
+    if (prefix.len < 4) return error.SegmentTableTruncated;
+    const segment_count_minus_one = readU32(prefix[0..4]);
+    const segment_count = std.math.add(usize, @as(usize, segment_count_minus_one), 1) catch return error.SegmentTableOverflow;
+    if (segment_count > max_segment_count) return error.TooManySegments;
+    return segment_count;
+}
+
+pub fn segmentTableByteLenFromPrefix(prefix: []const u8) Error!usize {
+    return segmentTableByteLen(try segmentCountFromPrefix(prefix));
+}
+
 pub fn segmentWordLenFromPrefix(prefix: []const u8, index: usize) Error!usize {
     const table = try parseSegmentTable(prefix);
     if (index >= table.segment_count) return error.SegmentOutOfBounds;
@@ -708,6 +720,9 @@ test "standard stream framing serializes even segment count with padding" {
     try testing.expectEqual(@as(usize, 40), try expectedSize(bytes[0..16]));
     try testing.expectEqual(@as(usize, 5), try expectedSizeInWordsFromPrefix(bytes[0..16]));
     try testing.expectEqual(@as(usize, 1), try expectedSizeInWordsFromPrefix(bytes[0..0]));
+    try testing.expectEqual(@as(usize, 2), try segmentCountFromPrefix(bytes[0..4]));
+    try testing.expectEqual(@as(usize, 16), try segmentTableByteLenFromPrefix(bytes[0..4]));
+    try testing.expectError(error.SegmentTableTruncated, segmentCountFromPrefix(bytes[0..3]));
     try testing.expectEqual(@as(usize, 1), try segmentWordLenFromPrefix(bytes[0..16], 0));
     try testing.expectEqual(@as(usize, 2), try segmentWordLenFromPrefix(bytes[0..16], 1));
     try testing.expectEqual(@as(usize, 16), try segmentByteLenFromPrefix(bytes[0..16], 1));
