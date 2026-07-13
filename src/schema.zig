@@ -120,6 +120,7 @@ pub const ImportDecl = struct {
 };
 
 pub const ImportMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     path: []const u8,
     member: []const u8 = "",
@@ -4330,7 +4331,7 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(name_literal);
         const path_literal = try zigStringLiteralAlloc(allocator, import_decl.path);
         defer allocator.free(path_literal);
-        try appendFmt(allocator, out, ".{{ .name = {s}, .path = {s}", .{ name_literal, path_literal });
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .path = {s}", .{ index, name_literal, path_literal });
         if (import_decl.member) |member| {
             const member_literal = try zigStringLiteralAlloc(allocator, member);
             defer allocator.free(member_literal);
@@ -4350,7 +4351,12 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+        \\{s}pub fn @"cpz.importByIndex"(@"cpz.index": usize) ?cpz.schema.ImportMetadata {{
+        \\{s}    if (@"cpz.index" >= @This().@"cpz.imports".len) return null;
+        \\{s}    return @This().@"cpz.imports"[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (imports.len != 0) try out.append(allocator, '\n');
 }
 
