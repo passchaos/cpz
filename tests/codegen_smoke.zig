@@ -1644,6 +1644,38 @@ test "generated builders can copy whole list fields from readers" {
     try std.testing.expectEqualSlices(u8, "CopiedAlias", try builder_target_aliases.get(0));
     const builder_target_groups = try builder_target_person.scoreGroups();
     try std.testing.expectEqual(@as(u32, 777), (try builder_target_groups.get(0)).getUInt32(0));
+
+    var canonical_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer canonical_target.deinit();
+    const canonical_target_person_builder = try generated.Person.initRootTyped(&canonical_target);
+    try canonical_target_person_builder.set_children_canonicalFrom(try source_person.children());
+    try canonical_target_person_builder.set_scoreGroups_canonicalFrom(try source_person.scoreGroups());
+
+    var canonical_target_reader = cpz.MessageReader.init(try canonical_target.segmentsConst(), .{});
+    const canonical_target_person = generated.Person.fromReader(try canonical_target_reader.getRoot());
+    const canonical_children = try canonical_target_person.children();
+    try std.testing.expect(canonical_children.structElementSize().pointer_count < generated.Person.size.pointer_count);
+    const canonical_child = try canonical_children.get(0);
+    try std.testing.expectEqual(@as(u32, 901), canonical_child.id());
+    try std.testing.expectEqualSlices(u8, "WholeListCopy", try canonical_child.name());
+    const canonical_groups = try canonical_target_person.scoreGroups();
+    try std.testing.expectEqual(@as(u32, 777), (try canonical_groups.get(0)).getUInt32(0));
+
+    var canonical_builder_target = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer canonical_builder_target.deinit();
+    const canonical_builder_target_person_builder = try generated.Person.initRootTyped(&canonical_builder_target);
+    try canonical_builder_target_person_builder.set_children_canonicalFromBuilder(source_children);
+    try canonical_builder_target_person_builder.set_scoreGroups_canonicalFromBuilder(source_groups);
+
+    var canonical_builder_target_reader = cpz.MessageReader.init(try canonical_builder_target.segmentsConst(), .{});
+    const canonical_builder_target_person = generated.Person.fromReader(try canonical_builder_target_reader.getRoot());
+    const canonical_builder_children = try canonical_builder_target_person.children();
+    try std.testing.expect(canonical_builder_children.structElementSize().pointer_count < generated.Person.size.pointer_count);
+    const canonical_builder_child = try canonical_builder_children.get(0);
+    try std.testing.expectEqual(@as(u32, 901), canonical_builder_child.id());
+    try std.testing.expectEqualSlices(u8, "WholeListCopy", try canonical_builder_child.name());
+    const canonical_builder_groups = try canonical_builder_target_person.scoreGroups();
+    try std.testing.expectEqual(@as(u32, 777), (try canonical_builder_groups.get(0)).getUInt32(0));
 }
 
 test "generated builders can use typed list field orphans" {
