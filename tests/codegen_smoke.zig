@@ -1784,6 +1784,13 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqualStrings("name", union0_metadata.fieldByDiscriminant(0).?.name);
     try std.testing.expectEqualStrings("id", union0_metadata.fieldByOrdinal(2).?.name);
     try std.testing.expectEqualStrings("id", union0_metadata.fieldByIndex(1).?.name);
+    try std.testing.expect(union0_metadata.hasPointer(1));
+    try std.testing.expect(!union0_metadata.hasPointer(4));
+    try std.testing.expect(union0_metadata.containsDataBit(32));
+    try std.testing.expect(union0_metadata.containsDataBit(63));
+    try std.testing.expect(!union0_metadata.containsDataBit(64));
+    try std.testing.expect(union0_metadata.matchesDataRange(32, 32));
+    try std.testing.expect(!union0_metadata.matchesDataRange(32, 16));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), union0_metadata.fieldByName("missing"));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), union0_metadata.fieldByIndex(99));
     try std.testing.expectEqual(@as(usize, 0), generated.Choice.@"cpz.unions"[0].discriminant_byte);

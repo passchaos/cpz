@@ -327,6 +327,18 @@ pub const UnionMetadata = struct {
         if (field_index >= self.fields.len) return null;
         return self.fields[field_index];
     }
+
+    pub fn hasPointer(self: UnionMetadata, pointer_index: usize) bool {
+        return self.pointer != null and self.pointer.? == pointer_index;
+    }
+
+    pub fn containsDataBit(self: UnionMetadata, bit: usize) bool {
+        return self.data_bits != 0 and bit >= self.data_bit and bit < self.data_bit + self.data_bits;
+    }
+
+    pub fn matchesDataRange(self: UnionMetadata, bit: usize, bits: usize) bool {
+        return self.data_bit == bit and self.data_bits == bits;
+    }
 };
 
 pub const DeclarationKind = enum {
