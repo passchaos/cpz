@@ -131,6 +131,8 @@ interface ExtendedService @0xe57e0001 extends(Service) {
   }
 
   using DetailsAlias = Details;
+  const defaultLimit :UInt16 = 12;
+  const defaultLabel :Text = "extended";
 
   pong @0 () -> ();
 }

@@ -161,12 +161,15 @@ pub const InterfaceDecl = struct {
     id: ?u64 = null,
     methods: []InterfaceMethod = &.{},
     superclasses: []Type = &.{},
+    consts: []ConstDecl = &.{},
     aliases: []AliasDecl = &.{},
 
     pub fn deinit(self: *InterfaceDecl, allocator: std.mem.Allocator) void {
         allocator.free(self.methods);
         for (self.superclasses) |*superclass| superclass.deinit(allocator);
         allocator.free(self.superclasses);
+        for (self.consts) |*c| c.deinit(allocator);
+        allocator.free(self.consts);
         for (self.aliases) |*a| a.deinit(allocator);
         allocator.free(self.aliases);
         if (self.owns_name) allocator.free(self.name);
@@ -553,10 +556,15 @@ pub const Parser = struct {
             for (aliases.items) |*a| a.deinit(self.allocator);
             aliases.deinit(self.allocator);
         }
+        var consts = std.ArrayList(ConstDecl).empty;
+        errdefer {
+            for (consts.items) |*c| c.deinit(self.allocator);
+            consts.deinit(self.allocator);
+        }
         var member_names = std.StringHashMap(void).init(self.allocator);
         defer member_names.deinit();
 
-        const methods = try self.parseInterfaceBody(qualified.name, &aliases, &member_names);
+        const methods = try self.parseInterfaceBody(qualified.name, &aliases, &consts, &member_names);
         errdefer self.allocator.free(methods);
         return .{
             .name = qualified.name,
@@ -564,6 +572,7 @@ pub const Parser = struct {
             .id = decl_id,
             .methods = methods,
             .superclasses = superclasses,
+            .consts = try consts.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
         };
     }
@@ -647,7 +656,7 @@ pub const Parser = struct {
         return superclasses.toOwnedSlice(self.allocator);
     }
 
-    fn parseInterfaceBody(self: *Parser, interface_name: []const u8, aliases: *std.ArrayList(AliasDecl), member_names: *std.StringHashMap(void)) Error![]InterfaceMethod {
+    fn parseInterfaceBody(self: *Parser, interface_name: []const u8, aliases: *std.ArrayList(AliasDecl), consts: *std.ArrayList(ConstDecl), member_names: *std.StringHashMap(void)) Error![]InterfaceMethod {
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
 
@@ -708,7 +717,11 @@ pub const Parser = struct {
                 try self.parseUsingOrSkip(aliases, self.parsed_imports, member_names);
                 continue;
             }
-            if (self.eatKeyword("const") or self.lookahead.tag == .dollar) {
+            if (self.eatKeyword("const")) {
+                try self.parseConstOrSkip(consts, member_names);
+                continue;
+            }
+            if (self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
@@ -2895,6 +2908,17 @@ fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, decl: *const In
         for (decl.aliases) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        for (decl.consts) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+    for (decl.consts, 0..) |lhs, i| {
+        for (decl.consts[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+        for (decl.aliases) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
     }
     for (decl.aliases, 0..) |lhs, i| {
         for (decl.aliases[i + 1 ..]) |rhs| {
@@ -2966,15 +2990,17 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         }
     }
     var empty_fields: [0]Field = .{};
-    var empty_consts: [0]ConstDecl = .{};
     var alias_scope = Struct{
         .name = decl.name,
         .fields = empty_fields[0..],
-        .consts = empty_consts[0..],
+        .consts = decl.consts,
         .aliases = decl.aliases,
     };
     for (decl.aliases) |*alias| {
         try emitAlias(allocator, out, file, &alias_scope, alias, "    ");
+    }
+    for (decl.consts) |*nested_const| {
+        try emitNestedConst(allocator, out, file, &alias_scope, nested_const);
     }
     for (decl.methods) |method| {
         const method_name = try zigIdentAlloc(allocator, method.name);

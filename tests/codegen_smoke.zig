@@ -1291,6 +1291,8 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.Details == generated.ExtendedService_Details);
     try std.testing.expect(generated.ExtendedService.Callback == generated.ExtendedService_Callback);
     try std.testing.expect(generated.ExtendedService.DetailsAlias == generated.ExtendedService_Details);
+    try std.testing.expectEqual(@as(u16, 12), generated.ExtendedService.defaultLimit);
+    try std.testing.expectEqualSlices(u8, "extended", generated.ExtendedService.defaultLabel);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Callback.done);
 }
 
