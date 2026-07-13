@@ -328,6 +328,11 @@ pub const AnnotationMetadata = struct {
     targets: AnnotationTargets = .{},
 };
 
+pub const FileAnnotationMetadata = struct {
+    index: usize,
+    raw: []const u8,
+};
+
 pub const File = struct {
     id: ?u64,
     annotations_raw: []const []const u8 = &.{},
@@ -3494,6 +3499,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
         , .{ indent, index, annotation_literal });
     }
     if (file.annotations_raw.len != 0) try out.append(allocator, '\n');
+    try emitFileAnnotationMetadataTable(allocator, &out, file.annotations_raw, if (options.namespace != null) "    " else "");
     try emitDeclarationMetadataTable(allocator, &out, file, if (options.namespace != null) "    " else "");
     try emitImportMetadataTable(allocator, &out, file.imports, if (options.namespace != null) "    " else "");
     try emitAliasMetadataTable(allocator, &out, file.aliases, if (options.namespace != null) "    " else "");
@@ -4088,6 +4094,18 @@ fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_
         };
     }
     return null;
+}
+
+fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), annotations_raw: []const []const u8, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.file_annotations\": []const cpz.schema.FileAnnotationMetadata = &[_]cpz.schema.FileAnnotationMetadata{{", .{indent});
+    for (annotations_raw, 0..) |annotation_raw, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const annotation_literal = try zigStringLiteralAlloc(allocator, annotation_raw);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out, ".{{ .index = {}, .raw = {s} }}", .{ index, annotation_literal });
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (annotations_raw.len != 0) try out.append(allocator, '\n');
 }
 
 fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, indent: []const u8) LayoutError!void {
