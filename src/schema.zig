@@ -8545,6 +8545,34 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
                 \\        }}
                 \\
+                \\        pub fn setFromBuilder(self: @This(), index: usize, new_value: cpz.PointerBuilder) !void {{
+                \\            return (try self.list.getPointerElement(index)).copyFromBuilder(new_value);
+                \\        }}
+                \\
+                \\        pub fn setCanonical(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
+                \\            return (try self.list.getPointerElement(index)).copyFromCanonical(new_value);
+                \\        }}
+                \\
+                \\        pub fn setCanonicalFromBuilder(self: @This(), index: usize, new_value: cpz.PointerBuilder) !void {{
+                \\            return (try self.list.getPointerElement(index)).copyFromCanonicalBuilder(new_value);
+                \\        }}
+                \\
+                \\        pub fn newCopyOrphan(self: @This(), new_value: cpz.PointerReader) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyPointer(new_value);
+                \\        }}
+                \\
+                \\        pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.PointerReader) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyPointerCanonical(new_value);
+                \\        }}
+                \\
+                \\        pub fn newCopyOrphanFromBuilder(self: @This(), new_value: cpz.PointerBuilder) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyPointerFromBuilder(new_value);
+                \\        }}
+                \\
+                \\        pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.PointerBuilder) !cpz.Orphan {{
+                \\            return self.orphanage().newCopyPointerCanonicalFromBuilder(new_value);
+                \\        }}
+                \\
                 \\        pub fn clear(self: @This(), index: usize) !void {{
                 \\            return self.list.clearPointerElement(index);
                 \\        }}
@@ -10337,6 +10365,16 @@ test "schema code generator emits generic pointer builder copy helpers" {
     try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListCanonical(@\"cpz.value\".list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonicalFromBuilder(builder: *cpz.MessageBuilder, @\"cpz.value\": Box_items_BuilderList) !@This()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListCanonicalFromBuilder(@\"cpz.value\".list)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setFromBuilder(self: @This(), index: usize, new_value: cpz.PointerBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setCanonical(self: @This(), index: usize, new_value: cpz.PointerReader) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setCanonicalFromBuilder(self: @This(), index: usize, new_value: cpz.PointerBuilder) !void") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "copyFromCanonicalBuilder(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonical(self: @This(), new_value: cpz.PointerReader) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonical(new_value)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newCopyOrphanCanonicalFromBuilder(self: @This(), new_value: cpz.PointerBuilder) !cpz.Orphan") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonicalFromBuilder(new_value)") != null);
 }
 
 test "schema code generator emits external import type references" {
