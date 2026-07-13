@@ -5,6 +5,8 @@ const generated = @import("generated_schema");
 test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(u64, 0xc0ffee), generated.@"cpz.file_id");
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.file_annotation.0");
+    try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.fileAnnotation.0.index");
+    try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.fileAnnotation.0.raw");
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.file_annotations".len);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.file_annotations"[0].index);
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.fileAnnotationByIndex"(0).?.raw);

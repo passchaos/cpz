@@ -4310,6 +4310,15 @@ fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_
 }
 
 fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), annotations_raw: []const []const u8, indent: []const u8) LayoutError!void {
+    for (annotations_raw, 0..) |annotation_raw, index| {
+        const annotation_literal = try zigStringLiteralAlloc(allocator, annotation_raw);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.fileAnnotation.{}.index": usize = {};
+            \\{s}pub const @"cpz.fileAnnotation.{}.raw": []const u8 = {s};
+            \\
+        , .{ indent, index, index, indent, index, annotation_literal });
+    }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.file_annotations\": []const cpz.schema.FileAnnotationMetadata = &[_]cpz.schema.FileAnnotationMetadata{{", .{indent});
     for (annotations_raw, 0..) |annotation_raw, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
