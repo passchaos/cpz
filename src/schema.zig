@@ -4236,6 +4236,7 @@ fn emitAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList
         try appendAnnotationMetadataLiteral(allocator, out, &annotation);
     }
     try out.appendSlice(allocator, "};\n");
+    try emitAnnotationLookupHelpers(allocator, out, indent);
     if (annotations.len != 0) try out.append(allocator, '\n');
 }
 
@@ -4249,7 +4250,23 @@ fn emitScopedAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Arr
         count += 1;
     }
     try out.appendSlice(allocator, "};\n");
+    try emitAnnotationLookupHelpers(allocator, out, indent);
     if (count != 0) try out.append(allocator, '\n');
+}
+
+fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.annotationByName"(@"cpz.name": []const u8) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (std.mem.eql(u8, @"cpz.annotation".name, @"cpz.name")) return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.annotationById"(@"cpz.id": u64) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (@"cpz.annotation".id != null and @"cpz.annotation".id.? == @"cpz.id") return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
 fn appendAnnotationMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const AnnotationDecl) LayoutError!void {
