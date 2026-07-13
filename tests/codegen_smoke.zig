@@ -305,8 +305,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByName"("globalPayload").?.name);
@@ -366,15 +366,22 @@ test "generated simple constants compile" {
     try std.testing.expect(!generated.@"cpz.const.globalScores.listItem.1.isHexData");
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].list_item_count);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.listItemCount");
-    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.consts"[10].name);
-    try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[10].ty);
-    try std.testing.expectEqualStrings("(id = 9, name = \"raw\")", generated.@"cpz.consts"[10].literal);
-    try std.testing.expect(!generated.@"cpz.consts"[10].emitted);
-    try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.consts"[11].name);
-    try std.testing.expectEqualStrings("Data", generated.@"cpz.consts"[11].ty);
-    try std.testing.expectEqualStrings("embed \"fixtures/raw.bin\"", generated.@"cpz.consts"[11].literal);
+    try std.testing.expectEqualStrings("globalDataItems", generated.@"cpz.consts"[10].name);
+    try std.testing.expectEqualStrings("List(Data)", generated.@"cpz.consts"[10].ty);
+    try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalDataItems.listItemCount");
+    try std.testing.expectEqualStrings("aa bb", generated.@"cpz.const.globalDataItems.listItemByHexData"(true).?.literal);
+    try std.testing.expectEqualStrings("plain", generated.@"cpz.const.globalDataItems.listItemByHexData"(false).?.literal);
+    try std.testing.expectEqualStrings("aa bb", generated.@"cpz.const.globalDataItems.listItemByAnnotations"("").?.literal);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.const.globalDataItems.listItemByAnnotations"("missing"));
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.consts"[11].name);
+    try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[11].ty);
+    try std.testing.expectEqualStrings("(id = 9, name = \"raw\")", generated.@"cpz.consts"[11].literal);
     try std.testing.expect(!generated.@"cpz.consts"[11].emitted);
-    try std.testing.expectEqual(@as(usize, 11), generated.@"cpz.const.globalEmbeddedData.index");
+    try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.consts"[12].name);
+    try std.testing.expectEqualStrings("Data", generated.@"cpz.consts"[12].ty);
+    try std.testing.expectEqualStrings("embed \"fixtures/raw.bin\"", generated.@"cpz.consts"[12].literal);
+    try std.testing.expect(!generated.@"cpz.consts"[12].emitted);
+    try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.const.globalEmbeddedData.index");
     try std.testing.expectEqualStrings("embed \"fixtures/raw.bin\"", generated.@"cpz.const.globalEmbeddedData.literal");
     try std.testing.expect(!generated.@"cpz.const.globalEmbeddedData.emitted");
     try std.testing.expectEqualStrings("", generated.@"cpz.const.globalEmbeddedData.annotations");
@@ -386,6 +393,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(f64, 125.0), generated.globalRatio);
     try std.testing.expectEqualSlices(u32, &[_]u32{ 10, 20, 30 }, generated.globalScores);
     try std.testing.expectEqualSlices(u8, "beta", generated.globalNames[1]);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, generated.globalDataItems[0]);
+    try std.testing.expectEqualSlices(u8, "plain", generated.globalDataItems[1]);
     try std.testing.expectEqualSlices(u8, "delta", generated.globalNamesAlias[1]);
     try std.testing.expectEqual(generated.Color.blue, generated.globalShades[1]);
     try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.constCount");

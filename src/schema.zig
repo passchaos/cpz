@@ -5266,7 +5266,17 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent });
+        \\{s}pub fn @"cpz.const.{s}.listItemByHexData"(@"cpz.isHex": bool) ?cpz.schema.ConstListItem {{
+        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".is_hex_data == @"cpz.isHex") return @"cpz.item";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.const.{s}.listItemByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.ConstListItem {{
+        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".annotations, @"cpz.annotationFilter")) return @"cpz.item";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
     if (decl.list_items) |items| {
         for (items) |item| {
             const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
