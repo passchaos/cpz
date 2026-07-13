@@ -36,7 +36,7 @@ const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
 try root.setUInt32(0, 1234, 0);
 try root.setText(0, "hello");
 
-const bytes = try cpz.serialize.messageToFlatBytes(std.heap.page_allocator, builder.segmentsConst());
+const bytes = try cpz.messageToFlatBytes(std.heap.page_allocator, builder.segmentsConst());
 defer std.heap.page_allocator.free(bytes);
 ```
 

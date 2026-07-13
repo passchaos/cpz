@@ -31,9 +31,86 @@ pub const ReaderOptions = message.ReaderOptions;
 pub const BuilderOptions = message.BuilderOptions;
 pub const MessageStats = message.MessageStats;
 pub const MessageSize = message.MessageSize;
+pub const Segment = serialize.Segment;
+pub const ConstSegment = serialize.ConstSegment;
+pub const FlatMessage = serialize.FlatMessage;
+pub const FlatMessageView = serialize.FlatMessageView;
+pub const max_segment_count = serialize.max_segment_count;
+pub const computeSerializedSize = serialize.computeSerializedSize;
+pub const computeSerializedSizeInWords = serialize.computeSerializedSizeInWords;
+pub const segmentTableWords = serialize.segmentTableWords;
+pub const serializeSegmentTable = serialize.serializeSegmentTable;
+pub const messageToFlatBytes = serialize.messageToFlatBytes;
+pub const writeMessageToWriter = serialize.writeMessageToWriter;
+pub const messageToPackedBytes = serialize.messageToPackedBytes;
+pub const writePackedMessageToWriter = serialize.writePackedMessageToWriter;
+pub const readFlatMessage = serialize.readFlatMessage;
+pub const readFlatMessageView = serialize.readFlatMessageView;
+pub const readPackedMessage = serialize.readPackedMessage;
+pub const readMessageFromReader = serialize.readMessageFromReader;
+pub const readPackedMessageFromReader = serialize.readPackedMessageFromReader;
 pub const toSingleSegmentFlatBytes = message.toSingleSegmentFlatBytes;
 pub const toCanonicalSegmentBytes = message.toCanonicalSegmentBytes;
+pub const expectedSize = serialize.expectedSize;
 pub const expectedSizeInWordsFromPrefix = serialize.expectedSizeInWordsFromPrefix;
+
+test "top-level stream framing helpers round-trip" {
+    const std = @import("std");
+    const testing = std.testing;
+
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try root.setUInt32(0, 2026, 0);
+    try root.setText(0, "top-level");
+
+    const segments = try builder.segmentsConst();
+    const flat = try messageToFlatBytes(testing.allocator, segments);
+    defer testing.allocator.free(flat);
+    try testing.expectEqual(flat.len, try computeSerializedSize(segments));
+    try testing.expectEqual(flat.len / wire.bytes_per_word, try computeSerializedSizeInWords(segments));
+    try testing.expectEqual(flat.len, try expectedSize(flat[0..wire.bytes_per_word]));
+    try testing.expectEqual(flat.len / wire.bytes_per_word, try expectedSizeInWordsFromPrefix(flat[0..wire.bytes_per_word]));
+
+    var parsed = try readFlatMessage(testing.allocator, flat);
+    defer parsed.deinit(testing.allocator);
+    var reader = MessageReader.init(parsed.segments, .{});
+    try testing.expectEqual(@as(u32, 2026), (try reader.getRoot()).getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "top-level", try (try reader.getRoot()).getPointerField(0).getText());
+
+    var view = try readFlatMessageView(testing.allocator, flat);
+    defer view.deinit(testing.allocator);
+    var view_reader = MessageReader.init(view.segments, .{});
+    try testing.expectEqual(@as(u32, 2026), (try view_reader.getRoot()).getUInt32(0, 0));
+
+    const packed_bytes = try messageToPackedBytes(testing.allocator, segments);
+    defer testing.allocator.free(packed_bytes);
+    var parsed_packed = try readPackedMessage(testing.allocator, packed_bytes);
+    defer parsed_packed.deinit(testing.allocator);
+    var packed_reader = MessageReader.init(parsed_packed.segments, .{});
+    try testing.expectEqualSlices(u8, "top-level", try (try packed_reader.getRoot()).getPointerField(0).getText());
+
+    var flat_buffer: [128]u8 = undefined;
+    var flat_writer = std.Io.Writer.fixed(&flat_buffer);
+    try writeMessageToWriter(&flat_writer, segments);
+    var flat_stream = std.Io.Reader.fixed(std.Io.Writer.buffered(&flat_writer));
+    var streamed = try readMessageFromReader(testing.allocator, &flat_stream);
+    defer streamed.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, streamed.consumed_len);
+
+    var packed_buffer: [128]u8 = undefined;
+    var packed_writer = std.Io.Writer.fixed(&packed_buffer);
+    try writePackedMessageToWriter(testing.allocator, &packed_writer, segments);
+    var packed_stream = std.Io.Reader.fixed(std.Io.Writer.buffered(&packed_writer));
+    var streamed_packed = try readPackedMessageFromReader(testing.allocator, &packed_stream);
+    defer streamed_packed.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, streamed_packed.consumed_len);
+
+    const table = try serializeSegmentTable(testing.allocator, segments);
+    defer testing.allocator.free(table);
+    try testing.expectEqual(segmentTableWords(segments.len) * wire.bytes_per_word, table.len);
+}
 
 test {
     _ = wire;
