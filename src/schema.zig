@@ -5608,6 +5608,11 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\        return null;
         \\    }
         \\
+        \\    pub fn @"cpz.fieldByHexDefault"(@"cpz.isHex": bool) ?cpz.schema.FieldMetadata {
+        \\        for (@"cpz.fields") |@"cpz.field"| if (@"cpz.field".default_is_hex_data == @"cpz.isHex") return @"cpz.field";
+        \\        return null;
+        \\    }
+        \\
         \\    pub fn @"cpz.fieldByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.FieldMetadata {
         \\        for (@"cpz.fields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".annotations, @"cpz.annotationFilter")) return @"cpz.field";
         \\        return null;
