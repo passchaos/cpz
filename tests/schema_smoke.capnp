@@ -18,7 +18,7 @@ using DynamicAlias = AnyPointer;
 using CapAlias = Capability;
 using GenericPersonAlias = GenericBox(Person);
 
-const globalId :UInt32 = 12345;
+const globalId :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;
 const globalName :Text = "const text";
 const globalPayload :Data = 0x"de ad be ef";

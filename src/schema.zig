@@ -77,6 +77,7 @@ pub const ConstDecl = struct {
     ty: Type,
     literal: []const u8,
     is_hex_data: bool = false,
+    annotations: []const u8 = "",
     list_items: ?[]ConstListItem = null,
 
     pub fn deinit(self: *ConstDecl, allocator: std.mem.Allocator) void {
@@ -89,6 +90,7 @@ pub const ConstDecl = struct {
 pub const ConstListItem = struct {
     literal: []const u8,
     is_hex_data: bool = false,
+    annotations: []const u8 = "",
 };
 
 pub const ImportDecl = struct {
@@ -1156,17 +1158,12 @@ pub const Parser = struct {
             };
         };
 
-        if (self.lookahead.tag != .semicolon) {
+        if (!isSimpleConstType(ty) and list_items == null) {
             ty.deinit(self.allocator);
             try self.skipRawUntilSemicolon();
             return;
         }
-        if (!isSimpleConstType(ty) and list_items == null) {
-            ty.deinit(self.allocator);
-            try self.expect(.semicolon);
-            return;
-        }
-        try self.expect(.semicolon);
+        const const_annotations = try self.takeRawUntilSemicolon();
 
         const entry = try decl_names.getOrPut(name);
         if (entry.found_existing) {
@@ -1178,6 +1175,7 @@ pub const Parser = struct {
             .ty = ty,
             .literal = literal,
             .is_hex_data = is_hex_data,
+            .annotations = const_annotations,
             .list_items = list_items,
         });
     }
@@ -3812,6 +3810,14 @@ fn emitNestedConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
 fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, decl: *const ConstDecl, indent: []const u8) LayoutError!void {
     const const_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(const_name);
+    if (decl.annotations.len != 0) {
+        const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.const.{s}.annotations": []const u8 = {s};
+            \\
+        , .{ indent, const_name, annotation_literal });
+    }
     switch (resolveTypeScoped(file, scope, decl.ty)) {
         .void => try appendFmt(allocator, out,
             \\{s}pub const {s}: void = {{}};
