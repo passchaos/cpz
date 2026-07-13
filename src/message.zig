@@ -230,6 +230,22 @@ pub const OwnedMessageReader = struct {
         return self.reader.toPackedBytes(allocator);
     }
 
+    pub fn writeToWriter(self: *const OwnedMessageReader, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return self.reader.writeToWriter(writer);
+    }
+
+    pub fn writePackedToWriter(self: *const OwnedMessageReader, allocator: std.mem.Allocator, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return self.reader.writePackedToWriter(allocator, writer);
+    }
+
+    pub fn toCanonicalSegmentBytes(self: *const OwnedMessageReader, allocator: std.mem.Allocator) Error![]u8 {
+        return self.reader.toCanonicalSegmentBytes(allocator);
+    }
+
+    pub fn toSingleSegmentFlatBytes(self: *const OwnedMessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.toSingleSegmentFlatBytes(allocator);
+    }
+
     pub fn consumedLen(self: *const OwnedMessageReader) usize {
         return self.flat.consumed_len;
     }
@@ -367,6 +383,22 @@ pub const MessageReaderView = struct {
 
     pub fn toPackedBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
         return self.reader.toPackedBytes(allocator);
+    }
+
+    pub fn writeToWriter(self: *const MessageReaderView, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return self.reader.writeToWriter(writer);
+    }
+
+    pub fn writePackedToWriter(self: *const MessageReaderView, allocator: std.mem.Allocator, writer: *std.Io.Writer) (Error || serialize.Error || std.Io.Writer.Error)!void {
+        return self.reader.writePackedToWriter(allocator, writer);
+    }
+
+    pub fn toCanonicalSegmentBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) Error![]u8 {
+        return self.reader.toCanonicalSegmentBytes(allocator);
+    }
+
+    pub fn toSingleSegmentFlatBytes(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
+        return self.reader.toSingleSegmentFlatBytes(allocator);
     }
 
     pub fn consumedLen(self: *const MessageReaderView) usize {
@@ -2993,6 +3025,22 @@ test "owned message readers parse flat and packed bytes" {
     var owned_roundtrip = try serialize.readPackedMessage(testing.allocator, owned_packed_bytes);
     defer owned_roundtrip.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_roundtrip.consumed_len);
+    var owned_write_buffer: [128]u8 = undefined;
+    var owned_writer = std.Io.Writer.fixed(&owned_write_buffer);
+    try owned_flat.writeToWriter(&owned_writer);
+    try testing.expectEqualSlices(u8, flat, std.Io.Writer.buffered(&owned_writer));
+    var owned_packed_write_buffer: [128]u8 = undefined;
+    var owned_packed_writer = std.Io.Writer.fixed(&owned_packed_write_buffer);
+    try owned_flat.writePackedToWriter(testing.allocator, &owned_packed_writer);
+    var owned_packed_stream = try serialize.readPackedMessage(testing.allocator, std.Io.Writer.buffered(&owned_packed_writer));
+    defer owned_packed_stream.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_packed_stream.consumed_len);
+    const owned_canonical = try owned_flat.toCanonicalSegmentBytes(testing.allocator);
+    defer testing.allocator.free(owned_canonical);
+    try testing.expect(owned_canonical.len > 0);
+    const owned_single = try owned_flat.toSingleSegmentFlatBytes(testing.allocator);
+    defer testing.allocator.free(owned_single);
+    try testing.expectEqual(flat.len, owned_single.len);
     try testing.expect((try owned_flat.validate()).total_words > 0);
     try testing.expect((try owned_flat.totalSize()).word_count > 0);
 
@@ -3054,6 +3102,22 @@ test "message reader views parse flat bytes without copying message data" {
     const view_flat_bytes = try view.toFlatBytes(testing.allocator);
     defer testing.allocator.free(view_flat_bytes);
     try testing.expectEqualSlices(u8, flat, view_flat_bytes);
+    var view_write_buffer: [128]u8 = undefined;
+    var view_writer = std.Io.Writer.fixed(&view_write_buffer);
+    try view.writeToWriter(&view_writer);
+    try testing.expectEqualSlices(u8, flat, std.Io.Writer.buffered(&view_writer));
+    var view_packed_write_buffer: [128]u8 = undefined;
+    var view_packed_writer = std.Io.Writer.fixed(&view_packed_write_buffer);
+    try view.writePackedToWriter(testing.allocator, &view_packed_writer);
+    var view_packed_stream = try serialize.readPackedMessage(testing.allocator, std.Io.Writer.buffered(&view_packed_writer));
+    defer view_packed_stream.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, view_packed_stream.consumed_len);
+    const view_canonical = try view.toCanonicalSegmentBytes(testing.allocator);
+    defer testing.allocator.free(view_canonical);
+    try testing.expect(view_canonical.len > 0);
+    const view_single = try view.toSingleSegmentFlatBytes(testing.allocator);
+    defer testing.allocator.free(view_single);
+    try testing.expectEqual(flat.len, view_single.len);
     try testing.expect((try view.validate()).total_words > 0);
     try testing.expect((try view.totalSize()).word_count > 0);
     const segment0 = try view.asReader().segmentBytes(0);
