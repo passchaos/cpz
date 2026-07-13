@@ -126,6 +126,9 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("green", generated.@"cpz.enum.Color.values"[1].name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.enum.Color.values"[1].index);
     try std.testing.expectEqual(@as(u16, 1), generated.@"cpz.enum.Color.values"[1].ordinal);
+    try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.enumerant.Color.blue.index");
+    try std.testing.expectEqualStrings("blue", generated.@"cpz.enumerant.Color.blue.name");
+    try std.testing.expectEqual(@as(u16, 2), generated.@"cpz.enumerant.Color.blue.ordinal");
     try std.testing.expectEqualStrings("$labels([\"cool\", \"primary\"])", generated.@"cpz.enum.Color.values"[2].annotations);
     try std.testing.expectEqualStrings("$labels([\"cool\", \"primary\"])", generated.@"cpz.enumerant.Color.blue.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.Person.@"cpz.annotations");
