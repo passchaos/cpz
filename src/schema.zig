@@ -6539,6 +6539,11 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.source".copyRootTo(@"cpz.target");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.copyTypedTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !Builder {{
+        \\        _ = try @"cpz.source".copyRootTo(@"cpz.target");
+        \\        return getRootTyped(@"cpz.target");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.copyCanonicalFrom"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.source": *cpz.MessageReader) !Builder {{
         \\        return Builder.fromBuilder(try @"cpz.builder".copyRootCanonicalFrom(@"cpz.source"));
         \\    }}
@@ -6549,6 +6554,11 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.root.copyCanonicalTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !cpz.PointerBuilder {{
         \\        return @"cpz.source".copyRootCanonicalTo(@"cpz.target");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.copyCanonicalTypedTo"(@"cpz.source": *cpz.MessageBuilder, @"cpz.target": *cpz.MessageBuilder) !Builder {{
+        \\        _ = try @"cpz.source".copyRootCanonicalTo(@"cpz.target");
+        \\        return getRootTyped(@"cpz.target");
         \\    }}
         \\
         \\    pub fn newOrphan(@"cpz.builder": *cpz.MessageBuilder) !Orphan {{
