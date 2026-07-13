@@ -4367,6 +4367,10 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "annotation_decl", decl.id, "", &.{}, indent);
         constant_index += 1;
     }
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.declarationCount": usize = {};
+        \\
+    , .{ indent, constant_index });
     try appendFmt(allocator, out, "{s}pub const @\"cpz.declarations\": []const cpz.schema.DeclarationMetadata = &[_]cpz.schema.DeclarationMetadata{{", .{indent});
     var count: usize = 0;
     for (file.structs) |decl| {
