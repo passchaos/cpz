@@ -1691,6 +1691,11 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("UInt32", generated.Service.@"cpz.method.ping.params.fields"[1].ty);
     try std.testing.expectEqualStrings("3", generated.Service.@"cpz.method.ping.params.fields"[1].default_literal.?);
     try std.testing.expectEqualStrings("$schemaNote(\"attempts\")", generated.Service.@"cpz.method.ping.params.fields"[1].annotations);
+    try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.params.field.attempts.index");
+    try std.testing.expectEqualStrings("attempts", generated.Service.@"cpz.method.ping.params.field.attempts.name");
+    try std.testing.expectEqualStrings("UInt32", generated.Service.@"cpz.method.ping.params.field.attempts.type");
+    try std.testing.expectEqualStrings("3", generated.Service.@"cpz.method.ping.params.field.attempts.default".?);
+    try std.testing.expectEqualStrings("$schemaNote(\"attempts\")", generated.Service.@"cpz.method.ping.params.field.attempts.annotations");
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.results.fields".len);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.ping.results.fields"[0].index);

@@ -4092,6 +4092,33 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
 }
 
 fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
+    for (fields) |field| {
+        const field_name = try zigIdentAlloc(allocator, field.name);
+        defer allocator.free(field_name);
+        const name_literal = try zigStringLiteralAlloc(allocator, field.name);
+        defer allocator.free(name_literal);
+        const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
+        defer allocator.free(type_literal);
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.index": usize = {};
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.name": []const u8 = {s};
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.type": []const u8 = {s};
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.default": ?[]const u8 = 
+        , .{ indent, method_name, kind, field_name, field.index, indent, method_name, kind, field_name, name_literal, indent, method_name, kind, field_name, type_literal, indent, method_name, kind, field_name });
+        if (field.default_literal) |default_raw| {
+            const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
+            defer allocator.free(default_literal);
+            try appendFmt(allocator, out, "{s};\n", .{default_literal});
+        } else {
+            try out.appendSlice(allocator, "null;\n");
+        }
+        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        defer allocator.free(annotations_literal);
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.annotations": []const u8 = {s};
+            \\
+        , .{ indent, method_name, kind, field_name, annotations_literal });
+    }
     try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.{s}.fields\": []const cpz.schema.MethodField = &[_]cpz.schema.MethodField{{", .{ indent, method_name, kind });
     for (fields, 0..) |field, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
