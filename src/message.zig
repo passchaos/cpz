@@ -709,9 +709,18 @@ pub const MessageReader = struct {
         return stats;
     }
 
+    pub fn validateWithOptions(self: *const MessageReader, options: ReaderOptions) Error!MessageStats {
+        var reader = MessageReader.init(self.segments, options);
+        return reader.validate();
+    }
+
     pub fn totalSize(self: *MessageReader) Error!MessageSize {
         const stats = try self.validate();
         return stats.size();
+    }
+
+    pub fn totalSizeWithOptions(self: *const MessageReader, options: ReaderOptions) Error!MessageSize {
+        return (try self.validateWithOptions(options)).size();
     }
 
     pub fn traversalLimitWords(self: *const MessageReader) usize {
