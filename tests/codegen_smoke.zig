@@ -890,6 +890,27 @@ test "generated scalar root helpers work" {
     var text_reader = cpz.MessageReader.init(try text_builder.segmentsConst(), .{});
     try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(&text_reader));
     try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.textDefault"(&text_reader, "ignored"));
+    const flat_text_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&text_builder);
+    defer std.testing.allocator.free(flat_text_bytes);
+    var owned_text_reader = try generated.Person.@"cpz.root.fromFlatBytes"(std.testing.allocator, flat_text_bytes, .{});
+    defer owned_text_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(owned_text_reader.asReader()));
+    var viewed_text_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, flat_text_bytes, .{});
+    defer viewed_text_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(viewed_text_reader.asReader()));
+    const packed_text_bytes = try generated.Person.@"cpz.builderRoot.toPackedBytes"(&text_builder);
+    defer std.testing.allocator.free(packed_text_bytes);
+    var owned_packed_text_reader = try generated.Person.@"cpz.root.fromPackedBytes"(std.testing.allocator, packed_text_bytes, .{});
+    defer owned_packed_text_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(owned_packed_text_reader.asReader()));
+    var flat_stream = std.Io.Reader.fixed(flat_text_bytes);
+    var owned_text_stream_reader = try generated.Person.@"cpz.root.fromReader"(std.testing.allocator, &flat_stream, .{});
+    defer owned_text_stream_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(owned_text_stream_reader.asReader()));
+    var packed_stream = std.Io.Reader.fixed(packed_text_bytes);
+    var owned_packed_text_stream_reader = try generated.Person.@"cpz.root.fromPackedReader"(std.testing.allocator, &packed_stream, .{});
+    defer owned_packed_text_stream_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(owned_packed_text_stream_reader.asReader()));
 
     var empty_data_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
     defer empty_data_builder.deinit();

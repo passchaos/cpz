@@ -6259,6 +6259,26 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".writePackedToWriter(@"cpz.allocator", @"cpz.writer");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.fromFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.bytes": []const u8, @"cpz.options": cpz.ReaderOptions) !cpz.OwnedMessageReader {{
+        \\        return cpz.OwnedMessageReader.initFlat(@"cpz.allocator", @"cpz.bytes", @"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.fromPackedBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.bytes": []const u8, @"cpz.options": cpz.ReaderOptions) !cpz.OwnedMessageReader {{
+        \\        return cpz.OwnedMessageReader.initPacked(@"cpz.allocator", @"cpz.bytes", @"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.fromReader"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *std.Io.Reader, @"cpz.options": cpz.ReaderOptions) !cpz.OwnedMessageReader {{
+        \\        return cpz.OwnedMessageReader.initFromReader(@"cpz.allocator", @"cpz.reader", @"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.fromPackedReader"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *std.Io.Reader, @"cpz.options": cpz.ReaderOptions) !cpz.OwnedMessageReader {{
+        \\        return cpz.OwnedMessageReader.initPackedFromReader(@"cpz.allocator", @"cpz.reader", @"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.viewFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.bytes": []const u8, @"cpz.options": cpz.ReaderOptions) !cpz.MessageReaderView {{
+        \\        return cpz.MessageReaderView.initFlat(@"cpz.allocator", @"cpz.bytes", @"cpz.options");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.traversalLimitWords"(@"cpz.reader": *cpz.MessageReader) usize {{
         \\        return @"cpz.reader".traversalLimitWords();
         \\    }}
