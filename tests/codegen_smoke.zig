@@ -275,6 +275,11 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByName"("globalPayload").?.name);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.constByName"("globalPayload").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByName"("missing"));
+    try std.testing.expectEqualStrings("globalId", generated.@"cpz.constByType"("UInt32").?.name);
+    try std.testing.expectEqualStrings("globalNamesAlias", generated.@"cpz.constByType"("Names").?.name);
+    try std.testing.expectEqualStrings("globalNames", generated.@"cpz.constByResolvedType"("List(Text)").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByType"("Missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByResolvedType"("Missing"));
     try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByIndex"(3).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.consts"[0].ty);
@@ -337,6 +342,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByName"("defaultColor").?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.constByName"("defaultColor").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByName"("missing"));
+    try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByType"("UInt16").?.name);
+    try std.testing.expectEqualStrings("defaultScores", generated.Person.@"cpz.constByResolvedType"("List(UInt16)").?.name);
     try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByIndex"(2).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.consts"[0].ty);
