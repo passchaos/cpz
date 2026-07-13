@@ -173,6 +173,8 @@ pub const InterfaceMethod = struct {
     params_signature: []const u8 = "",
     results_signature: []const u8 = "",
     annotation_signature: []const u8 = "",
+    params_type: []const u8 = "",
+    results_type: []const u8 = "",
     is_streaming: bool = false,
     parameters: []const []const u8 = &.{},
     param_fields: []const MethodField = &.{},
@@ -830,6 +832,8 @@ pub const Parser = struct {
                 .params_signature = parts.params,
                 .results_signature = parts.results,
                 .annotation_signature = parts.annotations,
+                .params_type = methodSignatureTypeName(parts.params),
+                .results_type = methodSignatureTypeName(parts.results),
                 .is_streaming = std.mem.eql(u8, parts.results, "stream"),
                 .parameters = parameters,
                 .param_fields = param_fields,
@@ -1013,6 +1017,12 @@ pub const Parser = struct {
             if (index < end and trimmed[index] == ',') index += 1;
         }
         return fields.toOwnedSlice(self.allocator);
+    }
+
+    fn methodSignatureTypeName(raw: []const u8) []const u8 {
+        const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+        if (trimmed.len == 0 or trimmed[0] == '(' or std.mem.eql(u8, trimmed, "stream")) return "";
+        return trimmed;
     }
 
     fn splitMethodSignature(signature: []const u8) struct { params: []const u8, results: []const u8, annotations: []const u8 } {
@@ -3656,12 +3666,24 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.params": []const u8 = {s};
             \\
         , .{ method_name, params_signature_literal });
+        const params_type_literal = try zigStringLiteralAlloc(allocator, method.params_type);
+        defer allocator.free(params_type_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.paramsType": []const u8 = {s};
+            \\
+        , .{ method_name, params_type_literal });
         const results_signature_literal = try zigStringLiteralAlloc(allocator, method.results_signature);
         defer allocator.free(results_signature_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.method.{s}.results": []const u8 = {s};
             \\
         , .{ method_name, results_signature_literal });
+        const results_type_literal = try zigStringLiteralAlloc(allocator, method.results_type);
+        defer allocator.free(results_type_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.method.{s}.resultsType": []const u8 = {s};
+            \\
+        , .{ method_name, results_type_literal });
         const annotation_signature_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
         defer allocator.free(annotation_signature_literal);
         try appendFmt(allocator, out,

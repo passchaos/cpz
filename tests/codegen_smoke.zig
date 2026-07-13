@@ -1339,6 +1339,12 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("stream", generated.Service.@"cpz.method.streamIt.results");
     try std.testing.expectEqualStrings("", generated.Service.@"cpz.method.streamIt.annotations");
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.streaming");
+    try std.testing.expectEqual(@as(u16, 3), generated.Service.typed);
+    try std.testing.expectEqualStrings("Details -> Details", generated.Service.@"cpz.method.typed.signature");
+    try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.paramsType");
+    try std.testing.expectEqualStrings("Details", generated.Service.@"cpz.method.typed.resultsType");
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.params.fields".len);
+    try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fields".len);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);
