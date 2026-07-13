@@ -76,6 +76,7 @@ pub const AliasDecl = struct {
 pub const AliasMetadata = struct {
     name: []const u8,
     target: []const u8,
+    resolved_target: []const u8 = "",
 };
 
 pub const ConstDecl = struct {
@@ -3502,7 +3503,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     try emitFileAnnotationMetadataTable(allocator, &out, file.annotations_raw, if (options.namespace != null) "    " else "");
     try emitDeclarationMetadataTable(allocator, &out, file, if (options.namespace != null) "    " else "");
     try emitImportMetadataTable(allocator, &out, file.imports, if (options.namespace != null) "    " else "");
-    try emitAliasMetadataTable(allocator, &out, file.aliases, if (options.namespace != null) "    " else "");
+    try emitAliasMetadataTable(allocator, &out, file, null, file.aliases, if (options.namespace != null) "    " else "");
     try emitConstMetadataTable(allocator, &out, file.consts, if (options.namespace != null) "    " else "");
     for (file.consts) |*decl| {
         try emitConst(allocator, &out, file, decl);
@@ -3827,7 +3828,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     for (decl.aliases) |*alias| {
         try emitAlias(allocator, out, file, &alias_scope, alias, "    ");
     }
-    try emitAliasMetadataTable(allocator, out, decl.aliases, "    ");
+    try emitAliasMetadataTable(allocator, out, file, &alias_scope, decl.aliases, "    ");
     for (decl.consts) |*nested_const| {
         try emitNestedConst(allocator, out, file, &alias_scope, nested_const);
     }
@@ -4258,7 +4259,7 @@ fn appendAnnotationTargetsLiteral(allocator: std.mem.Allocator, out: *std.ArrayL
     try out.appendSlice(allocator, " }");
 }
 
-fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), aliases: []const AliasDecl, indent: []const u8) LayoutError!void {
+fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, aliases: []const AliasDecl, indent: []const u8) LayoutError!void {
     try appendFmt(allocator, out, "{s}pub const @\"cpz.aliases\": []const cpz.schema.AliasMetadata = &[_]cpz.schema.AliasMetadata{{", .{indent});
     for (aliases, 0..) |alias, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
@@ -4268,7 +4269,15 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         defer allocator.free(target_name);
         const target_literal = try zigStringLiteralAlloc(allocator, target_name);
         defer allocator.free(target_literal);
-        try appendFmt(allocator, out, ".{{ .name = {s}, .target = {s} }}", .{ name_literal, target_literal });
+        const resolved_target_name = try schemaResolvedTypeNameAlloc(allocator, file, scope, alias.target);
+        defer allocator.free(resolved_target_name);
+        const resolved_target_literal = try zigStringLiteralAlloc(allocator, resolved_target_name);
+        defer allocator.free(resolved_target_literal);
+        try appendFmt(allocator, out, ".{{ .name = {s}, .target = {s}", .{ name_literal, target_literal });
+        if (!std.mem.eql(u8, target_name, resolved_target_name)) {
+            try appendFmt(allocator, out, ", .resolved_target = {s}", .{resolved_target_literal});
+        }
+        try out.appendSlice(allocator, " }");
     }
     try out.appendSlice(allocator, "};\n");
     if (aliases.len != 0) try out.append(allocator, '\n');
@@ -4649,7 +4658,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     for (layout.decl.aliases) |*decl| {
         try emitAlias(allocator, out, file, layout.decl, decl, "    ");
     }
-    try emitAliasMetadataTable(allocator, out, layout.decl.aliases, "    ");
+    try emitAliasMetadataTable(allocator, out, file, layout.decl, layout.decl.aliases, "    ");
 
     for (layout.decl.consts) |*decl| {
         try emitNestedConst(allocator, out, file, layout.decl, decl);
@@ -7315,6 +7324,29 @@ fn schemaTypeNameAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError![]u8 
             defer allocator.free(child_name);
             return std.fmt.allocPrint(allocator, "?{s}", .{child_name});
         },
+    };
+}
+
+fn schemaResolvedTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError![]u8 {
+    return switch (ty) {
+        .named => |name| {
+            const resolved = resolveTypeScoped(file, scope, ty);
+            if (resolved == .named and std.mem.eql(u8, resolved.named, name)) {
+                return allocator.dupe(u8, name);
+            }
+            return schemaResolvedTypeNameAlloc(allocator, file, scope, resolved);
+        },
+        .list => |child| {
+            const child_name = try schemaResolvedTypeNameAlloc(allocator, file, scope, child.*);
+            defer allocator.free(child_name);
+            return std.fmt.allocPrint(allocator, "List({s})", .{child_name});
+        },
+        .optional => |child| {
+            const child_name = try schemaResolvedTypeNameAlloc(allocator, file, scope, child.*);
+            defer allocator.free(child_name);
+            return std.fmt.allocPrint(allocator, "?{s}", .{child_name});
+        },
+        else => schemaTypeNameAlloc(allocator, ty),
     };
 }
 

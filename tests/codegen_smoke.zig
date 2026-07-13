@@ -1435,8 +1435,10 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqual(@as(usize, 6), generated.ScopedAliasBox.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("LocalId", generated.ScopedAliasBox.@"cpz.aliases"[0].name);
     try std.testing.expectEqualStrings("Id", generated.ScopedAliasBox.@"cpz.aliases"[0].target);
+    try std.testing.expectEqualStrings("UInt32", generated.ScopedAliasBox.@"cpz.aliases"[0].resolved_target);
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliases"[2].name);
     try std.testing.expectEqualStrings("List(LocalName)", generated.ScopedAliasBox.@"cpz.aliases"[2].target);
+    try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.aliases"[2].resolved_target);
     try std.testing.expectEqual(@as(u32, 77), generated.ScopedAliasBox.defaultLocalId);
     try std.testing.expectEqualSlices(u8, "aliases", generated.ScopedAliasBox.defaultLocalNames[1]);
     try std.testing.expectEqual(@as(u32, 4), generated.ScopedAliasBox.defaultLocalScores[1]);
@@ -1540,6 +1542,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.@"cpz.aliases"[0].target);
     try std.testing.expectEqualStrings("DetailsAlias", generated.ExtendedService.@"cpz.aliases"[2].name);
     try std.testing.expectEqualStrings("Details", generated.ExtendedService.@"cpz.aliases"[2].target);
+    try std.testing.expectEqualStrings("ExtendedService.Details", generated.ExtendedService.@"cpz.aliases"[2].resolved_target);
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.annotation_decls".len);
     try std.testing.expectEqualStrings("ExtendedService.detailNote", generated.ExtendedService.@"cpz.annotation_decls"[0].name);
     try std.testing.expectEqualStrings("DetailsAlias", generated.ExtendedService.@"cpz.annotation_decls"[0].ty);
