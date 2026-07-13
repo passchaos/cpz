@@ -30,6 +30,10 @@ pub const FlatMessage = struct {
         allocator.free(self.bytes);
         self.* = undefined;
     }
+
+    pub fn consumedBytes(self: FlatMessage) []const u8 {
+        return self.bytes[0..self.consumed_len];
+    }
 };
 
 pub const FlatMessageView = struct {
@@ -361,17 +365,22 @@ test "standard stream framing serializes single segment" {
     const allocator = testing.allocator;
 
     const segment = [_]u8{0} ** 16;
+    const trailer = [_]u8{ 0xaa, 0xbb };
     const segments = [_]ConstSegment{&segment};
     const bytes = try messageToFlatBytes(allocator, &segments);
     defer allocator.free(bytes);
+    const combined = try std.mem.concat(allocator, u8, &.{ bytes, &trailer });
+    defer allocator.free(combined);
 
     try testing.expectEqual(@as(usize, 24), bytes.len);
     try testing.expectEqualSlices(u8, &[_]u8{ 0, 0, 0, 0, 2, 0, 0, 0 }, bytes[0..8]);
     try testing.expectEqualSlices(u8, &segment, bytes[8..]);
 
-    var flat = try readFlatMessage(allocator, bytes);
+    var flat = try readFlatMessage(allocator, combined);
     defer flat.deinit(allocator);
     try testing.expectEqual(@as(usize, bytes.len), flat.consumed_len);
+    try testing.expectEqualSlices(u8, bytes, flat.consumedBytes());
+    try testing.expectEqual(bytes.len, flat.bytes.len);
     try testing.expectEqual(@as(usize, 1), flat.segments.len);
     try testing.expectEqualSlices(u8, &segment, flat.segments[0]);
 }

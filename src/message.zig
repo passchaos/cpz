@@ -367,7 +367,7 @@ pub const OwnedMessageReader = struct {
     }
 
     pub fn bytes(self: *const OwnedMessageReader) []const u8 {
-        return self.flat.bytes;
+        return self.flat.consumedBytes();
     }
 };
 
@@ -3305,10 +3305,15 @@ test "owned message readers parse flat and packed bytes" {
     const trailer = [_]u8{ 0xde, 0xad };
     const flat_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ flat, &trailer });
     defer testing.allocator.free(flat_with_trailer);
+    var owned_flat_with_trailer = try OwnedMessageReader.initFlat(testing.allocator, flat_with_trailer, .{});
+    defer owned_flat_with_trailer.deinit(testing.allocator);
+    try testing.expectEqual(flat.len, owned_flat_with_trailer.consumedLen());
+    try testing.expectEqualSlices(u8, flat, owned_flat_with_trailer.bytes());
     var flat_stream = std.Io.Reader.fixed(flat_with_trailer);
     var owned_from_reader = try OwnedMessageReader.initFromReader(testing.allocator, &flat_stream, .{});
     defer owned_from_reader.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_from_reader.consumedLen());
+    try testing.expectEqualSlices(u8, flat, owned_from_reader.bytes());
     try testing.expectEqualSlices(u8, &trailer, flat_stream.buffered());
 
     const packed_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ packed_bytes, &trailer });
@@ -3317,6 +3322,7 @@ test "owned message readers parse flat and packed bytes" {
     var owned_packed_from_reader = try OwnedMessageReader.initPackedFromReader(testing.allocator, &packed_stream, .{});
     defer owned_packed_from_reader.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_packed_from_reader.consumedLen());
+    try testing.expectEqualSlices(u8, flat, owned_packed_from_reader.bytes());
     try testing.expectEqualSlices(u8, &trailer, packed_stream.buffered());
 }
 
