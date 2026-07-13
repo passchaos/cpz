@@ -3796,6 +3796,10 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         \\}}
     , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
     try appendFmt(allocator, out,
+        \\pub const @"cpz.enum.{s}.valueCount": usize = {};
+        \\
+    , .{ enum_name, decl.values.len });
+    try appendFmt(allocator, out,
         \\pub const @"cpz.enum.{s}.values": []const cpz.schema.EnumValueMetadata = &[_]cpz.schema.EnumValueMetadata{{
     , .{enum_name});
     for (decl.values, 0..) |value, index| {
