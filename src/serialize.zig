@@ -41,6 +41,33 @@ pub const FlatMessage = struct {
     pub fn sourceConsumedLen(self: FlatMessage) usize {
         return if (self.source_consumed_len != 0) self.source_consumed_len else self.consumed_len;
     }
+
+    pub fn segmentCount(self: FlatMessage) usize {
+        return self.segments.len;
+    }
+
+    pub fn segmentBytes(self: FlatMessage, index: usize) Error!ConstSegment {
+        if (index >= self.segments.len) return error.SegmentOutOfBounds;
+        return self.segments[index];
+    }
+
+    pub fn segmentByteLen(self: FlatMessage, index: usize) Error!usize {
+        return (try self.segmentBytes(index)).len;
+    }
+
+    pub fn segmentWordLen(self: FlatMessage, index: usize) Error!usize {
+        const segment = try self.segmentBytes(index);
+        if (segment.len % wire.bytes_per_word != 0) return error.SegmentNotWordAligned;
+        return segment.len / wire.bytes_per_word;
+    }
+
+    pub fn serializedSize(self: FlatMessage) usize {
+        return self.consumed_len;
+    }
+
+    pub fn serializedSizeInWords(self: FlatMessage) usize {
+        return self.consumed_len / wire.bytes_per_word;
+    }
 };
 
 pub const FlatMessageView = struct {
@@ -63,6 +90,33 @@ pub const FlatMessageView = struct {
 
     pub fn sourceConsumedLen(self: FlatMessageView) usize {
         return if (self.source_consumed_len != 0) self.source_consumed_len else self.consumed_len;
+    }
+
+    pub fn segmentCount(self: FlatMessageView) usize {
+        return self.segments.len;
+    }
+
+    pub fn segmentBytes(self: FlatMessageView, index: usize) Error!ConstSegment {
+        if (index >= self.segments.len) return error.SegmentOutOfBounds;
+        return self.segments[index];
+    }
+
+    pub fn segmentByteLen(self: FlatMessageView, index: usize) Error!usize {
+        return (try self.segmentBytes(index)).len;
+    }
+
+    pub fn segmentWordLen(self: FlatMessageView, index: usize) Error!usize {
+        const segment = try self.segmentBytes(index);
+        if (segment.len % wire.bytes_per_word != 0) return error.SegmentNotWordAligned;
+        return segment.len / wire.bytes_per_word;
+    }
+
+    pub fn serializedSize(self: FlatMessageView) usize {
+        return self.consumed_len;
+    }
+
+    pub fn serializedSizeInWords(self: FlatMessageView) usize {
+        return self.consumed_len / wire.bytes_per_word;
     }
 };
 
@@ -667,8 +721,13 @@ test "standard stream framing serializes single segment" {
     try testing.expectEqual(bytes.len, flat.sourceConsumedLen());
     try testing.expectEqualSlices(u8, bytes, flat.consumedBytes());
     try testing.expectEqual(bytes.len, flat.bytes.len);
-    try testing.expectEqual(@as(usize, 1), flat.segments.len);
-    try testing.expectEqualSlices(u8, &segment, flat.segments[0]);
+    try testing.expectEqual(@as(usize, 1), flat.segmentCount());
+    try testing.expectEqualSlices(u8, &segment, try flat.segmentBytes(0));
+    try testing.expectEqual(@as(usize, segment.len), try flat.segmentByteLen(0));
+    try testing.expectEqual(@as(usize, segment.len / wire.bytes_per_word), try flat.segmentWordLen(0));
+    try testing.expectEqual(bytes.len, flat.serializedSize());
+    try testing.expectEqual(bytes.len / wire.bytes_per_word, flat.serializedSizeInWords());
+    try testing.expectError(error.SegmentOutOfBounds, flat.segmentBytes(1));
 }
 
 test "flat message view parses without copying segment bytes" {
@@ -688,8 +747,13 @@ test "flat message view parses without copying segment bytes" {
     try testing.expectEqual(bytes.len, view.consumed_len);
     try testing.expectEqual(bytes.len, view.sourceConsumedLen());
     try testing.expectEqualSlices(u8, bytes, view.consumedBytes());
-    try testing.expectEqual(@as(usize, 1), view.segments.len);
-    try testing.expectEqualSlices(u8, &segment, view.segments[0]);
+    try testing.expectEqual(@as(usize, 1), view.segmentCount());
+    try testing.expectEqualSlices(u8, &segment, try view.segmentBytes(0));
+    try testing.expectEqual(@as(usize, segment.len), try view.segmentByteLen(0));
+    try testing.expectEqual(@as(usize, segment.len / wire.bytes_per_word), try view.segmentWordLen(0));
+    try testing.expectEqual(bytes.len, view.serializedSize());
+    try testing.expectEqual(bytes.len / wire.bytes_per_word, view.serializedSizeInWords());
+    try testing.expectError(error.SegmentOutOfBounds, view.segmentBytes(1));
     try testing.expectEqual(@intFromPtr(combined.ptr) + 8, @intFromPtr(view.segments[0].ptr));
 
     var stack_segments: [1]ConstSegment = undefined;
