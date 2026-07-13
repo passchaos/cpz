@@ -253,6 +253,9 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByExplicitDefault"(true).?.name);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByExplicitDefault"(false).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByDefault"("missing"));
+    try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByAnnotations"("").?.name);
+    try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByAnnotations"("$schemaNote(\"person-name\")").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByAnnotations"("missing"));
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByOrdinal"(2).?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByOrdinal"(2).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByOrdinal"(999));
