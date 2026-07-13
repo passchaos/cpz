@@ -1450,6 +1450,9 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.Service.@"cpz.method.typed.results.fields".len);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.pong);
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.superclasses".len);
+    try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.superclasses"[0].index);
+    try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclasses"[0].name);
     try std.testing.expectEqual(@as(u16, 0), generated.ExtendedService.Superclass0.call);
     try std.testing.expect(generated.ExtendedService.Details == generated.ExtendedService_Details);
     try std.testing.expect(generated.ExtendedService.Callback == generated.ExtendedService_Callback);

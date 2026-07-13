@@ -257,6 +257,11 @@ pub const InterfaceMethodMetadata = struct {
     parameters: []const []const u8 = &.{},
 };
 
+pub const InterfaceSuperclassMetadata = struct {
+    index: usize,
+    name: []const u8,
+};
+
 pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -3766,6 +3771,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     }
     try emitDeclarationAnnotations(allocator, out, decl.annotations, "    ");
     try emitParameterMetadata(allocator, out, decl.parameters, "    ");
+    try emitInterfaceSuperclassMetadata(allocator, out, decl.superclasses, "    ");
     for (decl.superclasses, 0..) |superclass, index| {
         switch (resolveType(file, superclass)) {
             .named => |type_name| {
@@ -3852,6 +3858,20 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         \\
         \\
     , .{});
+}
+
+fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), superclasses: []const Type, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.superclasses\": []const cpz.schema.InterfaceSuperclassMetadata = &[_]cpz.schema.InterfaceSuperclassMetadata{{", .{indent});
+    for (superclasses, 0..) |superclass, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const superclass_name = try schemaTypeNameAlloc(allocator, superclass);
+        defer allocator.free(superclass_name);
+        const superclass_literal = try zigStringLiteralAlloc(allocator, superclass_name);
+        defer allocator.free(superclass_literal);
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s} }}", .{ index, superclass_literal });
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (superclasses.len != 0) try out.append(allocator, '\n');
 }
 
 fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), methods: []const InterfaceMethod, indent: []const u8) LayoutError!void {
