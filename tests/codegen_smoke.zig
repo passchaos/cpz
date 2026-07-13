@@ -249,6 +249,10 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("active", generated.Person.@"cpz.fieldBySlot"("data_bit", 32).?.name);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldBySlot"("pointer", 0).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldBySlot"("missing", 0));
+    try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByDefault"("42").?.name);
+    try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByExplicitDefault"(true).?.name);
+    try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByExplicitDefault"(false).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByDefault"("missing"));
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByOrdinal"(2).?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.fieldByOrdinal"(2).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByOrdinal"(999));
@@ -283,6 +287,7 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expect(generated.Person.@"cpz.field.defaultPayload.defaultIsHexData");
     try std.testing.expect(generated.Person.@"cpz.fieldByName"("defaultPayload").?.has_explicit_default);
     try std.testing.expect(generated.Person.@"cpz.fieldByName"("defaultPayload").?.default_is_hex_data);
+    try std.testing.expectEqualStrings("defaultPayload", generated.Person.@"cpz.fieldByDefault"("0x\"ca fe\"").?.name);
 }
 
 test "generated simple constants compile" {

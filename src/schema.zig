@@ -5554,6 +5554,16 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\        return null;
         \\    }
         \\
+        \\    pub fn @"cpz.fieldByDefault"(@"cpz.default": []const u8) ?cpz.schema.FieldMetadata {
+        \\        for (@"cpz.fields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".default, @"cpz.default")) return @"cpz.field";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.fieldByExplicitDefault"(@"cpz.hasDefault": bool) ?cpz.schema.FieldMetadata {
+        \\        for (@"cpz.fields") |@"cpz.field"| if (@"cpz.field".has_explicit_default == @"cpz.hasDefault") return @"cpz.field";
+        \\        return null;
+        \\    }
+        \\
         \\    pub fn @"cpz.fieldByOrdinal"(@"cpz.ordinal": u32) ?cpz.schema.FieldMetadata {
         \\        for (@"cpz.fields") |@"cpz.field"| if (@"cpz.field".ordinal == @"cpz.ordinal") return @"cpz.field";
         \\        return null;
