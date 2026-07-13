@@ -5309,8 +5309,20 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".writePackedToWriter(@"cpz.allocator", @"cpz.writer");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.traversalLimitWords"(@"cpz.reader": *cpz.MessageReader) usize {{
+        \\        return @"cpz.reader".traversalLimitWords();
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.traversalRemainingWords"(@"cpz.reader": *cpz.MessageReader) usize {{
         \\        return @"cpz.reader".traversalRemainingWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.nestingLimit"(@"cpz.reader": *cpz.MessageReader) u16 {{
+        \\        return @"cpz.reader".nestingLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.capabilityCountLimit"(@"cpz.reader": *cpz.MessageReader) ?usize {{
+        \\        return @"cpz.reader".capabilityCountLimit();
         \\    }}
         \\
         \\    pub fn @"cpz.root.validate"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageStats {{

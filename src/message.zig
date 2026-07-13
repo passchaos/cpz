@@ -661,8 +661,20 @@ pub const MessageReader = struct {
         return stats.size();
     }
 
+    pub fn traversalLimitWords(self: *const MessageReader) usize {
+        return self.options.traversal_limit_words;
+    }
+
     pub fn traversalRemainingWords(self: *const MessageReader) usize {
         return self.traversal_remaining;
+    }
+
+    pub fn nestingLimit(self: *const MessageReader) u16 {
+        return self.options.nesting_limit;
+    }
+
+    pub fn capabilityCountLimit(self: *const MessageReader) ?usize {
+        return self.options.capability_count_limit;
     }
 
     pub fn segmentCount(self: *const MessageReader) usize {

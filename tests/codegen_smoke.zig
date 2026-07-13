@@ -510,7 +510,10 @@ test "generated reader and builder accessors compile and round-trip" {
     var reader_packed_writer = std.Io.Writer.fixed(&reader_packed_buffer);
     try generated.Person.@"cpz.root.writePackedToWriter"(std.testing.allocator, &reader, &reader_packed_writer);
     try std.testing.expect(std.Io.Writer.buffered(&reader_packed_writer).len > 0);
-    var validating_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    var validating_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{ .capability_count_limit = 100 });
+    try std.testing.expectEqual(@as(usize, 8 * 1024 * 1024), generated.Person.@"cpz.root.traversalLimitWords"(&validating_reader));
+    try std.testing.expectEqual(@as(u16, 64), generated.Person.@"cpz.root.nestingLimit"(&validating_reader));
+    try std.testing.expectEqual(@as(?usize, 100), generated.Person.@"cpz.root.capabilityCountLimit"(&validating_reader));
     const traversal_before = generated.Person.@"cpz.root.traversalRemainingWords"(&validating_reader);
     const validation_stats = try generated.Person.@"cpz.root.validate"(&validating_reader);
     try std.testing.expect(generated.Person.@"cpz.root.traversalRemainingWords"(&validating_reader) < traversal_before);
