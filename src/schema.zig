@@ -331,6 +331,7 @@ pub const AnnotationDecl = struct {
 };
 
 pub const AnnotationMetadata = struct {
+    index: usize = 0,
     name: []const u8,
     id: ?u64 = null,
     ty: []const u8,
@@ -4364,7 +4365,7 @@ fn emitAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList
     try appendFmt(allocator, out, "{s}pub const @\"cpz.annotation_decls\": []const cpz.schema.AnnotationMetadata = &[_]cpz.schema.AnnotationMetadata{{", .{indent});
     for (annotations, 0..) |annotation, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
-        try appendAnnotationMetadataLiteral(allocator, out, &annotation);
+        try appendAnnotationMetadataLiteral(allocator, out, index, &annotation);
     }
     try out.appendSlice(allocator, "};\n");
     try emitAnnotationLookupHelpers(allocator, out, indent);
@@ -4377,7 +4378,7 @@ fn emitScopedAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Arr
     for (file.annotations) |annotation| {
         if (!std.mem.eql(u8, annotationOwnerName(annotation.name) orelse continue, owner_name)) continue;
         if (count != 0) try out.appendSlice(allocator, ", ");
-        try appendAnnotationMetadataLiteral(allocator, out, &annotation);
+        try appendAnnotationMetadataLiteral(allocator, out, count, &annotation);
         count += 1;
     }
     try out.appendSlice(allocator, "};\n");
@@ -4397,17 +4398,22 @@ fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+        \\{s}pub fn @"cpz.annotationByIndex"(@"cpz.index": usize) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    if (@"cpz.index" >= @This().@"cpz.annotation_decls".len) return null;
+        \\{s}    return @This().@"cpz.annotation_decls"[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
-fn appendAnnotationMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const AnnotationDecl) LayoutError!void {
+fn appendAnnotationMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), index: usize, decl: *const AnnotationDecl) LayoutError!void {
     const name_literal = try zigStringLiteralAlloc(allocator, decl.name);
     defer allocator.free(name_literal);
     const type_name = try schemaTypeNameAlloc(allocator, decl.ty);
     defer allocator.free(type_name);
     const type_literal = try zigStringLiteralAlloc(allocator, type_name);
     defer allocator.free(type_literal);
-    try appendFmt(allocator, out, ".{{ .name = {s}, ", .{name_literal});
+    try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, ", .{ index, name_literal });
     if (decl.id) |id| try appendFmt(allocator, out, ".id = 0x{x}, ", .{id});
     try appendFmt(allocator, out, ".ty = {s}, .targets = ", .{type_literal});
     try appendAnnotationTargetsLiteral(allocator, out, decl.targets);
