@@ -4987,10 +4987,11 @@ fn emitAlias(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.alias.{s}.index": usize = {};
         \\{s}pub const @"cpz.alias.{s}.name": []const u8 = {s};
+        \\{s}pub const @"cpz.alias.{s}.metadata": cpz.schema.AliasMetadata = @This().@"cpz.aliases"[{}];
         \\{s}pub const @"cpz.alias.{s}.target": []const u8 = {s};
         \\{s}pub const @"cpz.alias.{s}.resolvedTarget": []const u8 = {s};
         \\
-    , .{ indent, alias_name, index, indent, alias_name, name_literal, indent, alias_name, target_literal, indent, alias_name, resolved_target_literal });
+    , .{ indent, alias_name, index, indent, alias_name, name_literal, indent, alias_name, index, indent, alias_name, target_literal, indent, alias_name, resolved_target_literal });
     try emitAliasTarget(allocator, out, file, scope, indent, alias_name, decl.target);
 }
 
