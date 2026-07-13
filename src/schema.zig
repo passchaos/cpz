@@ -4302,6 +4302,13 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         try appendConstMetadataLiteral(allocator, out, &decl);
     }
     try out.appendSlice(allocator, "};\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.constByName"(@"cpz.name": []const u8) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (std.mem.eql(u8, @"cpz.const".name, @"cpz.name")) return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent });
     if (consts.len != 0) try out.append(allocator, '\n');
 }
 
