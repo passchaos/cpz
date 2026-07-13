@@ -152,6 +152,12 @@ pub const EnumDecl = struct {
     }
 };
 
+pub const MethodField = struct {
+    name: []const u8,
+    ty: []const u8,
+    default_literal: ?[]const u8 = null,
+};
+
 pub const InterfaceMethod = struct {
     name: []const u8,
     ordinal: u16,
@@ -160,6 +166,8 @@ pub const InterfaceMethod = struct {
     results_signature: []const u8 = "",
     is_streaming: bool = false,
     parameters: []const []const u8 = &.{},
+    param_fields: []const MethodField = &.{},
+    result_fields: []const MethodField = &.{},
 };
 
 pub const InterfaceDecl = struct {
@@ -173,7 +181,11 @@ pub const InterfaceDecl = struct {
     aliases: []AliasDecl = &.{},
 
     pub fn deinit(self: *InterfaceDecl, allocator: std.mem.Allocator) void {
-        for (self.methods) |method| allocator.free(method.parameters);
+        for (self.methods) |method| {
+            allocator.free(method.parameters);
+            allocator.free(method.param_fields);
+            allocator.free(method.result_fields);
+        }
         allocator.free(self.methods);
         for (self.superclasses) |*superclass| superclass.deinit(allocator);
         allocator.free(self.superclasses);
@@ -698,7 +710,11 @@ pub const Parser = struct {
 
         var methods = std.ArrayList(InterfaceMethod).empty;
         errdefer {
-            for (methods.items) |method| self.allocator.free(method.parameters);
+            for (methods.items) |method| {
+                self.allocator.free(method.parameters);
+                self.allocator.free(method.param_fields);
+                self.allocator.free(method.result_fields);
+            }
             methods.deinit(self.allocator);
         }
         var method_names = std.StringHashMap(void).init(self.allocator);
@@ -784,6 +800,12 @@ pub const Parser = struct {
             const parameters = try self.parseMethodSignatureParameters(signature);
             var keep_parameters = false;
             errdefer if (!keep_parameters) self.allocator.free(parameters);
+            const param_fields = try self.parseMethodFields(parts.params);
+            var keep_param_fields = false;
+            errdefer if (!keep_param_fields) self.allocator.free(param_fields);
+            const result_fields = try self.parseMethodFields(parts.results);
+            var keep_result_fields = false;
+            errdefer if (!keep_result_fields) self.allocator.free(result_fields);
             try methods.append(self.allocator, .{
                 .name = name,
                 .ordinal = ordinal,
@@ -792,8 +814,12 @@ pub const Parser = struct {
                 .results_signature = parts.results,
                 .is_streaming = std.mem.eql(u8, parts.results, "stream"),
                 .parameters = parameters,
+                .param_fields = param_fields,
+                .result_fields = result_fields,
             });
             keep_parameters = true;
+            keep_param_fields = true;
+            keep_result_fields = true;
         }
         try self.expect(.r_brace);
         return methods.toOwnedSlice(self.allocator);
@@ -832,6 +858,98 @@ pub const Parser = struct {
             }
             return error.UnexpectedToken;
         }
+    }
+
+    fn parseMethodFields(self: *Parser, raw: []const u8) Error![]const MethodField {
+        const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+        if (trimmed.len == 0 or std.mem.eql(u8, trimmed, "stream")) return try self.allocator.alloc(MethodField, 0);
+        if (trimmed[0] != '(') return try self.allocator.alloc(MethodField, 0);
+        var end = trimmed.len;
+        var scan: usize = 1;
+        var list_depth: usize = 1;
+        while (scan < trimmed.len) : (scan += 1) {
+            switch (trimmed[scan]) {
+                '(' => list_depth += 1,
+                ')' => {
+                    list_depth -= 1;
+                    if (list_depth == 0) {
+                        end = scan;
+                        break;
+                    }
+                },
+                else => {},
+            }
+        }
+        if (list_depth != 0) return error.UnexpectedToken;
+        var index: usize = 1;
+        var fields = std.ArrayList(MethodField).empty;
+        errdefer fields.deinit(self.allocator);
+        var names = std.StringHashMap(void).init(self.allocator);
+        defer names.deinit();
+
+        while (index < end) {
+            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n' or trimmed[index] == ',')) index += 1;
+            if (index >= end) break;
+            if (!isIdentStart(trimmed[index])) return error.UnexpectedToken;
+            const name_start = index;
+            index += 1;
+            while (index < end and isIdentContinue(trimmed[index])) index += 1;
+            const field_name = trimmed[name_start..index];
+            const entry = try names.getOrPut(field_name);
+            if (entry.found_existing) return error.NameCollision;
+            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+            if (index >= end or trimmed[index] != ':') return error.UnexpectedToken;
+            index += 1;
+            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+            const type_start = index;
+            var paren_depth: usize = 0;
+            while (index < end) : (index += 1) {
+                switch (trimmed[index]) {
+                    '(' => paren_depth += 1,
+                    ')' => {
+                        if (paren_depth != 0) {
+                            paren_depth -= 1;
+                        } else {
+                            break;
+                        }
+                    },
+                    ',' => if (paren_depth == 0) break,
+                    '=' => if (paren_depth == 0) break,
+                    else => {},
+                }
+            }
+            const field_type = std.mem.trim(u8, trimmed[type_start..index], " \t\r\n");
+            var default_literal: ?[]const u8 = null;
+            if (index < end and trimmed[index] == '=') {
+                index += 1;
+                while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+                const default_start = index;
+                var default_paren_depth: usize = 0;
+                var default_bracket_depth: usize = 0;
+                while (index < end) : (index += 1) {
+                    switch (trimmed[index]) {
+                        '(' => default_paren_depth += 1,
+                        ')' => {
+                            if (default_paren_depth != 0) {
+                                default_paren_depth -= 1;
+                            } else if (default_bracket_depth == 0) {
+                                break;
+                            }
+                        },
+                        '[' => default_bracket_depth += 1,
+                        ']' => {
+                            if (default_bracket_depth != 0) default_bracket_depth -= 1;
+                        },
+                        ',' => if (default_paren_depth == 0 and default_bracket_depth == 0) break,
+                        else => {},
+                    }
+                }
+                default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
+            }
+            try fields.append(self.allocator, .{ .name = field_name, .ty = field_type, .default_literal = default_literal });
+            if (index < end and trimmed[index] == ',') index += 1;
+        }
+        return fields.toOwnedSlice(self.allocator);
     }
 
     fn splitMethodSignature(signature: []const u8) struct { params: []const u8, results: []const u8 } {
@@ -3285,6 +3403,8 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\
         , .{ method_name, method.is_streaming });
         try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
+        try appendMethodFieldMetadata(allocator, out, method_name, "params", method.param_fields, "    ");
+        try appendMethodFieldMetadata(allocator, out, method_name, "results", method.result_fields, "    ");
     }
     try appendFmt(allocator, out,
         \\}};
@@ -3315,6 +3435,25 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
     try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.parameters\": []const []const u8 = ", .{ indent, method_name });
     try appendParameterListLiteral(allocator, out, parameters);
     try out.appendSlice(allocator, ";\n");
+}
+
+fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.method.{s}.{s}.fields\": []const cpz.schema.MethodField = &[_]cpz.schema.MethodField{{", .{ indent, method_name, kind });
+    for (fields, 0..) |field, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const name_literal = try zigStringLiteralAlloc(allocator, field.name);
+        defer allocator.free(name_literal);
+        const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
+        defer allocator.free(type_literal);
+        if (field.default_literal) |default_raw| {
+            const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
+            defer allocator.free(default_literal);
+            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s}, .default_literal = {s} }}", .{ name_literal, type_literal, default_literal });
+        } else {
+            try appendFmt(allocator, out, ".{{ .name = {s}, .ty = {s} }}", .{ name_literal, type_literal });
+        }
+    }
+    try out.appendSlice(allocator, "};\n");
 }
 
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {
