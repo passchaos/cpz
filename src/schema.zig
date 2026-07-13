@@ -204,6 +204,7 @@ pub const UnionMetadata = struct {
     data_bit: usize = 0,
     data_bits: usize = 0,
     pointer: ?usize = null,
+    field_count: usize = 0,
 };
 
 pub const DeclarationKind = enum {
@@ -5265,13 +5266,15 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\
     , .{layout.unions.len});
     for (layout.unions, 0..) |union_layout, index| {
+        const field_count = unionFieldCount(layout, @intCast(index));
         try appendFmt(allocator, out,
             \\    pub const @"cpz.union.{}.index": u32 = {};
             \\    pub const @"cpz.union.{}.discriminantByte": usize = {};
             \\    pub const @"cpz.union.{}.dataBit": usize = {};
             \\    pub const @"cpz.union.{}.dataBits": usize = {};
+            \\    pub const @"cpz.union.{}.fieldCount": usize = {};
             \\    pub const @"cpz.union.{}.pointer": ?usize = 
-        , .{ index, index, index, union_layout.discriminant_byte, index, union_layout.data_bit, index, union_layout.data_bits, index });
+        , .{ index, index, index, union_layout.discriminant_byte, index, union_layout.data_bit, index, union_layout.data_bits, index, field_count, index });
         if (union_layout.pointer) |pointer| {
             try appendFmt(allocator, out, "{};\n\n", .{pointer});
         } else {
@@ -5281,7 +5284,7 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
-        try appendFmt(allocator, out, ".{{ .index = {}, .discriminant_byte = {}", .{ index, union_layout.discriminant_byte });
+        try appendFmt(allocator, out, ".{{ .index = {}, .discriminant_byte = {}, .field_count = {}", .{ index, union_layout.discriminant_byte, unionFieldCount(layout, @intCast(index)) });
         if (union_layout.data_bits != 0) {
             try appendFmt(allocator, out, ", .data_bit = {}, .data_bits = {}", .{ union_layout.data_bit, union_layout.data_bits });
         }
@@ -5298,6 +5301,16 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\    }
         \\
     );
+}
+
+fn unionFieldCount(layout: *const StructLayout, union_index: u32) usize {
+    var count: usize = 0;
+    for (layout.fields) |field_layout| {
+        if (field_layout.field.union_index) |current| {
+            if (current == union_index) count += 1;
+        }
+    }
+    return count;
 }
 
 fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
