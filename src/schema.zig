@@ -185,6 +185,7 @@ pub const FieldMetadata = struct {
     name: []const u8,
     ordinal: u32,
     ty: []const u8,
+    resolved_ty: []const u8 = "",
     slot: []const u8 = "",
     offset: usize = 0,
     default: []const u8 = "",
@@ -5071,7 +5072,7 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     );
 }
 
-fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
+fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
     try out.appendSlice(allocator, "    pub const @\"cpz.fields\": []const cpz.schema.FieldMetadata = &[_]cpz.schema.FieldMetadata{");
     for (layout.fields, 0..) |field_layout, index| {
         const field = field_layout.field;
@@ -5082,6 +5083,10 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(type_name);
         const type_literal = try zigStringLiteralAlloc(allocator, type_name);
         defer allocator.free(type_literal);
+        const resolved_type_name = try schemaResolvedTypeNameAlloc(allocator, file, layout.decl, field.ty);
+        defer allocator.free(resolved_type_name);
+        const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
+        defer allocator.free(resolved_type_literal);
         const default_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
         defer allocator.free(default_literal);
         const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
@@ -5089,7 +5094,7 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         const slot = fieldSlotMetadata(field_layout.slot);
         const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
         defer allocator.free(slot_literal);
-        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .ty = {s}, .slot = {s}, .offset = {}", .{ index, field_name, field.ordinal, type_literal, slot_literal, slot.offset });
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .ty = {s}, .resolved_ty = {s}, .slot = {s}, .offset = {}", .{ index, field_name, field.ordinal, type_literal, resolved_type_literal, slot_literal, slot.offset });
         if (field.default_expression.len != 0) {
             try appendFmt(allocator, out, ", .default = {s}", .{default_literal});
             try out.appendSlice(allocator, ", .has_explicit_default = true");
@@ -5170,7 +5175,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try emitConstMetadataTable(allocator, out, layout.decl.consts, "    ");
     try emitScopedAnnotationMetadataTable(allocator, out, file, layout.decl.name, "    ");
     try emitStructUnionMetadata(allocator, out, layout);
-    try emitStructFieldMetadata(allocator, out, layout);
+    try emitStructFieldMetadata(allocator, out, file, layout);
 
     try appendFmt(allocator, out,
         \\    pub const Orphan = struct {{
@@ -5770,12 +5775,17 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     defer allocator.free(type_name);
     const type_literal = try zigStringLiteralAlloc(allocator, type_name);
     defer allocator.free(type_literal);
+    const resolved_type_name = try schemaResolvedTypeNameAlloc(allocator, file, layout.decl, field.ty);
+    defer allocator.free(resolved_type_name);
+    const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
+    defer allocator.free(resolved_type_literal);
     try appendFmt(allocator, out,
         \\    pub const @"cpz.field.{s}.type": []const u8 = {s};
+        \\    pub const @"cpz.field.{s}.resolvedType": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.slot": []const u8 = {s};
         \\    pub const @"cpz.field.{s}.offset": usize = {};
         \\    pub const @"cpz.field.{s}.unionIndex": ?u32 = 
-    , .{ field_name, type_literal, field_name, slot_literal, field_name, slot.offset, field_name });
+    , .{ field_name, type_literal, field_name, resolved_type_literal, field_name, slot_literal, field_name, slot.offset, field_name });
     if (field.union_index) |union_index| {
         try appendFmt(allocator, out, "{};\n", .{union_index});
     } else {
