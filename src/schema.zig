@@ -1271,6 +1271,7 @@ pub const Parser = struct {
     }
 
     fn constLiteralStartsUnsupported(self: *const Parser, allow_list: bool) bool {
+        if (self.constLiteralStartsKeyword("embed")) return true;
         const first = self.constLiteralFirstByte() orelse return true;
         return switch (first) {
             '(' => true,
@@ -1281,23 +1282,37 @@ pub const Parser = struct {
 
     fn constLiteralFirstByte(self: *const Parser) ?u8 {
         const source = self.lexer.source;
+        const index = self.constLiteralStartIndex() orelse return null;
+        return source[index];
+    }
+
+    fn constLiteralStartsKeyword(self: *const Parser, keyword: []const u8) bool {
+        const source = self.lexer.source;
+        const start = self.constLiteralStartIndex() orelse return false;
+        if (start + keyword.len > source.len) return false;
+        if (!std.mem.eql(u8, source[start .. start + keyword.len], keyword)) return false;
+        const end = start + keyword.len;
+        return end == source.len or !isIdentContinue(source[end]);
+    }
+
+    fn constLiteralStartIndex(self: *const Parser) ?usize {
+        const source = self.lexer.source;
         var index = self.lexer.index;
-        while (index < source.len) : (index += 1) {
+        while (index < source.len) {
             switch (source[index]) {
-                ' ', '\t', '\r', '\n' => continue,
+                ' ', '\t', '\r', '\n' => index += 1,
                 '#' => {
                     while (index < source.len and source[index] != '\n') index += 1;
-                    continue;
                 },
                 '/' => {
                     if (index + 1 < source.len and source[index + 1] == '/') {
                         index += 2;
                         while (index < source.len and source[index] != '\n') index += 1;
-                        continue;
+                    } else {
+                        return index;
                     }
-                    return source[index];
                 },
-                else => return source[index],
+                else => return index,
             }
         }
         return null;
@@ -2875,6 +2890,7 @@ test "schema parser skips common top-level using and const declarations" {
     const source =
         \\using Go = import "go.capnp";
         \\const defaultName :Text = "Ada";
+        \\const embeddedText :Text = embed "testdata/short.txt";
         \\const blockText :Text =
         \\  `line one
         \\  `"quoted" line two
@@ -2886,8 +2902,11 @@ test "schema parser skips common top-level using and const declarations" {
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
+    try std.testing.expectEqual(@as(usize, 2), file.consts.len);
     try std.testing.expectEqualStrings("Person", file.structs[0].name);
     try std.testing.expectEqualStrings("Ada", file.structs[0].fields[0].default_literal.?);
+    try std.testing.expectEqualStrings("defaultName", file.consts[0].name);
+    try std.testing.expectEqualStrings("blockText", file.consts[1].name);
 }
 
 test "schema parser tolerates imports and annotations" {
