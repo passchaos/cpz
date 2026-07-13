@@ -4168,7 +4168,12 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         \\{s}    return null;
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent });
+        \\{s}pub fn @"cpz.methodByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
+        \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".annotations, @"cpz.annotationFilter")) return @"cpz.method";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
     if (methods.len != 0) try out.append(allocator, '\n');
 }
 
