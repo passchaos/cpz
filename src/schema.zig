@@ -4842,8 +4842,32 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}pub const @"cpz.const.{s}.literal": []const u8 = {s};
         \\{s}pub const @"cpz.const.{s}.isHexData": bool = {};
         \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
+        \\{s}pub const @"cpz.const.{s}.listItems": []const cpz.schema.ConstListItem = 
+    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data, indent, const_name, decl.emit_value, indent, const_name });
+    if (decl.list_items) |items| {
+        try appendConstListItemsLiteral(allocator, out, items);
+    } else {
+        try out.appendSlice(allocator, "&[_]cpz.schema.ConstListItem{}");
+    }
+    try out.appendSlice(allocator, ";\n");
+    if (decl.list_items) |items| {
+        for (items) |item| {
+            const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
+            defer allocator.free(item_literal);
+            const item_annotations = try zigStringLiteralAlloc(allocator, item.annotations);
+            defer allocator.free(item_annotations);
+            try appendFmt(allocator, out,
+                \\{s}pub const @"cpz.const.{s}.listItem.{}.index": usize = {};
+                \\{s}pub const @"cpz.const.{s}.listItem.{}.literal": []const u8 = {s};
+                \\{s}pub const @"cpz.const.{s}.listItem.{}.isHexData": bool = {};
+                \\{s}pub const @"cpz.const.{s}.listItem.{}.annotations": []const u8 = {s};
+                \\
+            , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations });
+        }
+    }
+    try out.appendSlice(allocator,
         \\
-    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data, indent, const_name, decl.emit_value });
+    );
     if (decl.annotations.len != 0) {
         const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
         defer allocator.free(annotation_literal);
