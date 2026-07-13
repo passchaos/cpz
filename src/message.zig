@@ -172,10 +172,14 @@ pub const Orphan = struct {
         return self.asReader(&reader).getCapabilityIndex();
     }
 
-    pub fn totalSize(self: Orphan) Error!MessageSize {
+    pub fn validate(self: Orphan) Error!MessageStats {
         if (self.raw == 0) return error.NullPointer;
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
-        return self.asReader(&reader).totalSize();
+        return self.asReader(&reader).validate();
+    }
+
+    pub fn totalSize(self: Orphan) Error!MessageSize {
+        return (try self.validate()).size();
     }
 
     pub fn release(self: *Orphan) void {

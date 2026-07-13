@@ -865,8 +865,11 @@ test "generated builders can disown and adopt pointer fields" {
     const decoded_orphan = (try typed_orphan.decode(&orphan_decode_reader)).?.struct_ptr;
     try std.testing.expectEqual(generated.Person.size.data_words, decoded_orphan.data_words);
     try std.testing.expectEqual(generated.Person.size.pointer_count, decoded_orphan.pointer_count);
+    const orphan_stats = try typed_orphan.validate();
+    try std.testing.expect(orphan_stats.total_words > 0);
     const orphan_size = try typed_orphan.totalSize();
     try std.testing.expect(orphan_size.word_count > 0);
+    try std.testing.expectEqual(orphan_stats.size().word_count, orphan_size.word_count);
     try person_builder.adopt_maybeFriend_typed(&typed_orphan);
     try std.testing.expectEqual(@as(u64, 0), typed_orphan.raw());
     const typed_maybe_friend = try person_builder.get_maybeFriend();
@@ -1120,6 +1123,10 @@ test "generated list orphan wrappers can allocate new orphans" {
     const orphan_scores = try scores_orphan.get();
     try orphan_scores.set(0, 123);
     try orphan_scores.set(1, 456);
+    const scores_orphan_stats = try scores_orphan.validate();
+    try std.testing.expect(scores_orphan_stats.total_words > 0);
+    const scores_orphan_size = try scores_orphan.totalSize();
+    try std.testing.expectEqual(scores_orphan_stats.size().word_count, scores_orphan_size.word_count);
     try person_builder.adopt_scores_typed(&scores_orphan);
 
     var children_orphan = try generated.Person.Person_children_Orphan.newOrphan(&builder, 1);

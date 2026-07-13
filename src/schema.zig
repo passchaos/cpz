@@ -5206,6 +5206,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.getReader(message_reader);
         \\        }}
         \\
+        \\        pub fn validate(self: @This()) !cpz.MessageStats {{
+        \\            return self.orphan.validate();
+        \\        }}
+        \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
         \\            return self.orphan.totalSize();
         \\        }}
@@ -6434,6 +6438,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) !{s}_{s}_List {{
         \\            return self.getReader(message_reader);
+        \\        }}
+        \\
+        \\        pub fn validate(self: @This()) !cpz.MessageStats {{
+        \\            return self.orphan.validate();
         \\        }}
         \\
         \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
