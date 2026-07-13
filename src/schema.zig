@@ -4944,6 +4944,20 @@ fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError!
 }
 
 fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
+    for (layout.unions, 0..) |union_layout, index| {
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.union.{}.index": u32 = {};
+            \\    pub const @"cpz.union.{}.discriminantByte": usize = {};
+            \\    pub const @"cpz.union.{}.dataBit": usize = {};
+            \\    pub const @"cpz.union.{}.dataBits": usize = {};
+            \\    pub const @"cpz.union.{}.pointer": ?usize = 
+        , .{ index, index, index, union_layout.discriminant_byte, index, union_layout.data_bit, index, union_layout.data_bits, index });
+        if (union_layout.pointer) |pointer| {
+            try appendFmt(allocator, out, "{};\n\n", .{pointer});
+        } else {
+            try out.appendSlice(allocator, "null;\n\n");
+        }
+    }
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");

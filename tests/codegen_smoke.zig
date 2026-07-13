@@ -1238,6 +1238,11 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bit);
     try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bits);
     try std.testing.expectEqual(@as(?usize, 1), generated.Choice.@"cpz.unions"[0].pointer);
+    try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.union.0.index");
+    try std.testing.expectEqual(@as(usize, 0), generated.Choice.@"cpz.union.0.discriminantByte");
+    try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.union.0.dataBit");
+    try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.union.0.dataBits");
+    try std.testing.expectEqual(@as(?usize, 1), generated.Choice.@"cpz.union.0.pointer");
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.fields"[4].union_index.?);
     try std.testing.expectEqual(@as(u16, 0), generated.Choice.@"cpz.fields"[4].union_discriminant);
 
