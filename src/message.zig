@@ -122,6 +122,46 @@ pub const OwnedMessageReader = struct {
         return &self.reader;
     }
 
+    pub fn getRoot(self: *OwnedMessageReader) Error!StructReader {
+        return self.reader.getRoot();
+    }
+
+    pub fn getRootPointer(self: *OwnedMessageReader) Error!PointerReader {
+        return self.reader.getRootPointer();
+    }
+
+    pub fn getRootList(self: *OwnedMessageReader, expected: ?wire.ElementSize) Error!ListReader {
+        return self.reader.getRootList(expected);
+    }
+
+    pub fn getRootText(self: *OwnedMessageReader) Error![]const u8 {
+        return self.reader.getRootText();
+    }
+
+    pub fn getRootData(self: *OwnedMessageReader) Error![]const u8 {
+        return self.reader.getRootData();
+    }
+
+    pub fn getRootCapability(self: *OwnedMessageReader) Error!u32 {
+        return self.reader.getRootCapability();
+    }
+
+    pub fn validate(self: *OwnedMessageReader) Error!MessageStats {
+        return self.reader.validate();
+    }
+
+    pub fn validateWithOptions(self: *const OwnedMessageReader, options: ReaderOptions) Error!MessageStats {
+        return self.reader.validateWithOptions(options);
+    }
+
+    pub fn totalSize(self: *OwnedMessageReader) Error!MessageSize {
+        return self.reader.totalSize();
+    }
+
+    pub fn totalSizeWithOptions(self: *const OwnedMessageReader, options: ReaderOptions) Error!MessageSize {
+        return self.reader.totalSizeWithOptions(options);
+    }
+
     pub fn consumedLen(self: *const OwnedMessageReader) usize {
         return self.flat.consumed_len;
     }
@@ -151,6 +191,46 @@ pub const MessageReaderView = struct {
 
     pub fn asReader(self: *MessageReaderView) *MessageReader {
         return &self.reader;
+    }
+
+    pub fn getRoot(self: *MessageReaderView) Error!StructReader {
+        return self.reader.getRoot();
+    }
+
+    pub fn getRootPointer(self: *MessageReaderView) Error!PointerReader {
+        return self.reader.getRootPointer();
+    }
+
+    pub fn getRootList(self: *MessageReaderView, expected: ?wire.ElementSize) Error!ListReader {
+        return self.reader.getRootList(expected);
+    }
+
+    pub fn getRootText(self: *MessageReaderView) Error![]const u8 {
+        return self.reader.getRootText();
+    }
+
+    pub fn getRootData(self: *MessageReaderView) Error![]const u8 {
+        return self.reader.getRootData();
+    }
+
+    pub fn getRootCapability(self: *MessageReaderView) Error!u32 {
+        return self.reader.getRootCapability();
+    }
+
+    pub fn validate(self: *MessageReaderView) Error!MessageStats {
+        return self.reader.validate();
+    }
+
+    pub fn validateWithOptions(self: *const MessageReaderView, options: ReaderOptions) Error!MessageStats {
+        return self.reader.validateWithOptions(options);
+    }
+
+    pub fn totalSize(self: *MessageReaderView) Error!MessageSize {
+        return self.reader.totalSize();
+    }
+
+    pub fn totalSizeWithOptions(self: *const MessageReaderView, options: ReaderOptions) Error!MessageSize {
+        return self.reader.totalSizeWithOptions(options);
     }
 
     pub fn consumedLen(self: *const MessageReaderView) usize {
@@ -2747,6 +2827,12 @@ test "owned message readers parse flat and packed bytes" {
     try testing.expectEqual(flat.len, owned_flat.bytes().len);
     try testing.expectEqual(@as(u32, 5150), (try owned_flat.asReader().getRoot()).getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "owned", try (try owned_flat.asReader().getRoot()).getPointerField(0).getText());
+    try testing.expectEqual(@as(u32, 5150), (try owned_flat.getRoot()).getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "owned", try (try owned_flat.getRoot()).getPointerField(0).getText());
+    const owned_root_pointer = try owned_flat.getRootPointer();
+    try testing.expectEqual(wire.PointerType.struct_ptr, (try owned_root_pointer.pointerType()).?);
+    try testing.expect((try owned_flat.validate()).total_words > 0);
+    try testing.expect((try owned_flat.totalSize()).word_count > 0);
 
     const packed_bytes = try builder.toPackedBytes();
     defer testing.allocator.free(packed_bytes);
@@ -2793,6 +2879,12 @@ test "message reader views parse flat bytes without copying message data" {
     try testing.expectEqual(flat.len, view.consumedLen());
     try testing.expectEqual(@as(u32, 6160), (try view.asReader().getRoot()).getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "view", try (try view.asReader().getRoot()).getPointerField(0).getText());
+    try testing.expectEqual(@as(u32, 6160), (try view.getRoot()).getUInt32(0, 0));
+    try testing.expectEqualSlices(u8, "view", try (try view.getRoot()).getPointerField(0).getText());
+    const view_root_pointer = try view.getRootPointer();
+    try testing.expectEqual(wire.PointerType.struct_ptr, (try view_root_pointer.pointerType()).?);
+    try testing.expect((try view.validate()).total_words > 0);
+    try testing.expect((try view.totalSize()).word_count > 0);
     const segment0 = try view.asReader().segmentBytes(0);
     const segment0_addr = @intFromPtr(segment0.ptr);
     const flat_addr = @intFromPtr(flat_with_trailer.ptr);
