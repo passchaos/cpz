@@ -4066,6 +4066,34 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         }
     }
     try out.appendSlice(allocator, "};\n");
+    const metadata_name = try std.fmt.allocPrint(allocator, "cpz.method.{s}.{s}.fields", .{ method_name, kind });
+    defer allocator.free(metadata_name);
+    try emitMethodFieldLookupHelpers(allocator, out, metadata_name, indent);
+}
+
+fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), metadata_name: []const u8, indent: []const u8) LayoutError!void {
+    const metadata_ident = try zigStringLiteralAlloc(allocator, metadata_name);
+    defer allocator.free(metadata_ident);
+    const by_name = try std.fmt.allocPrint(allocator, "{s}.fieldByName", .{metadata_name});
+    defer allocator.free(by_name);
+    const by_name_ident = try zigStringLiteralAlloc(allocator, by_name);
+    defer allocator.free(by_name_ident);
+    const by_index = try std.fmt.allocPrint(allocator, "{s}.fieldByIndex", .{metadata_name});
+    defer allocator.free(by_index);
+    const by_index_ident = try zigStringLiteralAlloc(allocator, by_index);
+    defer allocator.free(by_index_ident);
+    try appendFmt(allocator, out,
+        \\{s}pub fn @{s}(@"cpz.name": []const u8) ?cpz.schema.MethodField {{
+        \\{s}    for (@This().@{s}) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @{s}(@"cpz.index": usize) ?cpz.schema.MethodField {{
+        \\{s}    if (@"cpz.index" >= @This().@{s}.len) return null;
+        \\{s}    return @This().@{s}[@"cpz.index"];
+        \\{s}}}
+        \\
+    , .{ indent, by_name_ident, indent, metadata_ident, indent, indent, indent, by_index_ident, indent, metadata_ident, indent, metadata_ident, indent });
 }
 
 fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const AnnotationDecl) LayoutError!void {
