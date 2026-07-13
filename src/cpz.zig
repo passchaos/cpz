@@ -20,6 +20,28 @@ pub const ListPointer = wire.ListPointer;
 pub const FarPointer = wire.FarPointer;
 pub const CapabilityPointer = wire.CapabilityPointer;
 pub const DecodedPointer = wire.DecodedPointer;
+pub const readWord = wire.readWord;
+pub const readWordAt = wire.readWordAt;
+pub const writeWordAt = wire.writeWordAt;
+pub const pointerType = wire.pointerType;
+pub const isNull = wire.isNull;
+pub const decodePointer = wire.decode;
+pub const decodeStructPointer = wire.decodeStruct;
+pub const decodeListPointer = wire.decodeList;
+pub const decodeFarPointer = wire.decodeFar;
+pub const decodeCapabilityPointer = wire.decodeOther;
+pub const encodeStructPointer = wire.encodeStruct;
+pub const encodeListPointer = wire.encodeList;
+pub const encodeFarPointer = wire.encodeFar;
+pub const encodeCapabilityPointer = wire.encodeCapability;
+pub const targetWordIndex = wire.targetWordIndex;
+pub const offsetFromPointer = wire.offsetFromPointer;
+pub const bitsPerElement = wire.bitsPerElement;
+pub const wordsForBits = wire.wordsForBits;
+pub const wordsForList = wire.wordsForList;
+pub const wordsForStructList = wire.wordsForStructList;
+pub const encodeStructListTag = wire.encodeStructListTag;
+pub const decodeStructListTag = wire.decodeStructListTag;
 
 pub const MessageBuilder = message.MessageBuilder;
 pub const MessageReader = message.MessageReader;
@@ -171,6 +193,43 @@ test "top-level wire pointer type exports" {
 
     const cap: CapabilityPointer = try wire.decodeOther(wire.encodeCapability(7));
     try testing.expect(cap.matchesIndex(7));
+}
+
+test "top-level wire helper exports" {
+    const std = @import("std");
+    const testing = std.testing;
+
+    const raw = try encodeStructPointer(1, 2, 3);
+    try testing.expectEqual(PointerType.struct_ptr, pointerType(raw));
+    try testing.expect(!isNull(raw));
+    const decoded = try decodePointer(raw);
+    try testing.expectEqual(@as(u16, 2), decoded.asStruct().?.data_words);
+    try testing.expectEqual(@as(i32, 1), decodeStructPointer(raw).offset_words);
+    try testing.expectEqual(@as(usize, 4), try targetWordIndex(2, 1));
+    try testing.expectEqual(@as(i32, 1), try offsetFromPointer(2, 4));
+
+    const list_raw = try encodeListPointer(0, .byte, 9);
+    try testing.expectEqual(@as(usize, 9), (try decodeListPointer(list_raw)).elementCountOrWordCount());
+    try testing.expectEqual(@as(usize, 8), bitsPerElement(.byte));
+    try testing.expectEqual(@as(usize, 1), wordsForBits(9));
+    try testing.expectEqual(@as(usize, 2), try wordsForList(.two_bytes, 5));
+
+    const tag_raw = try encodeStructListTag(4, .{ .data_words = 1, .pointer_count = 1 });
+    const tag = try decodeStructListTag(tag_raw);
+    try testing.expectEqual(@as(usize, 4), tag.element_count);
+    try testing.expectEqual(@as(usize, 8), try wordsForStructList(4, tag.size));
+
+    const far = decodeFarPointer(try encodeFarPointer(true, 6, 7));
+    try testing.expect(far.isDoubleFar());
+    try testing.expectEqual(@as(u32, 7), far.landingPadSegmentId());
+
+    const cap = try decodeCapabilityPointer(encodeCapabilityPointer(11));
+    try testing.expectEqual(@as(u32, 11), cap.capabilityIndex());
+
+    var bytes: [wire.bytes_per_word]u8 = undefined;
+    writeWordAt(&bytes, raw);
+    try testing.expectEqual(raw, readWordAt(&bytes));
+    try testing.expectEqual(raw, try readWord(&bytes, 0));
 }
 
 test {
