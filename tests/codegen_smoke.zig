@@ -556,10 +556,13 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(validation_stats.capabilities, validation_stats.size().cap_count);
     try std.testing.expect(!validation_stats.isEmpty());
     try std.testing.expect(!validation_stats.hasCapabilities());
+    try std.testing.expect(validation_stats.maxCapabilityIndex() == null);
+    try std.testing.expectEqual(@as(usize, 0), validation_stats.maxCapabilityCount());
     const validation_with_options = try generated.Person.@"cpz.root.validateWithOptions"(&reader, .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(validation_stats.total_words, validation_with_options.total_words);
     const message_size_with_options = try generated.Person.@"cpz.root.messageTotalSizeWithOptions"(&reader, .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(validation_with_options.size().word_count, message_size_with_options.word_count);
+    try std.testing.expect(message_size_with_options.hasWords());
     var canonical_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const direct_reader_canonical_bytes = try canonical_reader.toCanonicalSegmentBytes(std.testing.allocator);
     defer std.testing.allocator.free(direct_reader_canonical_bytes);
@@ -1629,6 +1632,10 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 7070), try dynamic_box.cap());
     try std.testing.expectError(error.InvalidCapabilityPointer, dynamic_box.capStatsWithOptions(.{ .capability_count_limit = 100 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, dynamic_box.capTotalSizeWithOptions(.{ .capability_count_limit = 100 }));
+    const cap_stats = try dynamic_box.capStats();
+    try std.testing.expect(cap_stats.hasCapabilities());
+    try std.testing.expectEqual(@as(?u32, 7070), cap_stats.maxCapabilityIndex());
+    try std.testing.expectEqual(@as(usize, 7071), cap_stats.maxCapabilityCount());
     try std.testing.expectEqualSlices(u8, &[_]u8{ 5, 6, 7 }, try dynamic_box.blob());
     const read_caps = try dynamic_box.capList();
     try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));

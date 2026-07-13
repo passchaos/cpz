@@ -43,6 +43,17 @@ pub const MessageStats = struct {
     pub fn hasCapabilities(self: MessageStats) bool {
         return self.capabilities != 0;
     }
+
+    pub fn maxCapabilityIndex(self: MessageStats) ?u32 {
+        return self.max_capability_index;
+    }
+
+    pub fn maxCapabilityCount(self: MessageStats) usize {
+        if (self.max_capability_index) |index| {
+            return @as(usize, index) + 1;
+        }
+        return 0;
+    }
 };
 
 pub const MessageSize = struct {
@@ -55,6 +66,10 @@ pub const MessageSize = struct {
 
     pub fn hasCapabilities(self: MessageSize) bool {
         return self.cap_count != 0;
+    }
+
+    pub fn hasWords(self: MessageSize) bool {
+        return self.word_count != 0;
     }
 };
 
