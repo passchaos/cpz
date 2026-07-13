@@ -859,14 +859,18 @@ pub const PointerBuilder = struct {
         }).decode();
     }
 
-    pub fn totalSize(self: PointerBuilder) Error!MessageSize {
+    pub fn validate(self: PointerBuilder) Error!MessageStats {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return (PointerReader{
             .message = &reader,
             .segment_id = self.segment_id,
             .word_index = self.word_index,
             .nesting_left = reader.options.nesting_limit,
-        }).totalSize();
+        }).validate();
+    }
+
+    pub fn totalSize(self: PointerBuilder) Error!MessageSize {
+        return (try self.validate()).size();
     }
 
     pub fn clear(self: PointerBuilder) void {
