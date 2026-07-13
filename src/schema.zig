@@ -195,6 +195,19 @@ pub const InterfaceMethod = struct {
     result_fields: []const MethodField = &.{},
 };
 
+pub const InterfaceMethodMetadata = struct {
+    name: []const u8,
+    ordinal: u16,
+    signature: []const u8 = "",
+    params: []const u8 = "",
+    results: []const u8 = "",
+    params_type: []const u8 = "",
+    results_type: []const u8 = "",
+    annotations: []const u8 = "",
+    streaming: bool = false,
+    parameters: []const []const u8 = &.{},
+};
+
 pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -3696,6 +3709,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     for (decl.consts) |*nested_const| {
         try emitNestedConst(allocator, out, file, &alias_scope, nested_const);
     }
+    try appendInterfaceMethodTable(allocator, out, decl.methods, "    ");
     for (decl.methods) |method| {
         const method_name = try zigIdentAlloc(allocator, method.name);
         defer allocator.free(method_name);
@@ -3752,6 +3766,53 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         \\
         \\
     , .{});
+}
+
+fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), methods: []const InterfaceMethod, indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out, "{s}pub const @\"cpz.methods\": []const cpz.schema.InterfaceMethodMetadata = &[_]cpz.schema.InterfaceMethodMetadata{{", .{indent});
+    for (methods, 0..) |method, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const name_literal = try zigStringLiteralAlloc(allocator, method.name);
+        defer allocator.free(name_literal);
+        const signature_literal = try zigStringLiteralAlloc(allocator, method.signature);
+        defer allocator.free(signature_literal);
+        const params_literal = try zigStringLiteralAlloc(allocator, method.params_signature);
+        defer allocator.free(params_literal);
+        const results_literal = try zigStringLiteralAlloc(allocator, method.results_signature);
+        defer allocator.free(results_literal);
+        const params_type_literal = try zigStringLiteralAlloc(allocator, method.params_type);
+        defer allocator.free(params_type_literal);
+        const results_type_literal = try zigStringLiteralAlloc(allocator, method.results_type);
+        defer allocator.free(results_type_literal);
+        const annotations_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
+        defer allocator.free(annotations_literal);
+        try appendFmt(allocator, out, ".{{ .name = {s}, .ordinal = {}, .signature = {s}, .params = {s}, .results = {s}", .{
+            name_literal,
+            method.ordinal,
+            signature_literal,
+            params_literal,
+            results_literal,
+        });
+        if (method.params_type.len != 0) {
+            try appendFmt(allocator, out, ", .params_type = {s}", .{params_type_literal});
+        }
+        if (method.results_type.len != 0) {
+            try appendFmt(allocator, out, ", .results_type = {s}", .{results_type_literal});
+        }
+        if (method.annotation_signature.len != 0) {
+            try appendFmt(allocator, out, ", .annotations = {s}", .{annotations_literal});
+        }
+        if (method.is_streaming) {
+            try out.appendSlice(allocator, ", .streaming = true");
+        }
+        if (method.parameters.len != 0) {
+            try out.appendSlice(allocator, ", .parameters = ");
+            try appendParameterListLiteral(allocator, out, method.parameters);
+        }
+        try out.appendSlice(allocator, " }");
+    }
+    try out.appendSlice(allocator, "};\n");
+    if (methods.len != 0) try out.append(allocator, '\n');
 }
 
 fn emitParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8, indent: []const u8) LayoutError!void {
