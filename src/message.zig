@@ -40,6 +40,14 @@ pub const MessageStats = struct {
 pub const MessageSize = struct {
     word_count: usize = 0,
     cap_count: usize = 0,
+
+    pub fn isEmpty(self: MessageSize) bool {
+        return self.word_count == 0 and self.cap_count == 0;
+    }
+
+    pub fn hasCapabilities(self: MessageSize) bool {
+        return self.cap_count != 0;
+    }
 };
 
 pub const BuilderOptions = struct {
