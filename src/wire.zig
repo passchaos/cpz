@@ -34,6 +34,49 @@ pub const ElementSize = enum(u3) {
     eight_bytes = 5,
     pointer = 6,
     composite = 7,
+
+    pub fn bits(self: ElementSize) usize {
+        return bitsPerElement(self);
+    }
+
+    pub fn wordsForElements(self: ElementSize, element_count: usize) Error!usize {
+        return wordsForList(self, element_count);
+    }
+
+    pub fn isVoid(self: ElementSize) bool {
+        return self == .void;
+    }
+
+    pub fn isBit(self: ElementSize) bool {
+        return self == .bit;
+    }
+
+    pub fn isPointer(self: ElementSize) bool {
+        return self == .pointer;
+    }
+
+    pub fn isComposite(self: ElementSize) bool {
+        return self == .composite;
+    }
+
+    pub fn isInlineData(self: ElementSize) bool {
+        return switch (self) {
+            .bit, .byte, .two_bytes, .four_bytes, .eight_bytes => true,
+            .void, .pointer, .composite => false,
+        };
+    }
+
+    pub fn isFixedWidth(self: ElementSize) bool {
+        return self != .composite;
+    }
+
+    pub fn hasPayloadBits(self: ElementSize) bool {
+        return self.bits() != 0;
+    }
+
+    pub fn matchesBits(self: ElementSize, bit_count: usize) bool {
+        return self.bits() == bit_count;
+    }
 };
 
 pub const StructSize = struct {
@@ -420,6 +463,29 @@ inline fn encodeSigned30(value: i32) Error!u30 {
     if (value < std.math.minInt(i30) or value > std.math.maxInt(i30)) return error.OffsetOutOfRange;
     const signed: i30 = @intCast(value);
     return @bitCast(signed);
+}
+
+test "element size helper methods" {
+    const testing = std.testing;
+
+    try testing.expect(ElementSize.void.isVoid());
+    try testing.expect(ElementSize.bit.isBit());
+    try testing.expect(ElementSize.pointer.isPointer());
+    try testing.expect(ElementSize.composite.isComposite());
+    try testing.expect(!ElementSize.composite.isFixedWidth());
+    try testing.expect(ElementSize.eight_bytes.isFixedWidth());
+    try testing.expect(ElementSize.byte.isInlineData());
+    try testing.expect(ElementSize.four_bytes.isInlineData());
+    try testing.expect(!ElementSize.void.isInlineData());
+    try testing.expect(!ElementSize.pointer.isInlineData());
+    try testing.expect(!ElementSize.composite.isInlineData());
+    try testing.expect(!ElementSize.void.hasPayloadBits());
+    try testing.expect(ElementSize.pointer.hasPayloadBits());
+    try testing.expectEqual(@as(usize, 16), ElementSize.two_bytes.bits());
+    try testing.expect(ElementSize.two_bytes.matchesBits(16));
+    try testing.expectEqual(@as(usize, 2), try ElementSize.two_bytes.wordsForElements(5));
+    try testing.expectEqual(@as(usize, 5), try ElementSize.eight_bytes.wordsForElements(5));
+    try testing.expectError(error.UnsupportedElementSize, ElementSize.composite.wordsForElements(1));
 }
 
 test "wire pointer encoding matches Cap'n Proto spec examples" {
