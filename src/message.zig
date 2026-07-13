@@ -366,6 +366,10 @@ pub const OwnedMessageReader = struct {
         return self.flat.consumed_len;
     }
 
+    pub fn sourceConsumedLen(self: *const OwnedMessageReader) usize {
+        return self.flat.sourceConsumedLen();
+    }
+
     pub fn bytes(self: *const OwnedMessageReader) []const u8 {
         return self.flat.consumedBytes();
     }
@@ -527,6 +531,10 @@ pub const MessageReaderView = struct {
 
     pub fn consumedLen(self: *const MessageReaderView) usize {
         return self.flat.consumed_len;
+    }
+
+    pub fn sourceConsumedLen(self: *const MessageReaderView) usize {
+        return self.flat.sourceConsumedLen();
     }
 
     pub fn bytes(self: *const MessageReaderView) []const u8 {
@@ -3216,6 +3224,7 @@ test "owned message readers parse flat and packed bytes" {
     var owned_flat = try OwnedMessageReader.initFlat(testing.allocator, flat, .{});
     defer owned_flat.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_flat.consumedLen());
+    try testing.expectEqual(flat.len, owned_flat.sourceConsumedLen());
     try testing.expectEqual(flat.len, owned_flat.bytes().len);
     try testing.expectEqual(@as(u32, 5150), (try owned_flat.asReader().getRoot()).getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "owned", try (try owned_flat.asReader().getRoot()).getPointerField(0).getText());
@@ -3273,6 +3282,7 @@ test "owned message readers parse flat and packed bytes" {
     var owned_packed = try OwnedMessageReader.initPacked(testing.allocator, packed_bytes, .{});
     defer owned_packed.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_packed.consumedLen());
+    try testing.expectEqual(packed_bytes.len, owned_packed.sourceConsumedLen());
     try testing.expectEqual(@as(u32, 5150), (try owned_packed.asReader().getRoot()).getUInt32(0, 0));
 
     var empty_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
@@ -3308,11 +3318,13 @@ test "owned message readers parse flat and packed bytes" {
     var owned_flat_with_trailer = try OwnedMessageReader.initFlat(testing.allocator, flat_with_trailer, .{});
     defer owned_flat_with_trailer.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_flat_with_trailer.consumedLen());
+    try testing.expectEqual(flat.len, owned_flat_with_trailer.sourceConsumedLen());
     try testing.expectEqualSlices(u8, flat, owned_flat_with_trailer.bytes());
     var flat_stream = std.Io.Reader.fixed(flat_with_trailer);
     var owned_from_reader = try OwnedMessageReader.initFromReader(testing.allocator, &flat_stream, .{});
     defer owned_from_reader.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_from_reader.consumedLen());
+    try testing.expectEqual(flat.len, owned_from_reader.sourceConsumedLen());
     try testing.expectEqualSlices(u8, flat, owned_from_reader.bytes());
     try testing.expectEqualSlices(u8, &trailer, flat_stream.buffered());
 
@@ -3321,11 +3333,13 @@ test "owned message readers parse flat and packed bytes" {
     var owned_packed_with_trailer = try OwnedMessageReader.initPacked(testing.allocator, packed_with_trailer, .{});
     defer owned_packed_with_trailer.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_packed_with_trailer.consumedLen());
+    try testing.expectEqual(packed_bytes.len, owned_packed_with_trailer.sourceConsumedLen());
     try testing.expectEqualSlices(u8, flat, owned_packed_with_trailer.bytes());
     var packed_stream = std.Io.Reader.fixed(packed_with_trailer);
     var owned_packed_from_reader = try OwnedMessageReader.initPackedFromReader(testing.allocator, &packed_stream, .{});
     defer owned_packed_from_reader.deinit(testing.allocator);
     try testing.expectEqual(flat.len, owned_packed_from_reader.consumedLen());
+    try testing.expectEqual(packed_bytes.len, owned_packed_from_reader.sourceConsumedLen());
     try testing.expectEqualSlices(u8, flat, owned_packed_from_reader.bytes());
     try testing.expectEqualSlices(u8, &trailer, packed_stream.buffered());
 }
@@ -3348,6 +3362,7 @@ test "message reader views parse flat bytes without copying message data" {
     var view = try MessageReaderView.initFlat(testing.allocator, flat_with_trailer, .{});
     defer view.deinit(testing.allocator);
     try testing.expectEqual(flat.len, view.consumedLen());
+    try testing.expectEqual(flat.len, view.sourceConsumedLen());
     try testing.expectEqualSlices(u8, flat, view.bytes());
     try testing.expectEqual(@as(u32, 6160), (try view.asReader().getRoot()).getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "view", try (try view.asReader().getRoot()).getPointerField(0).getText());
