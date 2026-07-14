@@ -2741,6 +2741,21 @@ pub const Parser = struct {
         if (self.isKeyword("import")) {
             return self.parseInlineImportType();
         }
+        if (self.lookahead.tag == .dot) {
+            try self.expect(.dot);
+            const first = self.lookahead;
+            _ = try self.expectIdentifier();
+            var end = first.end;
+            if (try self.skipTypeApplications()) |app_end| end = app_end;
+            while (self.lookahead.tag == .dot) {
+                try self.expect(.dot);
+                const part = self.lookahead;
+                _ = try self.expectIdentifier();
+                end = part.end;
+                if (try self.skipTypeApplications()) |app_end| end = app_end;
+            }
+            return .{ .named = self.lexer.source[first.start..end] };
+        }
         const first = self.lookahead;
         const name = try self.expectIdentifier();
         if (std.mem.eql(u8, name, "List")) {
@@ -4118,6 +4133,8 @@ test "schema parser tolerates nested declarations and dotted type names" {
         \\  state @1 :State;
         \\  aliasName @2 :LocalName;
         \\  anonymousAlias @3 :Inner;
+        \\  absoluteChild @4 :.Outer.Inner;
+        \\  absoluteChildren @5 :List(.Outer.Inner);
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
@@ -4129,7 +4146,7 @@ test "schema parser tolerates nested declarations and dotted type names" {
     try std.testing.expectEqualStrings("Outer.State", file.enums[0].name);
 
     const outer = &file.structs[1];
-    try std.testing.expectEqual(@as(usize, 4), outer.fields.len);
+    try std.testing.expectEqual(@as(usize, 6), outer.fields.len);
     try std.testing.expectEqual(@as(usize, 3), outer.aliases.len);
     try std.testing.expectEqualStrings("Inner", outer.aliases[0].name);
     try std.testing.expect(outer.aliases[0].target == .named);
@@ -4153,10 +4170,17 @@ test "schema parser tolerates nested declarations and dotted type names" {
     const resolved_anonymous = resolveTypeScoped(&file, outer, outer.fields[3].ty);
     try std.testing.expect(resolved_anonymous == .named);
     try std.testing.expectEqualStrings("Outer.Inner", resolved_anonymous.named);
+    try std.testing.expect(outer.fields[4].ty == .named);
+    try std.testing.expectEqualStrings("Outer.Inner", outer.fields[4].ty.named);
+    try std.testing.expect(outer.fields[5].ty == .list);
+    try std.testing.expect(outer.fields[5].ty.list.* == .named);
+    try std.testing.expectEqualStrings("Outer.Inner", outer.fields[5].ty.list.*.named);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, layouts.structs[1].fields[2].slot);
     try std.testing.expectEqual(FieldSlot{ .pointer = 2 }, layouts.structs[1].fields[3].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 3 }, layouts.structs[1].fields[4].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 4 }, layouts.structs[1].fields[5].slot);
 }
 
 test "schema layout planner assigns data and pointer slots" {
