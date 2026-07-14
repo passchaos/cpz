@@ -21,6 +21,15 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(u32, 77), item.value());
     try std.testing.expectEqualStrings("seventy-seven", try item.label());
 
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeItems.itemCount);
+    var items_reader = generated.Defaults.defaultMaybeItems.reader(.{});
+    const maybe_item0 = try generated.Defaults.defaultMaybeItems.get(&items_reader, 0);
+    try std.testing.expectEqual(@as(u32, 30), maybe_item0.value());
+    try std.testing.expectEqualStrings("thirty", try maybe_item0.label());
+    const maybe_item1 = try generated.Defaults.defaultMaybeItems.get(&items_reader, 1);
+    try std.testing.expectEqual(@as(u32, 40), maybe_item1.value());
+    try std.testing.expectEqualStrings("forty", try maybe_item1.label());
+
     try std.testing.expectEqual(@as(?generated.Defaults.Item, null), generated.Defaults.defaultNothing);
 }
 

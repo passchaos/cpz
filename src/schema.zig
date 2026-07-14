@@ -7793,6 +7793,17 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
     }
 }
 
+fn constListChildTypeOrNull(file: *const File, scope: ?*const Struct, ty: Type) ?Type {
+    return switch (resolveTypeScoped(file, scope, ty)) {
+        .list => |list_child| list_child.*,
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .list => |list_child| list_child.*,
+            else => null,
+        },
+        else => null,
+    };
+}
+
 fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, index: usize, decl: *const ConstDecl, indent: []const u8) LayoutError!void {
     const const_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(const_name);
@@ -7894,10 +7905,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 defer allocator.free(flat_bytes);
                 const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
                 defer allocator.free(flat_literal);
-                const child = switch (resolveTypeScoped(file, scope, decl.ty)) {
-                    .list => |list_child| list_child.*,
-                    else => unreachable,
-                };
+                const child = constListChildTypeOrNull(file, scope, decl.ty) orelse unreachable;
                 const item_type_name = switch (resolveTypeScoped(file, scope, child)) {
                     .named => |name| try zigTypeRefAlloc(allocator, file, name),
                     else => unreachable,
@@ -8266,6 +8274,10 @@ fn nestedListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
     _ = decl.list_items orelse return null;
     const child = switch (resolveTypeScoped(file, scope, decl.ty)) {
         .list => |list_child| list_child.*,
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .list => |list_child| list_child.*,
+            else => return null,
+        },
         else => return null,
     };
     if (resolveTypeScoped(file, scope, child) != .list) return null;
@@ -8529,6 +8541,10 @@ fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
     const items = decl.list_items orelse return null;
     const child = switch (resolveTypeScoped(file, scope, decl.ty)) {
         .list => |list_child| list_child.*,
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .list => |list_child| list_child.*,
+            else => return null,
+        },
         else => return null,
     };
     const type_name = switch (resolveTypeScoped(file, scope, child)) {
