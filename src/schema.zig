@@ -7660,17 +7660,48 @@ fn appendPointerListPointer(allocator: std.mem.Allocator, segment: *std.ArrayLis
 fn appendPointerListOfByteLists(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, items: []const []const u8, comptime text_items: bool) LayoutError!void {
     const list_start_words = try appendPointerListPointer(allocator, segment, pointer_index, data_words, object_start_words, items.len);
     for (items, 0..) |item, index| {
-        const bytes = if (text_items)
-            try inlineQuotedStringBytesAlloc(allocator, item)
+        const bytes = (if (text_items)
+            inlineQuotedStringBytesAlloc(allocator, item)
         else
-            try inlineDataBytesAlloc(allocator, item);
+            inlineDataBytesAlloc(allocator, item)) catch |err| switch (err) {
+            error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+            else => return err,
+        };
         defer allocator.free(bytes);
         try appendByteListPointerAtWord(allocator, segment, list_start_words + index, bytes, text_items);
     }
 }
 
+fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, type_name: []const u8, literal: []const u8) LayoutError!void {
+    const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
+    var nested_layout = try planStructLayout(allocator, file, struct_decl);
+    defer nested_layout.deinit(allocator);
+    const fields = parseConstStructFieldsAlloc(allocator, literal) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+        else => return err,
+    };
+    defer allocator.free(fields);
+
+    const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
+    const object_words = @as(usize, nested_layout.data_words) + @as(usize, nested_layout.pointer_count);
+    if (object_words == 0) {
+        if (fields.len != 0) return error.UnsupportedType;
+        writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(-1, 0, 0));
+        return;
+    }
+
+    const target_word_index = segment.items.len / @sizeOf(u64);
+    try segment.appendNTimes(allocator, 0, object_words * @sizeOf(u64));
+    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
+    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(offset, nested_layout.data_words, nested_layout.pointer_count));
+    try writeStructLiteralFieldsIntoSegment(allocator, file, &nested_layout, fields, segment, target_word_index);
+}
+
 fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, child_ty: Type, literal: []const u8) LayoutError!void {
-    const items = try parseInlineConstListElementsAlloc(allocator, literal);
+    const items = parseInlineConstListElementsAlloc(allocator, literal) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+        else => return err,
+    };
     defer allocator.free(items);
     switch (resolveTypeScoped(file, scope, child_ty)) {
         .void => {
@@ -7861,6 +7892,7 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
                     try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
                 },
                 .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, const_field.literal),
+                .named => |type_name| try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, const_field.literal),
                 else => return error.UnsupportedType,
             },
             else => return error.UnsupportedType,
