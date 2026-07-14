@@ -3542,7 +3542,13 @@ test "generated builtin any and capability accessors round-trip" {
 
     const any_items = try box_builder.init_anyListItems(8);
     try any_items.setText(0, "list any text");
+    try std.testing.expectEqual(@as(usize, "list any text".len), try any_items.getAsTextByteCount(0));
+    try std.testing.expect(try any_items.getAsTextMatchesBytes(0, "list any text".len));
+    try std.testing.expect(!try any_items.getAsTextMatchesBytes(0, "list any text".len + 1));
     try any_items.setData(1, &[_]u8{ 4, 5 });
+    try std.testing.expectEqual(@as(usize, 2), try any_items.getAsDataByteCount(1));
+    try std.testing.expect(try any_items.getAsDataMatchesBytes(1, 2));
+    try std.testing.expect(!try any_items.getAsDataMatchesBytes(1, 3));
     var any_item_cap = try any_items.newCapabilityOrphan(6060);
     try any_items.adopt(2, &any_item_cap);
     const any_item_struct = try any_items.initStruct(3, .{ .data_words = 1, .pointer_count = 0 });
@@ -3567,6 +3573,9 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(5));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(6));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(7));
+    try std.testing.expectEqual(@as(usize, "dynamic".len), try any_items.getAsTextByteCount(7));
+    try std.testing.expect(try any_items.getAsTextMatchesBytes(7, "dynamic".len));
+    try std.testing.expect(!try any_items.getAsTextMatchesBytes(7, "dynamic".len + 1));
     try std.testing.expectEqual(cpz.StructSize{ .data_words = 1, .pointer_count = 0 }, try any_items.elementStructSize(3));
     try std.testing.expectEqual(@as(u16, 1), try any_items.elementStructDataWordCount(3));
     try std.testing.expectEqual(@as(u16, 0), try any_items.elementStructPointerCount(3));
@@ -3577,6 +3586,14 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expect(try any_items.elementStructMatchesPointerCount(3, 0));
     try std.testing.expect(try any_items.elementStructMatchesTotalWords(3, 1));
     try std.testing.expect(try any_items.elementStructMatchesTotalBytes(3, 8));
+    var any_items_reader = try builder.asReader(.{});
+    const read_any_items = try generated.DynamicBox.fromReader(try any_items_reader.getRoot()).anyListItems();
+    try std.testing.expectEqual(@as(usize, "list any text".len), try read_any_items.getAsTextByteCount(0));
+    try std.testing.expect(try read_any_items.getAsTextMatchesBytes(0, "list any text".len));
+    try std.testing.expect(!try read_any_items.getAsTextMatchesBytes(0, "list any text".len + 1));
+    try std.testing.expectEqual(@as(usize, "dynamic".len), try read_any_items.getAsTextByteCount(1));
+    try std.testing.expect(try read_any_items.getAsTextMatchesBytes(1, "dynamic".len));
+    try std.testing.expect(!try read_any_items.getAsTextMatchesBytes(1, "dynamic".len + 1));
 
     const any_struct_items = try box_builder.init_anyStructItems(1);
     const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });
@@ -3664,10 +3681,21 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, "orphan text any", try text_orphan.getText());
     try orphan_box_builder.adopt_any(&text_orphan);
     try std.testing.expectEqualSlices(u8, "orphan text any", try orphan_box_builder.get_anyAsText());
+    try std.testing.expectEqual(@as(usize, "orphan text any".len), try orphan_box_builder.get_anyAsTextByteCount());
+    try std.testing.expect(try orphan_box_builder.get_anyAsTextMatchesBytes("orphan text any".len));
+    try std.testing.expect(!try orphan_box_builder.get_anyAsTextMatchesBytes("orphan text any".len + 1));
     var data_orphan = try orphan_box_builder.new_any_dataOrphan(&[_]u8{ 7, 8, 9 });
     try std.testing.expectEqualSlices(u8, &[_]u8{ 7, 8, 9 }, try data_orphan.getData());
     try orphan_box_builder.adopt_any(&data_orphan);
     try std.testing.expectEqualSlices(u8, &[_]u8{ 7, 8, 9 }, try orphan_box_builder.get_anyAsData());
+    try std.testing.expectEqual(@as(usize, 3), try orphan_box_builder.get_anyAsDataByteCount());
+    try std.testing.expect(try orphan_box_builder.get_anyAsDataMatchesBytes(3));
+    try std.testing.expect(!try orphan_box_builder.get_anyAsDataMatchesBytes(4));
+    var data_any_reader = cpz.MessageReader.init(try orphan_builder_message.segmentsConst(), .{});
+    const data_any_box = generated.DynamicBox.fromReader(try data_any_reader.getRoot());
+    try std.testing.expectEqual(@as(usize, 3), try data_any_box.anyAsDataByteCount());
+    try std.testing.expect(try data_any_box.anyAsDataMatchesBytes(3));
+    try std.testing.expect(!try data_any_box.anyAsDataMatchesBytes(4));
     var cap_orphan = try orphan_box_builder.new_any_capabilityOrphan(2468);
     try std.testing.expectEqual(@as(u32, 2468), try cap_orphan.getCapabilityIndex());
     try std.testing.expectError(error.InvalidCapabilityPointer, cap_orphan.validateWithOptions(.{ .capability_count_limit = 100 }));
@@ -3685,14 +3713,23 @@ test "generated builtin any and capability accessors round-trip" {
     const copy_orphan_box = generated.DynamicBox.fromReader(try copy_orphan_reader.getRoot());
     try std.testing.expectEqualSlices(u8, "dynamic", try (try copy_orphan_box.any()).getText());
     try std.testing.expectEqualSlices(u8, "dynamic", try copy_orphan_box.anyAsText());
+    try std.testing.expectEqual(@as(usize, "dynamic".len), try copy_orphan_box.anyAsTextByteCount());
+    try std.testing.expect(try copy_orphan_box.anyAsTextMatchesBytes("dynamic".len));
+    try std.testing.expect(!try copy_orphan_box.anyAsTextMatchesBytes("dynamic".len + 1));
 
     var scalar_builder_message = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer scalar_builder_message.deinit();
     const scalar_box_builder = try generated.DynamicBox.initRootTyped(&scalar_builder_message);
     try scalar_box_builder.set_any_text("any text");
     try std.testing.expectEqualSlices(u8, "any text", try scalar_box_builder.get_anyAsText());
+    try std.testing.expectEqual(@as(usize, "any text".len), try scalar_box_builder.get_anyAsTextByteCount());
+    try std.testing.expect(try scalar_box_builder.get_anyAsTextMatchesBytes("any text".len));
+    try std.testing.expect(!try scalar_box_builder.get_anyAsTextMatchesBytes("any text".len + 1));
     try scalar_box_builder.set_any_data(&[_]u8{ 1, 2, 3 });
     try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2, 3 }, try scalar_box_builder.get_anyAsData());
+    try std.testing.expectEqual(@as(usize, 3), try scalar_box_builder.get_anyAsDataByteCount());
+    try std.testing.expect(try scalar_box_builder.get_anyAsDataMatchesBytes(3));
+    try std.testing.expect(!try scalar_box_builder.get_anyAsDataMatchesBytes(4));
     try scalar_box_builder.set_any_capability(12345);
     try std.testing.expectEqual(@as(u32, 12345), try scalar_box_builder.get_anyAsCapability());
     var scalar_reader = cpz.MessageReader.init(try scalar_builder_message.segmentsConst(), .{});

@@ -10300,15 +10300,31 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return self.reader.getPointerField({}).getText();
                 \\    }}
                 \\
+                \\    pub fn {s}AsTextByteCount(self: @This()) !usize {{
+                \\        return (try self.{s}()).getTextByteCount();
+                \\    }}
+                \\
+                \\    pub fn {s}AsTextMatchesBytes(self: @This(), count: usize) !bool {{
+                \\        return (try self.{s}()).textMatchesBytes(count);
+                \\    }}
+                \\
                 \\    pub fn {s}AsData(self: @This()) ![]const u8 {{
-            , .{ index, field_name });
+            , .{ index, field_name, field_name, field_name, field_name, field_name });
             try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\        return self.reader.getPointerField({}).getData();
                 \\    }}
                 \\
+                \\    pub fn {s}AsDataByteCount(self: @This()) !usize {{
+                \\        return (try self.{s}()).getDataByteCount();
+                \\    }}
+                \\
+                \\    pub fn {s}AsDataMatchesBytes(self: @This(), count: usize) !bool {{
+                \\        return (try self.{s}()).dataMatchesBytes(count);
+                \\    }}
+                \\
                 \\    pub fn {s}AsCapability(self: @This()) !u32 {{
-            , .{ index, field_name });
+            , .{ index, field_name, field_name, field_name, field_name, field_name });
             try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\        return self.reader.getPointerField({}).getCapabilityIndex();
@@ -10678,8 +10694,24 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getText();
             \\        }}
             \\
+            \\        pub fn getAsTextByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).getTextByteCount();
+            \\        }}
+            \\
+            \\        pub fn getAsTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.get(index)).textMatchesBytes(count);
+            \\        }}
+            \\
             \\        pub fn getAsData(self: @This(), index: usize) ![]const u8 {{
             \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+            \\        pub fn getAsDataByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).getDataByteCount();
+            \\        }}
+            \\
+            \\        pub fn getAsDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.get(index)).dataMatchesBytes(count);
             \\        }}
             \\
             \\        pub fn getAsCapability(self: @This(), index: usize) !u32 {{
@@ -11440,8 +11472,24 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getText();
             \\        }}
             \\
+            \\        pub fn getAsTextByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).getTextByteCount();
+            \\        }}
+            \\
+            \\        pub fn getAsTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.get(index)).textMatchesBytes(count);
+            \\        }}
+            \\
             \\        pub fn getAsData(self: @This(), index: usize) ![]const u8 {{
             \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+            \\        pub fn getAsDataByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).getDataByteCount();
+            \\        }}
+            \\
+            \\        pub fn getAsDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.get(index)).dataMatchesBytes(count);
             \\        }}
             \\
             \\        pub fn getAsCapability(self: @This(), index: usize) !u32 {{
@@ -13383,8 +13431,24 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).getText();
                 \\        }}
                 \\
+                \\        pub fn get_{s}AsTextByteCount(self: Builder) !usize {{
+                \\            return (try self.get_{s}()).getTextByteCount();
+                \\        }}
+                \\
+                \\        pub fn get_{s}AsTextMatchesBytes(self: Builder, count: usize) !bool {{
+                \\            return (try self.get_{s}()).textMatchesBytes(count);
+                \\        }}
+                \\
                 \\        pub fn get_{s}AsData(self: Builder) ![]const u8 {{
                 \\            return (try self.builder.getPointerField({})).getData();
+                \\        }}
+                \\
+                \\        pub fn get_{s}AsDataByteCount(self: Builder) !usize {{
+                \\            return (try self.get_{s}()).getDataByteCount();
+                \\        }}
+                \\
+                \\        pub fn get_{s}AsDataMatchesBytes(self: Builder, count: usize) !bool {{
+                \\            return (try self.get_{s}()).dataMatchesBytes(count);
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsCapability(self: Builder) !u32 {{
@@ -13392,7 +13456,30 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\        }}
                 \\
                 \\        pub fn set_{s}(self: Builder, new_value: cpz.PointerReader) !void {{
-            , .{ index, field_name, index, field_name, index, field_name, index, field_name, index, field_name, index, field_name, index, field_name });
+            , .{
+                index,
+                field_name,
+                index,
+                field_name,
+                index,
+                field_name,
+                index,
+                field_name,
+                index,
+                field_name,
+                field_name,
+                field_name,
+                field_name,
+                field_name,
+                index,
+                field_name,
+                field_name,
+                field_name,
+                field_name,
+                field_name,
+                index,
+                field_name,
+            });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).copyFrom(new_value);
