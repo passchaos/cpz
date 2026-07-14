@@ -912,6 +912,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const name_pointer_view = try person_builder.get_nameAsReader(&name_view_reader);
     try std.testing.expectEqualSlices(u8, "Ada", try name_pointer_view.getText());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person_builder.get_namePointerKind()).?);
+    try std.testing.expectEqual(@as(u32, 0), try person_builder.get_namePointerSegmentId());
+    try std.testing.expect((try person_builder.get_namePointerWordIndex()) > 0);
+    try std.testing.expect(try person_builder.get_namePointerMatchesLocation(try person_builder.get_namePointerSegmentId(), try person_builder.get_namePointerWordIndex()));
     try std.testing.expect(try person_builder.get_nameMatchesPointerKind(.list));
     try std.testing.expect(!try person_builder.get_namePointerIsStruct());
     try std.testing.expect(try person_builder.get_namePointerIsList());
@@ -1213,6 +1216,9 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_name_pointer = try person.nameAsPointer();
     try std.testing.expectEqualSlices(u8, "Ada", try read_name_pointer.getText());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person.namePointerKind()).?);
+    try std.testing.expectEqual(@as(u32, 0), try person.namePointerSegmentId());
+    try std.testing.expect((try person.namePointerWordIndex()) > 0);
+    try std.testing.expect(try person.namePointerMatchesLocation(try person.namePointerSegmentId(), try person.namePointerWordIndex()));
     try std.testing.expect(try person.nameMatchesPointerKind(.list));
     try std.testing.expect(!try person.namePointerIsStruct());
     try std.testing.expect(try person.namePointerIsList());

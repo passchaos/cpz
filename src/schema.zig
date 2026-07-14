@@ -8849,6 +8849,27 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).pointerType();
         \\    }}
         \\
+        \\    pub fn {s}PointerSegmentId(self: @This()) !u32 {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).segmentId();
+        \\    }}
+        \\
+        \\    pub fn {s}PointerWordIndex(self: @This()) !usize {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).pointerWordIndex();
+        \\    }}
+        \\
+        \\    pub fn {s}PointerMatchesLocation(self: @This(), segment_id: u32, word_index: usize) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).matchesLocation(segment_id, word_index);
+        \\    }}
+        \\
         \\    pub fn {s}MatchesPointerKind(self: @This(), @"cpz.kind": cpz.wire.PointerType) !bool {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
@@ -10707,6 +10728,27 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).pointerType();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerSegmentId(self: Builder) !u32 {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).segmentId();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerWordIndex(self: Builder) !usize {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).pointerWordIndex();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerMatchesLocation(self: Builder, segment_id: u32, word_index: usize) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).matchesLocation(segment_id, word_index);
         \\        }}
         \\
         \\        pub fn get_{s}MatchesPointerKind(self: Builder, @"cpz.kind": cpz.wire.PointerType) !bool {{
