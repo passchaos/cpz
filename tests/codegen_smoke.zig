@@ -1731,6 +1731,7 @@ test "generated list root helpers work" {
     try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.owned.listLen"(&owned_scalar_reader, .two_bytes));
     try std.testing.expect(try generated.Person.@"cpz.owned.listMatchesLen"(&owned_scalar_reader, .two_bytes, 2));
     try std.testing.expectEqual(cpz.ElementSize.two_bytes, try generated.Person.@"cpz.owned.listElementSize"(&owned_scalar_reader, .two_bytes));
+    try std.testing.expect(try generated.Person.@"cpz.owned.listMatchesElementSize"(&owned_scalar_reader, .two_bytes, .two_bytes));
     try std.testing.expectEqual(@as(usize, 16), try generated.Person.@"cpz.owned.listElementBitCount"(&owned_scalar_reader, .two_bytes));
     try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.owned.listElementByteCount"(&owned_scalar_reader, .two_bytes));
     try std.testing.expectError(error.UnsupportedElementSize, generated.Person.@"cpz.owned.listElementWordCount"(&owned_scalar_reader, .two_bytes));
@@ -1745,6 +1746,7 @@ test "generated list root helpers work" {
     try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.view.listLen"(&viewed_scalar_reader, .two_bytes));
     try std.testing.expect(try generated.Person.@"cpz.view.listMatchesLen"(&viewed_scalar_reader, .two_bytes, 2));
     try std.testing.expectEqual(cpz.ElementSize.two_bytes, try generated.Person.@"cpz.view.listElementSize"(&viewed_scalar_reader, .two_bytes));
+    try std.testing.expect(try generated.Person.@"cpz.view.listMatchesElementSize"(&viewed_scalar_reader, .two_bytes, .two_bytes));
     try std.testing.expectEqual(@as(usize, 16), try generated.Person.@"cpz.view.listElementBitCount"(&viewed_scalar_reader, .two_bytes));
     try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.view.listElementByteCount"(&viewed_scalar_reader, .two_bytes));
     try std.testing.expectError(error.UnsupportedElementSize, generated.Person.@"cpz.view.listElementWordCount"(&viewed_scalar_reader, .two_bytes));
