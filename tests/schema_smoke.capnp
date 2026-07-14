@@ -79,7 +79,7 @@ struct Choice {
     created @4 :UInt64;
     label @5 :Text;
   }
-  selected :union $schemaNote("named-union") {
+  selected @22! :union $schemaNote("named-union") {
     text @6 :Text;
     code @7 :UInt32;
   }

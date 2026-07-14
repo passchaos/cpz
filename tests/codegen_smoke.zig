@@ -2212,6 +2212,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?cpz.schema.GroupDecl, null), generated.Choice.@"cpz.groupByAnnotations"("missing"));
     try std.testing.expectEqual(@as(?cpz.schema.GroupDecl, null), generated.Choice.@"cpz.groupByIndex"(99));
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unions"[0].index);
+    try std.testing.expectEqualStrings("", generated.Choice.@"cpz.unions"[0].name);
+    try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.unions"[0].ordinal);
     try std.testing.expectEqualStrings("$schemaNote(\"anonymous-union\")", generated.Choice.@"cpz.unions"[0].annotations);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[0].field_count);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[0].fields.len);
@@ -2246,6 +2248,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByDiscriminant"(99));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByOrdinal"(99));
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[1].field_count);
+    try std.testing.expectEqualStrings("selected", generated.Choice.@"cpz.unions"[1].name);
+    try std.testing.expectEqual(@as(?u32, 22), generated.Choice.@"cpz.unions"[1].ordinal);
     try std.testing.expectEqualStrings("$schemaNote(\"named-union\")", generated.Choice.@"cpz.unions"[1].annotations);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[1].fields.len);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.union.1.fields".len);
@@ -2275,6 +2279,10 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByDataRange"(32, 16));
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unionByFieldCount"(2).?.index);
     try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByFieldCount"(99));
+    try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByName"("selected").?.index);
+    try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByName"("missing"));
+    try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByOrdinal"(22).?.index);
+    try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByOrdinal"(99));
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unionByAnnotations"("$schemaNote(\"anonymous-union\")").?.index);
     try std.testing.expectEqual(@as(u32, 1), generated.Choice.@"cpz.unionByAnnotations"("$schemaNote(\"named-union\")").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByAnnotations"("missing"));
@@ -2283,6 +2291,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByIndex"(99));
     const union0_metadata = generated.Choice.@"cpz.unionByIndex"(0).?;
     try std.testing.expect(union0_metadata.matchesFieldCount(2));
+    try std.testing.expect(union0_metadata.matchesName(""));
+    try std.testing.expect(!union0_metadata.matchesName("selected"));
     try std.testing.expect(union0_metadata.matchesDiscriminantByte(0));
     try std.testing.expect(union0_metadata.matchesAnnotations("$schemaNote(\"anonymous-union\")"));
     try std.testing.expectEqualStrings("name", union0_metadata.fieldByName("name").?.name);
@@ -2322,6 +2332,10 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.fieldByUnionDiscriminant"(0, 99));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.fieldByUnionDiscriminant"(99, 0));
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.union.0.index");
+    try std.testing.expectEqualStrings("", generated.Choice.@"cpz.union.0.name");
+    try std.testing.expectEqual(@as(?u32, null), generated.Choice.@"cpz.union.0.ordinal");
+    try std.testing.expectEqualStrings("selected", generated.Choice.@"cpz.union.1.name");
+    try std.testing.expectEqual(@as(?u32, 22), generated.Choice.@"cpz.union.1.ordinal");
     try std.testing.expectEqualStrings("$schemaNote(\"anonymous-union\")", generated.Choice.@"cpz.union.0.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"named-union\")", generated.Choice.@"cpz.union.1.annotations");
     try std.testing.expectEqual(@as(usize, 0), generated.Choice.@"cpz.union.0.discriminantByte");
