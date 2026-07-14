@@ -7387,6 +7387,26 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return getRoot(@"cpz.reader".asReader());
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.text"(@"cpz.reader": *cpz.OwnedMessageReader) ![]const u8 {{
+        \\        return @"cpz.reader".getRootText();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.textDefault"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.reader".getRootTextDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.data"(@"cpz.reader": *cpz.OwnedMessageReader) ![]const u8 {{
+        \\        return @"cpz.reader".getRootData();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.dataDefault"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.reader".getRootDataDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.capability"(@"cpz.reader": *cpz.OwnedMessageReader) !u32 {{
+        \\        return @"cpz.reader".getRootCapability();
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.traversalLimitWords"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".traversalLimitWords();
         \\    }}
@@ -7541,6 +7561,26 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.root"(@"cpz.view": *cpz.MessageReaderView) !@This() {{
         \\        return getRoot(@"cpz.view".asReader());
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.text"(@"cpz.view": *cpz.MessageReaderView) ![]const u8 {{
+        \\        return @"cpz.view".getRootText();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.textDefault"(@"cpz.view": *cpz.MessageReaderView, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.view".getRootTextDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.data"(@"cpz.view": *cpz.MessageReaderView) ![]const u8 {{
+        \\        return @"cpz.view".getRootData();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.dataDefault"(@"cpz.view": *cpz.MessageReaderView, @"cpz.default": []const u8) ![]const u8 {{
+        \\        return @"cpz.view".getRootDataDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.capability"(@"cpz.view": *cpz.MessageReaderView) !u32 {{
+        \\        return @"cpz.view".getRootCapability();
         \\    }}
         \\
         \\    pub fn @"cpz.view.traversalLimitWords"(@"cpz.view": *const cpz.MessageReaderView) usize {{

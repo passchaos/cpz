@@ -1239,12 +1239,16 @@ test "generated scalar root helpers work" {
     try std.testing.expectEqual(flat_text_bytes.len, generated.Person.@"cpz.owned.sourceConsumedLen"(&owned_text_reader));
     try std.testing.expectEqualSlices(u8, flat_text_bytes, generated.Person.@"cpz.owned.bytes"(&owned_text_reader));
     try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(owned_text_reader.asReader()));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.owned.text"(&owned_text_reader));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.owned.textDefault"(&owned_text_reader, "ignored"));
     var viewed_text_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, flat_text_bytes, .{});
     defer viewed_text_reader.deinit(std.testing.allocator);
     try std.testing.expectEqual(flat_text_bytes.len, generated.Person.@"cpz.view.consumedLen"(&viewed_text_reader));
     try std.testing.expectEqual(flat_text_bytes.len, generated.Person.@"cpz.view.sourceConsumedLen"(&viewed_text_reader));
     try std.testing.expectEqualSlices(u8, flat_text_bytes, generated.Person.@"cpz.view.bytes"(&viewed_text_reader));
     try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.root.text"(viewed_text_reader.asReader()));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.view.text"(&viewed_text_reader));
+    try std.testing.expectEqualSlices(u8, "schema root text", try generated.Person.@"cpz.view.textDefault"(&viewed_text_reader, "ignored"));
     var viewed_text_segments: [4]cpz.serialize.ConstSegment = undefined;
     var viewed_text_reader_no_alloc = try generated.Person.@"cpz.root.viewFlatBytesInto"(&viewed_text_segments, flat_text_bytes, .{});
     defer viewed_text_reader_no_alloc.deinit(std.testing.allocator);
@@ -1315,6 +1319,16 @@ test "generated scalar root helpers work" {
     var data_reader = cpz.MessageReader.init(try data_builder.segmentsConst(), .{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.root.data"(&data_reader));
     try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.root.dataDefault"(&data_reader, &[_]u8{ 8, 8 }));
+    const flat_data_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&data_builder);
+    defer std.testing.allocator.free(flat_data_bytes);
+    var owned_data_reader = try generated.Person.@"cpz.root.fromFlatBytes"(std.testing.allocator, flat_data_bytes, .{});
+    defer owned_data_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.owned.data"(&owned_data_reader));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.owned.dataDefault"(&owned_data_reader, &[_]u8{ 8, 8 }));
+    var viewed_data_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, flat_data_bytes, .{});
+    defer viewed_data_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.view.data"(&viewed_data_reader));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 4, 2, 0 }, try generated.Person.@"cpz.view.dataDefault"(&viewed_data_reader, &[_]u8{ 8, 8 }));
 
     var cap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
     defer cap_builder.deinit();
@@ -1330,6 +1344,14 @@ test "generated scalar root helpers work" {
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.statsWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.totalSizeWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.messageTotalSizeWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
+    const flat_cap_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&cap_builder);
+    defer std.testing.allocator.free(flat_cap_bytes);
+    var owned_cap_reader = try generated.Person.@"cpz.root.fromFlatBytes"(std.testing.allocator, flat_cap_bytes, .{});
+    defer owned_cap_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.owned.capability"(&owned_cap_reader));
+    var viewed_cap_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, flat_cap_bytes, .{});
+    defer viewed_cap_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.view.capability"(&viewed_cap_reader));
 }
 
 test "generated list root helpers work" {
