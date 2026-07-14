@@ -9806,6 +9806,35 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
     });
 
     try appendFmt(allocator, out,
+        \\    pub fn {s}ListMatchesElementBits(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementBits(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesElementBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementBytes(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesElementWords(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementWords(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesContentBits(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesContentBits(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesContentWords(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesContentWords(expected, count);
+        \\    }}
+        \\
+    , .{
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
+
+    try appendFmt(allocator, out,
         \\    pub fn {s}ListStructElementDataWordCount(self: @This(), expected: ?cpz.ElementSize) !u16 {{
         \\        return (try self.{s}AsPointer()).getListStructElementDataWordCount(expected);
         \\    }}
@@ -12535,6 +12564,35 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         field_name, field_name,
         field_name, field_name,
         field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
+
+    try appendFmt(allocator, out,
+        \\        pub fn get_{s}ListMatchesElementBits(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementBits(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesElementBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesElementWords(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementWords(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesContentBits(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesContentBits(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesContentWords(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesContentWords(expected, count);
+        \\        }}
+        \\
+    , .{
         field_name, field_name,
         field_name, field_name,
         field_name, field_name,
