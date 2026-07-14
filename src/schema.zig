@@ -8121,7 +8121,20 @@ fn appendByteListPointerAtWord(allocator: std.mem.Allocator, segment: *std.Array
 fn parseSignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
     const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
     if (raw.len == 0 or raw[0] == '.') return null;
-    return std.fmt.parseInt(T, raw, 10) catch null;
+    const negative = raw[0] == '-';
+    const positive = raw[0] == '+';
+    const digits = if (negative or positive) raw[1..] else raw;
+    if (digits.len == 0) return null;
+    const unsigned = parseInteger(digits) catch return null;
+    if (negative) {
+        const min_abs = @as(u64, @intCast(-(std.math.minInt(T) + 1))) + 1;
+        if (unsigned > min_abs) return null;
+        if (unsigned == min_abs) return std.math.minInt(T);
+        const positive_value: T = @intCast(unsigned);
+        return -positive_value;
+    }
+    if (unsigned > std.math.maxInt(T)) return null;
+    return @intCast(unsigned);
 }
 
 fn parseUnsignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
@@ -17281,6 +17294,14 @@ test "schema code generator supports custom runtime import names" {
     });
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
+}
+
+test "schema signed integer literals accept base prefixes" {
+    try std.testing.expectEqual(@as(i8, -128), parseSignedLiteral(i8, "-0x80").?);
+    try std.testing.expectEqual(@as(i16, -32768), parseSignedLiteral(i16, "-0x8000").?);
+    try std.testing.expectEqual(@as(i32, 0x7fffffff), parseSignedLiteral(i32, "+0x7fffffff").?);
+    try std.testing.expectEqual(@as(i64, -0o10), parseSignedLiteral(i64, "-0o10").?);
+    try std.testing.expectEqual(@as(?i8, null), parseSignedLiteral(i8, "0x80"));
 }
 
 test "schema struct const flat emission supports wider integers and floats" {
