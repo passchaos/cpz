@@ -8591,7 +8591,6 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
 
 fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), layout: *const StructLayout) LayoutError!void {
     for (layout.unions, 0..) |union_layout, union_index| {
-        _ = union_layout;
         try appendFmt(allocator, out,
             \\    pub const Union{} = enum(u16) {{
             \\
@@ -8609,8 +8608,12 @@ fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
         try appendFmt(allocator, out,
             \\    }};
             \\
+            \\    pub fn union{}Discriminant(self: @This()) u16 {{
+            \\        return self.reader.getUInt16({}, 0);
+            \\    }}
+            \\
             \\    pub fn union{}(self: @This()) ?Union{} {{
-            \\        return std.enums.fromInt(Union{}, self.reader.getUInt16({}, 0));
+            \\        return std.enums.fromInt(Union{}, self.union{}Discriminant());
             \\    }}
             \\
             \\    pub fn union{}Is(self: @This(), tag: Union{}) bool {{
@@ -8618,14 +8621,18 @@ fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
             \\    }}
             \\
             \\    pub fn union{}MatchesDiscriminant(self: @This(), discriminant: u16) bool {{
-            \\        return self.reader.getUInt16({}, 0) == discriminant;
+            \\        return self.union{}Discriminant() == discriminant;
             \\    }}
             \\
             \\
-        , .{ union_index, union_index, union_index, layout.unions[union_index].discriminant_byte, union_index, union_index, union_index, union_index, layout.unions[union_index].discriminant_byte });
+        , .{ union_index, union_layout.discriminant_byte, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index });
     }
     if (layout.unions.len == 1) {
         try appendFmt(allocator, out,
+            \\    pub fn whichDiscriminant(self: @This()) u16 {{
+            \\        return self.union0Discriminant();
+            \\    }}
+            \\
             \\    pub fn which(self: @This()) ?Union0 {{
             \\        return self.union0();
             \\    }}
@@ -8646,8 +8653,12 @@ fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
 fn emitBuilderUnionHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), owner_name: []const u8, layout: *const StructLayout) LayoutError!void {
     for (layout.unions, 0..) |union_layout, union_index| {
         try appendFmt(allocator, out,
+            \\        pub fn union{}Discriminant(self: Builder) !u16 {{
+            \\            return self.builder.getUInt16({}, 0);
+            \\        }}
+            \\
             \\        pub fn union{}(self: Builder) !?{s}.Union{} {{
-            \\            return std.enums.fromInt({s}.Union{}, try self.builder.getUInt16({}, 0));
+            \\            return std.enums.fromInt({s}.Union{}, try self.union{}Discriminant());
             \\        }}
             \\
             \\        pub fn union{}Is(self: Builder, tag: {s}.Union{}) !bool {{
@@ -8655,10 +8666,10 @@ fn emitBuilderUnionHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\        }}
             \\
             \\        pub fn union{}MatchesDiscriminant(self: Builder, discriminant: u16) !bool {{
-            \\            return (try self.builder.getUInt16({}, 0)) == discriminant;
+            \\            return (try self.union{}Discriminant()) == discriminant;
             \\        }}
             \\
-        , .{ union_index, owner_name, union_index, owner_name, union_index, union_layout.discriminant_byte, union_index, owner_name, union_index, union_index, union_index, union_layout.discriminant_byte });
+        , .{ union_index, union_layout.discriminant_byte, union_index, owner_name, union_index, owner_name, union_index, union_index, union_index, owner_name, union_index, union_index, union_index, union_index });
         try appendFmt(allocator, out,
             \\        fn activateUnion{}(self: Builder, discriminant: u16) !void {{
         , .{union_index});
@@ -8684,6 +8695,10 @@ fn emitBuilderUnionHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     }
     if (layout.unions.len == 1) {
         try appendFmt(allocator, out,
+            \\        pub fn whichDiscriminant(self: Builder) !u16 {{
+            \\            return self.union0Discriminant();
+            \\        }}
+            \\
             \\        pub fn which(self: Builder) !?{s}.Union0 {{
             \\            return self.union0();
             \\        }}
