@@ -1247,6 +1247,59 @@ pub const Orphan = struct {
         };
     }
 
+    pub fn getListLen(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).len();
+    }
+
+    pub fn listMatchesLen(self: Orphan, expected: ?wire.ElementSize, count: usize) bool {
+        return (self.getListLen(expected) catch return false) == count;
+    }
+
+    pub fn getListElementSize(self: Orphan, expected: ?wire.ElementSize) Error!wire.ElementSize {
+        return (try self.getList(expected)).elementSize();
+    }
+
+    pub fn listMatchesElementSize(self: Orphan, expected: ?wire.ElementSize, element_size: wire.ElementSize) bool {
+        return (self.getListElementSize(expected) catch return false) == element_size;
+    }
+
+    pub fn getListElementBitCount(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementBitCount();
+    }
+
+    pub fn getListElementByteCount(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementByteCount();
+    }
+
+    pub fn getListElementWordCount(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementWordCount();
+    }
+
+    pub fn getListContentBitCount(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentBitCount();
+    }
+
+    pub fn getListContentByteCount(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentByteCount();
+    }
+
+    pub fn getListContentWordCount(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentWordCount();
+    }
+
+    pub fn listMatchesContentBytes(self: Orphan, expected: ?wire.ElementSize, count: usize) bool {
+        return (self.getListContentByteCount(expected) catch return false) == count;
+    }
+
+    pub fn getListStructElementSize(self: Orphan, expected: ?wire.ElementSize) Error!wire.StructSize {
+        return (try self.getList(expected)).structElementSize();
+    }
+
+    pub fn listMatchesStructElementSize(self: Orphan, expected: ?wire.ElementSize, size: wire.StructSize) bool {
+        const actual = self.getListStructElementSize(expected) catch return false;
+        return actual.data_words == size.data_words and actual.pointer_count == size.pointer_count;
+    }
+
     pub fn getText(self: Orphan) Error![]const u8 {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return self.asReader(&reader).getText();
@@ -6077,6 +6130,17 @@ test "pointer builders can disown and adopt within a message" {
     const orphan_size = try orphan.totalSize();
     try testing.expectEqual(@as(usize, 1), orphan_size.word_count);
     const orphan_text = try orphan.getList(.byte);
+    try testing.expectEqual(@as(usize, 8), try orphan.getListLen(.byte));
+    try testing.expect(orphan.listMatchesLen(.byte, 8));
+    try testing.expectEqual(wire.ElementSize.byte, try orphan.getListElementSize(.byte));
+    try testing.expect(orphan.listMatchesElementSize(.byte, .byte));
+    try testing.expectEqual(@as(usize, 8), try orphan.getListElementBitCount(.byte));
+    try testing.expectEqual(@as(usize, 1), try orphan.getListElementByteCount(.byte));
+    try testing.expectError(error.UnsupportedElementSize, orphan.getListElementWordCount(.byte));
+    try testing.expectEqual(@as(usize, 64), try orphan.getListContentBitCount(.byte));
+    try testing.expectEqual(@as(usize, 8), try orphan.getListContentByteCount(.byte));
+    try testing.expectEqual(@as(usize, 1), try orphan.getListContentWordCount(.byte));
+    try testing.expect(orphan.listMatchesContentBytes(.byte, 8));
     try testing.expectEqual(@as(u8, 'm'), try orphan_text.getUInt8(0));
     try field1.adopt(&orphan);
     try testing.expectEqual(@as(u64, 0), orphan.raw);
@@ -6115,6 +6179,11 @@ test "pointer list elements can disown and adopt within a message" {
 
     var orphan = try list.disownPointerElement(0);
     try testing.expect((try list.getPointerElement(0)).isNull());
+    try testing.expectEqual(@as(usize, 6), try orphan.getListLen(.byte));
+    try testing.expect(orphan.listMatchesLen(.byte, 6));
+    try testing.expectEqual(@as(usize, 48), try orphan.getListContentBitCount(.byte));
+    try testing.expectEqual(@as(usize, 6), try orphan.getListContentByteCount(.byte));
+    try testing.expectEqual(@as(usize, 1), try orphan.getListContentWordCount(.byte));
     try list.adoptPointerElement(1, &orphan);
     try testing.expectEqual(@as(u64, 0), orphan.raw);
 
@@ -6146,6 +6215,17 @@ test "message builder allocates new orphan structs and lists" {
     defer list_builder.deinit();
     var list_orphan = try list_builder.newOrphanList(.two_bytes, 2);
     const orphan_list = try list_orphan.getList(.two_bytes);
+    try testing.expectEqual(@as(usize, 2), try list_orphan.getListLen(.two_bytes));
+    try testing.expect(list_orphan.listMatchesLen(.two_bytes, 2));
+    try testing.expectEqual(wire.ElementSize.two_bytes, try list_orphan.getListElementSize(.two_bytes));
+    try testing.expect(list_orphan.listMatchesElementSize(.two_bytes, .two_bytes));
+    try testing.expectEqual(@as(usize, 16), try list_orphan.getListElementBitCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 2), try list_orphan.getListElementByteCount(.two_bytes));
+    try testing.expectError(error.UnsupportedElementSize, list_orphan.getListElementWordCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 32), try list_orphan.getListContentBitCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 4), try list_orphan.getListContentByteCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try list_orphan.getListContentWordCount(.two_bytes));
+    try testing.expect(list_orphan.listMatchesContentBytes(.two_bytes, 4));
     try orphan_list.setUInt16(0, 77);
     try orphan_list.setUInt16(1, 88);
 
@@ -6159,6 +6239,22 @@ test "message builder allocates new orphan structs and lists" {
     dropped.release();
     try testing.expect(dropped.isNull());
     try testing.expectError(error.NullPointer, dropped.totalSize());
+
+    var struct_list_orphan = try list_builder.newOrphanStructList(1, .{ .data_words = 1, .pointer_count = 1 });
+    try testing.expectEqual(@as(usize, 1), try struct_list_orphan.getListLen(.composite));
+    try testing.expect(struct_list_orphan.listMatchesLen(.composite, 1));
+    try testing.expectEqual(wire.ElementSize.composite, try struct_list_orphan.getListElementSize(.composite));
+    try testing.expect(struct_list_orphan.listMatchesElementSize(.composite, .composite));
+    try testing.expectEqual(@as(usize, 128), try struct_list_orphan.getListElementBitCount(.composite));
+    try testing.expectEqual(@as(usize, 16), try struct_list_orphan.getListElementByteCount(.composite));
+    try testing.expectEqual(@as(usize, 2), try struct_list_orphan.getListElementWordCount(.composite));
+    try testing.expectEqual(@as(usize, 128), try struct_list_orphan.getListContentBitCount(.composite));
+    try testing.expectEqual(@as(usize, 16), try struct_list_orphan.getListContentByteCount(.composite));
+    try testing.expectEqual(@as(usize, 2), try struct_list_orphan.getListContentWordCount(.composite));
+    try testing.expect(struct_list_orphan.listMatchesContentBytes(.composite, 16));
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, try struct_list_orphan.getListStructElementSize(.composite));
+    try testing.expect(struct_list_orphan.listMatchesStructElementSize(.composite, .{ .data_words = 1, .pointer_count = 1 }));
+    struct_list_orphan.release();
 }
 
 test "message builder allocates scalar orphans" {
