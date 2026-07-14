@@ -9345,6 +9345,74 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\    }}
         \\
     , .{index});
+    try appendFmt(allocator, out,
+        \\    pub fn {s}ListLen(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListLen(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesLen(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesLen(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListElementSize(self: @This(), expected: ?cpz.ElementSize) !cpz.ElementSize {{
+        \\        return (try self.{s}AsPointer()).getListElementSize(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesElementSize(self: @This(), expected: ?cpz.ElementSize, element_size: cpz.ElementSize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementSize(expected, element_size);
+        \\    }}
+        \\
+        \\    pub fn {s}ListElementBitCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListElementBitCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListElementByteCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListElementByteCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListElementWordCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListElementWordCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListContentBitCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListContentBitCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListContentByteCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListContentByteCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListContentWordCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListContentWordCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesContentBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesContentBytes(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListStructElementSize(self: @This(), expected: ?cpz.ElementSize) !cpz.StructSize {{
+        \\        return (try self.{s}AsPointer()).getListStructElementSize(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesStructElementSize(self: @This(), expected: ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementSize(expected, @"cpz.size");
+        \\    }}
+        \\
+    , .{
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
@@ -11418,6 +11486,74 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\        }}
         \\
     , .{index});
+    try appendFmt(allocator, out,
+        \\        pub fn get_{s}ListLen(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListLen(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesLen(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesLen(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListElementSize(self: Builder, expected: ?cpz.ElementSize) !cpz.ElementSize {{
+        \\            return (try self.get_{s}AsPointer()).getListElementSize(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesElementSize(self: Builder, expected: ?cpz.ElementSize, element_size: cpz.ElementSize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementSize(expected, element_size);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListElementBitCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListElementBitCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListElementByteCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListElementByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListElementWordCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListElementWordCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListContentBitCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListContentBitCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListContentByteCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListContentByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListContentWordCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListContentWordCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesContentBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesContentBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListStructElementSize(self: Builder, expected: ?cpz.ElementSize) !cpz.StructSize {{
+        \\            return (try self.get_{s}AsPointer()).getListStructElementSize(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesStructElementSize(self: Builder, expected: ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementSize(expected, @"cpz.size");
+        \\        }}
+        \\
+    , .{
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
