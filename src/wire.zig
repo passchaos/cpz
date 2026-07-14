@@ -39,6 +39,10 @@ pub const ElementSize = enum(u3) {
         return bitsPerElement(self);
     }
 
+    pub fn bytes(self: ElementSize) Error!usize {
+        return bytesPerElement(self);
+    }
+
     pub fn wordsForElements(self: ElementSize, element_count: usize) Error!usize {
         return wordsForList(self, element_count);
     }
@@ -53,6 +57,14 @@ pub const ElementSize = enum(u3) {
 
     pub fn isPointer(self: ElementSize) bool {
         return self == .pointer;
+    }
+
+    pub fn isByteAligned(self: ElementSize) bool {
+        return self.bits() % 8 == 0;
+    }
+
+    pub fn isWordAligned(self: ElementSize) bool {
+        return self.bits() == bits_per_word;
     }
 
     pub fn isComposite(self: ElementSize) bool {
@@ -76,6 +88,10 @@ pub const ElementSize = enum(u3) {
 
     pub fn matchesBits(self: ElementSize, bit_count: usize) bool {
         return self.bits() == bit_count;
+    }
+
+    pub fn matchesBytes(self: ElementSize, byte_count: usize) bool {
+        return (self.bytes() catch return false) == byte_count;
     }
 };
 
@@ -473,6 +489,17 @@ pub inline fn bitsPerElement(size: ElementSize) usize {
     };
 }
 
+pub inline fn bytesPerElement(size: ElementSize) Error!usize {
+    return switch (size) {
+        .void => 0,
+        .bit, .composite => error.UnsupportedElementSize,
+        .byte => 1,
+        .two_bytes => 2,
+        .four_bytes => 4,
+        .eight_bytes, .pointer => bytes_per_word,
+    };
+}
+
 pub inline fn wordsForBits(bits: usize) usize {
     return (bits + bits_per_word - 1) / bits_per_word;
 }
@@ -530,7 +557,22 @@ test "element size helper methods" {
     try testing.expect(!ElementSize.void.hasPayloadBits());
     try testing.expect(ElementSize.pointer.hasPayloadBits());
     try testing.expectEqual(@as(usize, 16), ElementSize.two_bytes.bits());
+    try testing.expectEqual(@as(usize, 2), try ElementSize.two_bytes.bytes());
+    try testing.expectEqual(@as(usize, 8), try ElementSize.pointer.bytes());
+    try testing.expectEqual(@as(usize, 0), try ElementSize.void.bytes());
+    try testing.expectError(error.UnsupportedElementSize, ElementSize.bit.bytes());
+    try testing.expectError(error.UnsupportedElementSize, ElementSize.composite.bytes());
     try testing.expect(ElementSize.two_bytes.matchesBits(16));
+    try testing.expect(ElementSize.four_bytes.matchesBytes(4));
+    try testing.expect(!ElementSize.four_bytes.matchesBytes(8));
+    try testing.expect(!ElementSize.bit.matchesBytes(1));
+    try testing.expect(!ElementSize.composite.matchesBytes(0));
+    try testing.expect(!ElementSize.bit.isByteAligned());
+    try testing.expect(ElementSize.byte.isByteAligned());
+    try testing.expect(ElementSize.void.isByteAligned());
+    try testing.expect(ElementSize.pointer.isWordAligned());
+    try testing.expect(ElementSize.eight_bytes.isWordAligned());
+    try testing.expect(!ElementSize.four_bytes.isWordAligned());
     try testing.expectEqual(@as(usize, 2), try ElementSize.two_bytes.wordsForElements(5));
     try testing.expectEqual(@as(usize, 5), try ElementSize.eight_bytes.wordsForElements(5));
     try testing.expectError(error.UnsupportedElementSize, ElementSize.composite.wordsForElements(1));
