@@ -1402,6 +1402,16 @@ test "generated list root helpers work" {
     const read_values = try generated.Person.@"cpz.root.list"(&scalar_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 123), read_values.getUInt16(0));
     try std.testing.expectEqual(@as(u16, 456), read_values.getUInt16(1));
+    const scalar_flat = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&scalar_builder);
+    defer std.testing.allocator.free(scalar_flat);
+    var owned_scalar_reader = try generated.Person.@"cpz.root.fromFlatBytes"(std.testing.allocator, scalar_flat, .{});
+    defer owned_scalar_reader.deinit(std.testing.allocator);
+    const owned_read_values = try generated.Person.@"cpz.owned.list"(&owned_scalar_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 456), owned_read_values.getUInt16(1));
+    var viewed_scalar_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, scalar_flat, .{});
+    defer viewed_scalar_reader.deinit(std.testing.allocator);
+    const viewed_read_values = try generated.Person.@"cpz.view.list"(&viewed_scalar_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 123), viewed_read_values.getUInt16(0));
 
     var struct_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer struct_builder.deinit();

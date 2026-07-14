@@ -7447,6 +7447,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootCapability();
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.list"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.ListReader {{
+        \\        return @"cpz.reader".getRootList(@"cpz.elementSize");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.traversalLimitWords"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".traversalLimitWords();
         \\    }}
@@ -7661,6 +7665,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.capability"(@"cpz.view": *cpz.MessageReaderView) !u32 {{
         \\        return @"cpz.view".getRootCapability();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.list"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !cpz.ListReader {{
+        \\        return @"cpz.view".getRootList(@"cpz.elementSize");
         \\    }}
         \\
         \\    pub fn @"cpz.view.traversalLimitWords"(@"cpz.view": *const cpz.MessageReaderView) usize {{
