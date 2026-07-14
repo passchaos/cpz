@@ -136,7 +136,7 @@ interface Service $marker {
   typed @3 Details -> Details;
 }
 
-interface ExtendedService @0xe57e0001(Req, Resp) extends(ServiceAlias) {
+interface ExtendedService @0xe57e0001(Req, Resp) extends(ServiceAlias, Service) {
   struct Details {
     message @0 :Text;
   }
