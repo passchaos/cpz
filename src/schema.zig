@@ -4239,7 +4239,7 @@ test "schema parser lowers simple named group declarations" {
         \\    text @2 :Text;
         \\    id @3 :UInt32;
         \\  }
-        \\  metadata :group {
+        \\  metadata :group $Ann.name("metadata") {
         \\    created @4 :UInt64;
         \\  }
         \\  const localName :Text =
@@ -4259,6 +4259,9 @@ test "schema parser lowers simple named group declarations" {
     try std.testing.expectEqual(@as(usize, 5), file.structs[0].fields.len);
     try std.testing.expectEqualStrings("before", file.structs[0].fields[0].name);
     try std.testing.expectEqualStrings("metadata_created", file.structs[0].fields[1].name);
+    try std.testing.expectEqual(@as(usize, 1), file.structs[0].groups.len);
+    try std.testing.expectEqualStrings("metadata", file.structs[0].groups[0].name);
+    try std.testing.expectEqualStrings("$Ann.name(\"metadata\")", file.structs[0].groups[0].annotations);
     try std.testing.expectEqual(Type.uint64, file.structs[0].fields[1].ty);
     try std.testing.expectEqual(@as(u32, 4), file.structs[0].fields[1].ordinal);
     try std.testing.expectEqualStrings("keep", file.structs[0].fields[2].name);
@@ -4271,6 +4274,8 @@ test "schema parser lowers simple named group declarations" {
     try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[4].union_index);
     try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[4].union_discriminant);
     try std.testing.expectEqual(@as(usize, 1), file.structs[0].unions.len);
+    try std.testing.expectEqualStrings("selected", file.structs[0].unions[0].name);
+    try std.testing.expectEqual(@as(?u32, 1), file.structs[0].unions[0].ordinal);
     try std.testing.expectEqualStrings("$Ann.name(\"selected\")", file.structs[0].unions[0].annotations);
 }
 
