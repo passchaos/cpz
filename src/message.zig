@@ -3059,6 +3059,70 @@ pub const StructBuilder = struct {
         return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
     }
 
+    pub fn dataWordCount(self: StructBuilder) u16 {
+        return self.size().dataWordCount();
+    }
+
+    pub fn pointerCount(self: StructBuilder) u16 {
+        return self.size().pointerCount();
+    }
+
+    pub fn totalWords(self: StructBuilder) usize {
+        return self.size().totalWords();
+    }
+
+    pub fn dataByteCount(self: StructBuilder) usize {
+        return self.size().dataByteCount();
+    }
+
+    pub fn pointerByteCount(self: StructBuilder) usize {
+        return self.size().pointerByteCount();
+    }
+
+    pub fn totalByteCount(self: StructBuilder) usize {
+        return self.size().totalByteCount();
+    }
+
+    pub fn isEmpty(self: StructBuilder) bool {
+        return self.size().isEmpty();
+    }
+
+    pub fn hasDataWords(self: StructBuilder) bool {
+        return self.size().hasDataWords();
+    }
+
+    pub fn hasPointers(self: StructBuilder) bool {
+        return self.size().hasPointers();
+    }
+
+    pub fn matchesSize(self: StructBuilder, expected: wire.StructSize) bool {
+        return self.data_words == expected.data_words and self.pointer_count == expected.pointer_count;
+    }
+
+    pub fn matchesDataWords(self: StructBuilder, count: u16) bool {
+        return self.size().matchesDataWords(count);
+    }
+
+    pub fn matchesPointerCount(self: StructBuilder, count: u16) bool {
+        return self.size().matchesPointerCount(count);
+    }
+
+    pub fn matchesTotalWords(self: StructBuilder, count: usize) bool {
+        return self.size().matchesTotalWords(count);
+    }
+
+    pub fn matchesDataBytes(self: StructBuilder, count: usize) bool {
+        return self.size().matchesDataBytes(count);
+    }
+
+    pub fn matchesPointerBytes(self: StructBuilder, count: usize) bool {
+        return self.size().matchesPointerBytes(count);
+    }
+
+    pub fn matchesTotalBytes(self: StructBuilder, count: usize) bool {
+        return self.size().matchesTotalBytes(count);
+    }
+
     pub fn orphanage(self: StructBuilder) Orphanage {
         return Orphanage.init(self.message);
     }
@@ -3437,6 +3501,70 @@ pub const StructReader = struct {
 
     pub fn size(self: StructReader) wire.StructSize {
         return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
+    }
+
+    pub fn dataWordCount(self: StructReader) u16 {
+        return self.size().dataWordCount();
+    }
+
+    pub fn pointerCount(self: StructReader) u16 {
+        return self.size().pointerCount();
+    }
+
+    pub fn totalWords(self: StructReader) usize {
+        return self.size().totalWords();
+    }
+
+    pub fn dataByteCount(self: StructReader) usize {
+        return self.size().dataByteCount();
+    }
+
+    pub fn pointerByteCount(self: StructReader) usize {
+        return self.size().pointerByteCount();
+    }
+
+    pub fn totalByteCount(self: StructReader) usize {
+        return self.size().totalByteCount();
+    }
+
+    pub fn isEmpty(self: StructReader) bool {
+        return self.size().isEmpty();
+    }
+
+    pub fn hasDataWords(self: StructReader) bool {
+        return self.size().hasDataWords();
+    }
+
+    pub fn hasPointers(self: StructReader) bool {
+        return self.size().hasPointers();
+    }
+
+    pub fn matchesSize(self: StructReader, expected: wire.StructSize) bool {
+        return self.data_words == expected.data_words and self.pointer_count == expected.pointer_count;
+    }
+
+    pub fn matchesDataWords(self: StructReader, count: u16) bool {
+        return self.size().matchesDataWords(count);
+    }
+
+    pub fn matchesPointerCount(self: StructReader, count: u16) bool {
+        return self.size().matchesPointerCount(count);
+    }
+
+    pub fn matchesTotalWords(self: StructReader, count: usize) bool {
+        return self.size().matchesTotalWords(count);
+    }
+
+    pub fn matchesDataBytes(self: StructReader, count: usize) bool {
+        return self.size().matchesDataBytes(count);
+    }
+
+    pub fn matchesPointerBytes(self: StructReader, count: usize) bool {
+        return self.size().matchesPointerBytes(count);
+    }
+
+    pub fn matchesTotalBytes(self: StructReader, count: usize) bool {
+        return self.size().matchesTotalBytes(count);
     }
 };
 
@@ -4767,9 +4895,27 @@ test "primitive and struct lists" {
 
     const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
     try testing.expectEqual(wire.StructSize{ .data_words = 0, .pointer_count = 2 }, root.size());
+    try testing.expectEqual(@as(u16, 0), root.dataWordCount());
+    try testing.expectEqual(@as(u16, 2), root.pointerCount());
+    try testing.expectEqual(@as(usize, 2), root.totalWords());
+    try testing.expectEqual(@as(usize, 0), root.dataByteCount());
+    try testing.expectEqual(@as(usize, 16), root.pointerByteCount());
+    try testing.expectEqual(@as(usize, 16), root.totalByteCount());
+    try testing.expect(root.matchesSize(.{ .data_words = 0, .pointer_count = 2 }));
+    try testing.expect(root.matchesDataWords(0));
+    try testing.expect(root.matchesPointerCount(2));
+    try testing.expect(root.matchesTotalWords(2));
+    try testing.expect(root.matchesDataBytes(0));
+    try testing.expect(root.matchesPointerBytes(16));
+    try testing.expect(root.matchesTotalBytes(16));
+    try testing.expect(!root.matchesSize(.{ .data_words = 1, .pointer_count = 2 }));
+    try testing.expect(!root.matchesPointerBytes(8));
     try testing.expect(!root.size().isEmpty());
+    try testing.expect(!root.isEmpty());
     try testing.expect(!root.size().hasDataWords());
+    try testing.expect(!root.hasDataWords());
     try testing.expect(root.size().hasPointers());
+    try testing.expect(root.hasPointers());
     try testing.expect(root.size().matchesDataWords(0));
     try testing.expect(root.size().matchesPointerCount(2));
     try testing.expectEqual(@as(u16, 0), root.size().dataWordCount());
@@ -4794,6 +4940,24 @@ test "primitive and struct lists" {
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const r = try reader.getRoot();
     try testing.expectEqual(wire.StructSize{ .data_words = 0, .pointer_count = 2 }, r.size());
+    try testing.expectEqual(@as(u16, 0), r.dataWordCount());
+    try testing.expectEqual(@as(u16, 2), r.pointerCount());
+    try testing.expectEqual(@as(usize, 2), r.totalWords());
+    try testing.expectEqual(@as(usize, 0), r.dataByteCount());
+    try testing.expectEqual(@as(usize, 16), r.pointerByteCount());
+    try testing.expectEqual(@as(usize, 16), r.totalByteCount());
+    try testing.expect(r.matchesSize(.{ .data_words = 0, .pointer_count = 2 }));
+    try testing.expect(r.matchesDataWords(0));
+    try testing.expect(r.matchesPointerCount(2));
+    try testing.expect(r.matchesTotalWords(2));
+    try testing.expect(r.matchesDataBytes(0));
+    try testing.expect(r.matchesPointerBytes(16));
+    try testing.expect(r.matchesTotalBytes(16));
+    try testing.expect(!r.matchesSize(.{ .data_words = 2, .pointer_count = 2 }));
+    try testing.expect(!r.matchesTotalBytes(8));
+    try testing.expect(!r.isEmpty());
+    try testing.expect(!r.hasDataWords());
+    try testing.expect(r.hasPointers());
     const read_nums = try r.getPointerField(0).getList(.two_bytes);
     try testing.expectEqual(@as(usize, 3), read_nums.len());
     try testing.expectEqual(wire.ElementSize.two_bytes, read_nums.elementSize());
