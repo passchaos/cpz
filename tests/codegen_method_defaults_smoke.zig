@@ -32,6 +32,9 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqualStrings("forty", try maybe_item1.label());
 
     try std.testing.expectEqual(@as(?generated.Defaults.Item, null), generated.Defaults.defaultNothing);
+    var nothing_reader = generated.Defaults.defaultNothingFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultNothingFlat.isNull(&nothing_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.defaultNothingFlat.rawPointer(&nothing_reader));
 }
 
 test "generated method default flats expose typed scalar and enum getters" {

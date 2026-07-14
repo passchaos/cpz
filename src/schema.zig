@@ -7730,6 +7730,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
             \\
             \\
         , .{ indent, const_name, zig_type });
+        try emitNullPointerFlatContainer(allocator, out, indent, const_name);
         return;
     }
 
@@ -7843,6 +7844,45 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         },
         else => return,
     }
+}
+
+fn emitNullPointerFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_name: []const u8) LayoutError!void {
+    const flat = try nullPointerFlatBytesAlloc(allocator);
+    defer allocator.free(flat);
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn pointer(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+        \\{s}        return message_reader.getRootPointer();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn isNull(message_reader: *cpz.MessageReader) !bool {{
+        \\{s}        return (try @This().pointer(message_reader)).isNull();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn rawPointer(message_reader: *cpz.MessageReader) !cpz.Word {{
+        \\{s}        return (try @This().pointer(message_reader)).raw();
+        \\{s}    }}
+        \\
+    , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, indent, indent, indent, indent });
 }
 
 fn constListChildTypeOrNull(file: *const File, scope: ?*const Struct, ty: Type) ?Type {
