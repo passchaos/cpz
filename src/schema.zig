@@ -7753,14 +7753,25 @@ fn appendPointerListOfByteLists(allocator: std.mem.Allocator, file: *const File,
     }
 }
 
+fn parseStructLiteralOrImpliedFirstFieldAlloc(allocator: std.mem.Allocator, struct_decl: *const Struct, literal: []const u8) LayoutError![]ConstStructField {
+    return parseConstStructFieldsAlloc(allocator, literal) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => {
+            const raw = std.mem.trim(u8, literal, " \t\r\n");
+            if (raw.len == 0 or raw[0] == '(') return error.UnsupportedType;
+            if (struct_decl.fields.len == 0) return error.UnsupportedType;
+            const fields = try allocator.alloc(ConstStructField, 1);
+            fields[0] = .{ .index = 0, .name = struct_decl.fields[0].name, .literal = raw };
+            return fields;
+        },
+        else => return err,
+    };
+}
+
 fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, type_name: []const u8, literal: []const u8) LayoutError!void {
     const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
     var nested_layout = try planStructLayout(allocator, file, struct_decl);
     defer nested_layout.deinit(allocator);
-    const fields = parseConstStructFieldsAlloc(allocator, literal) catch |err| switch (err) {
-        error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
-        else => return err,
-    };
+    const fields = try parseStructLiteralOrImpliedFirstFieldAlloc(allocator, struct_decl, literal);
     defer allocator.free(fields);
 
     const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
@@ -7799,10 +7810,7 @@ fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, segm
     writeWordBytes(segment.items[target_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = element_layout.data_words, .pointer_count = element_layout.pointer_count }));
 
     for (items, 0..) |item, index| {
-        const fields = parseConstStructFieldsAlloc(allocator, item) catch |err| switch (err) {
-            error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
-            else => return err,
-        };
+        const fields = try parseStructLiteralOrImpliedFirstFieldAlloc(allocator, struct_decl, item);
         defer allocator.free(fields);
         try writeStructLiteralFieldsIntoSegment(allocator, file, &element_layout, fields, segment, target_word_index + 1 + index * element_words);
     }
@@ -17359,6 +17367,39 @@ test "schema struct const flat emission supports wider integers and floats" {
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
     try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
+}
+
+test "schema struct const flats support implied first-field struct literals" {
+    const source =
+        \\struct Parent {
+        \\  struct Child {
+        \\    text @0 :Text;
+        \\    id @1 :UInt32 = 321;
+        \\  }
+        \\  child @0 :Child;
+        \\  children @1 :List(Child);
+        \\}
+        \\const value :Parent = (child = "one", children = ["two", (text = "three", id = 3)]);
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[0])).?;
+    defer std.testing.allocator.free(flat);
+    var segments: [1]serialize.ConstSegment = undefined;
+    const view = try serialize.readFlatMessageViewInto(&segments, flat);
+    var reader = message.MessageReader.init(view.segments, .{});
+    const root = try reader.getRoot();
+    const child = try root.getPointerField(0).getStruct(null);
+    try std.testing.expectEqualSlices(u8, "one", try child.getPointerField(0).getText());
+    const children = try root.getPointerField(1).getList(.composite);
+    const first = try children.getStructElement(0);
+    try std.testing.expectEqualSlices(u8, "two", try first.getPointerField(0).getText());
+    const second = try children.getStructElement(1);
+    try std.testing.expectEqualSlices(u8, "three", try second.getPointerField(0).getText());
+    try std.testing.expectEqual(@as(u32, 3), second.getUInt32(0, 321));
 }
 
 test "schema struct const flats accept void fields" {
