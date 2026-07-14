@@ -536,8 +536,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 19), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 19), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 21), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 21), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
@@ -1063,6 +1063,34 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(u32, 13), global_score_group1.getUInt32(0));
     const global_score_groups_stats = try generated.globalScoreGroups.validate(.{});
     try std.testing.expect(global_score_groups_stats.total_words > 0);
+    try std.testing.expectEqualStrings("globalAliasGroups", generated.@"cpz.consts"[19].name);
+    try std.testing.expectEqualStrings("List(List(Text))", generated.@"cpz.consts"[19].ty);
+    try std.testing.expectEqualStrings("List(List(Text))", generated.@"cpz.consts"[19].resolved_ty);
+    try std.testing.expectEqualStrings("[[\"top\", \"alias\"]]", generated.@"cpz.consts"[19].literal);
+    try std.testing.expectEqual(@as(usize, 19), generated.@"cpz.const.globalAliasGroups.index");
+    try std.testing.expectEqualStrings("[\"top\", \"alias\"]", generated.@"cpz.const.globalAliasGroups.listItem.0.literal");
+    try std.testing.expect(generated.globalAliasGroups.flatBytes.len > 0);
+    var global_alias_groups_reader = generated.globalAliasGroups.reader(.{});
+    const global_alias_groups = try generated.globalAliasGroups.list(&global_alias_groups_reader);
+    try std.testing.expectEqual(@as(usize, 1), global_alias_groups.len());
+    const global_alias_group0 = try generated.globalAliasGroups.get(&global_alias_groups_reader, 0, .pointer);
+    try std.testing.expectEqualSlices(u8, "top", try (try global_alias_group0.getPointerElement(0)).getText());
+    try std.testing.expectEqualSlices(u8, "alias", try (try global_alias_group0.getPointerElement(1)).getText());
+    try std.testing.expect((try generated.globalAliasGroups.validate(.{})).total_words > 0);
+    try std.testing.expectEqualStrings("globalStructGroups", generated.@"cpz.consts"[20].name);
+    try std.testing.expectEqualStrings("List(List(Person))", generated.@"cpz.consts"[20].ty);
+    try std.testing.expectEqualStrings("[[(id = 21, name = \"nested top\")]]", generated.@"cpz.consts"[20].literal);
+    try std.testing.expectEqual(@as(usize, 20), generated.@"cpz.const.globalStructGroups.index");
+    try std.testing.expectEqualStrings("[(id = 21, name = \"nested top\")]", generated.@"cpz.const.globalStructGroups.listItem.0.literal");
+    try std.testing.expect(generated.globalStructGroups.flatBytes.len > 0);
+    var global_struct_groups_reader = generated.globalStructGroups.reader(.{});
+    const global_struct_groups = try generated.globalStructGroups.list(&global_struct_groups_reader);
+    try std.testing.expectEqual(@as(usize, 1), global_struct_groups.len());
+    const global_struct_group0 = try generated.globalStructGroups.get(&global_struct_groups_reader, 0, .composite);
+    const global_struct_group_child = generated.Person.fromReader(try global_struct_group0.getStructElement(0));
+    try std.testing.expectEqual(@as(u32, 21), global_struct_group_child.id());
+    try std.testing.expectEqualSlices(u8, "nested top", try global_struct_group_child.name());
+    try std.testing.expect((try generated.globalStructGroups.validate(.{})).total_words > 0);
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);
