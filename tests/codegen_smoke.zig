@@ -389,6 +389,15 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("[1, 2, 3]", generated.Person.@"cpz.field.scores.default");
     try std.testing.expect(generated.Person.@"cpz.field.scores.hasExplicitDefault");
     try std.testing.expect(!generated.Person.@"cpz.field.scores.defaultIsHexData");
+    try std.testing.expect(generated.Person.scoresDefaultFlat.flatBytes.len > 0);
+    var field_scores_default_reader = generated.Person.scoresDefaultFlat.reader(.{});
+    const field_scores_default = try generated.Person.scoresDefaultFlat.list(&field_scores_default_reader);
+    try std.testing.expectEqual(@as(usize, 3), field_scores_default.len());
+    try std.testing.expectEqual(@as(u32, 1), try generated.Person.scoresDefaultFlat.get(&field_scores_default_reader, 0));
+    try std.testing.expectEqual(@as(u32, 2), try generated.Person.scoresDefaultFlat.get(&field_scores_default_reader, 1));
+    try std.testing.expectEqual(@as(u32, 3), try generated.Person.scoresDefaultFlat.get(&field_scores_default_reader, 2));
+    const field_scores_default_stats = try generated.Person.scoresDefaultFlat.validate(.{});
+    try std.testing.expect(field_scores_default_stats.total_words > 0);
     try std.testing.expectEqualStrings("\"an\" \"on\"", generated.Person.@"cpz.field.nickname.default");
     try std.testing.expect(generated.Person.@"cpz.field.nickname.hasExplicitDefault");
     try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.default");

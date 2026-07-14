@@ -9014,6 +9014,62 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     );
 }
 
+fn constListItemsFromInlineLiteralAlloc(allocator: std.mem.Allocator, literal: []const u8) LayoutError![]ConstListItem {
+    const raw_items = try parseInlineConstListElementsAlloc(allocator, literal);
+    defer allocator.free(raw_items);
+    const items = try allocator.alloc(ConstListItem, raw_items.len);
+    errdefer allocator.free(items);
+    for (raw_items, 0..) |item, index| {
+        items[index] = .{ .index = index, .literal = item };
+    }
+    return items;
+}
+
+fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
+    const items = constListItemsFromInlineLiteralAlloc(allocator, default_expression) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => return,
+        else => return err,
+    };
+    defer allocator.free(items);
+    const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+    defer allocator.free(container_name);
+    switch (resolveTypeScoped(file, scope, child)) {
+        .void => try emitVoidListFlatContainer(allocator, out, indent, container_name, items),
+        .bool => try emitBoolListFlatContainer(allocator, out, indent, container_name, items),
+        .int8 => try emitSignedListFlatContainer(i8, u8, allocator, out, indent, container_name, items, .byte, ".byte", "getInt8"),
+        .int16 => try emitSignedListFlatContainer(i16, u16, allocator, out, indent, container_name, items, .two_bytes, ".two_bytes", "getInt16"),
+        .int32 => try emitSignedListFlatContainer(i32, u32, allocator, out, indent, container_name, items, .four_bytes, ".four_bytes", "getInt32"),
+        .int64 => try emitSignedListFlatContainer(i64, u64, allocator, out, indent, container_name, items, .eight_bytes, ".eight_bytes", "getInt64"),
+        .uint8 => try emitUnsignedListFlatContainer(u8, allocator, out, indent, container_name, items, .byte, ".byte", "getUInt8"),
+        .uint16 => try emitUnsignedListFlatContainer(u16, allocator, out, indent, container_name, items, .two_bytes, ".two_bytes", "getUInt16"),
+        .uint32 => try emitUnsignedListFlatContainer(u32, allocator, out, indent, container_name, items, .four_bytes, ".four_bytes", "getUInt32"),
+        .uint64 => try emitUnsignedListFlatContainer(u64, allocator, out, indent, container_name, items, .eight_bytes, ".eight_bytes", "getUInt64"),
+        .float32 => try emitFloatListFlatContainer(f32, u32, allocator, out, indent, container_name, items, .four_bytes, ".four_bytes", "getFloat32"),
+        .float64 => try emitFloatListFlatContainer(f64, u64, allocator, out, indent, container_name, items, .eight_bytes, ".eight_bytes", "getFloat64"),
+        .named => |type_name| {
+            const enum_decl = findEnum(file, type_name) orelse return;
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            defer allocator.free(zig_type);
+            try emitEnumListFlatContainer(allocator, out, indent, container_name, zig_type, enum_decl, items);
+        },
+        else => return,
+    }
+}
+
+fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
+    for (layout.fields) |field_layout| {
+        const field = field_layout.field;
+        if (field.default_expression.len == 0) continue;
+        const child = switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+            .list => |list_child| list_child.*,
+            else => continue,
+        };
+        const field_name = try zigIdentAlloc(allocator, field.name);
+        defer allocator.free(field_name);
+        try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, child, field.default_expression);
+    }
+}
+
 fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize } {
     return switch (slot) {
         .void => .{ .name = "void", .offset = 0 },
@@ -9131,6 +9187,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
     try emitStructGroupMetadata(allocator, out, layout.decl.groups);
     try emitStructUnionMetadata(allocator, out, file, layout);
     try emitStructFieldMetadata(allocator, out, file, layout);
+    try emitStructFieldDefaultFlats(allocator, out, file, layout);
 
     try appendFmt(allocator, out,
         \\    pub const Orphan = struct {{
