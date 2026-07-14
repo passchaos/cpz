@@ -404,8 +404,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 16), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 16), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
@@ -601,6 +601,19 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(u32, 5150), embedded_person_direct.id());
     const embedded_stats = try generated.globalEmbeddedPerson.validate(.{});
     try std.testing.expect(embedded_stats.total_words > 0);
+    try std.testing.expectEqualStrings("globalPeople", generated.@"cpz.consts"[15].name);
+    try std.testing.expectEqualStrings("List(Person)", generated.@"cpz.consts"[15].ty);
+    try std.testing.expectEqualStrings("[(id = 1, name = \"one\"), (id = 2, name = \"two\")]", generated.@"cpz.consts"[15].literal);
+    try std.testing.expect(!generated.@"cpz.consts"[15].emitted);
+    try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.consts"[15].list_item_count);
+    try std.testing.expectEqualStrings("(id = 1, name = \"one\")", generated.@"cpz.consts"[15].list_items[0].literal);
+    try std.testing.expectEqualStrings("(id = 2, name = \"two\")", generated.@"cpz.consts"[15].list_items[1].literal);
+    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.const.globalPeople.index");
+    try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalPeople.listItemCount");
+    try std.testing.expectEqualStrings("(id = 1, name = \"one\")", generated.@"cpz.const.globalPeople.listItem.0.literal");
+    try std.testing.expectEqualStrings("(id = 2, name = \"two\")", generated.@"cpz.const.globalPeople.listItemByIndex"(1).?.literal);
+    try std.testing.expectEqualStrings("(id = 1, name = \"one\")", generated.@"cpz.const.globalPeople.listItemByLiteral"("(id = 1, name = \"one\")").?.literal);
+    try std.testing.expect(!generated.@"cpz.const.globalPeople.emitted");
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);

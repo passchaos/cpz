@@ -2437,6 +2437,7 @@ pub const Parser = struct {
 
         var is_hex_data = false;
         var list_items: ?[]ConstListItem = null;
+        var list_has_aggregate_items = false;
         errdefer if (list_items) |items| {
             deinitConstListItems(self.allocator, items);
             self.allocator.free(items);
@@ -2452,7 +2453,7 @@ pub const Parser = struct {
             try self.expect(.equal);
             break :blk if (list_literal) list_blk: {
                 const list_start = self.currentTokenStart();
-                list_items = self.parseConstListItems() catch {
+                list_items = self.parseConstListItems(&list_has_aggregate_items) catch {
                     ty.deinit(self.allocator);
                     try self.skipRawUntilSemicolon();
                     return;
@@ -2506,11 +2507,12 @@ pub const Parser = struct {
             .is_hex_data = is_hex_data,
             .annotations = const_annotations,
             .list_items = list_items,
+            .emit_value = !list_has_aggregate_items,
         });
         if (owns_literal) _ = self.takeOwnedLiteral(literal);
     }
 
-    fn parseConstListItems(self: *Parser) Error![]ConstListItem {
+    fn parseConstListItems(self: *Parser, has_aggregate_items: *bool) Error![]ConstListItem {
         var items = std.ArrayList(ConstListItem).empty;
         errdefer {
             deinitConstListItems(self.allocator, items.items);
@@ -2523,6 +2525,7 @@ pub const Parser = struct {
 
             var is_hex_data = false;
             var owns_literal = false;
+            var annotations: []const u8 = "";
             const literal = if (self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
                 try self.expect(.integer);
                 if (self.lookahead.tag != .string) return error.UnexpectedToken;
@@ -2530,12 +2533,20 @@ pub const Parser = struct {
                 try self.advance();
                 is_hex_data = true;
                 break :blk value;
+            } else if (self.lookahead.tag == .l_paren or self.lookahead.tag == .l_bracket) blk: {
+                has_aggregate_items.* = true;
+                const raw_item = try self.takeRawUntilConstListItemEnd();
+                const split = splitDefaultExpressionAndAnnotations(raw_item);
+                annotations = split.annotations;
+                break :blk split.default_expression;
             } else blk: {
                 const value = (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
                 owns_literal = self.ownsScratchLiteral(value);
                 break :blk value;
             };
-            const annotations = if (self.lookahead.tag == .dollar) try self.takeRawUntilConstListItemEnd() else "";
+            if (annotations.len == 0 and self.lookahead.tag == .dollar) {
+                annotations = try self.takeRawUntilConstListItemEnd();
+            }
             try items.append(self.allocator, .{ .index = items.items.len, .literal = literal, .owns_literal = owns_literal, .is_hex_data = is_hex_data, .annotations = annotations });
             if (owns_literal) _ = self.takeOwnedLiteral(literal);
 
