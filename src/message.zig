@@ -849,7 +849,70 @@ pub const MessageReaderView = struct {
 pub const BuilderOptions = struct {
     first_segment_words: usize = 1024,
     next_segment_min_words: usize = 1024,
+
+    pub fn firstSegmentWords(self: BuilderOptions) usize {
+        return self.first_segment_words;
+    }
+
+    pub fn firstSegmentBytes(self: BuilderOptions) usize {
+        return self.first_segment_words * wire.bytes_per_word;
+    }
+
+    pub fn nextSegmentMinWords(self: BuilderOptions) usize {
+        return self.next_segment_min_words;
+    }
+
+    pub fn nextSegmentMinBytes(self: BuilderOptions) usize {
+        return self.next_segment_min_words * wire.bytes_per_word;
+    }
+
+    pub fn matchesFirstSegmentWords(self: BuilderOptions, count: usize) bool {
+        return self.first_segment_words == count;
+    }
+
+    pub fn matchesFirstSegmentBytes(self: BuilderOptions, count: usize) bool {
+        return self.firstSegmentBytes() == count;
+    }
+
+    pub fn matchesNextSegmentMinWords(self: BuilderOptions, count: usize) bool {
+        return self.next_segment_min_words == count;
+    }
+
+    pub fn matchesNextSegmentMinBytes(self: BuilderOptions, count: usize) bool {
+        return self.nextSegmentMinBytes() == count;
+    }
 };
+
+test "builder options helper methods" {
+    const testing = std.testing;
+
+    const defaults = BuilderOptions{};
+    try testing.expectEqual(@as(usize, 1024), defaults.firstSegmentWords());
+    try testing.expectEqual(@as(usize, 8192), defaults.firstSegmentBytes());
+    try testing.expectEqual(@as(usize, 1024), defaults.nextSegmentMinWords());
+    try testing.expectEqual(@as(usize, 8192), defaults.nextSegmentMinBytes());
+    try testing.expect(defaults.matchesFirstSegmentWords(1024));
+    try testing.expect(defaults.matchesFirstSegmentBytes(8192));
+    try testing.expect(defaults.matchesNextSegmentMinWords(1024));
+    try testing.expect(defaults.matchesNextSegmentMinBytes(8192));
+
+    const custom = BuilderOptions{
+        .first_segment_words = 5,
+        .next_segment_min_words = 9,
+    };
+    try testing.expectEqual(@as(usize, 5), custom.firstSegmentWords());
+    try testing.expectEqual(@as(usize, 40), custom.firstSegmentBytes());
+    try testing.expectEqual(@as(usize, 9), custom.nextSegmentMinWords());
+    try testing.expectEqual(@as(usize, 72), custom.nextSegmentMinBytes());
+    try testing.expect(custom.matchesFirstSegmentWords(5));
+    try testing.expect(custom.matchesFirstSegmentBytes(40));
+    try testing.expect(custom.matchesNextSegmentMinWords(9));
+    try testing.expect(custom.matchesNextSegmentMinBytes(72));
+    try testing.expect(!custom.matchesFirstSegmentWords(6));
+    try testing.expect(!custom.matchesFirstSegmentBytes(48));
+    try testing.expect(!custom.matchesNextSegmentMinWords(10));
+    try testing.expect(!custom.matchesNextSegmentMinBytes(80));
+}
 
 const SegmentBuilder = struct {
     words: std.ArrayList(wire.Word),
@@ -1391,11 +1454,35 @@ pub const MessageBuilder = struct {
     }
 
     pub fn firstSegmentWords(self: *const MessageBuilder) usize {
-        return self.options.first_segment_words;
+        return self.options.firstSegmentWords();
+    }
+
+    pub fn firstSegmentBytes(self: *const MessageBuilder) usize {
+        return self.options.firstSegmentBytes();
+    }
+
+    pub fn matchesFirstSegmentWords(self: *const MessageBuilder, count: usize) bool {
+        return self.options.matchesFirstSegmentWords(count);
+    }
+
+    pub fn matchesFirstSegmentBytes(self: *const MessageBuilder, count: usize) bool {
+        return self.options.matchesFirstSegmentBytes(count);
     }
 
     pub fn nextSegmentMinWords(self: *const MessageBuilder) usize {
-        return self.options.next_segment_min_words;
+        return self.options.nextSegmentMinWords();
+    }
+
+    pub fn nextSegmentMinBytes(self: *const MessageBuilder) usize {
+        return self.options.nextSegmentMinBytes();
+    }
+
+    pub fn matchesNextSegmentMinWords(self: *const MessageBuilder, count: usize) bool {
+        return self.options.matchesNextSegmentMinWords(count);
+    }
+
+    pub fn matchesNextSegmentMinBytes(self: *const MessageBuilder, count: usize) bool {
+        return self.options.matchesNextSegmentMinBytes(count);
     }
 
     pub fn segmentCount(self: *MessageBuilder) usize {
@@ -3876,6 +3963,14 @@ test "message builder serializes flat, packed, and canonical bytes directly" {
     const testing = std.testing;
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
+    try testing.expectEqual(@as(usize, 8), builder.firstSegmentWords());
+    try testing.expectEqual(@as(usize, 64), builder.firstSegmentBytes());
+    try testing.expect(builder.matchesFirstSegmentWords(8));
+    try testing.expect(builder.matchesFirstSegmentBytes(64));
+    try testing.expectEqual(@as(usize, 1024), builder.nextSegmentMinWords());
+    try testing.expectEqual(@as(usize, 8192), builder.nextSegmentMinBytes());
+    try testing.expect(builder.matchesNextSegmentMinWords(1024));
+    try testing.expect(builder.matchesNextSegmentMinBytes(8192));
 
     const root = try builder.initRoot(.{ .data_words = 2, .pointer_count = 1 });
     try root.setUInt32(0, 11, 0);
