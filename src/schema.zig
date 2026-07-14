@@ -7635,6 +7635,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).matchesLen(@"cpz.count");
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.listIsEmpty"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).isEmpty();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listHasIndex"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.index": usize) !bool {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).hasIndex(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listFirstIndex"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).firstIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listLastIndex"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).lastIndex();
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.listElementSize"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
         \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).elementSize();
         \\    }}
@@ -8013,6 +8029,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.listMatchesLen"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
         \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).matchesLen(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listIsEmpty"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).isEmpty();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listHasIndex"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize, @"cpz.index": usize) !bool {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).hasIndex(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listFirstIndex"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).firstIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listLastIndex"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).lastIndex();
         \\    }}
         \\
         \\    pub fn @"cpz.view.listElementSize"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
@@ -8575,6 +8607,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).matchesLen(@"cpz.count");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.listIsEmpty"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).isEmpty();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listHasIndex"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.index": usize) !bool {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).hasIndex(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listFirstIndex"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).firstIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listLastIndex"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).lastIndex();
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.listElementSize"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
         \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).elementSize();
         \\    }}
@@ -8705,6 +8753,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.listMatchesLen"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
         \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).matchesLen(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listIsEmpty"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).isEmpty();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listHasIndex"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.index": usize) !bool {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).hasIndex(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listFirstIndex"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).firstIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listLastIndex"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).lastIndex();
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.listElementSize"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
