@@ -7102,6 +7102,43 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\{s}    pub const items: []const cpz.schema.ConstListItem = @"cpz.schema".@"cpz.const.{s}.listItems";
                 \\
             , .{ indent, const_name, indent, items.len, indent, const_name });
+            if (try structListLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
+                defer allocator.free(flat_bytes);
+                const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
+                defer allocator.free(flat_literal);
+                const child = switch (resolveTypeScoped(file, scope, decl.ty)) {
+                    .list => |list_child| list_child.*,
+                    else => unreachable,
+                };
+                const item_type_name = switch (resolveTypeScoped(file, scope, child)) {
+                    .named => |name| try zigTypeRefAlloc(allocator, file, name),
+                    else => unreachable,
+                };
+                defer allocator.free(item_type_name);
+                try appendFmt(allocator, out,
+                    \\{s}    pub const flatBytes: []const u8 = {s};
+                    \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                    \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                    \\
+                    \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+                    \\{s}        return cpz.MessageReader.init(@This().segments, options);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+                    \\{s}        return message_reader.getRootList(.composite);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
+                    \\{s}        return {s}.fromReader(try (try list(message_reader)).getStructElement(index));
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+                    \\{s}        var @"cpz.reader" = reader(options);
+                    \\{s}        return @"cpz.reader".validate();
+                    \\{s}    }}
+                    \\
+                , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent, indent, indent, indent, indent });
+            }
             for (items) |item| {
                 const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
                 defer allocator.free(item_literal);
@@ -7382,6 +7419,48 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
     }
 }
 
+fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {
+    const items = decl.list_items orelse return null;
+    const child = switch (resolveTypeScoped(file, scope, decl.ty)) {
+        .list => |list_child| list_child.*,
+        else => return null,
+    };
+    const type_name = switch (resolveTypeScoped(file, scope, child)) {
+        .named => |name| name,
+        else => return null,
+    };
+    const struct_decl = findStructDirect(file, type_name) orelse return null;
+    var layout = try planStructLayout(allocator, file, struct_decl);
+    defer layout.deinit(allocator);
+    const element_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
+    if (element_words == 0) return null;
+    const content_words = try std.math.mul(usize, element_words, items.len);
+
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    const total_words = 1 + 1 + content_words;
+    try segment.appendNTimes(allocator, 0, total_words * @sizeOf(u64));
+    writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .composite, content_words));
+    writeWordBytes(segment.items[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = layout.data_words, .pointer_count = layout.pointer_count }));
+
+    for (items) |item| {
+        if (item.struct_fields.len == 0) return null;
+        writeStructLiteralFieldsIntoSegment(allocator, file, &layout, item.struct_fields, &segment, 2 + item.index * element_words) catch |err| switch (err) {
+            error.UnsupportedType => return null,
+            else => return err,
+        };
+    }
+
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
 fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {
     if (!decl.is_struct_literal) return null;
     const type_name = switch (resolveTypeScoped(file, scope, decl.ty)) {
@@ -7403,6 +7482,106 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
     @memcpy(flat[@sizeOf(u64)..], object);
     return flat;
+}
+
+fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, fields: []const ConstStructField, segment: *std.ArrayList(u8), object_start_words: usize) LayoutError!void {
+    const object_start_bytes = object_start_words * @sizeOf(u64);
+    for (fields) |const_field| {
+        const field_layout = findFieldLayoutByName(layout, const_field.name) orelse return error.UnsupportedType;
+        const field = field_layout.field;
+        switch (field_layout.slot) {
+            .data_bit => |bit_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .bool => {
+                    const value = parseBoolLiteral(const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseBoolLiteral(field.default_literal orelse "false") orelse return error.UnsupportedType;
+                    if (value != default_value) setBit(segment.items[object_start_bytes..], bit_offset);
+                },
+                else => return error.UnsupportedType,
+            },
+            .data_byte => |byte_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .int8 => {
+                    const value = parseSignedLiteral(i8, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i8, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    segment.items[object_start_bytes + byte_offset] = @as(u8, @bitCast(value)) ^ @as(u8, @bitCast(default_value));
+                },
+                .int16 => {
+                    const value = parseSignedLiteral(i16, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i16, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u16 = @as(u16, @bitCast(value)) ^ @as(u16, @bitCast(default_value));
+                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
+                },
+                .int32 => {
+                    const value = parseSignedLiteral(i32, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i32, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
+                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                },
+                .int64 => {
+                    const value = parseSignedLiteral(i64, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i64, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
+                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
+                },
+                .uint8 => {
+                    const value = parseUnsignedLiteral(u8, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u8, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    segment.items[object_start_bytes + byte_offset] = value ^ default_value;
+                },
+                .uint16 => {
+                    const value = parseUnsignedLiteral(u16, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u16, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u16 = value ^ default_value;
+                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
+                },
+                .uint32 => {
+                    const value = parseUnsignedLiteral(u32, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u32, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u32 = value ^ default_value;
+                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                },
+                .uint64 => {
+                    const value = parseUnsignedLiteral(u64, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u64, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u64 = value ^ default_value;
+                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
+                },
+                .float32 => {
+                    const value = parseFloatLiteral(f32, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseFloatLiteral(f32, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
+                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                },
+                .float64 => {
+                    const value = parseFloatLiteral(f64, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = parseFloatLiteral(f64, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
+                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
+                },
+                .named => |field_type_name| {
+                    const enum_decl = findEnum(file, field_type_name) orelse return error.UnsupportedType;
+                    const value = enumLiteralOrdinal(enum_decl, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = enumLiteralOrdinal(enum_decl, field.default_literal orelse "") orelse 0;
+                    const stored: u16 = value ^ default_value;
+                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
+                },
+                else => return error.UnsupportedType,
+            },
+            .pointer => |pointer_index| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .text => {
+                    const text = try simpleQuotedTextLiteralAlloc(allocator, const_field.literal) orelse return error.UnsupportedType;
+                    defer allocator.free(text);
+                    try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
+                },
+                .data => {
+                    const data = try simpleDataLiteralAlloc(allocator, const_field.literal) orelse return error.UnsupportedType;
+                    defer allocator.free(data);
+                    try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
+                },
+                else => return error.UnsupportedType,
+            },
+            else => return error.UnsupportedType,
+        }
+    }
 }
 
 fn structLiteralObjectBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, layout: *const StructLayout, fields: []const ConstStructField, comptime include_root_pointer: bool) LayoutError!?[]u8 {

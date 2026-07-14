@@ -677,6 +677,18 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("(id = 1, name = \"one\")", generated.globalPeople.itemByStructFieldName("id").?.literal);
     try std.testing.expectEqualStrings("(id = 2, name = \"two\")", generated.globalPeople.itemByStructFieldLiteral("\"two\"").?.literal);
     try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.globalPeople.itemByStructFieldName("missing"));
+    try std.testing.expect(generated.globalPeople.flatBytes.len > 0);
+    var global_people_reader = generated.globalPeople.reader(.{});
+    const global_people_list = try generated.globalPeople.list(&global_people_reader);
+    try std.testing.expectEqual(@as(usize, 2), global_people_list.len());
+    const global_people_first = try generated.globalPeople.get(&global_people_reader, 0);
+    try std.testing.expectEqual(@as(u32, 1), global_people_first.id());
+    try std.testing.expectEqualSlices(u8, "one", try global_people_first.name());
+    const global_people_second = try generated.globalPeople.get(&global_people_reader, 1);
+    try std.testing.expectEqual(@as(u32, 2), global_people_second.id());
+    try std.testing.expectEqualSlices(u8, "two", try global_people_second.name());
+    const global_people_stats = try generated.globalPeople.validate(.{});
+    try std.testing.expect(global_people_stats.total_words > 0);
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalPeople.listItem.0.structFieldCount");
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalPeople.listItem.0.structFields".len);
     try std.testing.expectEqualStrings("id", generated.@"cpz.const.globalPeople.listItem.0.structFields"[0].name);
