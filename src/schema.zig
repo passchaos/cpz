@@ -7403,16 +7403,44 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".traversalLimitWords();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.traversalLimitBytes"(@"cpz.reader": *cpz.MessageReader) usize {{
+        \\        return @"cpz.reader".traversalLimitBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.matchesTraversalLimitWords"(@"cpz.reader": *cpz.MessageReader, @"cpz.count": usize) bool {{
+        \\        return @"cpz.reader".matchesTraversalLimitWords(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.matchesTraversalLimitBytes"(@"cpz.reader": *cpz.MessageReader, @"cpz.count": usize) bool {{
+        \\        return @"cpz.reader".matchesTraversalLimitBytes(@"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.traversalRemainingWords"(@"cpz.reader": *cpz.MessageReader) usize {{
         \\        return @"cpz.reader".traversalRemainingWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.traversalRemainingBytes"(@"cpz.reader": *cpz.MessageReader) usize {{
+        \\        return @"cpz.reader".traversalRemainingBytes();
         \\    }}
         \\
         \\    pub fn @"cpz.root.nestingLimit"(@"cpz.reader": *cpz.MessageReader) u16 {{
         \\        return @"cpz.reader".nestingLimit();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.matchesNestingLimit"(@"cpz.reader": *cpz.MessageReader, @"cpz.count": u16) bool {{
+        \\        return @"cpz.reader".matchesNestingLimit(@"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.capabilityCountLimit"(@"cpz.reader": *cpz.MessageReader) ?usize {{
         \\        return @"cpz.reader".capabilityCountLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.hasCapabilityCountLimit"(@"cpz.reader": *cpz.MessageReader) bool {{
+        \\        return @"cpz.reader".hasCapabilityCountLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.matchesCapabilityCountLimit"(@"cpz.reader": *cpz.MessageReader, @"cpz.count": usize) bool {{
+        \\        return @"cpz.reader".matchesCapabilityCountLimit(@"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.root.validate"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageStats {{
@@ -7479,8 +7507,32 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".firstSegmentWords();
         \\    }}
         \\
+        \\    pub fn @"cpz.builderRoot.firstSegmentBytes"(@"cpz.builder": *cpz.MessageBuilder) usize {{
+        \\        return @"cpz.builder".firstSegmentBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.matchesFirstSegmentWords"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize) bool {{
+        \\        return @"cpz.builder".matchesFirstSegmentWords(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.matchesFirstSegmentBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize) bool {{
+        \\        return @"cpz.builder".matchesFirstSegmentBytes(@"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.nextSegmentMinWords"(@"cpz.builder": *cpz.MessageBuilder) usize {{
         \\        return @"cpz.builder".nextSegmentMinWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.nextSegmentMinBytes"(@"cpz.builder": *cpz.MessageBuilder) usize {{
+        \\        return @"cpz.builder".nextSegmentMinBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.matchesNextSegmentMinWords"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize) bool {{
+        \\        return @"cpz.builder".matchesNextSegmentMinWords(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.matchesNextSegmentMinBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize) bool {{
+        \\        return @"cpz.builder".matchesNextSegmentMinBytes(@"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.segments"(@"cpz.builder": *cpz.MessageBuilder) ![]const cpz.serialize.ConstSegment {{
