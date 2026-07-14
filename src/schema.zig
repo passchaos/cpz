@@ -7974,6 +7974,34 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
             try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
         },
         .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, resolved_literal),
+        .any_pointer => {
+            if (const_ref) |decl| {
+                return appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
+            }
+            const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
+            if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
+            return error.UnsupportedType;
+        },
+        .any_struct => {
+            if (const_ref) |decl| {
+                if (resolveTypeScoped(file, layout.decl, decl.ty) == .named) {
+                    return appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
+                }
+            }
+            const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
+            if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
+            return error.UnsupportedType;
+        },
+        .any_list => {
+            if (const_ref) |decl| {
+                if (resolveTypeScoped(file, layout.decl, decl.ty) == .list) {
+                    return appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
+                }
+            }
+            const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
+            if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
+            return error.UnsupportedType;
+        },
         .capability => {
             const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
             if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
@@ -17460,6 +17488,38 @@ test "schema struct const flats accept void fields" {
     var reader = message.MessageReader.init(view.segments, .{});
     const root = try reader.getRoot();
     try std.testing.expectEqual(@as(u32, 7), root.getUInt32(0, 0));
+}
+
+test "schema struct const flats resolve any pointer const references" {
+    const source =
+        \\struct Payload {
+        \\  value @0 :UInt32;
+        \\}
+        \\const payload :Payload = (value = 123);
+        \\const values :List(UInt32) = [1, 2];
+        \\struct Holder {
+        \\  anyStruct @0 :AnyPointer;
+        \\  asStruct @1 :AnyStruct;
+        \\  anyList @2 :AnyPointer;
+        \\  asList @3 :AnyList;
+        \\}
+        \\const holder :Holder = (anyStruct = payload, asStruct = payload, anyList = values, asList = values);
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[2])).?;
+    defer std.testing.allocator.free(flat);
+    var segments: [1]serialize.ConstSegment = undefined;
+    const view = try serialize.readFlatMessageViewInto(&segments, flat);
+    var reader = message.MessageReader.init(view.segments, .{});
+    const root = try reader.getRoot();
+    try std.testing.expectEqual(@as(u32, 123), (try root.getPointerField(0).getStruct(null)).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u32, 123), (try root.getPointerField(1).getStruct(null)).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u32, 1), (try root.getPointerField(2).getList(.four_bytes)).getUInt32(0));
+    try std.testing.expectEqual(@as(u32, 2), (try root.getPointerField(3).getList(.four_bytes)).getUInt32(1));
 }
 
 test "schema struct const flats encode void capability pointers as null" {
