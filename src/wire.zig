@@ -156,6 +156,18 @@ pub const StructPointer = struct {
     pub fn matchesSize(self: StructPointer, expected: StructSize) bool {
         return self.data_words == expected.data_words and self.pointer_count == expected.pointer_count;
     }
+
+    pub fn matchesDataWords(self: StructPointer, count: u16) bool {
+        return self.data_words == count;
+    }
+
+    pub fn matchesPointerCount(self: StructPointer, count: u16) bool {
+        return self.pointer_count == count;
+    }
+
+    pub fn matchesTotalWords(self: StructPointer, count: usize) bool {
+        return self.totalWords() == count;
+    }
 };
 
 pub const ListPointer = struct {
@@ -526,6 +538,12 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expect(struct_ptr.hasDataWords());
     try testing.expect(struct_ptr.hasPointers());
     try testing.expect(struct_ptr.matchesSize(.{ .data_words = 3, .pointer_count = 2 }));
+    try testing.expect(struct_ptr.matchesDataWords(3));
+    try testing.expect(!struct_ptr.matchesDataWords(2));
+    try testing.expect(struct_ptr.matchesPointerCount(2));
+    try testing.expect(!struct_ptr.matchesPointerCount(3));
+    try testing.expect(struct_ptr.matchesTotalWords(5));
+    try testing.expect(!struct_ptr.matchesTotalWords(4));
 
     const text_raw = try encodeList(6, .byte, 53);
     try testing.expectEqual(@as(Word, 0x0000_01aa_0000_0019), text_raw);
