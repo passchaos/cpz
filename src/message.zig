@@ -1231,6 +1231,55 @@ pub const Orphan = struct {
         };
     }
 
+    pub fn structSize(self: Orphan) Error!wire.StructSize {
+        return (try self.getStruct()).size();
+    }
+
+    pub fn structDataWordCount(self: Orphan) Error!u16 {
+        return (try self.structSize()).dataWordCount();
+    }
+
+    pub fn structPointerCount(self: Orphan) Error!u16 {
+        return (try self.structSize()).pointerCount();
+    }
+
+    pub fn structTotalWords(self: Orphan) Error!usize {
+        return (try self.structSize()).totalWords();
+    }
+
+    pub fn structDataByteCount(self: Orphan) Error!usize {
+        return (try self.structSize()).dataByteCount();
+    }
+
+    pub fn structPointerByteCount(self: Orphan) Error!usize {
+        return (try self.structSize()).pointerByteCount();
+    }
+
+    pub fn structTotalByteCount(self: Orphan) Error!usize {
+        return (try self.structSize()).totalByteCount();
+    }
+
+    pub fn structMatchesSize(self: Orphan, expected: wire.StructSize) bool {
+        const actual = self.structSize() catch return false;
+        return actual.data_words == expected.data_words and actual.pointer_count == expected.pointer_count;
+    }
+
+    pub fn structMatchesDataWords(self: Orphan, count: u16) bool {
+        return (self.structDataWordCount() catch return false) == count;
+    }
+
+    pub fn structMatchesPointerCount(self: Orphan, count: u16) bool {
+        return (self.structPointerCount() catch return false) == count;
+    }
+
+    pub fn structMatchesTotalWords(self: Orphan, count: usize) bool {
+        return (self.structTotalWords() catch return false) == count;
+    }
+
+    pub fn structMatchesTotalBytes(self: Orphan, count: usize) bool {
+        return (self.structTotalByteCount() catch return false) == count;
+    }
+
     pub fn getList(self: Orphan, expected: ?wire.ElementSize) Error!ListBuilder {
         if (self.raw == 0) return error.NullPointer;
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
@@ -6200,6 +6249,19 @@ test "message builder allocates new orphan structs and lists" {
 
     var struct_orphan = try builder.newOrphanStruct(.{ .data_words = 1, .pointer_count = 1 });
     const orphan_struct = try struct_orphan.getStruct();
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, try struct_orphan.structSize());
+    try testing.expectEqual(@as(u16, 1), try struct_orphan.structDataWordCount());
+    try testing.expectEqual(@as(u16, 1), try struct_orphan.structPointerCount());
+    try testing.expectEqual(@as(usize, 2), try struct_orphan.structTotalWords());
+    try testing.expectEqual(@as(usize, 8), try struct_orphan.structDataByteCount());
+    try testing.expectEqual(@as(usize, 8), try struct_orphan.structPointerByteCount());
+    try testing.expectEqual(@as(usize, 16), try struct_orphan.structTotalByteCount());
+    try testing.expect(struct_orphan.structMatchesSize(.{ .data_words = 1, .pointer_count = 1 }));
+    try testing.expect(struct_orphan.structMatchesDataWords(1));
+    try testing.expect(struct_orphan.structMatchesPointerCount(1));
+    try testing.expect(struct_orphan.structMatchesTotalWords(2));
+    try testing.expect(struct_orphan.structMatchesTotalBytes(16));
+    try testing.expect(!struct_orphan.structMatchesSize(.{ .data_words = 2, .pointer_count = 1 }));
     try orphan_struct.setUInt32(0, 4242, 0);
     try orphan_struct.setText(0, "new orphan");
     const struct_size = try struct_orphan.totalSize();
