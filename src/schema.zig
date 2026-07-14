@@ -7428,17 +7428,12 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
                 .text => {
                     const text = try simpleQuotedTextLiteralAlloc(allocator, const_field.literal) orelse return null;
                     defer allocator.free(text);
-                    const pointer_word_index = 1 + @as(usize, layout.data_words) + pointer_index;
-                    const target_word_index = segment.items.len / @sizeOf(u64);
-                    const text_len_with_nul = text.len + 1;
-                    const padded_len = ((text_len_with_nul + @sizeOf(u64) - 1) / @sizeOf(u64)) * @sizeOf(u64);
-                    try segment.appendNTimes(allocator, 0, padded_len);
-                    const text_start = target_word_index * @sizeOf(u64);
-                    @memcpy(segment.items[text_start..][0..text.len], text);
-                    segment.items[text_start + text.len] = 0;
-                    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
-                    const raw = try wire.encodeList(offset, .byte, text_len_with_nul);
-                    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
+                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, text, true);
+                },
+                .data => {
+                    const data = try simpleDataLiteralAlloc(allocator, const_field.literal) orelse return null;
+                    defer allocator.free(data);
+                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, data, false);
                 },
                 else => return null,
             },
@@ -7461,6 +7456,20 @@ fn findFieldLayoutByName(layout: *const StructLayout, name: []const u8) ?FieldLa
         if (std.mem.eql(u8, field_layout.field.name, name)) return field_layout;
     }
     return null;
+}
+
+fn appendByteListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, bytes: []const u8, nul_terminated: bool) LayoutError!void {
+    const pointer_word_index = 1 + @as(usize, data_words) + pointer_index;
+    const target_word_index = segment.items.len / @sizeOf(u64);
+    const list_len = bytes.len + @intFromBool(nul_terminated);
+    const padded_len = ((list_len + @sizeOf(u64) - 1) / @sizeOf(u64)) * @sizeOf(u64);
+    try segment.appendNTimes(allocator, 0, padded_len);
+    const data_start = target_word_index * @sizeOf(u64);
+    @memcpy(segment.items[data_start..][0..bytes.len], bytes);
+    if (nul_terminated) segment.items[data_start + bytes.len] = 0;
+    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
+    const raw = try wire.encodeList(offset, .byte, list_len);
+    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
 }
 
 fn parseU16Literal(raw_literal: []const u8) ?u16 {
@@ -7505,6 +7514,35 @@ fn simpleQuotedTextLiteralAlloc(allocator: std.mem.Allocator, literal: []const u
     const inner = raw[1 .. raw.len - 1];
     if (std.mem.indexOfScalar(u8, inner, '\\') != null) return null;
     return try allocator.dupe(u8, inner);
+}
+
+fn simpleDataLiteralAlloc(allocator: std.mem.Allocator, literal: []const u8) LayoutError!?[]u8 {
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    if (std.mem.startsWith(u8, raw, "0x\"") and raw.len >= 4 and raw[raw.len - 1] == '"') {
+        return try hexBytesAlloc(allocator, raw[3 .. raw.len - 1]);
+    }
+    return simpleQuotedTextLiteralAlloc(allocator, raw);
+}
+
+fn hexBytesAlloc(allocator: std.mem.Allocator, raw: []const u8) LayoutError![]u8 {
+    var bytes = std.ArrayList(u8).empty;
+    errdefer bytes.deinit(allocator);
+    var high_nibble: ?u8 = null;
+    for (raw) |c| {
+        switch (c) {
+            ' ', '\t', '\n', '\r' => continue,
+            else => {},
+        }
+        const value = hexValue(c) orelse return error.InvalidToken;
+        if (high_nibble) |high| {
+            try bytes.append(allocator, (high << 4) | value);
+            high_nibble = null;
+        } else {
+            high_nibble = value;
+        }
+    }
+    if (high_nibble != null) return error.InvalidToken;
+    return bytes.toOwnedSlice(allocator);
 }
 
 fn writeWordBytes(dest: []u8, value: u64) void {
@@ -15002,24 +15040,7 @@ fn zigIdentAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocato
 fn zigDataLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8, is_hex: bool) LayoutError![]u8 {
     if (!is_hex) return zigStringLiteralAlloc(allocator, raw);
 
-    var bytes = std.ArrayList(u8).empty;
-    errdefer bytes.deinit(allocator);
-    var high_nibble: ?u8 = null;
-    for (raw) |c| {
-        switch (c) {
-            ' ', '\t', '\n', '\r' => continue,
-            else => {},
-        }
-        const value = hexValue(c) orelse return error.InvalidToken;
-        if (high_nibble) |high| {
-            try bytes.append(allocator, (high << 4) | value);
-            high_nibble = null;
-        } else {
-            high_nibble = value;
-        }
-    }
-    if (high_nibble != null) return error.InvalidToken;
-    const decoded = try bytes.toOwnedSlice(allocator);
+    const decoded = try hexBytesAlloc(allocator, raw);
     defer allocator.free(decoded);
     return zigRawStringLiteralAlloc(allocator, decoded);
 }
