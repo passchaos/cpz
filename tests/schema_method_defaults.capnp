@@ -73,6 +73,7 @@ interface Defaults {
     payload :?Data = defaultMaybePayload,
     numbers :?List(UInt16) = defaultMaybeNumbers,
     item :?Item = defaultMaybeItem,
-    emptyLabel :?Text = null
+    emptyLabel :?Text = null,
+    any :AnyPointer = null
   ) -> (result :?Item = defaultMaybeItem);
 }

@@ -1,4 +1,5 @@
 const std = @import("std");
+const cpz = @import("cpz");
 const generated = @import("generated_method_defaults_schema");
 
 test "generated optional constants expose values and flats" {
@@ -205,6 +206,16 @@ test "generated method default flats expose typed optional pointer getters" {
     const item = try generated.Defaults.@"cpz.method.optionals.params.field.item.defaultFlat".get(&item_reader);
     try std.testing.expectEqual(@as(u32, 77), item.value());
     try std.testing.expectEqualStrings("seventy-seven", try item.label());
+
+    var empty_label_reader = generated.Defaults.@"cpz.method.optionals.params.field.emptyLabel.defaultFlat".reader(.{});
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionals.params.field.emptyLabel.defaultFlat".isNull(&empty_label_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.@"cpz.method.optionals.params.field.emptyLabel.defaultFlat".rawPointer(&empty_label_reader));
+    var empty_label_wrapped = generated.Defaults.@"cpz.method.optionals.params.field.emptyLabel.defaultFlat".init(.{});
+    try std.testing.expect(try empty_label_wrapped.isNull());
+
+    var any_reader = generated.Defaults.@"cpz.method.optionals.params.field.any.defaultFlat".reader(.{});
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionals.params.field.any.defaultFlat".isNull(&any_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.@"cpz.method.optionals.params.field.any.defaultFlat".pointerKind(&any_reader));
 
     var result_reader = generated.Defaults.@"cpz.method.optionals.results.field.result.defaultFlat".reader(.{});
     const result = try generated.Defaults.@"cpz.method.optionals.results.field.result.defaultFlat".get(&result_reader);

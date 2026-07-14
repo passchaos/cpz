@@ -6005,6 +6005,19 @@ fn methodOptionalDefaultChildOrNull(file: *const File, scope: ?*const Struct, ch
     return resolveTypeScoped(file, scope, child);
 }
 
+fn methodDefaultIsNull(file: *const File, scope: ?*const Struct, default_literal: []const u8) bool {
+    return std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, default_literal), " \t\r\n"), "null");
+}
+
+fn nullPointerFlatBytesAlloc(allocator: std.mem.Allocator) LayoutError![]u8 {
+    const segment_words: usize = 1;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    return flat;
+}
+
 fn emitMethodListDefaultList(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, element_size_literal: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
@@ -6294,7 +6307,7 @@ fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.Ar
     }
 }
 
-fn emitMethodDefaultReaderWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, container_literal: []const u8, resolved_ty: Type) LayoutError!void {
+fn emitMethodDefaultReaderWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, container_literal: []const u8, resolved_ty: Type, is_null_default: bool) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}    pub const Reader = struct {{
         \\{s}        reader: cpz.MessageReader,
@@ -6308,7 +6321,26 @@ fn emitMethodDefaultReaderWrapper(allocator: std.mem.Allocator, out: *std.ArrayL
         \\{s}        }}
         \\
     , .{ indent, indent, indent, indent, container_literal, indent, indent, indent, indent });
-    switch (resolved_ty) {
+    if (is_null_default) {
+        try appendFmt(allocator, out,
+            \\{s}        pub fn pointer(self: *@This()) !cpz.PointerReader {{
+            \\{s}            return @{s}.pointer(&self.reader);
+            \\{s}        }}
+            \\
+            \\{s}        pub fn isNull(self: *@This()) !bool {{
+            \\{s}            return @{s}.isNull(&self.reader);
+            \\{s}        }}
+            \\
+            \\{s}        pub fn rawPointer(self: *@This()) !cpz.Word {{
+            \\{s}            return @{s}.rawPointer(&self.reader);
+            \\{s}        }}
+            \\
+            \\{s}        pub fn pointerKind(self: *@This()) !?cpz.wire.PointerType {{
+            \\{s}            return @{s}.pointerKind(&self.reader);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent, indent, indent, container_literal, indent, indent, indent, container_literal, indent, indent, indent, container_literal, indent });
+    } else switch (resolved_ty) {
         .void => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "void"),
         .bool => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "bool"),
         .int8 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "i8"),
@@ -6389,11 +6421,12 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     defer allocator.free(container_literal);
     var ty = try parseTypeArgAlloc(allocator, field.ty);
     defer ty.deinit(allocator);
+    const is_null_default = methodDefaultIsNull(file, scope, default_literal);
     const resolved_ty = switch (resolveTypeScoped(file, scope, ty)) {
-        .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, default_literal) orelse return,
+        .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, default_literal) orelse child.*,
         else => |resolved| resolved,
     };
-    const flat = switch (resolved_ty) {
+    const flat = if (is_null_default) try nullPointerFlatBytesAlloc(allocator) else switch (resolved_ty) {
         .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, scope, resolved_ty, default_literal),
         .named => |type_name| blk: {
             if (findEnum(file, type_name) != null) {
@@ -6434,7 +6467,26 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         \\{s}    }}
         \\
     , .{ indent, container_literal, indent, flat_literal, indent, indent, indent, indent, indent });
-    switch (resolved_ty) {
+    if (is_null_default) {
+        try appendFmt(allocator, out,
+            \\{s}    pub fn pointer(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+            \\{s}        return message_reader.getRootPointer();
+            \\{s}    }}
+            \\
+            \\{s}    pub fn isNull(message_reader: *cpz.MessageReader) !bool {{
+            \\{s}        return (try @This().pointer(message_reader)).isNull();
+            \\{s}    }}
+            \\
+            \\{s}    pub fn rawPointer(message_reader: *cpz.MessageReader) !cpz.Word {{
+            \\{s}        return (try @This().pointer(message_reader)).raw();
+            \\{s}    }}
+            \\
+            \\{s}    pub fn pointerKind(message_reader: *cpz.MessageReader) !?cpz.wire.PointerType {{
+            \\{s}        return (try @This().pointer(message_reader)).pointerType();
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    } else switch (resolved_ty) {
         .void => try appendFmt(allocator, out,
             \\{s}    pub fn get(message_reader: *cpz.MessageReader) !void {{
             \\{s}        _ = try message_reader.getRoot();
@@ -6502,7 +6554,7 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         .list => |child| try emitMethodListDefaultGetters(allocator, out, file, scope, indent, child.*),
         else => {},
     }
-    try emitMethodDefaultReaderWrapper(allocator, out, file, scope, indent, container_literal, resolved_ty);
+    try emitMethodDefaultReaderWrapper(allocator, out, file, scope, indent, container_literal, resolved_ty, is_null_default);
     try emitFlatContainerSizeHelpers(allocator, out, indent);
     try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
