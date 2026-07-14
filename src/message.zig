@@ -1146,6 +1146,15 @@ pub const Orphan = struct {
         return self.asReader(&reader).getCapabilityIndex();
     }
 
+    pub fn maxCapabilityCount(self: Orphan) Error!usize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).maxCapabilityCount();
+    }
+
+    pub fn matchesMaxCapabilityCount(self: Orphan, count: usize) bool {
+        return (self.maxCapabilityCount() catch return false) == count;
+    }
+
     pub fn validateWithOptions(self: Orphan, options: ReaderOptions) Error!MessageStats {
         if (self.raw == 0) return error.NullPointer;
         var reader = MessageReader.init(try self.message.segmentsConst(), options);
@@ -5704,6 +5713,9 @@ test "orphan scalar accessors read moved pointers" {
     try testing.expect(cap_orphan.isCapabilityPointer());
     try testing.expect(cap_orphan.isNearPointer());
     try testing.expect(!cap_orphan.isListPointer());
+    try testing.expectEqual(@as(usize, 5151), try cap_orphan.maxCapabilityCount());
+    try testing.expect(cap_orphan.matchesMaxCapabilityCount(5151));
+    try testing.expect(!cap_orphan.matchesMaxCapabilityCount(5150));
     try testing.expectEqual(@as(u32, 5150), try cap_orphan.getCapabilityIndex());
 }
 
