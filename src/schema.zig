@@ -7867,6 +7867,83 @@ fn listUnsignedFlatBytesAlloc(comptime T: type, allocator: std.mem.Allocator, it
     return flat;
 }
 
+fn decodedStringBytesAlloc(allocator: std.mem.Allocator, raw: []const u8) LayoutError![]u8 {
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+
+    var i: usize = 0;
+    while (i < raw.len) {
+        const c = raw[i];
+        i += 1;
+        if (c == '\\' and i < raw.len) {
+            const escaped = raw[i];
+            i += 1;
+            switch (escaped) {
+                'a' => try out.append(allocator, 0x07),
+                'b' => try out.append(allocator, 0x08),
+                'f' => try out.append(allocator, 0x0c),
+                'n' => try out.append(allocator, '\n'),
+                'r' => try out.append(allocator, '\r'),
+                't' => try out.append(allocator, '\t'),
+                'v' => try out.append(allocator, 0x0b),
+                '\'', '"', '\\', '?' => try out.append(allocator, escaped),
+                'x' => {
+                    if (i + 2 <= raw.len) {
+                        if (std.fmt.parseInt(u8, raw[i .. i + 2], 16)) |value| {
+                            i += 2;
+                            try out.append(allocator, value);
+                        } else |_| {
+                            try out.append(allocator, escaped);
+                        }
+                    } else {
+                        try out.append(allocator, escaped);
+                    }
+                },
+                '0'...'7' => {
+                    var value: u16 = escaped - '0';
+                    var consumed: usize = 0;
+                    while (consumed < 2 and i < raw.len) : (consumed += 1) {
+                        const digit = octalValue(raw[i]) orelse break;
+                        value = (value << 3) | digit;
+                        i += 1;
+                    }
+                    try out.append(allocator, @truncate(value));
+                },
+                else => try out.append(allocator, escaped),
+            }
+        } else {
+            try out.append(allocator, c);
+        }
+    }
+    return out.toOwnedSlice(allocator);
+}
+
+fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, items: []const ConstListItem, comptime nul_terminated: bool) LayoutError![]u8 {
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
+
+    for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
+        const bytes = if (item.is_hex_data)
+            try hexBytesAlloc(allocator, item.literal)
+        else
+            try decodedStringBytesAlloc(allocator, item.literal);
+        defer allocator.free(bytes);
+        try appendByteListPointer(allocator, &segment, 0, 0, bytes, nul_terminated, 1 + item.index);
+    }
+
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
 fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
     const flat = try listUnsignedFlatBytesAlloc(T, allocator, items, element_size);
     defer allocator.free(flat);
@@ -7893,6 +7970,43 @@ fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator,
         \\{s}}};
         \\
     , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, element_size_literal, indent, indent, indent, indent, indent, indent });
+}
+
+fn emitTextOrDataListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool) LayoutError!void {
+    const flat = try listTextOrDataFlatBytesAlloc(allocator, items, is_text);
+    defer allocator.free(flat);
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    const accessor = if (is_text) "getText" else "getData";
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+        \\{s}        return message_reader.getRootList(.pointer);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) ![]const u8 {{
+        \\{s}        return (try (try list(message_reader)).getPointerElement(index)).{s}();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getByteCount(message_reader: *cpz.MessageReader, index: usize) !usize {{
+        \\{s}        return (try get(message_reader, index)).len;
+        \\{s}    }}
+        \\
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, accessor, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
 fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {
@@ -7959,6 +8073,12 @@ fn emitListConstOfType(
         try emitUnsignedListFlatContainer(u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes");
     } else if (std.mem.eql(u8, zig_type, "u32")) {
         try emitUnsignedListFlatContainer(u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
+    } else if (std.mem.eql(u8, zig_type, "[]const u8")) {
+        if (itemLiteral == stringConstItem) {
+            try emitTextOrDataListFlatContainer(allocator, out, indent, name, items, true);
+        } else if (itemLiteral == dataConstItem) {
+            try emitTextOrDataListFlatContainer(allocator, out, indent, name, items, false);
+        }
     }
 }
 
