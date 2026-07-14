@@ -7393,21 +7393,39 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
     defer layout.deinit(allocator);
     const fields = decl.struct_fields orelse return null;
 
+    const object = try structLiteralObjectBytesAlloc(allocator, file, scope, &layout, fields, true) orelse return null;
+    defer allocator.free(object);
+    const segment_words = object.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + object.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], object);
+    return flat;
+}
+
+fn structLiteralObjectBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, layout: *const StructLayout, fields: []const ConstStructField, comptime include_root_pointer: bool) LayoutError!?[]u8 {
+    _ = scope;
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
     const object_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
-    try segment.appendNTimes(allocator, 0, (1 + object_words) * @sizeOf(u64));
-    writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeStruct(0, layout.data_words, layout.pointer_count));
+    const object_start_words: usize = if (include_root_pointer) 1 else 0;
+    try segment.appendNTimes(allocator, 0, (object_start_words + object_words) * @sizeOf(u64));
+    if (include_root_pointer) {
+        writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeStruct(0, layout.data_words, layout.pointer_count));
+    }
+    const object_start_bytes = object_start_words * @sizeOf(u64);
 
     for (fields) |const_field| {
-        const field_layout = findFieldLayoutByName(&layout, const_field.name) orelse return null;
+        const field_layout = findFieldLayoutByName(layout, const_field.name) orelse return null;
         const field = field_layout.field;
         switch (field_layout.slot) {
             .data_bit => |bit_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
                 .bool => {
                     const value = parseBoolLiteral(const_field.literal) orelse return null;
                     const default_value = parseBoolLiteral(field.default_literal orelse "false") orelse return null;
-                    if (value != default_value) setBit(segment.items[@sizeOf(u64)..], bit_offset);
+                    if (value != default_value) setBit(segment.items[object_start_bytes..], bit_offset);
                 },
                 else => return null,
             },
@@ -7415,67 +7433,67 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
                 .int8 => {
                     const value = parseSignedLiteral(i8, const_field.literal) orelse return null;
                     const default_value = parseSignedLiteral(i8, field.default_literal orelse "0") orelse return null;
-                    segment.items[@sizeOf(u64) + byte_offset] = @as(u8, @bitCast(value)) ^ @as(u8, @bitCast(default_value));
+                    segment.items[object_start_bytes + byte_offset] = @as(u8, @bitCast(value)) ^ @as(u8, @bitCast(default_value));
                 },
                 .int16 => {
                     const value = parseSignedLiteral(i16, const_field.literal) orelse return null;
                     const default_value = parseSignedLiteral(i16, field.default_literal orelse "0") orelse return null;
                     const stored: u16 = @as(u16, @bitCast(value)) ^ @as(u16, @bitCast(default_value));
-                    std.mem.writeInt(u16, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u16)], stored, .little);
+                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
                 .int32 => {
                     const value = parseSignedLiteral(i32, const_field.literal) orelse return null;
                     const default_value = parseSignedLiteral(i32, field.default_literal orelse "0") orelse return null;
                     const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
-                    std.mem.writeInt(u32, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
                 },
                 .int64 => {
                     const value = parseSignedLiteral(i64, const_field.literal) orelse return null;
                     const default_value = parseSignedLiteral(i64, field.default_literal orelse "0") orelse return null;
                     const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
-                    std.mem.writeInt(u64, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u64)], stored, .little);
+                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
                 .uint8 => {
                     const value = parseUnsignedLiteral(u8, const_field.literal) orelse return null;
                     const default_value = parseUnsignedLiteral(u8, field.default_literal orelse "0") orelse return null;
-                    segment.items[@sizeOf(u64) + byte_offset] = value ^ default_value;
+                    segment.items[object_start_bytes + byte_offset] = value ^ default_value;
                 },
                 .uint16 => {
                     const value = parseUnsignedLiteral(u16, const_field.literal) orelse return null;
                     const default_value = parseUnsignedLiteral(u16, field.default_literal orelse "0") orelse return null;
                     const stored: u16 = value ^ default_value;
-                    std.mem.writeInt(u16, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u16)], stored, .little);
+                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
                 .uint32 => {
                     const value = parseUnsignedLiteral(u32, const_field.literal) orelse return null;
                     const default_value = parseUnsignedLiteral(u32, field.default_literal orelse "0") orelse return null;
                     const stored: u32 = value ^ default_value;
-                    std.mem.writeInt(u32, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
                 },
                 .uint64 => {
                     const value = parseUnsignedLiteral(u64, const_field.literal) orelse return null;
                     const default_value = parseUnsignedLiteral(u64, field.default_literal orelse "0") orelse return null;
                     const stored: u64 = value ^ default_value;
-                    std.mem.writeInt(u64, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u64)], stored, .little);
+                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
                 .float32 => {
                     const value = parseFloatLiteral(f32, const_field.literal) orelse return null;
                     const default_value = parseFloatLiteral(f32, field.default_literal orelse "0") orelse return null;
                     const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
-                    std.mem.writeInt(u32, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
                 },
                 .float64 => {
                     const value = parseFloatLiteral(f64, const_field.literal) orelse return null;
                     const default_value = parseFloatLiteral(f64, field.default_literal orelse "0") orelse return null;
                     const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
-                    std.mem.writeInt(u64, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u64)], stored, .little);
+                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
                 .named => |field_type_name| {
                     const enum_decl = findEnum(file, field_type_name) orelse return null;
                     const value = enumLiteralOrdinal(enum_decl, const_field.literal) orelse return null;
                     const default_value = enumLiteralOrdinal(enum_decl, field.default_literal orelse "") orelse 0;
                     const stored: u16 = value ^ default_value;
-                    std.mem.writeInt(u16, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u16)], stored, .little);
+                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
                 else => return null,
             },
@@ -7483,12 +7501,12 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
                 .text => {
                     const text = try simpleQuotedTextLiteralAlloc(allocator, const_field.literal) orelse return null;
                     defer allocator.free(text);
-                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, text, true);
+                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, text, true, object_start_words);
                 },
                 .data => {
                     const data = try simpleDataLiteralAlloc(allocator, const_field.literal) orelse return null;
                     defer allocator.free(data);
-                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, data, false);
+                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, data, false, object_start_words);
                 },
                 else => return null,
             },
@@ -7496,14 +7514,7 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
         }
     }
 
-    const segment_words = segment.items.len / @sizeOf(u64);
-    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
-    errdefer allocator.free(flat);
-    std.mem.writeInt(u32, flat[0..4], 0, .little);
-    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
-    @memcpy(flat[@sizeOf(u64)..], segment.items);
-    return flat;
+    return try segment.toOwnedSlice(allocator);
 }
 
 fn findFieldLayoutByName(layout: *const StructLayout, name: []const u8) ?FieldLayout {
@@ -7513,8 +7524,8 @@ fn findFieldLayoutByName(layout: *const StructLayout, name: []const u8) ?FieldLa
     return null;
 }
 
-fn appendByteListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, bytes: []const u8, nul_terminated: bool) LayoutError!void {
-    const pointer_word_index = 1 + @as(usize, data_words) + pointer_index;
+fn appendByteListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, bytes: []const u8, nul_terminated: bool, object_start_words: usize) LayoutError!void {
+    const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
     const target_word_index = segment.items.len / @sizeOf(u64);
     const list_len = bytes.len + @intFromBool(nul_terminated);
     const padded_len = ((list_len + @sizeOf(u64) - 1) / @sizeOf(u64)) * @sizeOf(u64);
