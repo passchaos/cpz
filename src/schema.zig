@@ -7935,7 +7935,10 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
                     return;
                 }
             }
-            const text = try simpleQuotedTextLiteralAlloc(allocator, resolved_literal) orelse return error.UnsupportedType;
+            const text = inlineQuotedStringBytesAlloc(allocator, resolved_literal) catch |err| switch (err) {
+                error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+                else => return err,
+            };
             defer allocator.free(text);
             try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
         },
@@ -7955,7 +7958,10 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
                     return;
                 }
             }
-            const data = try simpleDataLiteralAlloc(allocator, resolved_literal) orelse return error.UnsupportedType;
+            const data = inlineDataBytesAlloc(allocator, resolved_literal) catch |err| switch (err) {
+                error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+                else => return err,
+            };
             defer allocator.free(data);
             try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
         },
@@ -17456,15 +17462,20 @@ test "schema struct const flats resolve scalar const field references" {
         \\  shade @1 :Color;
         \\  scores @2 :List(UInt32);
         \\  label @3 :Text;
+        \\  payload @4 :Data;
         \\  const defaultId :UInt32 = 99;
         \\}
-        \\const sample :Sample = (id = .globalId, shade = chosen, scores = scoreDefaults, label = label);
-        \\const nested :Sample = (id = Sample.defaultId, shade = blue, scores = [Sample.defaultId], label = "nested");
+        \\const sample :Sample = (id = .globalId, shade = chosen, scores = scoreDefaults, label = label, payload = "da" "ta");
+        \\const nested :Sample = (id = Sample.defaultId, shade = blue, scores = [Sample.defaultId], label = "nest" "ed", payload = 0x"01 02");
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
+    const sample_layout = &layouts.structs[0];
+    const scores_pointer = findFieldLayoutByName(sample_layout, "scores").?.slot.pointer;
+    const label_pointer = findFieldLayoutByName(sample_layout, "label").?.slot.pointer;
+    const payload_pointer = findFieldLayoutByName(sample_layout, "payload").?.slot.pointer;
 
     const sample_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[4])).?;
     defer std.testing.allocator.free(sample_flat);
@@ -17474,10 +17485,11 @@ test "schema struct const flats resolve scalar const field references" {
     const sample_root = try sample_reader.getRoot();
     try std.testing.expectEqual(@as(u32, 12345), sample_root.getUInt32(0, 0));
     try std.testing.expectEqual(@as(u16, 1), sample_root.getUInt16(4, 0));
-    const sample_scores = try sample_root.getPointerField(0).getList(.four_bytes);
+    const sample_scores = try sample_root.getPointerField(scores_pointer).getList(.four_bytes);
     try std.testing.expectEqual(@as(u32, 12345), sample_scores.getUInt32(0));
     try std.testing.expectEqual(@as(u32, 2), sample_scores.getUInt32(1));
-    try std.testing.expectEqualSlices(u8, "sample", try sample_root.getPointerField(1).getText());
+    try std.testing.expectEqualSlices(u8, "sample", try sample_root.getPointerField(label_pointer).getText());
+    try std.testing.expectEqualSlices(u8, "data", try sample_root.getPointerField(payload_pointer).getData());
 
     const nested_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[5])).?;
     defer std.testing.allocator.free(nested_flat);
@@ -17487,9 +17499,10 @@ test "schema struct const flats resolve scalar const field references" {
     const nested_root = try nested_reader.getRoot();
     try std.testing.expectEqual(@as(u32, 99), nested_root.getUInt32(0, 0));
     try std.testing.expectEqual(@as(u16, 1), nested_root.getUInt16(4, 0));
-    const nested_scores = try nested_root.getPointerField(0).getList(.four_bytes);
+    const nested_scores = try nested_root.getPointerField(scores_pointer).getList(.four_bytes);
     try std.testing.expectEqual(@as(u32, 99), nested_scores.getUInt32(0));
-    try std.testing.expectEqualSlices(u8, "nested", try nested_root.getPointerField(1).getText());
+    try std.testing.expectEqualSlices(u8, "nested", try nested_root.getPointerField(label_pointer).getText());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, try nested_root.getPointerField(payload_pointer).getData());
 }
 
 test "schema code generator resolves const reference scalar defaults for flats" {
