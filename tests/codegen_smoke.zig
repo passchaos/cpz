@@ -758,6 +758,16 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 2), try generated.globalDataItemsFlat.getByteCount(&global_data_items_reader, 0));
     const global_data_items_stats = try generated.globalDataItemsFlat.validate(.{});
     try std.testing.expect(global_data_items_stats.total_words > 0);
+    try std.testing.expect(generated.globalShadesFlat.flatBytes.len > 0);
+    var global_shades_reader = generated.globalShadesFlat.reader(.{});
+    const global_shades_flat = try generated.globalShadesFlat.list(&global_shades_reader);
+    try std.testing.expectEqual(@as(usize, 2), global_shades_flat.len());
+    try std.testing.expectEqual(@as(u16, 0), try generated.globalShadesFlat.getRaw(&global_shades_reader, 0));
+    try std.testing.expectEqual(@as(u16, 2), try generated.globalShadesFlat.getRaw(&global_shades_reader, 1));
+    try std.testing.expectEqual(generated.Color.red, try generated.globalShadesFlat.get(&global_shades_reader, 0));
+    try std.testing.expectEqual(generated.Color.blue, try generated.globalShadesFlat.get(&global_shades_reader, 1));
+    const global_shades_stats = try generated.globalShadesFlat.validate(.{});
+    try std.testing.expect(global_shades_stats.total_words > 0);
     try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.constCount");
     try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.consts".len);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.consts"[0].name);

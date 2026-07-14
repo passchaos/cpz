@@ -7944,6 +7944,24 @@ fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, items: []const Con
     return flat;
 }
 
+fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, enum_decl: *const EnumDecl, items: []const ConstListItem) LayoutError![]u8 {
+    const data_words = try wire.wordsForList(.two_bytes, items.len);
+    const segment_words = 1 + data_words;
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    errdefer allocator.free(flat);
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, .two_bytes, items.len));
+    const data = flat[2 * @sizeOf(u64) ..];
+    for (items) |item| {
+        const ordinal = try enumDefaultOrdinal(enum_decl, item.literal);
+        std.mem.writeInt(u16, data[item.index * @sizeOf(u16) ..][0..@sizeOf(u16)], ordinal, .little);
+    }
+    return flat;
+}
+
 fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
     const flat = try listUnsignedFlatBytesAlloc(T, allocator, items, element_size);
     defer allocator.free(flat);
@@ -8009,6 +8027,44 @@ fn emitTextOrDataListFlatContainer(allocator: std.mem.Allocator, out: *std.Array
     , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, accessor, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
+fn emitEnumListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, enum_decl: *const EnumDecl, items: []const ConstListItem) LayoutError!void {
+    const flat = try listEnumFlatBytesAlloc(allocator, enum_decl, items);
+    defer allocator.free(flat);
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+        \\{s}        return message_reader.getRootList(.two_bytes);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader, index: usize) !u16 {{
+        \\{s}        const @"cpz.list" = try list(message_reader);
+        \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+        \\{s}        return @"cpz.list".getUInt16(index);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
+        \\{s}        return std.enums.fromInt({s}, try getRaw(message_reader, index)) orelse error.InvalidEnumValue;
+        \\{s}    }}
+        \\
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, zig_type, indent, zig_type, indent, indent, indent, indent, indent, indent });
+}
+
 fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {
     try appendFmt(allocator, out,
         \\{s}pub const {s}: {s} = {s};
@@ -8045,6 +8101,7 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
                 try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, item.literal)});
             }
             try out.appendSlice(allocator, "};\n\n");
+            try emitEnumListFlatContainer(allocator, out, indent, name, zig_type, enum_decl, items);
         },
         else => return,
     }
