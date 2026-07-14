@@ -7413,6 +7413,13 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\
                 \\
             , .{ indent, const_name, literal });
+            if (decl.is_embed) {
+                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, true);
+            } else {
+                const bytes = try decodedStringBytesAlloc(allocator, decl.literal);
+                defer allocator.free(bytes);
+                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, true);
+            }
         },
         .data => {
             const literal = if (decl.is_embed)
@@ -7425,6 +7432,16 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\
                 \\
             , .{ indent, const_name, literal });
+            if (decl.is_embed) {
+                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, false);
+            } else {
+                const bytes = if (decl.is_hex_data)
+                    try hexBytesAlloc(allocator, decl.literal)
+                else
+                    try decodedStringBytesAlloc(allocator, decl.literal);
+                defer allocator.free(bytes);
+                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, false);
+            }
         },
         .named => |type_name| {
             if (decl.is_embed) {
@@ -9223,30 +9240,7 @@ fn blobFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, bytes: []const u
     return flat;
 }
 
-fn structFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, type_name: []const u8, default_expression: []const u8) LayoutError!?[]u8 {
-    const struct_decl = findStructDirect(file, type_name) orelse return null;
-    var layout = try planStructLayout(allocator, file, struct_decl);
-    defer layout.deinit(allocator);
-    const fields = parseConstStructFieldsAlloc(allocator, default_expression) catch |err| switch (err) {
-        error.UnexpectedToken, error.InvalidToken => return null,
-        else => return err,
-    };
-    defer allocator.free(fields);
-    const object = try structLiteralObjectBytesAlloc(allocator, file, struct_decl, &layout, fields, true) orelse return null;
-    defer allocator.free(object);
-    const segment_words = object.len / @sizeOf(u64);
-    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + object.len);
-    errdefer allocator.free(flat);
-    std.mem.writeInt(u32, flat[0..4], 0, .little);
-    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
-    @memcpy(flat[@sizeOf(u64)..], object);
-    return flat;
-}
-
-fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, field_name: []const u8, bytes: []const u8, comptime is_text: bool) LayoutError!void {
-    const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
-    defer allocator.free(container_name);
+fn emitBlobFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_name: []const u8, bytes: []const u8, comptime is_text: bool) LayoutError!void {
     const flat = try blobFieldDefaultFlatBytesAlloc(allocator, bytes, is_text);
     defer allocator.free(flat);
     const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
@@ -9280,6 +9274,33 @@ fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
         \\{s}}};
         \\
     , .{ indent, indent, indent, indent, indent });
+}
+
+fn structFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, type_name: []const u8, default_expression: []const u8) LayoutError!?[]u8 {
+    const struct_decl = findStructDirect(file, type_name) orelse return null;
+    var layout = try planStructLayout(allocator, file, struct_decl);
+    defer layout.deinit(allocator);
+    const fields = parseConstStructFieldsAlloc(allocator, default_expression) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => return null,
+        else => return err,
+    };
+    defer allocator.free(fields);
+    const object = try structLiteralObjectBytesAlloc(allocator, file, struct_decl, &layout, fields, true) orelse return null;
+    defer allocator.free(object);
+    const segment_words = object.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + object.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], object);
+    return flat;
+}
+
+fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, field_name: []const u8, bytes: []const u8, comptime is_text: bool) LayoutError!void {
+    const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+    defer allocator.free(container_name);
+    try emitBlobFlatContainer(allocator, out, indent, container_name, bytes, is_text);
 }
 
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
