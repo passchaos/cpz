@@ -1600,10 +1600,22 @@ test "generated list root helpers work" {
     defer owned_scalar_reader.deinit(std.testing.allocator);
     const owned_read_values = try generated.Person.@"cpz.owned.list"(&owned_scalar_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 456), owned_read_values.getUInt16(1));
+    try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.owned.listLen"(&owned_scalar_reader, .two_bytes));
+    try std.testing.expect(try generated.Person.@"cpz.owned.listMatchesLen"(&owned_scalar_reader, .two_bytes, 2));
+    try std.testing.expectEqual(cpz.ElementSize.two_bytes, try generated.Person.@"cpz.owned.listElementSize"(&owned_scalar_reader, .two_bytes));
+    try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.owned.listElementByteCount"(&owned_scalar_reader, .two_bytes));
+    try std.testing.expectEqual(@as(usize, 4), try generated.Person.@"cpz.owned.listContentByteCount"(&owned_scalar_reader, .two_bytes));
+    try std.testing.expect(try generated.Person.@"cpz.owned.listMatchesContentBytes"(&owned_scalar_reader, .two_bytes, 4));
     var viewed_scalar_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, scalar_flat, .{});
     defer viewed_scalar_reader.deinit(std.testing.allocator);
     const viewed_read_values = try generated.Person.@"cpz.view.list"(&viewed_scalar_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 123), viewed_read_values.getUInt16(0));
+    try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.view.listLen"(&viewed_scalar_reader, .two_bytes));
+    try std.testing.expect(try generated.Person.@"cpz.view.listMatchesLen"(&viewed_scalar_reader, .two_bytes, 2));
+    try std.testing.expectEqual(cpz.ElementSize.two_bytes, try generated.Person.@"cpz.view.listElementSize"(&viewed_scalar_reader, .two_bytes));
+    try std.testing.expectEqual(@as(usize, 2), try generated.Person.@"cpz.view.listElementByteCount"(&viewed_scalar_reader, .two_bytes));
+    try std.testing.expectEqual(@as(usize, 4), try generated.Person.@"cpz.view.listContentByteCount"(&viewed_scalar_reader, .two_bytes));
+    try std.testing.expect(try generated.Person.@"cpz.view.listMatchesContentBytes"(&viewed_scalar_reader, .two_bytes, 4));
 
     var struct_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer struct_builder.deinit();

@@ -7579,6 +7579,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootList(@"cpz.elementSize");
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.listLen"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).len();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listMatchesLen"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).matchesLen(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listElementSize"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).elementSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listElementByteCount"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).elementByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listContentByteCount"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).contentByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.listMatchesContentBytes"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.owned.list"(@"cpz.reader", @"cpz.elementSize")).matchesContentBytes(@"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.traversalLimitWords"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".traversalLimitWords();
         \\    }}
@@ -7837,6 +7861,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.list"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !cpz.ListReader {{
         \\        return @"cpz.view".getRootList(@"cpz.elementSize");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listLen"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).len();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listMatchesLen"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).matchesLen(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listElementSize"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).elementSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listElementByteCount"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).elementByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listContentByteCount"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).contentByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.listMatchesContentBytes"(@"cpz.view": *cpz.MessageReaderView, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.view.list"(@"cpz.view", @"cpz.elementSize")).matchesContentBytes(@"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.view.traversalLimitWords"(@"cpz.view": *const cpz.MessageReaderView) usize {{
