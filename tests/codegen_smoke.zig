@@ -404,8 +404,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 16), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 16), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
@@ -583,6 +583,11 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("[[\"nested\", \"alias\"]]", generated.@"cpz.const.globalRawPerson.structField.11.literal");
     try std.testing.expectEqualStrings("structGroups", generated.@"cpz.const.globalRawPerson.structField.12.name");
     try std.testing.expectEqualStrings("[[(id = 89, name = \"group kid\")]]", generated.@"cpz.const.globalRawPerson.structField.12.literal");
+    try std.testing.expectEqualStrings("maybeName", generated.@"cpz.const.globalRawPerson.structField.13.name");
+    try std.testing.expectEqualStrings("\"maybe raw\"", generated.@"cpz.const.globalRawPerson.structField.13.literal");
+    try std.testing.expectEqualStrings("maybeFriend", generated.@"cpz.const.globalRawPerson.structField.14.name");
+    try std.testing.expectEqualStrings("(id = 78, name = \"maybe buddy\")", generated.@"cpz.const.globalRawPerson.structField.14.literal");
+    try std.testing.expectEqual(@as(usize, 15), generated.globalRawPerson.fieldCount);
 
     try std.testing.expectEqualStrings("9", generated.globalRawPerson.id);
     try std.testing.expectEqualStrings("false", generated.globalRawPerson.active);
@@ -849,6 +854,33 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("2", generated.@"cpz.const.globalPeople.listItem.1.structFields"[0].literal);
     try std.testing.expectEqualStrings("\"two\"", generated.@"cpz.const.globalPeople.listItem.1.structFields"[1].literal);
     try std.testing.expect(!generated.@"cpz.const.globalPeople.emitted");
+    try std.testing.expectEqualStrings("globalNullPerson", generated.@"cpz.consts"[16].name);
+    try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[16].ty);
+    try std.testing.expectEqualStrings("(id = 10, maybeName = null, maybeFriend = null)", generated.@"cpz.consts"[16].literal);
+    try std.testing.expect(generated.@"cpz.consts"[16].is_struct_literal);
+    try std.testing.expect(generated.@"cpz.consts"[16].matchesStructFieldCount(3));
+    try std.testing.expectEqual(@as(usize, 16), generated.@"cpz.const.globalNullPerson.index");
+    try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.const.globalNullPerson.structFieldCount");
+    try std.testing.expectEqualStrings("maybeName", generated.@"cpz.const.globalNullPerson.structField.1.name");
+    try std.testing.expectEqualStrings("null", generated.@"cpz.const.globalNullPerson.structField.1.literal");
+    try std.testing.expectEqualStrings("maybeFriend", generated.@"cpz.const.globalNullPerson.structField.2.name");
+    try std.testing.expectEqualStrings("null", generated.@"cpz.const.globalNullPerson.structField.2.literal");
+    try std.testing.expectEqual(@as(usize, 3), generated.globalNullPerson.fieldCount);
+    try std.testing.expectEqualStrings("10", generated.globalNullPerson.id);
+    try std.testing.expectEqualStrings("null", generated.globalNullPerson.maybeName);
+    try std.testing.expectEqualStrings("null", generated.globalNullPerson.maybeFriend);
+    try std.testing.expect(generated.globalNullPerson.flatBytes.len > 0);
+    var null_person_reader = generated.globalNullPerson.reader(.{});
+    const null_person_typed = try generated.globalNullPerson.typedRoot(&null_person_reader);
+    try std.testing.expectEqual(@as(u32, 10), null_person_typed.id());
+    try std.testing.expect(!null_person_typed.has_maybeName());
+    try std.testing.expect(!null_person_typed.has_maybeFriend());
+    var null_person_raw_reader = generated.globalNullPerson.reader(.{});
+    const null_person_root = try generated.globalNullPerson.root(&null_person_raw_reader);
+    try std.testing.expect(null_person_root.getPointerField(11).isNull());
+    try std.testing.expect(null_person_root.getPointerField(12).isNull());
+    const null_person_stats = try generated.globalNullPerson.validate(.{});
+    try std.testing.expect(null_person_stats.total_words > 0);
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);

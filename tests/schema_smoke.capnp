@@ -35,6 +35,7 @@ const globalEmbeddedData :Data = embed "fixtures/raw.bin";
 const globalEmbeddedText :Text = embed "fixtures/text.txt";
 const globalEmbeddedPerson :Person = embed "fixtures/person.bin";
 const globalPeople :List(Person) = [(id = 1, name = "one"), (id = 2, name = "two")];
+const globalNullPerson :Person = (id = 10, maybeName = null, maybeFriend = null);
 
 annotation schemaNote @0xa110ca110c (file, struct, field, union) :Text;
 annotation marker(interface, method) :Void;
