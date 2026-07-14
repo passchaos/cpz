@@ -3582,6 +3582,10 @@ pub const ListBuilder = struct {
         return self.element_count;
     }
 
+    pub fn matchesLen(self: ListBuilder, count: usize) bool {
+        return self.element_count == count;
+    }
+
     pub fn isEmpty(self: ListBuilder) bool {
         return self.element_count == 0;
     }
@@ -3604,8 +3608,88 @@ pub const ListBuilder = struct {
         return self.element_size;
     }
 
+    pub fn matchesElementSize(self: ListBuilder, expected: wire.ElementSize) bool {
+        return self.element_size == expected;
+    }
+
+    pub fn elementBitCount(self: ListBuilder) usize {
+        return self.step_bits;
+    }
+
+    pub fn elementByteCount(self: ListBuilder) Error!usize {
+        return exactBytesForBits(self.step_bits);
+    }
+
+    pub fn elementWordCount(self: ListBuilder) Error!usize {
+        return exactWordsForBits(self.step_bits);
+    }
+
+    pub fn contentBitCount(self: ListBuilder) Error!usize {
+        return checkedListBitLen(self.element_count, self.step_bits);
+    }
+
+    pub fn contentByteCount(self: ListBuilder) Error!usize {
+        return checkedListByteLen(self.element_count, self.step_bits);
+    }
+
+    pub fn contentWordCount(self: ListBuilder) Error!usize {
+        return checkedListWordLen(self.element_count, self.step_bits);
+    }
+
+    pub fn matchesElementBits(self: ListBuilder, count: usize) bool {
+        return self.elementBitCount() == count;
+    }
+
+    pub fn matchesElementBytes(self: ListBuilder, count: usize) bool {
+        return (self.elementByteCount() catch return false) == count;
+    }
+
+    pub fn matchesElementWords(self: ListBuilder, count: usize) bool {
+        return (self.elementWordCount() catch return false) == count;
+    }
+
+    pub fn matchesContentBits(self: ListBuilder, count: usize) bool {
+        return (self.contentBitCount() catch return false) == count;
+    }
+
+    pub fn matchesContentBytes(self: ListBuilder, count: usize) bool {
+        return (self.contentByteCount() catch return false) == count;
+    }
+
+    pub fn matchesContentWords(self: ListBuilder, count: usize) bool {
+        return (self.contentWordCount() catch return false) == count;
+    }
+
     pub fn structElementSize(self: ListBuilder) wire.StructSize {
         return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
+    }
+
+    pub fn matchesStructElementSize(self: ListBuilder, expected: wire.StructSize) bool {
+        return self.data_words == expected.data_words and self.pointer_count == expected.pointer_count;
+    }
+
+    pub fn structElementDataWordCount(self: ListBuilder) u16 {
+        return self.structElementSize().dataWordCount();
+    }
+
+    pub fn structElementPointerCount(self: ListBuilder) u16 {
+        return self.structElementSize().pointerCount();
+    }
+
+    pub fn structElementTotalWords(self: ListBuilder) usize {
+        return self.structElementSize().totalWords();
+    }
+
+    pub fn matchesStructElementDataWords(self: ListBuilder, count: u16) bool {
+        return self.structElementSize().matchesDataWords(count);
+    }
+
+    pub fn matchesStructElementPointerCount(self: ListBuilder, count: u16) bool {
+        return self.structElementSize().matchesPointerCount(count);
+    }
+
+    pub fn matchesStructElementTotalWords(self: ListBuilder, count: usize) bool {
+        return self.structElementSize().matchesTotalWords(count);
     }
 
     pub fn slice(self: ListBuilder, start_index: usize, count: usize) Error!ListBuilder {
@@ -3673,7 +3757,7 @@ pub const ListBuilder = struct {
     }
 
     pub fn bytes(self: ListBuilder) []u8 {
-        const word_count = wire.wordsForBits(self.element_count * self.step_bits);
+        const word_count = checkedListWordLen(self.element_count, self.step_bits) catch @panic("list word length overflow");
         return std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items[self.start .. self.start + word_count])[0..listByteLen(self.element_count, self.step_bits)];
     }
 
@@ -4023,6 +4107,10 @@ pub const ListReader = struct {
         return self.element_count;
     }
 
+    pub fn matchesLen(self: ListReader, count: usize) bool {
+        return self.element_count == count;
+    }
+
     pub fn isEmpty(self: ListReader) bool {
         return self.element_count == 0;
     }
@@ -4045,8 +4133,88 @@ pub const ListReader = struct {
         return self.element_size;
     }
 
+    pub fn matchesElementSize(self: ListReader, expected: wire.ElementSize) bool {
+        return self.element_size == expected;
+    }
+
+    pub fn elementBitCount(self: ListReader) usize {
+        return self.step_bits;
+    }
+
+    pub fn elementByteCount(self: ListReader) Error!usize {
+        return exactBytesForBits(self.step_bits);
+    }
+
+    pub fn elementWordCount(self: ListReader) Error!usize {
+        return exactWordsForBits(self.step_bits);
+    }
+
+    pub fn contentBitCount(self: ListReader) Error!usize {
+        return checkedListBitLen(self.element_count, self.step_bits);
+    }
+
+    pub fn contentByteCount(self: ListReader) Error!usize {
+        return checkedListByteLen(self.element_count, self.step_bits);
+    }
+
+    pub fn contentWordCount(self: ListReader) Error!usize {
+        return checkedListWordLen(self.element_count, self.step_bits);
+    }
+
+    pub fn matchesElementBits(self: ListReader, count: usize) bool {
+        return self.elementBitCount() == count;
+    }
+
+    pub fn matchesElementBytes(self: ListReader, count: usize) bool {
+        return (self.elementByteCount() catch return false) == count;
+    }
+
+    pub fn matchesElementWords(self: ListReader, count: usize) bool {
+        return (self.elementWordCount() catch return false) == count;
+    }
+
+    pub fn matchesContentBits(self: ListReader, count: usize) bool {
+        return (self.contentBitCount() catch return false) == count;
+    }
+
+    pub fn matchesContentBytes(self: ListReader, count: usize) bool {
+        return (self.contentByteCount() catch return false) == count;
+    }
+
+    pub fn matchesContentWords(self: ListReader, count: usize) bool {
+        return (self.contentWordCount() catch return false) == count;
+    }
+
     pub fn structElementSize(self: ListReader) wire.StructSize {
         return .{ .data_words = self.data_words, .pointer_count = self.pointer_count };
+    }
+
+    pub fn matchesStructElementSize(self: ListReader, expected: wire.StructSize) bool {
+        return self.data_words == expected.data_words and self.pointer_count == expected.pointer_count;
+    }
+
+    pub fn structElementDataWordCount(self: ListReader) u16 {
+        return self.structElementSize().dataWordCount();
+    }
+
+    pub fn structElementPointerCount(self: ListReader) u16 {
+        return self.structElementSize().pointerCount();
+    }
+
+    pub fn structElementTotalWords(self: ListReader) usize {
+        return self.structElementSize().totalWords();
+    }
+
+    pub fn matchesStructElementDataWords(self: ListReader, count: u16) bool {
+        return self.structElementSize().matchesDataWords(count);
+    }
+
+    pub fn matchesStructElementPointerCount(self: ListReader, count: u16) bool {
+        return self.structElementSize().matchesPointerCount(count);
+    }
+
+    pub fn matchesStructElementTotalWords(self: ListReader, count: usize) bool {
+        return self.structElementSize().matchesTotalWords(count);
     }
 
     pub fn slice(self: ListReader, start_index: usize, count: usize) Error!ListReader {
@@ -4440,9 +4608,32 @@ fn wordRangesOverlap(a_start: usize, a_end: usize, b_start: usize, b_end: usize)
     return a_start < b_end and b_start < a_end;
 }
 
+fn exactBytesForBits(bits: usize) Error!usize {
+    if (bits % 8 != 0) return error.UnsupportedElementSize;
+    return bits / 8;
+}
+
+fn exactWordsForBits(bits: usize) Error!usize {
+    if (bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+    return bits / wire.bits_per_word;
+}
+
+fn checkedListBitLen(element_count: usize, step_bits: usize) Error!usize {
+    return std.math.mul(usize, element_count, step_bits) catch return error.MessageTooLarge;
+}
+
+fn checkedListByteLen(element_count: usize, step_bits: usize) Error!usize {
+    const bits = try checkedListBitLen(element_count, step_bits);
+    return bits / 8 + @intFromBool(bits % 8 != 0);
+}
+
+fn checkedListWordLen(element_count: usize, step_bits: usize) Error!usize {
+    const bits = try checkedListBitLen(element_count, step_bits);
+    return bits / wire.bits_per_word + @intFromBool(bits % wire.bits_per_word != 0);
+}
+
 fn listByteLen(element_count: usize, step_bits: usize) usize {
-    const bits = std.math.mul(usize, element_count, step_bits) catch @panic("list byte length overflow");
-    return (bits + 7) / 8;
+    return checkedListByteLen(element_count, step_bits) catch @panic("list byte length overflow");
 }
 
 test "builder and reader round-trip struct with text" {
@@ -4922,13 +5113,43 @@ test "primitive and struct lists" {
     try testing.expectEqual(@as(u16, 2), root.size().pointerCount());
     const nums = try (try root.getPointerField(0)).initList(.two_bytes, 3);
     try testing.expectEqual(wire.ElementSize.two_bytes, nums.elementSize());
+    try testing.expect(nums.matchesLen(3));
+    try testing.expect(nums.matchesElementSize(.two_bytes));
+    try testing.expectEqual(@as(usize, 16), nums.elementBitCount());
+    try testing.expectEqual(@as(usize, 2), try nums.elementByteCount());
+    try testing.expectError(error.UnsupportedElementSize, nums.elementWordCount());
+    try testing.expectEqual(@as(usize, 48), try nums.contentBitCount());
+    try testing.expectEqual(@as(usize, 6), try nums.contentByteCount());
+    try testing.expectEqual(@as(usize, 1), try nums.contentWordCount());
+    try testing.expect(nums.matchesElementBits(16));
+    try testing.expect(nums.matchesElementBytes(2));
+    try testing.expect(!nums.matchesElementWords(1));
+    try testing.expect(nums.matchesContentBits(48));
+    try testing.expect(nums.matchesContentBytes(6));
+    try testing.expect(nums.matchesContentWords(1));
     try nums.setUInt16(0, 10);
     try nums.setUInt16(1, 20);
     try nums.setUInt16(2, 30);
 
     const people = try (try root.getPointerField(1)).initStructList(2, .{ .data_words = 1, .pointer_count = 1 });
     try testing.expectEqual(wire.ElementSize.composite, people.elementSize());
+    try testing.expect(people.matchesLen(2));
+    try testing.expect(people.matchesElementSize(.composite));
+    try testing.expectEqual(@as(usize, 128), people.elementBitCount());
+    try testing.expectEqual(@as(usize, 16), try people.elementByteCount());
+    try testing.expectEqual(@as(usize, 2), try people.elementWordCount());
+    try testing.expectEqual(@as(usize, 256), try people.contentBitCount());
+    try testing.expectEqual(@as(usize, 32), try people.contentByteCount());
+    try testing.expectEqual(@as(usize, 4), try people.contentWordCount());
     try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, people.structElementSize());
+    try testing.expect(people.matchesStructElementSize(.{ .data_words = 1, .pointer_count = 1 }));
+    try testing.expectEqual(@as(u16, 1), people.structElementDataWordCount());
+    try testing.expectEqual(@as(u16, 1), people.structElementPointerCount());
+    try testing.expectEqual(@as(usize, 2), people.structElementTotalWords());
+    try testing.expect(people.matchesStructElementDataWords(1));
+    try testing.expect(people.matchesStructElementPointerCount(1));
+    try testing.expect(people.matchesStructElementTotalWords(2));
+    try testing.expect(!people.matchesStructElementSize(.{ .data_words = 1, .pointer_count = 0 }));
     try testing.expectEqual(@as(usize, 2), people.structElementSize().totalWords());
     const p0 = try people.getStructElement(0);
     try p0.setUInt32(0, 1, 0);
@@ -4961,6 +5182,20 @@ test "primitive and struct lists" {
     const read_nums = try r.getPointerField(0).getList(.two_bytes);
     try testing.expectEqual(@as(usize, 3), read_nums.len());
     try testing.expectEqual(wire.ElementSize.two_bytes, read_nums.elementSize());
+    try testing.expect(read_nums.matchesLen(3));
+    try testing.expect(read_nums.matchesElementSize(.two_bytes));
+    try testing.expectEqual(@as(usize, 16), read_nums.elementBitCount());
+    try testing.expectEqual(@as(usize, 2), try read_nums.elementByteCount());
+    try testing.expectError(error.UnsupportedElementSize, read_nums.elementWordCount());
+    try testing.expectEqual(@as(usize, 48), try read_nums.contentBitCount());
+    try testing.expectEqual(@as(usize, 6), try read_nums.contentByteCount());
+    try testing.expectEqual(@as(usize, 1), try read_nums.contentWordCount());
+    try testing.expect(read_nums.matchesElementBits(16));
+    try testing.expect(read_nums.matchesElementBytes(2));
+    try testing.expect(!read_nums.matchesElementWords(1));
+    try testing.expect(read_nums.matchesContentBits(48));
+    try testing.expect(read_nums.matchesContentBytes(6));
+    try testing.expect(read_nums.matchesContentWords(1));
     try testing.expectEqual(@as(u16, 20), read_nums.getUInt16(1));
     const nums_prefix = try read_nums.slice(0, 2);
     try testing.expectEqual(@as(usize, 2), nums_prefix.len());
@@ -4976,7 +5211,23 @@ test "primitive and struct lists" {
 
     const read_people = try r.getPointerField(1).getList(.composite);
     try testing.expectEqual(@as(usize, 2), read_people.len());
+    try testing.expect(read_people.matchesLen(2));
+    try testing.expect(read_people.matchesElementSize(.composite));
+    try testing.expectEqual(@as(usize, 128), read_people.elementBitCount());
+    try testing.expectEqual(@as(usize, 16), try read_people.elementByteCount());
+    try testing.expectEqual(@as(usize, 2), try read_people.elementWordCount());
+    try testing.expectEqual(@as(usize, 256), try read_people.contentBitCount());
+    try testing.expectEqual(@as(usize, 32), try read_people.contentByteCount());
+    try testing.expectEqual(@as(usize, 4), try read_people.contentWordCount());
     try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, read_people.structElementSize());
+    try testing.expect(read_people.matchesStructElementSize(.{ .data_words = 1, .pointer_count = 1 }));
+    try testing.expectEqual(@as(u16, 1), read_people.structElementDataWordCount());
+    try testing.expectEqual(@as(u16, 1), read_people.structElementPointerCount());
+    try testing.expectEqual(@as(usize, 2), read_people.structElementTotalWords());
+    try testing.expect(read_people.matchesStructElementDataWords(1));
+    try testing.expect(read_people.matchesStructElementPointerCount(1));
+    try testing.expect(read_people.matchesStructElementTotalWords(2));
+    try testing.expect(!read_people.matchesStructElementSize(.{ .data_words = 0, .pointer_count = 1 }));
     const read_p1 = try read_people.getStructElement(1);
     try testing.expectEqual(@as(u32, 2), read_p1.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "bb", try read_p1.getPointerField(0).getText());
@@ -5062,6 +5313,19 @@ test "root pointer APIs support non-struct roots" {
     const builder_root_list = try builder.getRootList(.two_bytes);
     try testing.expectEqual(@as(u16, 222), try builder_root_list.getUInt16(1));
     const bools = try (try builder.getRootPointer()).initList(.bit, 5);
+    try testing.expect(bools.matchesLen(5));
+    try testing.expect(bools.matchesElementSize(.bit));
+    try testing.expectEqual(@as(usize, 1), bools.elementBitCount());
+    try testing.expectError(error.UnsupportedElementSize, bools.elementByteCount());
+    try testing.expectError(error.UnsupportedElementSize, bools.elementWordCount());
+    try testing.expectEqual(@as(usize, 5), try bools.contentBitCount());
+    try testing.expectEqual(@as(usize, 1), try bools.contentByteCount());
+    try testing.expectEqual(@as(usize, 1), try bools.contentWordCount());
+    try testing.expect(bools.matchesElementBits(1));
+    try testing.expect(!bools.matchesElementBytes(1));
+    try testing.expect(bools.matchesContentBits(5));
+    try testing.expect(bools.matchesContentBytes(1));
+    try testing.expect(bools.matchesContentWords(1));
     try bools.setBool(0, true);
     try bools.setBool(1, false);
     try bools.setBool(2, true);
@@ -5074,6 +5338,19 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(true, try bool_tail.getBool(2));
     var bool_reader = MessageReader.init(try builder.segmentsConst(), .{});
     const read_bools = try bool_reader.getRootList(.bit);
+    try testing.expect(read_bools.matchesLen(5));
+    try testing.expect(read_bools.matchesElementSize(.bit));
+    try testing.expectEqual(@as(usize, 1), read_bools.elementBitCount());
+    try testing.expectError(error.UnsupportedElementSize, read_bools.elementByteCount());
+    try testing.expectError(error.UnsupportedElementSize, read_bools.elementWordCount());
+    try testing.expectEqual(@as(usize, 5), try read_bools.contentBitCount());
+    try testing.expectEqual(@as(usize, 1), try read_bools.contentByteCount());
+    try testing.expectEqual(@as(usize, 1), try read_bools.contentWordCount());
+    try testing.expect(read_bools.matchesElementBits(1));
+    try testing.expect(!read_bools.matchesElementBytes(1));
+    try testing.expect(read_bools.matchesContentBits(5));
+    try testing.expect(read_bools.matchesContentBytes(1));
+    try testing.expect(read_bools.matchesContentWords(1));
     const read_bool_tail = try read_bools.slice(1, 3);
     try testing.expectEqual(false, read_bool_tail.getBool(0));
     try testing.expectEqual(true, read_bool_tail.getBool(1));
