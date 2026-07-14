@@ -305,6 +305,24 @@ pub const UnionDecl = struct {
     annotations: []const u8 = "",
 };
 
+pub const GroupDecl = struct {
+    index: usize = 0,
+    name: []const u8,
+    annotations: []const u8 = "",
+
+    pub fn matchesIndex(self: GroupDecl, group_index: usize) bool {
+        return self.index == group_index;
+    }
+
+    pub fn matchesName(self: GroupDecl, group_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, group_name);
+    }
+
+    pub fn matchesAnnotations(self: GroupDecl, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
+    }
+};
+
 pub const Struct = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -313,6 +331,7 @@ pub const Struct = struct {
     parameters: []const []const u8 = &.{},
     fields: []Field,
     unions: []UnionDecl = &.{},
+    groups: []GroupDecl = &.{},
     consts: []ConstDecl,
     aliases: []AliasDecl,
 
@@ -320,6 +339,7 @@ pub const Struct = struct {
         for (self.fields) |*field| field.deinit(allocator);
         allocator.free(self.fields);
         allocator.free(self.unions);
+        allocator.free(self.groups);
         for (self.consts) |*c| c.deinit(allocator);
         allocator.free(self.consts);
         for (self.aliases) |*a| a.deinit(allocator);
@@ -2462,6 +2482,8 @@ pub const Parser = struct {
             for (aliases.items) |*a| a.deinit(self.allocator);
             aliases.deinit(self.allocator);
         }
+        var groups = std.ArrayList(GroupDecl).empty;
+        errdefer groups.deinit(self.allocator);
         var field_names = std.StringHashMap(void).init(self.allocator);
         defer field_names.deinit();
         var member_names = std.StringHashMap(void).init(self.allocator);
@@ -2514,7 +2536,7 @@ pub const Parser = struct {
                 continue;
             }
             if (try self.isNamedAggregateStart()) {
-                try self.parseNamedAggregate(&fields, &field_names, &member_names, &unions, null);
+                try self.parseNamedAggregate(&fields, &field_names, &member_names, &unions, &groups, null);
                 continue;
             }
             if (try self.isAnonymousUnionStart()) {
@@ -2559,6 +2581,7 @@ pub const Parser = struct {
             .parameters = parameters,
             .fields = try fields.toOwnedSlice(self.allocator),
             .unions = union_decls,
+            .groups = try groups.toOwnedSlice(self.allocator),
             .consts = try consts.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
         };
@@ -2570,7 +2593,15 @@ pub const Parser = struct {
         try self.parseAnonymousUnionBody(union_builder, union_index);
     }
 
-    fn parseNamedAggregate(self: *Parser, fields: *std.ArrayList(Field), field_names: *std.StringHashMap(void), member_names: *std.StringHashMap(void), unions: *std.ArrayList(UnionBuilder), parent_prefix: ?[]const u8) Error!void {
+    fn parseNamedAggregate(
+        self: *Parser,
+        fields: *std.ArrayList(Field),
+        field_names: *std.StringHashMap(void),
+        member_names: *std.StringHashMap(void),
+        unions: *std.ArrayList(UnionBuilder),
+        groups: *std.ArrayList(GroupDecl),
+        parent_prefix: ?[]const u8,
+    ) Error!void {
         const name = try self.expectIdentifier();
         const ordinal = try self.parseOptionalOrdinalBang();
         try self.expect(.colon);
@@ -2583,8 +2614,13 @@ pub const Parser = struct {
             else
                 try self.allocator.dupe(u8, name);
             defer self.allocator.free(group_prefix);
-            try self.skipUntil(.l_brace);
-            try self.parseNamedGroupBody(group_prefix, fields, field_names, member_names, unions);
+            const group_annotations = try self.takeRawUntilLeftBrace();
+            try groups.append(self.allocator, .{
+                .index = groups.items.len,
+                .name = name,
+                .annotations = group_annotations,
+            });
+            try self.parseNamedGroupBody(group_prefix, fields, field_names, member_names, unions, groups);
             return;
         }
         if (std.mem.eql(u8, kind, "union")) {
@@ -2637,7 +2673,15 @@ pub const Parser = struct {
         try self.assignUnionDiscriminants(union_builder.fields.items);
     }
 
-    fn parseNamedGroupBody(self: *Parser, group_prefix: []const u8, fields: *std.ArrayList(Field), field_names: *std.StringHashMap(void), member_names: *std.StringHashMap(void), unions: *std.ArrayList(UnionBuilder)) Error!void {
+    fn parseNamedGroupBody(
+        self: *Parser,
+        group_prefix: []const u8,
+        fields: *std.ArrayList(Field),
+        field_names: *std.StringHashMap(void),
+        member_names: *std.StringHashMap(void),
+        unions: *std.ArrayList(UnionBuilder),
+        groups: *std.ArrayList(GroupDecl),
+    ) Error!void {
         try self.expect(.l_brace);
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
@@ -2647,7 +2691,7 @@ pub const Parser = struct {
                 continue;
             }
             if (try self.isNamedAggregateStart()) {
-                try self.parseNamedAggregate(fields, field_names, member_names, unions, group_prefix);
+                try self.parseNamedAggregate(fields, field_names, member_names, unions, groups, group_prefix);
                 continue;
             }
             if (try self.isAnonymousUnionStart()) {
@@ -6926,6 +6970,56 @@ fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize }
     };
 }
 
+fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), groups: []const GroupDecl) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\    pub const @"cpz.groupCount": usize = {};
+        \\
+    , .{groups.len});
+    for (groups) |group| {
+        const group_name = try zigIdentAlloc(allocator, group.name);
+        defer allocator.free(group_name);
+        const name_literal = try zigStringLiteralAlloc(allocator, group.name);
+        defer allocator.free(name_literal);
+        const annotation_literal = try zigStringLiteralAlloc(allocator, group.annotations);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.group.{s}.index": usize = {};
+            \\    pub const @"cpz.group.{s}.name": []const u8 = {s};
+            \\    pub const @"cpz.group.{s}.annotations": []const u8 = {s};
+            \\    pub const @"cpz.group.{s}.metadata": cpz.schema.GroupDecl = @"cpz.groups"[{}];
+            \\
+        , .{ group_name, group.index, group_name, name_literal, group_name, annotation_literal, group_name, group.index });
+    }
+    try out.appendSlice(allocator, "    pub const @\"cpz.groups\": []const cpz.schema.GroupDecl = &[_]cpz.schema.GroupDecl{");
+    for (groups, 0..) |group, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const name_literal = try zigStringLiteralAlloc(allocator, group.name);
+        defer allocator.free(name_literal);
+        const annotation_literal = try zigStringLiteralAlloc(allocator, group.annotations);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .annotations = {s} }}", .{ group.index, name_literal, annotation_literal });
+    }
+    try out.appendSlice(allocator,
+        \\};
+        \\    pub fn @"cpz.groupByName"(@"cpz.name": []const u8) ?cpz.schema.GroupDecl {
+        \\        for (@"cpz.groups") |@"cpz.group"| if (std.mem.eql(u8, @"cpz.group".name, @"cpz.name")) return @"cpz.group";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.groupByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.GroupDecl {
+        \\        for (@"cpz.groups") |@"cpz.group"| if (std.mem.eql(u8, @"cpz.group".annotations, @"cpz.annotationFilter")) return @"cpz.group";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.groupByIndex"(@"cpz.index": usize) ?cpz.schema.GroupDecl {
+        \\        if (@"cpz.index" >= @"cpz.groups".len) return null;
+        \\        return @"cpz.groups"[@"cpz.index"];
+        \\    }
+        \\
+        \\
+    );
+}
+
 fn fieldIndex(layout: *const StructLayout, target: *const Field) usize {
     for (layout.fields, 0..) |field_layout, index| {
         if (field_layout.field == target) return index;
@@ -6964,6 +7058,7 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
 
     try emitConstMetadataTable(allocator, out, file, layout.decl, layout.decl.consts, "    ");
     try emitScopedAnnotationMetadataTable(allocator, out, file, layout.decl.name, "    ");
+    try emitStructGroupMetadata(allocator, out, layout.decl.groups);
     try emitStructUnionMetadata(allocator, out, file, layout);
     try emitStructFieldMetadata(allocator, out, file, layout);
 

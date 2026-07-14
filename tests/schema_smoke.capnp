@@ -75,7 +75,7 @@ struct Choice {
     name @1 :Text;
     id @2 :UInt32;
   }
-  metadata :group {
+  metadata :group $schemaNote("metadata-group") {
     created @4 :UInt64;
     label @5 :Text;
   }

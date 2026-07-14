@@ -2197,6 +2197,20 @@ test "generated enum raw setters preserve unknown ordinals" {
 test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unionCount");
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions".len);
+    try std.testing.expectEqual(@as(usize, 1), generated.Choice.@"cpz.groupCount");
+    try std.testing.expectEqual(@as(usize, 1), generated.Choice.@"cpz.groups".len);
+    try std.testing.expectEqualStrings("metadata", generated.Choice.@"cpz.groups"[0].name);
+    try std.testing.expectEqualStrings("$schemaNote(\"metadata-group\")", generated.Choice.@"cpz.groups"[0].annotations);
+    try std.testing.expect(generated.Choice.@"cpz.groups"[0].matchesName("metadata"));
+    try std.testing.expect(generated.Choice.@"cpz.groups"[0].matchesAnnotations("$schemaNote(\"metadata-group\")"));
+    try std.testing.expectEqualStrings("metadata", generated.Choice.@"cpz.group.metadata.name");
+    try std.testing.expectEqualStrings("$schemaNote(\"metadata-group\")", generated.Choice.@"cpz.group.metadata.annotations");
+    try std.testing.expectEqualStrings("metadata", generated.Choice.@"cpz.groupByName"("metadata").?.name);
+    try std.testing.expectEqualStrings("metadata", generated.Choice.@"cpz.groupByAnnotations"("$schemaNote(\"metadata-group\")").?.name);
+    try std.testing.expectEqualStrings("metadata", generated.Choice.@"cpz.groupByIndex"(0).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.GroupDecl, null), generated.Choice.@"cpz.groupByName"("missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.GroupDecl, null), generated.Choice.@"cpz.groupByAnnotations"("missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.GroupDecl, null), generated.Choice.@"cpz.groupByIndex"(99));
     try std.testing.expectEqual(@as(u32, 0), generated.Choice.@"cpz.unions"[0].index);
     try std.testing.expectEqualStrings("$schemaNote(\"anonymous-union\")", generated.Choice.@"cpz.unions"[0].annotations);
     try std.testing.expectEqual(@as(usize, 2), generated.Choice.@"cpz.unions"[0].field_count);
