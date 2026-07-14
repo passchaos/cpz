@@ -11,6 +11,9 @@ test "generated method default flats expose typed scalar and enum getters" {
 
     var bool_reader = generated.Defaults.@"cpz.method.scalars.params.field.b.defaultFlat".reader(.{});
     try std.testing.expectEqual(true, try generated.Defaults.@"cpz.method.scalars.params.field.b.defaultFlat".get(&bool_reader));
+    var bool_wrapped = generated.Defaults.@"cpz.method.scalars.params.field.b.defaultFlat".init(.{});
+    try std.testing.expectEqual(true, try bool_wrapped.get());
+    try std.testing.expect((try bool_wrapped.totalSize()).hasWords());
 
     var int8_reader = generated.Defaults.@"cpz.method.scalars.params.field.i8_.defaultFlat".reader(.{});
     try std.testing.expectEqual(@as(i8, -8), try generated.Defaults.@"cpz.method.scalars.params.field.i8_.defaultFlat".get(&int8_reader));
@@ -46,9 +49,15 @@ test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(u16, 1), try generated.Defaults.@"cpz.method.scalars.params.field.mode.defaultFlat".getRaw(&mode_reader));
     var mode_reader_typed = generated.Defaults.@"cpz.method.scalars.params.field.mode.defaultFlat".reader(.{});
     try std.testing.expectEqual(generated.Mode.on, try generated.Defaults.@"cpz.method.scalars.params.field.mode.defaultFlat".get(&mode_reader_typed));
+    var mode_wrapped = generated.Defaults.@"cpz.method.scalars.params.field.mode.defaultFlat".init(.{});
+    try std.testing.expectEqual(@as(u16, 1), try mode_wrapped.getRaw());
+    try std.testing.expectEqual(generated.Mode.on, try mode_wrapped.get());
 
     var text_reader = generated.Defaults.@"cpz.method.scalars.params.field.text.defaultFlat".reader(.{});
     try std.testing.expectEqualStrings("hi", try generated.Defaults.@"cpz.method.scalars.params.field.text.defaultFlat".get(&text_reader));
+    var text_wrapped = generated.Defaults.@"cpz.method.scalars.params.field.text.defaultFlat".init(.{});
+    try std.testing.expectEqualStrings("hi", try text_wrapped.get());
+    try std.testing.expectEqual(@as(usize, 2), try text_wrapped.getByteCount());
 
     var data_reader = generated.Defaults.@"cpz.method.scalars.params.field.data.defaultFlat".reader(.{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, try generated.Defaults.@"cpz.method.scalars.params.field.data.defaultFlat".get(&data_reader));
@@ -66,6 +75,8 @@ test "generated method default flats resolve interface scoped aliases and const 
     try std.testing.expectEqual(@as(u16, 1), try generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".getRaw(&mode_reader));
     var mode_reader_typed = generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".reader(.{});
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".get(&mode_reader_typed));
+    var scoped_mode_wrapped = generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".init(.{});
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, try scoped_mode_wrapped.get());
 
     var label_reader = generated.Defaults.@"cpz.method.scoped.params.field.label.defaultFlat".reader(.{});
     try std.testing.expectEqualStrings("local", try generated.Defaults.@"cpz.method.scoped.params.field.label.defaultFlat".get(&label_reader));
@@ -86,6 +97,10 @@ test "generated method default flats expose typed list getters" {
     try std.testing.expectEqual(@as(usize, 2), numbers.len());
     try std.testing.expectEqual(@as(u16, 7), try generated.Defaults.@"cpz.method.lists.params.field.numbers.defaultFlat".get(&numbers_reader, 0));
     try std.testing.expectEqual(@as(u16, 8), try generated.Defaults.@"cpz.method.lists.params.field.numbers.defaultFlat".get(&numbers_reader, 1));
+    var numbers_wrapped = generated.Defaults.@"cpz.method.lists.params.field.numbers.defaultFlat".init(.{});
+    const wrapped_numbers = try numbers_wrapped.list();
+    try std.testing.expectEqual(@as(usize, 2), wrapped_numbers.len());
+    try std.testing.expectEqual(@as(u16, 8), try numbers_wrapped.get(1));
 
     var labels_reader = generated.Defaults.@"cpz.method.lists.params.field.labels.defaultFlat".reader(.{});
     try std.testing.expectEqualStrings("alpha", try generated.Defaults.@"cpz.method.lists.params.field.labels.defaultFlat".get(&labels_reader, 0));
@@ -106,6 +121,9 @@ test "generated method default flats expose typed list getters" {
     const group1 = try generated.Defaults.@"cpz.method.lists.params.field.groups.defaultFlat".get(&groups_reader, 1, .two_bytes);
     try std.testing.expectEqual(@as(usize, 1), group1.len());
     try std.testing.expectEqual(@as(u16, 3), group1.getUInt16(0));
+    var groups_wrapped = generated.Defaults.@"cpz.method.lists.params.field.groups.defaultFlat".init(.{});
+    const wrapped_group0 = try groups_wrapped.get(0, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 2), wrapped_group0.getUInt16(1));
 
     var items_reader = generated.Defaults.@"cpz.method.lists.params.field.items.defaultFlat".reader(.{});
     const item0 = try generated.Defaults.@"cpz.method.lists.params.field.items.defaultFlat".get(&items_reader, 0);
@@ -123,6 +141,10 @@ test "generated method default flats expose typed struct getters" {
     const item = try generated.Defaults.@"cpz.method.structs.params.field.item.defaultFlat".get(&item_reader);
     try std.testing.expectEqual(@as(u32, 99), item.value());
     try std.testing.expectEqualStrings("ninety-nine", try item.label());
+    var item_wrapped = generated.Defaults.@"cpz.method.structs.params.field.item.defaultFlat".init(.{});
+    const wrapped_item = try item_wrapped.get();
+    try std.testing.expectEqual(@as(u32, 99), wrapped_item.value());
+    try std.testing.expect((try item_wrapped.validate()).hasStructs());
 
     var result_reader = generated.Defaults.@"cpz.method.structs.results.field.result.defaultFlat".reader(.{});
     const result = try generated.Defaults.@"cpz.method.structs.results.field.result.defaultFlat".get(&result_reader);
@@ -135,6 +157,8 @@ test "generated method default flats expose typed optional pointer getters" {
 
     var label_reader = generated.Defaults.@"cpz.method.optionals.params.field.label.defaultFlat".reader(.{});
     try std.testing.expectEqualStrings("maybe local", try generated.Defaults.@"cpz.method.optionals.params.field.label.defaultFlat".get(&label_reader));
+    var label_wrapped = generated.Defaults.@"cpz.method.optionals.params.field.label.defaultFlat".init(.{});
+    try std.testing.expectEqualStrings("maybe local", try label_wrapped.get());
 
     var payload_reader = generated.Defaults.@"cpz.method.optionals.params.field.payload.defaultFlat".reader(.{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0e, 0x0f }, try generated.Defaults.@"cpz.method.optionals.params.field.payload.defaultFlat".get(&payload_reader));
@@ -142,6 +166,8 @@ test "generated method default flats expose typed optional pointer getters" {
     var numbers_reader = generated.Defaults.@"cpz.method.optionals.params.field.numbers.defaultFlat".reader(.{});
     try std.testing.expectEqual(@as(u16, 5), try generated.Defaults.@"cpz.method.optionals.params.field.numbers.defaultFlat".get(&numbers_reader, 0));
     try std.testing.expectEqual(@as(u16, 6), try generated.Defaults.@"cpz.method.optionals.params.field.numbers.defaultFlat".get(&numbers_reader, 1));
+    var optional_numbers_wrapped = generated.Defaults.@"cpz.method.optionals.params.field.numbers.defaultFlat".init(.{});
+    try std.testing.expectEqual(@as(u16, 6), try optional_numbers_wrapped.get(1));
 
     var item_reader = generated.Defaults.@"cpz.method.optionals.params.field.item.defaultFlat".reader(.{});
     const item = try generated.Defaults.@"cpz.method.optionals.params.field.item.defaultFlat".get(&item_reader);

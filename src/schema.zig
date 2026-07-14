@@ -6160,6 +6160,225 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
     }
 }
 
+fn emitMethodDefaultReaderValueGet(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_literal: []const u8, zig_type: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}        pub fn get(self: *@This()) !{s} {{
+        \\{s}            return @{s}.get(&self.reader);
+        \\{s}        }}
+        \\
+    , .{ indent, zig_type, indent, container_literal, indent });
+}
+
+fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, container_literal: []const u8, child: Type) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}        pub fn list(self: *@This()) !cpz.ListReader {{
+        \\{s}            return @{s}.list(&self.reader);
+        \\{s}        }}
+        \\
+    , .{ indent, indent, container_literal, indent });
+    switch (resolveTypeScoped(file, scope, child)) {
+        .void => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !void {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .bool => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !bool {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .int8 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !i8 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .int16 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !i16 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .int32 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !i32 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .int64 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !i64 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .uint8 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !u8 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .uint16 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !u16 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .uint32 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !u32 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .uint64 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !u64 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .float32 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !f32 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .float64 => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) !f64 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .text, .data => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize) ![]const u8 {{
+            \\{s}            return @{s}.get(&self.reader, index);
+            \\{s}        }}
+            \\
+            \\{s}        pub fn getByteCount(self: *@This(), index: usize) !usize {{
+            \\{s}            return @{s}.getByteCount(&self.reader, index);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent, indent, indent, container_literal, indent }),
+        .list => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
+            \\{s}            return @{s}.get(&self.reader, index, expected);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .named => |type_name| {
+            if (findEnum(file, type_name) != null) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}        pub fn getRaw(self: *@This(), index: usize) !u16 {{
+                    \\{s}            return @{s}.getRaw(&self.reader, index);
+                    \\{s}        }}
+                    \\
+                    \\{s}        pub fn get(self: *@This(), index: usize) !{s} {{
+                    \\{s}            return @{s}.get(&self.reader, index);
+                    \\{s}        }}
+                    \\
+                , .{ indent, indent, container_literal, indent, indent, zig_type, indent, container_literal, indent });
+            } else if (findStructDirect(file, type_name) != null) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}        pub fn get(self: *@This(), index: usize) !{s} {{
+                    \\{s}            return @{s}.get(&self.reader, index);
+                    \\{s}        }}
+                    \\
+                , .{ indent, zig_type, indent, container_literal, indent });
+            }
+        },
+        else => {},
+    }
+}
+
+fn emitMethodDefaultReaderWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, container_literal: []const u8, resolved_ty: Type) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}    pub const Reader = struct {{
+        \\{s}        reader: cpz.MessageReader,
+        \\
+        \\{s}        pub fn init(options: cpz.ReaderOptions) @This() {{
+        \\{s}            return .{{ .reader = @{s}.reader(options) }};
+        \\{s}        }}
+        \\
+        \\{s}        pub fn asReader(self: *@This()) *cpz.MessageReader {{
+        \\{s}            return &self.reader;
+        \\{s}        }}
+        \\
+    , .{ indent, indent, indent, indent, container_literal, indent, indent, indent, indent });
+    switch (resolved_ty) {
+        .void => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "void"),
+        .bool => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "bool"),
+        .int8 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "i8"),
+        .int16 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "i16"),
+        .int32 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "i32"),
+        .int64 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "i64"),
+        .uint8 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "u8"),
+        .uint16 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "u16"),
+        .uint32 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "u32"),
+        .uint64 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "u64"),
+        .float32 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "f32"),
+        .float64 => try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "f64"),
+        .text, .data => {
+            try emitMethodDefaultReaderValueGet(allocator, out, indent, container_literal, "[]const u8");
+            try appendFmt(allocator, out,
+                \\{s}        pub fn getByteCount(self: *@This()) !usize {{
+                \\{s}            return (try self.get()).len;
+                \\{s}        }}
+                \\
+            , .{ indent, indent, indent });
+        },
+        .named => |type_name| {
+            if (findEnum(file, type_name) != null) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}        pub fn getRaw(self: *@This()) !u16 {{
+                    \\{s}            return @{s}.getRaw(&self.reader);
+                    \\{s}        }}
+                    \\
+                    \\{s}        pub fn get(self: *@This()) !{s} {{
+                    \\{s}            return @{s}.get(&self.reader);
+                    \\{s}        }}
+                    \\
+                , .{ indent, indent, container_literal, indent, indent, zig_type, indent, container_literal, indent });
+            } else if (findStructDirect(file, type_name) != null) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}        pub fn root(self: *@This()) !cpz.StructReader {{
+                    \\{s}            return @{s}.root(&self.reader);
+                    \\{s}        }}
+                    \\
+                    \\{s}        pub fn get(self: *@This()) !{s} {{
+                    \\{s}            return @{s}.get(&self.reader);
+                    \\{s}        }}
+                    \\
+                , .{ indent, indent, container_literal, indent, indent, zig_type, indent, container_literal, indent });
+            }
+        },
+        .list => |child| try emitMethodDefaultReaderListGetters(allocator, out, file, scope, indent, container_literal, child.*),
+        else => {},
+    }
+    try appendFmt(allocator, out,
+        \\{s}        pub fn validate(self: *@This()) !cpz.MessageStats {{
+        \\{s}            return self.reader.validate();
+        \\{s}        }}
+        \\
+        \\{s}        pub fn totalSize(self: *@This()) !cpz.MessageSize {{
+        \\{s}            return self.reader.totalSize();
+        \\{s}        }}
+        \\{s}    }};
+        \\
+        \\{s}    pub fn init(options: cpz.ReaderOptions) Reader {{
+        \\{s}        return Reader.init(options);
+        \\{s}    }}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+}
+
 fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, method_name: []const u8, kind: []const u8, field: MethodField, indent: []const u8) LayoutError!void {
     const default_literal = field.default_literal orelse return;
     const field_name = try zigIdentAlloc(allocator, field.name);
@@ -6283,6 +6502,7 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         .list => |child| try emitMethodListDefaultGetters(allocator, out, file, scope, indent, child.*),
         else => {},
     }
+    try emitMethodDefaultReaderWrapper(allocator, out, file, scope, indent, container_literal, resolved_ty);
     try emitFlatContainerSizeHelpers(allocator, out, indent);
     try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
