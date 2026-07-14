@@ -1701,6 +1701,8 @@ test "generated builders can disown and adopt pointer fields" {
     try std.testing.expect(!typed_orphan.isFarPointer());
     try std.testing.expect(!typed_orphan.isOtherPointer());
     try std.testing.expect(!typed_orphan.isCapabilityPointer());
+    try std.testing.expectError(error.InvalidPointerKind, typed_orphan.maxCapabilityCount());
+    try std.testing.expect(!typed_orphan.matchesMaxCapabilityCount(1));
     const orphan_builder = try typed_orphan.get();
     try std.testing.expectEqual(@as(u32, 3030), try orphan_builder.get_id());
     try std.testing.expectEqualSlices(u8, "Typed orphan", try orphan_builder.get_name());

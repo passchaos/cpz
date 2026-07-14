@@ -7196,6 +7196,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.isNearPointer();
         \\        }}
         \\
+        \\        pub fn maxCapabilityCount(self: @This()) !usize {{
+        \\            return self.orphan.maxCapabilityCount();
+        \\        }}
+        \\
+        \\        pub fn matchesMaxCapabilityCount(self: @This(), count: usize) bool {{
+        \\            return self.orphan.matchesMaxCapabilityCount(count);
+        \\        }}
+        \\
         \\        pub fn decode(self: @This(), message_reader: *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
         \\            return self.orphan.decode(message_reader);
         \\        }}
