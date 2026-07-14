@@ -11571,8 +11571,56 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getListStructElementSize(expected);
         \\        }}
         \\
+        \\        pub fn elementListStructElementDataWordCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementDataWordCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementPointerCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementTotalWords(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementDataByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementDataByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementPointerByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementPointerByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementTotalByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementTotalByteCount(expected);
+        \\        }}
+        \\
         \\        pub fn elementListMatchesStructElementSize(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
         \\            return (try self.list.getPointerElement(index)).listMatchesStructElementSize(expected, @"cpz.size");
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementDataWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataWords(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerCount(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalWords(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementDataBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementPointerBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementTotalBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalBytes(expected, count);
         \\        }}
         \\
         \\        pub fn elementAsText(self: @This(), index: usize) ![]const u8 {{
@@ -11784,8 +11832,56 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).getListStructElementSize(expected);
         \\        }}
         \\
+        \\        pub fn elementListStructElementDataWordCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementDataWordCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementPointerCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementTotalWords(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementDataByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementDataByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementPointerByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementPointerByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListStructElementTotalByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListStructElementTotalByteCount(expected);
+        \\        }}
+        \\
         \\        pub fn elementListMatchesStructElementSize(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
         \\            return (try self.list.getPointerElement(index)).listMatchesStructElementSize(expected, @"cpz.size");
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementDataWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataWords(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerCount(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalWords(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementDataBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementPointerBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListMatchesStructElementTotalBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalBytes(expected, count);
         \\        }}
         \\
         \\        pub fn elementAsText(self: @This(), index: usize) ![]const u8 {{
