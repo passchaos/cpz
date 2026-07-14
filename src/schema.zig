@@ -7594,105 +7594,10 @@ fn structLiteralObjectBytesAlloc(allocator: std.mem.Allocator, file: *const File
     if (include_root_pointer) {
         writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeStruct(0, layout.data_words, layout.pointer_count));
     }
-    const object_start_bytes = object_start_words * @sizeOf(u64);
-
-    for (fields) |const_field| {
-        const field_layout = findFieldLayoutByName(layout, const_field.name) orelse return null;
-        const field = field_layout.field;
-        switch (field_layout.slot) {
-            .data_bit => |bit_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
-                .bool => {
-                    const value = parseBoolLiteral(const_field.literal) orelse return null;
-                    const default_value = parseBoolLiteral(field.default_literal orelse "false") orelse return null;
-                    if (value != default_value) setBit(segment.items[object_start_bytes..], bit_offset);
-                },
-                else => return null,
-            },
-            .data_byte => |byte_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
-                .int8 => {
-                    const value = parseSignedLiteral(i8, const_field.literal) orelse return null;
-                    const default_value = parseSignedLiteral(i8, field.default_literal orelse "0") orelse return null;
-                    segment.items[object_start_bytes + byte_offset] = @as(u8, @bitCast(value)) ^ @as(u8, @bitCast(default_value));
-                },
-                .int16 => {
-                    const value = parseSignedLiteral(i16, const_field.literal) orelse return null;
-                    const default_value = parseSignedLiteral(i16, field.default_literal orelse "0") orelse return null;
-                    const stored: u16 = @as(u16, @bitCast(value)) ^ @as(u16, @bitCast(default_value));
-                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
-                },
-                .int32 => {
-                    const value = parseSignedLiteral(i32, const_field.literal) orelse return null;
-                    const default_value = parseSignedLiteral(i32, field.default_literal orelse "0") orelse return null;
-                    const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
-                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
-                },
-                .int64 => {
-                    const value = parseSignedLiteral(i64, const_field.literal) orelse return null;
-                    const default_value = parseSignedLiteral(i64, field.default_literal orelse "0") orelse return null;
-                    const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
-                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
-                },
-                .uint8 => {
-                    const value = parseUnsignedLiteral(u8, const_field.literal) orelse return null;
-                    const default_value = parseUnsignedLiteral(u8, field.default_literal orelse "0") orelse return null;
-                    segment.items[object_start_bytes + byte_offset] = value ^ default_value;
-                },
-                .uint16 => {
-                    const value = parseUnsignedLiteral(u16, const_field.literal) orelse return null;
-                    const default_value = parseUnsignedLiteral(u16, field.default_literal orelse "0") orelse return null;
-                    const stored: u16 = value ^ default_value;
-                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
-                },
-                .uint32 => {
-                    const value = parseUnsignedLiteral(u32, const_field.literal) orelse return null;
-                    const default_value = parseUnsignedLiteral(u32, field.default_literal orelse "0") orelse return null;
-                    const stored: u32 = value ^ default_value;
-                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
-                },
-                .uint64 => {
-                    const value = parseUnsignedLiteral(u64, const_field.literal) orelse return null;
-                    const default_value = parseUnsignedLiteral(u64, field.default_literal orelse "0") orelse return null;
-                    const stored: u64 = value ^ default_value;
-                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
-                },
-                .float32 => {
-                    const value = parseFloatLiteral(f32, const_field.literal) orelse return null;
-                    const default_value = parseFloatLiteral(f32, field.default_literal orelse "0") orelse return null;
-                    const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
-                    std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
-                },
-                .float64 => {
-                    const value = parseFloatLiteral(f64, const_field.literal) orelse return null;
-                    const default_value = parseFloatLiteral(f64, field.default_literal orelse "0") orelse return null;
-                    const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
-                    std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
-                },
-                .named => |field_type_name| {
-                    const enum_decl = findEnum(file, field_type_name) orelse return null;
-                    const value = enumLiteralOrdinal(enum_decl, const_field.literal) orelse return null;
-                    const default_value = enumLiteralOrdinal(enum_decl, field.default_literal orelse "") orelse 0;
-                    const stored: u16 = value ^ default_value;
-                    std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
-                },
-                else => return null,
-            },
-            .pointer => |pointer_index| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
-                .text => {
-                    const text = try simpleQuotedTextLiteralAlloc(allocator, const_field.literal) orelse return null;
-                    defer allocator.free(text);
-                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, text, true, object_start_words);
-                },
-                .data => {
-                    const data = try simpleDataLiteralAlloc(allocator, const_field.literal) orelse return null;
-                    defer allocator.free(data);
-                    try appendByteListPointer(allocator, &segment, pointer_index, layout.data_words, data, false, object_start_words);
-                },
-                else => return null,
-            },
-            else => return null,
-        }
-    }
-
+    writeStructLiteralFieldsIntoSegment(allocator, file, layout, fields, &segment, object_start_words) catch |err| switch (err) {
+        error.UnsupportedType => return null,
+        else => return err,
+    };
     return try segment.toOwnedSlice(allocator);
 }
 
