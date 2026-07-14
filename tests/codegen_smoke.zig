@@ -405,6 +405,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("(id = 303, name = \"default friend\")", generated.Person.@"cpz.field.friend.default");
     try std.testing.expect(generated.Person.@"cpz.field.friend.hasExplicitDefault");
     try std.testing.expect(generated.Person.friendDefaultFlat.flatBytes.len > 0);
+    try std.testing.expectEqual(generated.Person.friendDefaultFlat.flatBytes.len, generated.Person.friendDefaultFlat.serializedSize);
+    try std.testing.expect(generated.Person.friendDefaultFlat.matchesSegmentCount(1));
     var field_friend_default_reader = generated.Person.friendDefaultFlat.reader(.{});
     const field_friend_default = try generated.Person.friendDefaultFlat.root(&field_friend_default_reader);
     try std.testing.expectEqual(@as(u32, 303), field_friend_default.id());
@@ -413,6 +415,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("[red, blue]", generated.Person.@"cpz.field.palette.default");
     try std.testing.expect(generated.Person.@"cpz.field.palette.hasExplicitDefault");
     try std.testing.expect(generated.Person.paletteDefaultFlat.flatBytes.len > 0);
+    try std.testing.expectEqual(generated.Person.paletteDefaultFlat.flatBytes.len, generated.Person.paletteDefaultFlat.serializedSize);
+    try std.testing.expect(generated.Person.paletteDefaultFlat.matchesSegmentCount(1));
     var field_palette_default_reader = generated.Person.paletteDefaultFlat.reader(.{});
     const field_palette_default = try generated.Person.paletteDefaultFlat.list(&field_palette_default_reader);
     try std.testing.expectEqual(@as(usize, 2), field_palette_default.len());
@@ -447,6 +451,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("\"an\" \"on\"", generated.Person.@"cpz.field.nickname.default");
     try std.testing.expect(generated.Person.@"cpz.field.nickname.hasExplicitDefault");
     try std.testing.expect(generated.Person.nicknameDefaultFlat.flatBytes.len > 0);
+    try std.testing.expectEqual(generated.Person.nicknameDefaultFlat.flatBytes.len, generated.Person.nicknameDefaultFlat.serializedSize);
+    try std.testing.expect(generated.Person.nicknameDefaultFlat.matchesSegmentCount(1));
     var field_nickname_default_reader = generated.Person.nicknameDefaultFlat.reader(.{});
     try std.testing.expectEqualSlices(u8, "anon", try generated.Person.nicknameDefaultFlat.get(&field_nickname_default_reader));
     try std.testing.expectEqual(@as(usize, 4), try generated.Person.nicknameDefaultFlat.getByteCount(&field_nickname_default_reader));

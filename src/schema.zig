@@ -8535,13 +8535,16 @@ fn emitTextOrDataListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *
         \\{s}        return (try get(message_reader, index)).len;
         \\{s}    }}
         \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, accessor, indent, indent, indent, indent });
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
         \\{s}        var @"cpz.reader" = reader(options);
         \\{s}        return @"cpz.reader".validate();
         \\{s}    }}
         \\{s}}};
         \\
-    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, accessor, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent });
 }
 
 fn emitStructListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, item_type_name: []const u8, flat: []const u8) LayoutError!void {
@@ -8565,13 +8568,16 @@ fn emitStructListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.
         \\{s}        return {s}.fromReader(try (try list(message_reader)).getStructElement(index));
         \\{s}    }}
         \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent });
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
         \\{s}        var @"cpz.reader" = reader(options);
         \\{s}        return @"cpz.reader".validate();
         \\{s}    }}
         \\{s}}};
         \\
-    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent });
 }
 
 fn emitEnumListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, enum_decl: *const EnumDecl, items: []const ConstListItem) LayoutError!void {
@@ -8603,13 +8609,16 @@ fn emitEnumListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u
         \\{s}        return std.enums.fromInt({s}, try getRaw(message_reader, index)) orelse error.InvalidEnumValue;
         \\{s}    }}
         \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
         \\{s}        var @"cpz.reader" = reader(options);
         \\{s}        return @"cpz.reader".validate();
         \\{s}    }}
         \\{s}}};
         \\
-    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, zig_type, indent, zig_type, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent });
 }
 
 fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {
@@ -9196,13 +9205,16 @@ fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
         \\{s}        return (try get(message_reader)).len;
         \\{s}    }}
         \\
+    , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, get_method, indent, indent, indent, indent });
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
         \\{s}        var @"cpz.reader" = reader(options);
         \\{s}        return @"cpz.reader".validate();
         \\{s}    }}
         \\{s}}};
         \\
-    , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, get_method, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent });
 }
 
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
