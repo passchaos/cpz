@@ -7387,6 +7387,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return getRoot(@"cpz.reader".asReader());
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.isNull"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return @"cpz.reader".isRootNull();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointer"(@"cpz.reader": *cpz.OwnedMessageReader) !cpz.PointerReader {{
+        \\        return @"cpz.reader".getRootPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerIsNull"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return (try @"cpz.reader".getRootPointer()).isNull();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerKind"(@"cpz.reader": *cpz.OwnedMessageReader) !?cpz.wire.PointerType {{
+        \\        return @"cpz.reader".getRootPointerKind();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.rawPointer"(@"cpz.reader": *cpz.OwnedMessageReader) !cpz.Word {{
+        \\        return @"cpz.reader".getRootRawPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.decodedPointer"(@"cpz.reader": *cpz.OwnedMessageReader) !?cpz.wire.DecodedPointer {{
+        \\        return @"cpz.reader".getRootDecodedPointer();
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.text"(@"cpz.reader": *cpz.OwnedMessageReader) ![]const u8 {{
         \\        return @"cpz.reader".getRootText();
         \\    }}
@@ -7561,6 +7585,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.root"(@"cpz.view": *cpz.MessageReaderView) !@This() {{
         \\        return getRoot(@"cpz.view".asReader());
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.isNull"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return @"cpz.view".isRootNull();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointer"(@"cpz.view": *cpz.MessageReaderView) !cpz.PointerReader {{
+        \\        return @"cpz.view".getRootPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerIsNull"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return (try @"cpz.view".getRootPointer()).isNull();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerKind"(@"cpz.view": *cpz.MessageReaderView) !?cpz.wire.PointerType {{
+        \\        return @"cpz.view".getRootPointerKind();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.rawPointer"(@"cpz.view": *cpz.MessageReaderView) !cpz.Word {{
+        \\        return @"cpz.view".getRootRawPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.decodedPointer"(@"cpz.view": *cpz.MessageReaderView) !?cpz.wire.DecodedPointer {{
+        \\        return @"cpz.view".getRootDecodedPointer();
         \\    }}
         \\
         \\    pub fn @"cpz.view.text"(@"cpz.view": *cpz.MessageReaderView) ![]const u8 {{
