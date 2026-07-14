@@ -651,6 +651,12 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(owned_validation_stats.size().word_count, owned_total_size.word_count);
     const owned_total_size_with_options = try generated.Person.@"cpz.owned.totalSizeWithOptions"(&owned_root_reader, .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(owned_total_size.word_count, owned_total_size_with_options.word_count);
+    try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.owned.segmentCount"(&owned_root_reader));
+    try std.testing.expectEqual(try owned_root_reader.segmentByteLen(0), try generated.Person.@"cpz.owned.segmentByteLen"(&owned_root_reader, 0));
+    try std.testing.expectEqual(try owned_root_reader.segmentWordLen(0), try generated.Person.@"cpz.owned.segmentWordLen"(&owned_root_reader, 0));
+    try std.testing.expectEqualSlices(u8, try owned_root_reader.segmentBytes(0), try generated.Person.@"cpz.owned.segmentBytes"(&owned_root_reader, 0));
+    try std.testing.expectEqual(flat_root_bytes.len, try generated.Person.@"cpz.owned.serializedSize"(&owned_root_reader));
+    try std.testing.expectEqual(flat_root_bytes.len / @sizeOf(cpz.Word), try generated.Person.@"cpz.owned.serializedSizeInWords"(&owned_root_reader));
     var viewed_root_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, flat_root_bytes, .{});
     defer viewed_root_reader.deinit(std.testing.allocator);
     const viewed_root_message = generated.Person.@"cpz.view.asReader"(&viewed_root_reader);
@@ -665,6 +671,12 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(view_validation_stats.size().word_count, view_total_size.word_count);
     const view_total_size_with_options = try generated.Person.@"cpz.view.totalSizeWithOptions"(&viewed_root_reader, .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(view_total_size.word_count, view_total_size_with_options.word_count);
+    try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.view.segmentCount"(&viewed_root_reader));
+    try std.testing.expectEqual(try viewed_root_reader.segmentByteLen(0), try generated.Person.@"cpz.view.segmentByteLen"(&viewed_root_reader, 0));
+    try std.testing.expectEqual(try viewed_root_reader.segmentWordLen(0), try generated.Person.@"cpz.view.segmentWordLen"(&viewed_root_reader, 0));
+    try std.testing.expectEqualSlices(u8, try viewed_root_reader.segmentBytes(0), try generated.Person.@"cpz.view.segmentBytes"(&viewed_root_reader, 0));
+    try std.testing.expectEqual(flat_root_bytes.len, try generated.Person.@"cpz.view.serializedSize"(&viewed_root_reader));
+    try std.testing.expectEqual(flat_root_bytes.len / @sizeOf(cpz.Word), try generated.Person.@"cpz.view.serializedSizeInWords"(&viewed_root_reader));
     const builder_segment_table = try generated.Person.@"cpz.builderRoot.segmentTable"(&builder);
     defer std.testing.allocator.free(builder_segment_table);
     try std.testing.expect(builder_segment_table.len > 0);

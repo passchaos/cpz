@@ -7403,6 +7403,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".totalSizeWithOptions(@"cpz.options");
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.segmentCount"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
+        \\        return @"cpz.reader".segmentCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.segmentBytes"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.index": usize) !cpz.serialize.ConstSegment {{
+        \\        return @"cpz.reader".segmentBytes(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.segmentByteLen"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.reader".segmentByteLen(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.segmentWordLen"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.reader".segmentWordLen(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.serializedSize"(@"cpz.reader": *const cpz.OwnedMessageReader) !usize {{
+        \\        return @"cpz.reader".serializedSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.serializedSizeInWords"(@"cpz.reader": *const cpz.OwnedMessageReader) !usize {{
+        \\        return @"cpz.reader".serializedSizeInWords();
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.sourceConsumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".sourceConsumedLen();
         \\    }}
@@ -7437,6 +7461,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.totalSizeWithOptions"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
         \\        return @"cpz.view".totalSizeWithOptions(@"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.segmentCount"(@"cpz.view": *const cpz.MessageReaderView) usize {{
+        \\        return @"cpz.view".segmentCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.segmentBytes"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.index": usize) !cpz.serialize.ConstSegment {{
+        \\        return @"cpz.view".segmentBytes(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.segmentByteLen"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.view".segmentByteLen(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.segmentWordLen"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.index": usize) !usize {{
+        \\        return @"cpz.view".segmentWordLen(@"cpz.index");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.serializedSize"(@"cpz.view": *const cpz.MessageReaderView) !usize {{
+        \\        return @"cpz.view".serializedSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.serializedSizeInWords"(@"cpz.view": *const cpz.MessageReaderView) !usize {{
+        \\        return @"cpz.view".serializedSizeInWords();
         \\    }}
         \\
         \\    pub fn @"cpz.view.sourceConsumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
