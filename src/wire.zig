@@ -137,6 +137,10 @@ pub const StructPointer = struct {
         return (self.targetIndex(pointer_word_index) catch return false) == expected;
     }
 
+    pub fn matchesOffsetWords(self: StructPointer, offset: i32) bool {
+        return self.offset_words == offset;
+    }
+
     pub fn dataWordCount(self: StructPointer) u16 {
         return self.data_words;
     }
@@ -189,6 +193,10 @@ pub const ListPointer = struct {
 
     pub fn matchesTargetIndex(self: ListPointer, pointer_word_index: usize, expected: usize) bool {
         return (self.targetIndex(pointer_word_index) catch return false) == expected;
+    }
+
+    pub fn matchesOffsetWords(self: ListPointer, offset: i32) bool {
+        return self.offset_words == offset;
     }
 
     pub fn elementSize(self: ListPointer) ElementSize {
@@ -545,6 +553,8 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(usize, 3), try struct_ptr.targetIndex(0));
     try testing.expect(struct_ptr.matchesTargetIndex(0, 3));
     try testing.expect(!struct_ptr.matchesTargetIndex(0, 2));
+    try testing.expect(struct_ptr.matchesOffsetWords(2));
+    try testing.expect(!struct_ptr.matchesOffsetWords(1));
     try testing.expectEqual(@as(u16, 3), struct_ptr.dataWordCount());
     try testing.expectEqual(@as(u16, 2), struct_ptr.pointerCount());
     try testing.expectEqual(@as(usize, 5), struct_ptr.totalWords());
@@ -574,6 +584,8 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(usize, 8), try list_ptr.targetIndex(1));
     try testing.expect(list_ptr.matchesTargetIndex(1, 8));
     try testing.expect(!list_ptr.matchesTargetIndex(1, 7));
+    try testing.expect(list_ptr.matchesOffsetWords(6));
+    try testing.expect(!list_ptr.matchesOffsetWords(5));
     try testing.expectEqual(ElementSize.byte, list_ptr.elementSize());
     try testing.expectEqual(@as(usize, 53), list_ptr.elementCountOrWordCount());
     try testing.expectEqual(@as(usize, 53), try list_ptr.elementCount());
