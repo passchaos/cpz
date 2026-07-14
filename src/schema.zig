@@ -928,6 +928,23 @@ pub fn annotationTargetsHas(targets: AnnotationTargets, name: []const u8) bool {
     return false;
 }
 
+fn allAnnotationTargets() AnnotationTargets {
+    return .{
+        .file = true,
+        .const_decl = true,
+        .enum_decl = true,
+        .enumerant = true,
+        .struct_decl = true,
+        .field = true,
+        .union_decl = true,
+        .group = true,
+        .interface_decl = true,
+        .method = true,
+        .param = true,
+        .annotation_decl = true,
+    };
+}
+
 pub const AnnotationDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -1092,6 +1109,7 @@ const TokenTag = enum {
     question,
     bang,
     arrow,
+    star,
     integer,
     string,
     eof,
@@ -1196,6 +1214,7 @@ const Lexer = struct {
             ',' => .{ .tag = .comma, .lexeme = self.source[start..self.index] },
             '?' => .{ .tag = .question, .lexeme = self.source[start..self.index] },
             '!' => .{ .tag = .bang, .lexeme = self.source[start..self.index] },
+            '*' => .{ .tag = .star, .lexeme = self.source[start..self.index] },
             '-' => blk: {
                 if (self.index < self.source.len and self.source[self.index] == '>') {
                     self.index += 1;
@@ -1469,35 +1488,46 @@ pub const Parser = struct {
     fn parseAnnotationTargets(self: *Parser) Error!AnnotationTargets {
         try self.expect(.l_paren);
         var targets: AnnotationTargets = .{};
+        var saw_target = false;
+        var saw_wildcard = false;
         while (self.lookahead.tag != .r_paren) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
-            const target = try self.expectIdentifier();
-            if (std.mem.eql(u8, target, "file")) {
-                targets.file = true;
-            } else if (std.mem.eql(u8, target, "const")) {
-                targets.const_decl = true;
-            } else if (std.mem.eql(u8, target, "enum")) {
-                targets.enum_decl = true;
-            } else if (std.mem.eql(u8, target, "enumerant")) {
-                targets.enumerant = true;
-            } else if (std.mem.eql(u8, target, "struct")) {
-                targets.struct_decl = true;
-            } else if (std.mem.eql(u8, target, "field")) {
-                targets.field = true;
-            } else if (std.mem.eql(u8, target, "union")) {
-                targets.union_decl = true;
-            } else if (std.mem.eql(u8, target, "group")) {
-                targets.group = true;
-            } else if (std.mem.eql(u8, target, "interface")) {
-                targets.interface_decl = true;
-            } else if (std.mem.eql(u8, target, "method")) {
-                targets.method = true;
-            } else if (std.mem.eql(u8, target, "param")) {
-                targets.param = true;
-            } else if (std.mem.eql(u8, target, "annotation")) {
-                targets.annotation_decl = true;
+            if (self.lookahead.tag == .star) {
+                if (saw_target) return error.UnexpectedToken;
+                try self.expect(.star);
+                targets = allAnnotationTargets();
+                saw_wildcard = true;
             } else {
-                return error.UnexpectedToken;
+                if (saw_wildcard) return error.UnexpectedToken;
+                const target = try self.expectIdentifier();
+                if (std.mem.eql(u8, target, "file")) {
+                    targets.file = true;
+                } else if (std.mem.eql(u8, target, "const")) {
+                    targets.const_decl = true;
+                } else if (std.mem.eql(u8, target, "enum")) {
+                    targets.enum_decl = true;
+                } else if (std.mem.eql(u8, target, "enumerant")) {
+                    targets.enumerant = true;
+                } else if (std.mem.eql(u8, target, "struct")) {
+                    targets.struct_decl = true;
+                } else if (std.mem.eql(u8, target, "field")) {
+                    targets.field = true;
+                } else if (std.mem.eql(u8, target, "union")) {
+                    targets.union_decl = true;
+                } else if (std.mem.eql(u8, target, "group")) {
+                    targets.group = true;
+                } else if (std.mem.eql(u8, target, "interface")) {
+                    targets.interface_decl = true;
+                } else if (std.mem.eql(u8, target, "method")) {
+                    targets.method = true;
+                } else if (std.mem.eql(u8, target, "param")) {
+                    targets.param = true;
+                } else if (std.mem.eql(u8, target, "annotation")) {
+                    targets.annotation_decl = true;
+                } else {
+                    return error.UnexpectedToken;
+                }
+                saw_target = true;
             }
 
             if (self.lookahead.tag == .comma) {
@@ -3985,6 +4015,29 @@ test "schema parser tolerates imports and annotations" {
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
     try std.testing.expectEqualStrings("Task", file.structs[0].name);
     try std.testing.expectEqualStrings("ok", file.structs[0].fields[1].default_literal.?);
+}
+
+test "schema parser accepts wildcard annotation targets" {
+    var file = try parse(std.testing.allocator,
+        \\annotation all(*) :Void;
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), file.annotations.len);
+    try std.testing.expectEqualStrings("all", file.annotations[0].name);
+    try std.testing.expectEqual(@as(usize, 12), file.annotations[0].targets.count());
+    try std.testing.expect(file.annotations[0].targets.hasTarget("file"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("const"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("enum"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("enumerant"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("struct"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("field"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("union"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("group"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("interface"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("method"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("param"));
+    try std.testing.expect(file.annotations[0].targets.hasTarget("annotation"));
 }
 
 test "schema parser records imported type aliases" {

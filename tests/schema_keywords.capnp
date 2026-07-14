@@ -16,3 +16,5 @@ struct type {
 struct HelperClash {
   message @0 :Text;
 }
+
+annotation allTargets(*) :Void;

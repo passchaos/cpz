@@ -86,3 +86,25 @@ test "generated helper parameter names do not shadow fields" {
     const value = generated.HelperClash.fromReader(try reader.getRoot());
     try std.testing.expectEqualSlices(u8, "no shadow", try value.message());
 }
+
+test "generated wildcard annotation targets expose all target flags" {
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationCount");
+    try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.annotationDecl.allTargets.targetCount");
+    try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.annotationDecl.allTargets.metadata".target_count);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".file);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".const_decl);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".enum_decl);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".enumerant);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".struct_decl);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".field);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".union_decl);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".group);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".interface_decl);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".method);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".param);
+    try std.testing.expect(generated.@"cpz.annotationDecl.allTargets.targets".annotation_decl);
+    try std.testing.expect(generated.@"cpz.annotationByName"("allTargets").?.hasTarget("file"));
+    try std.testing.expect(generated.@"cpz.annotationByName"("allTargets").?.hasTarget("annotation"));
+    try std.testing.expectEqualStrings("allTargets", generated.@"cpz.annotationByTarget"("param").?.name);
+    try std.testing.expectEqualStrings("allTargets", generated.@"cpz.annotationByTargetCount"(12).?.name);
+}
