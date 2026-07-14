@@ -7946,6 +7946,8 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
     for (fields) |const_field| {
         const field_layout = findFieldLayoutByName(layout, const_field.name) orelse return error.UnsupportedType;
         const field = field_layout.field;
+        const const_literal = resolveScalarConstLiteral(file, layout.decl, const_field.literal);
+        const default_literal = if (field.default_literal) |literal| resolveScalarConstLiteral(file, layout.decl, literal) else null;
         if (field.union_index) |union_index| {
             const union_layout = layout.unions[@intCast(union_index)];
             std.mem.writeInt(u16, segment.items[object_start_bytes + union_layout.discriminant_byte ..][0..@sizeOf(u16)], field.union_discriminant, .little);
@@ -7953,75 +7955,75 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
         switch (field_layout.slot) {
             .data_bit => |bit_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
                 .bool => {
-                    const value = parseBoolLiteral(const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseBoolLiteral(field.default_literal orelse "false") orelse return error.UnsupportedType;
+                    const value = parseBoolLiteral(const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseBoolLiteral(default_literal orelse "false") orelse return error.UnsupportedType;
                     if (value != default_value) setBit(segment.items[object_start_bytes..], bit_offset);
                 },
                 else => return error.UnsupportedType,
             },
             .data_byte => |byte_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
                 .int8 => {
-                    const value = parseSignedLiteral(i8, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseSignedLiteral(i8, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseSignedLiteral(i8, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i8, default_literal orelse "0") orelse return error.UnsupportedType;
                     segment.items[object_start_bytes + byte_offset] = @as(u8, @bitCast(value)) ^ @as(u8, @bitCast(default_value));
                 },
                 .int16 => {
-                    const value = parseSignedLiteral(i16, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseSignedLiteral(i16, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseSignedLiteral(i16, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i16, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u16 = @as(u16, @bitCast(value)) ^ @as(u16, @bitCast(default_value));
                     std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
                 .int32 => {
-                    const value = parseSignedLiteral(i32, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseSignedLiteral(i32, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseSignedLiteral(i32, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i32, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
                     std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
                 },
                 .int64 => {
-                    const value = parseSignedLiteral(i64, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseSignedLiteral(i64, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseSignedLiteral(i64, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseSignedLiteral(i64, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
                     std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
                 .uint8 => {
-                    const value = parseUnsignedLiteral(u8, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseUnsignedLiteral(u8, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseUnsignedLiteral(u8, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u8, default_literal orelse "0") orelse return error.UnsupportedType;
                     segment.items[object_start_bytes + byte_offset] = value ^ default_value;
                 },
                 .uint16 => {
-                    const value = parseUnsignedLiteral(u16, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseUnsignedLiteral(u16, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseUnsignedLiteral(u16, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u16, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u16 = value ^ default_value;
                     std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
                 .uint32 => {
-                    const value = parseUnsignedLiteral(u32, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseUnsignedLiteral(u32, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseUnsignedLiteral(u32, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u32, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u32 = value ^ default_value;
                     std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
                 },
                 .uint64 => {
-                    const value = parseUnsignedLiteral(u64, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseUnsignedLiteral(u64, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseUnsignedLiteral(u64, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseUnsignedLiteral(u64, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u64 = value ^ default_value;
                     std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
                 .float32 => {
-                    const value = parseFloatLiteral(f32, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseFloatLiteral(f32, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseFloatLiteral(f32, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseFloatLiteral(f32, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
                     std.mem.writeInt(u32, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u32)], stored, .little);
                 },
                 .float64 => {
-                    const value = parseFloatLiteral(f64, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = parseFloatLiteral(f64, field.default_literal orelse "0") orelse return error.UnsupportedType;
+                    const value = parseFloatLiteral(f64, const_literal) orelse return error.UnsupportedType;
+                    const default_value = parseFloatLiteral(f64, default_literal orelse "0") orelse return error.UnsupportedType;
                     const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
                     std.mem.writeInt(u64, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
                 .named => |field_type_name| {
                     const enum_decl = findEnum(file, field_type_name) orelse return error.UnsupportedType;
-                    const value = enumLiteralOrdinal(enum_decl, const_field.literal) orelse return error.UnsupportedType;
-                    const default_value = enumLiteralOrdinal(enum_decl, field.default_literal orelse "") orelse 0;
+                    const value = enumLiteralOrdinal(enum_decl, const_literal) orelse return error.UnsupportedType;
+                    const default_value = enumLiteralOrdinal(enum_decl, default_literal orelse "") orelse 0;
                     const stored: u16 = value ^ default_value;
                     std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
@@ -17208,6 +17210,46 @@ test "schema struct const flat emission supports wider integers and floats" {
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
     try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
+}
+
+test "schema struct const flats resolve scalar const field references" {
+    const source =
+        \\const globalId :UInt32 = 12345;
+        \\const chosen :Color = blue;
+        \\enum Color {
+        \\  red @0;
+        \\  blue @1;
+        \\}
+        \\struct Sample {
+        \\  id @0 :UInt32;
+        \\  shade @1 :Color;
+        \\  const defaultId :UInt32 = 99;
+        \\}
+        \\const sample :Sample = (id = .globalId, shade = chosen);
+        \\const nested :Sample = (id = Sample.defaultId, shade = blue);
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const sample_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[2])).?;
+    defer std.testing.allocator.free(sample_flat);
+    var sample_segments: [1]serialize.ConstSegment = undefined;
+    const sample_view = try serialize.readFlatMessageViewInto(&sample_segments, sample_flat);
+    var sample_reader = message.MessageReader.init(sample_view.segments, .{});
+    const sample_root = try sample_reader.getRoot();
+    try std.testing.expectEqual(@as(u32, 12345), sample_root.getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u16, 1), sample_root.getUInt16(4, 0));
+
+    const nested_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[3])).?;
+    defer std.testing.allocator.free(nested_flat);
+    var nested_segments: [1]serialize.ConstSegment = undefined;
+    const nested_view = try serialize.readFlatMessageViewInto(&nested_segments, nested_flat);
+    var nested_reader = message.MessageReader.init(nested_view.segments, .{});
+    const nested_root = try nested_reader.getRoot();
+    try std.testing.expectEqual(@as(u32, 99), nested_root.getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u16, 1), nested_root.getUInt16(4, 0));
 }
 
 test "schema code generator resolves const reference scalar defaults for flats" {
