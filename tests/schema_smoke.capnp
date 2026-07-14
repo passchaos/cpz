@@ -30,7 +30,7 @@ const globalNames :TextList = ["alpha", "be" "ta"];
 const globalNamesAlias :Names = ["gamma", "delta"];
 const globalShades :List(Color) = [red, blue];
 const globalDataItems :List(Data) = [0x"aa bb" $schemaNote("hex-item"), "pl" "ain"];
-const globalRawPerson :Person = (id = 9, active = false, name = "raw", favorite = red, defaultPayload = 0x"ca fe", scores = [4, 5, 6]);
+const globalRawPerson :Person = (id = 9, active = false, name = "raw", favorite = red, defaultPayload = 0x"ca fe", scores = [4, 5, 6], aliases = ["raw", "alias"], payloads = [0x"01 02", "data"]);
 const globalEmbeddedData :Data = embed "fixtures/raw.bin";
 const globalEmbeddedText :Text = embed "fixtures/text.txt";
 const globalEmbeddedPerson :Person = embed "fixtures/person.bin";

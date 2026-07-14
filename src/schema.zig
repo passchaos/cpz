@@ -7604,6 +7604,71 @@ fn appendInlineListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList
     return segment.items[target_word_index * @sizeOf(u64) ..][0 .. list_words * @sizeOf(u64)];
 }
 
+fn inlineQuotedStringBytesAlloc(allocator: std.mem.Allocator, expression: []const u8) LayoutError![]u8 {
+    const source = std.mem.trim(u8, expression, " \t\r\n");
+    var index: usize = 0;
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+    var saw_string = false;
+
+    while (true) {
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len) break;
+        if (source[index] != '"') return error.UnsupportedType;
+        index += 1;
+        const content_start = index;
+        while (index < source.len) {
+            if (source[index] == '\\') {
+                index += 2;
+            } else if (source[index] == '"') {
+                break;
+            } else {
+                index += 1;
+            }
+        }
+        if (index >= source.len) return error.UnexpectedToken;
+        const decoded = try decodedStringBytesAlloc(allocator, source[content_start..index]);
+        defer allocator.free(decoded);
+        try out.appendSlice(allocator, decoded);
+        saw_string = true;
+        index += 1;
+    }
+
+    if (!saw_string) return error.UnsupportedType;
+    return out.toOwnedSlice(allocator);
+}
+
+fn inlineDataBytesAlloc(allocator: std.mem.Allocator, expression: []const u8) LayoutError![]u8 {
+    const source = std.mem.trim(u8, expression, " \t\r\n");
+    if (std.mem.startsWith(u8, source, "0x\"") and source.len >= 4 and source[source.len - 1] == '"') {
+        return try hexBytesAlloc(allocator, source[3 .. source.len - 1]);
+    }
+    return inlineQuotedStringBytesAlloc(allocator, source);
+}
+
+fn appendPointerListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, element_count: usize) LayoutError!usize {
+    const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
+    const target_word_index = segment.items.len / @sizeOf(u64);
+    const list_words = try wire.wordsForList(.pointer, element_count);
+    try segment.appendNTimes(allocator, 0, list_words * @sizeOf(u64));
+    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
+    const raw = try wire.encodeList(offset, .pointer, element_count);
+    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
+    return target_word_index;
+}
+
+fn appendPointerListOfByteLists(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, items: []const []const u8, comptime text_items: bool) LayoutError!void {
+    const list_start_words = try appendPointerListPointer(allocator, segment, pointer_index, data_words, object_start_words, items.len);
+    for (items, 0..) |item, index| {
+        const bytes = if (text_items)
+            try inlineQuotedStringBytesAlloc(allocator, item)
+        else
+            try inlineDataBytesAlloc(allocator, item);
+        defer allocator.free(bytes);
+        try appendByteListPointerAtWord(allocator, segment, list_start_words + index, bytes, text_items);
+    }
+}
+
 fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, child_ty: Type, literal: []const u8) LayoutError!void {
     const items = try parseInlineConstListElementsAlloc(allocator, literal);
     defer allocator.free(items);
@@ -7688,6 +7753,8 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
                 std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
             }
         },
+        .text => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, true),
+        .data => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, false),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
@@ -7827,6 +7894,10 @@ fn findFieldLayoutByName(layout: *const StructLayout, name: []const u8) ?FieldLa
 
 fn appendByteListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, bytes: []const u8, nul_terminated: bool, object_start_words: usize) LayoutError!void {
     const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
+    return appendByteListPointerAtWord(allocator, segment, pointer_word_index, bytes, nul_terminated);
+}
+
+fn appendByteListPointerAtWord(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_word_index: usize, bytes: []const u8, nul_terminated: bool) LayoutError!void {
     const target_word_index = segment.items.len / @sizeOf(u64);
     const list_len = bytes.len + @intFromBool(nul_terminated);
     const padded_len = ((list_len + @sizeOf(u64) - 1) / @sizeOf(u64)) * @sizeOf(u64);
