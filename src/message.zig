@@ -430,6 +430,22 @@ pub const OwnedMessageReader = struct {
         return self.reader.getRootCapability();
     }
 
+    pub fn getRootPointerStatsWithOptions(self: *OwnedMessageReader, options: ReaderOptions) Error!MessageStats {
+        return self.reader.getRootPointerStatsWithOptions(options);
+    }
+
+    pub fn getRootPointerStats(self: *OwnedMessageReader) Error!MessageStats {
+        return self.reader.getRootPointerStats();
+    }
+
+    pub fn getRootPointerTotalSizeWithOptions(self: *OwnedMessageReader, options: ReaderOptions) Error!MessageSize {
+        return self.reader.getRootPointerTotalSizeWithOptions(options);
+    }
+
+    pub fn getRootPointerTotalSize(self: *OwnedMessageReader) Error!MessageSize {
+        return self.reader.getRootPointerTotalSize();
+    }
+
     pub fn validate(self: *OwnedMessageReader) Error!MessageStats {
         return self.reader.validate();
     }
@@ -679,6 +695,22 @@ pub const MessageReaderView = struct {
 
     pub fn getRootCapability(self: *MessageReaderView) Error!u32 {
         return self.reader.getRootCapability();
+    }
+
+    pub fn getRootPointerStatsWithOptions(self: *MessageReaderView, options: ReaderOptions) Error!MessageStats {
+        return self.reader.getRootPointerStatsWithOptions(options);
+    }
+
+    pub fn getRootPointerStats(self: *MessageReaderView) Error!MessageStats {
+        return self.reader.getRootPointerStats();
+    }
+
+    pub fn getRootPointerTotalSizeWithOptions(self: *MessageReaderView, options: ReaderOptions) Error!MessageSize {
+        return self.reader.getRootPointerTotalSizeWithOptions(options);
+    }
+
+    pub fn getRootPointerTotalSize(self: *MessageReaderView) Error!MessageSize {
+        return self.reader.getRootPointerTotalSize();
     }
 
     pub fn validate(self: *MessageReaderView) Error!MessageStats {
@@ -4038,6 +4070,14 @@ test "owned message readers parse flat and packed bytes" {
         .struct_ptr => {},
         else => return error.TestUnexpectedResult,
     }
+    const owned_root_stats = try owned_flat.getRootPointerStats();
+    try testing.expect(owned_root_stats.total_words > 0);
+    const owned_root_stats_with_options = try owned_flat.getRootPointerStatsWithOptions(.{ .capability_count_limit = 100 });
+    try testing.expectEqual(owned_root_stats.total_words, owned_root_stats_with_options.total_words);
+    const owned_root_size = try owned_flat.getRootPointerTotalSize();
+    try testing.expectEqual(owned_root_stats.size().word_count, owned_root_size.word_count);
+    const owned_root_size_with_options = try owned_flat.getRootPointerTotalSizeWithOptions(.{ .capability_count_limit = 100 });
+    try testing.expectEqual(owned_root_size.word_count, owned_root_size_with_options.word_count);
     try testing.expectEqual(@as(usize, 1), owned_flat.segmentCount());
     try testing.expect((try owned_flat.segmentByteLen(0)) > 0);
     try testing.expect((try owned_flat.segmentWordLen(0)) > 0);
@@ -4228,6 +4268,14 @@ test "message reader views parse flat bytes without copying message data" {
     try testing.expect(!try view.isRootNull());
     try testing.expectEqual(wire.PointerType.struct_ptr, (try view.getRootPointerKind()).?);
     try testing.expectEqual(wire.PointerType.struct_ptr, wire.pointerType(try view.getRootRawPointer()));
+    const view_root_stats = try view.getRootPointerStats();
+    try testing.expect(view_root_stats.total_words > 0);
+    const view_root_stats_with_options = try view.getRootPointerStatsWithOptions(.{ .capability_count_limit = 100 });
+    try testing.expectEqual(view_root_stats.total_words, view_root_stats_with_options.total_words);
+    const view_root_size = try view.getRootPointerTotalSize();
+    try testing.expectEqual(view_root_stats.size().word_count, view_root_size.word_count);
+    const view_root_size_with_options = try view.getRootPointerTotalSizeWithOptions(.{ .capability_count_limit = 100 });
+    try testing.expectEqual(view_root_size.word_count, view_root_size_with_options.word_count);
     try testing.expectEqual(@as(usize, 1), view.segmentCount());
     try testing.expect((try view.segmentByteLen(0)) > 0);
     try testing.expectEqual(flat.len, try view.serializedSize());
