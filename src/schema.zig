@@ -3684,7 +3684,7 @@ fn isIdentContinue(c: u8) bool {
 
 fn isNumberContinue(c: u8) bool {
     return switch (c) {
-        '0'...'9', 'a'...'f', 'A'...'F', 'o', 'O', 'x', 'X', '.', '+', '-' => true,
+        '0'...'9', 'a'...'f', 'A'...'F', 'o', 'O', 'x', 'X', '_', '.', '+', '-' => true,
         else => false,
     };
 }
@@ -3725,20 +3725,20 @@ test "schema parser handles structs, file ids, lists, comments" {
 
 test "schema parser accepts binary and octal integer literals" {
     var file = try parse(std.testing.allocator,
-        \\@0b101010;
-        \\struct Bits @0o77 {
-        \\  field @0b10 :UInt32;
+        \\@0b10_1010;
+        \\struct Bits @0o7_7 {
+        \\  field @1_0 :UInt32;
         \\}
         \\enum Mode {
-        \\  active @0O7;
+        \\  active @0O1_0;
         \\}
     );
     defer file.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(@as(?u64, 42), file.id);
     try std.testing.expectEqual(@as(?u64, 63), file.structs[0].id);
-    try std.testing.expectEqual(@as(u32, 2), file.structs[0].fields[0].ordinal);
-    try std.testing.expectEqual(@as(u16, 7), file.enums[0].values[0].ordinal);
+    try std.testing.expectEqual(@as(u32, 10), file.structs[0].fields[0].ordinal);
+    try std.testing.expectEqual(@as(u16, 8), file.enums[0].values[0].ordinal);
 }
 
 test "schema parser rejects invalid syntax" {
