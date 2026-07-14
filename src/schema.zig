@@ -10638,10 +10638,26 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getText();
             \\        }}
             \\
+            \\        pub fn getByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).len;
+            \\        }}
+            \\
+            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.getByteCount(index)) == count;
+            \\        }}
+            \\
         , .{}),
         .data => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
             \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+            \\        pub fn getByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).len;
+            \\        }}
+            \\
+            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.getByteCount(index)) == count;
             \\        }}
             \\
         , .{}),
@@ -11344,6 +11360,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).getText();
             \\        }}
             \\
+            \\        pub fn getByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).len;
+            \\        }}
+            \\
+            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.getByteCount(index)) == count;
+            \\        }}
+            \\
             \\        pub fn set(self: @This(), index: usize, new_value: []const u8) !void {{
             \\            return (try self.list.getPointerElement(index)).setText(new_value);
             \\        }}
@@ -11368,6 +11392,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         .data => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), index: usize) ![]const u8 {{
             \\            return (try self.list.getPointerElement(index)).getData();
+            \\        }}
+            \\
+            \\        pub fn getByteCount(self: @This(), index: usize) !usize {{
+            \\            return (try self.get(index)).len;
+            \\        }}
+            \\
+            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
+            \\            return (try self.getByteCount(index)) == count;
             \\        }}
             \\
             \\        pub fn set(self: @This(), index: usize, new_value: []const u8) !void {{
@@ -12191,8 +12223,24 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getText();
         \\        }}
         \\
+        \\        pub fn elementTextByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getTextByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).textMatchesBytes(count);
+        \\        }}
+        \\
         \\        pub fn elementAsData(self: @This(), index: usize) ![]const u8 {{
         \\            return (try self.list.getPointerElement(index)).getData();
+        \\        }}
+        \\
+        \\        pub fn elementDataByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).dataMatchesBytes(count);
         \\        }}
         \\
         \\        pub fn elementAsCapability(self: @This(), index: usize) !u32 {{
@@ -12488,8 +12536,24 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).getText();
         \\        }}
         \\
+        \\        pub fn elementTextByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getTextByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).textMatchesBytes(count);
+        \\        }}
+        \\
         \\        pub fn elementAsData(self: @This(), index: usize) ![]const u8 {{
         \\            return (try self.list.getPointerElement(index)).getData();
+        \\        }}
+        \\
+        \\        pub fn elementDataByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).dataMatchesBytes(count);
         \\        }}
         \\
         \\        pub fn elementAsCapability(self: @This(), index: usize) !u32 {{
