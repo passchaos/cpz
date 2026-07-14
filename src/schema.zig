@@ -7761,6 +7761,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootTextDefault(@"cpz.default");
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.textDefaultByteCount"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.reader".getRootTextDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.textDefaultMatchesBytes"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.reader".rootTextDefaultMatchesBytes(@"cpz.default", @"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.textByteCount"(@"cpz.reader": *cpz.OwnedMessageReader) !usize {{
         \\        return @"cpz.reader".getRootTextByteCount();
         \\    }}
@@ -7775,6 +7783,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.owned.dataDefault"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.default": []const u8) ![]const u8 {{
         \\        return @"cpz.reader".getRootDataDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.dataDefaultByteCount"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.reader".getRootDataDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.dataDefaultMatchesBytes"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.reader".rootDataDefaultMatchesBytes(@"cpz.default", @"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.owned.dataByteCount"(@"cpz.reader": *cpz.OwnedMessageReader) !usize {{
@@ -8173,6 +8189,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.view".getRootTextDefault(@"cpz.default");
         \\    }}
         \\
+        \\    pub fn @"cpz.view.textDefaultByteCount"(@"cpz.view": *cpz.MessageReaderView, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.view".getRootTextDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.textDefaultMatchesBytes"(@"cpz.view": *cpz.MessageReaderView, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.view".rootTextDefaultMatchesBytes(@"cpz.default", @"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.view.textByteCount"(@"cpz.view": *cpz.MessageReaderView) !usize {{
         \\        return @"cpz.view".getRootTextByteCount();
         \\    }}
@@ -8187,6 +8211,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.dataDefault"(@"cpz.view": *cpz.MessageReaderView, @"cpz.default": []const u8) ![]const u8 {{
         \\        return @"cpz.view".getRootDataDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.dataDefaultByteCount"(@"cpz.view": *cpz.MessageReaderView, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.view".getRootDataDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.dataDefaultMatchesBytes"(@"cpz.view": *cpz.MessageReaderView, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.view".rootDataDefaultMatchesBytes(@"cpz.default", @"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.view.dataByteCount"(@"cpz.view": *cpz.MessageReaderView) !usize {{
@@ -9073,6 +9105,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootTextDefault(@"cpz.default");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.textDefaultByteCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.reader".getRootTextDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.textDefaultMatchesBytes"(@"cpz.reader": *cpz.MessageReader, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.reader".rootTextDefaultMatchesBytes(@"cpz.default", @"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.textByteCount"(@"cpz.reader": *cpz.MessageReader) !usize {{
         \\        return @"cpz.reader".getRootTextByteCount();
         \\    }}
@@ -9087,6 +9127,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.root.dataDefault"(@"cpz.reader": *cpz.MessageReader, @"cpz.default": []const u8) ![]const u8 {{
         \\        return @"cpz.reader".getRootDataDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.dataDefaultByteCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.reader".getRootDataDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.dataDefaultMatchesBytes"(@"cpz.reader": *cpz.MessageReader, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.reader".rootDataDefaultMatchesBytes(@"cpz.default", @"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.root.dataByteCount"(@"cpz.reader": *cpz.MessageReader) !usize {{
@@ -9113,6 +9161,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.builder".getRootTextDefault(@"cpz.default");
         \\    }}
         \\
+        \\    pub fn @"cpz.builderRoot.textDefaultByteCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.builder".getRootTextDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.textDefaultMatchesBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.builder".rootTextDefaultMatchesBytes(@"cpz.default", @"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.textByteCount"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
         \\        return @"cpz.builder".getRootTextByteCount();
         \\    }}
@@ -9131,6 +9187,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.dataDefault"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.default": []const u8) ![]const u8 {{
         \\        return @"cpz.builder".getRootDataDefault(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.dataDefaultByteCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.default": []const u8) !usize {{
+        \\        return @"cpz.builder".getRootDataDefaultByteCount(@"cpz.default");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.dataDefaultMatchesBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.default": []const u8, @"cpz.count": usize) !bool {{
+        \\        return @"cpz.builder".rootDataDefaultMatchesBytes(@"cpz.default", @"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.dataByteCount"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
