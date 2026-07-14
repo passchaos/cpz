@@ -6025,6 +6025,19 @@ fn methodDefaultIsNull(file: *const File, scope: ?*const Struct, default_literal
     return std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, default_literal), " \t\r\n"), "null");
 }
 
+fn methodDefaultIsVoidOrNull(file: *const File, scope: ?*const Struct, default_literal: []const u8) bool {
+    const raw = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, default_literal), " \t\r\n");
+    return std.mem.eql(u8, raw, "null") or std.mem.eql(u8, raw, "void");
+}
+
+fn methodDefaultTypeAcceptsNullPointer(file: *const File, ty: Type) bool {
+    return switch (ty) {
+        .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => true,
+        .named => |type_name| findEnum(file, type_name) == null,
+        else => false,
+    };
+}
+
 fn nullPointerFlatBytesAlloc(allocator: std.mem.Allocator) LayoutError![]u8 {
     const segment_words: usize = 1;
     const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
@@ -6467,12 +6480,12 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     defer allocator.free(container_literal);
     var ty = try parseTypeArgAlloc(allocator, field.ty);
     defer ty.deinit(allocator);
-    const is_null_default = methodDefaultIsNull(file, scope, default_literal);
     const resolved_ty = switch (resolveTypeScoped(file, scope, ty)) {
         .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, default_literal) orelse child.*,
         else => |resolved| resolved,
     };
-    const flat = if (is_null_default) try nullPointerFlatBytesAlloc(allocator) else switch (resolved_ty) {
+    const is_null_pointer_default = methodDefaultIsVoidOrNull(file, scope, default_literal) and methodDefaultTypeAcceptsNullPointer(file, resolved_ty);
+    const flat = if (is_null_pointer_default) try nullPointerFlatBytesAlloc(allocator) else switch (resolved_ty) {
         .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, scope, resolved_ty, default_literal),
         .named => |type_name| blk: {
             if (findEnum(file, type_name) != null) {
@@ -6525,7 +6538,7 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         \\{s}    }}
         \\
     , .{ indent, container_literal, indent, flat_literal, indent, indent, indent, indent, indent });
-    if (is_null_default) {
+    if (is_null_pointer_default) {
         try appendFmt(allocator, out,
             \\{s}    pub fn pointer(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
             \\{s}        return message_reader.getRootPointer();
@@ -6642,7 +6655,7 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         , .{ indent, indent, indent }),
         else => {},
     }
-    try emitMethodDefaultReaderWrapper(allocator, out, file, scope, indent, container_literal, resolved_ty, is_null_default);
+    try emitMethodDefaultReaderWrapper(allocator, out, file, scope, indent, container_literal, resolved_ty, is_null_pointer_default);
     try emitFlatContainerSizeHelpers(allocator, out, indent);
     try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{

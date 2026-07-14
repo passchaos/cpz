@@ -74,7 +74,8 @@ interface Defaults {
     numbers :?List(UInt16) = defaultMaybeNumbers,
     item :?Item = defaultMaybeItem,
     emptyLabel :?Text = null,
-    any :AnyPointer = null
+    any :AnyPointer = null,
+    cap :Capability = void
   ) -> (result :?Item = defaultMaybeItem);
 
   anyDefaults @5 (

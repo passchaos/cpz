@@ -220,6 +220,10 @@ test "generated method default flats expose typed optional pointer getters" {
     try std.testing.expect(try generated.Defaults.@"cpz.method.optionals.params.field.any.defaultFlat".isNull(&any_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.@"cpz.method.optionals.params.field.any.defaultFlat".pointerKind(&any_reader));
 
+    var cap_reader = generated.Defaults.@"cpz.method.optionals.params.field.cap.defaultFlat".reader(.{});
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionals.params.field.cap.defaultFlat".isNull(&cap_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.@"cpz.method.optionals.params.field.cap.defaultFlat".rawPointer(&cap_reader));
+
     var result_reader = generated.Defaults.@"cpz.method.optionals.results.field.result.defaultFlat".reader(.{});
     const result = try generated.Defaults.@"cpz.method.optionals.results.field.result.defaultFlat".get(&result_reader);
     try std.testing.expectEqual(@as(u32, 77), result.value());
