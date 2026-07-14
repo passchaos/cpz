@@ -7817,81 +7817,81 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
     switch (resolveTypeScoped(file, scope, child_ty)) {
         .void => {
             _ = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .void, items.len);
-            for (items) |item| if (!std.mem.eql(u8, item, "void")) return error.UnsupportedType;
+            for (items) |item| if (!std.mem.eql(u8, resolveScalarConstLiteral(file, scope, item), "void")) return error.UnsupportedType;
         },
         .bool => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .bit, items.len);
             for (items, 0..) |item, index| {
-                const value = parseBoolLiteral(item) orelse return error.UnsupportedType;
+                const value = parseBoolLiteral(resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 if (value) setBit(data, index);
             }
         },
         .int8 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .byte, items.len);
             for (items, 0..) |item, index| {
-                const value = parseSignedLiteral(i8, item) orelse return error.UnsupportedType;
+                const value = parseSignedLiteral(i8, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 data[index] = @bitCast(value);
             }
         },
         .int16 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseSignedLiteral(i16, item) orelse return error.UnsupportedType;
+                const value = parseSignedLiteral(i16, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], @bitCast(value), .little);
             }
         },
         .int32 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .four_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseSignedLiteral(i32, item) orelse return error.UnsupportedType;
+                const value = parseSignedLiteral(i32, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u32, data[index * @sizeOf(u32) ..][0..@sizeOf(u32)], @bitCast(value), .little);
             }
         },
         .int64 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseSignedLiteral(i64, item) orelse return error.UnsupportedType;
+                const value = parseSignedLiteral(i64, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
             }
         },
         .uint8 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .byte, items.len);
             for (items, 0..) |item, index| {
-                data[index] = parseUnsignedLiteral(u8, item) orelse return error.UnsupportedType;
+                data[index] = parseUnsignedLiteral(u8, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
             }
         },
         .uint16 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseUnsignedLiteral(u16, item) orelse return error.UnsupportedType;
+                const value = parseUnsignedLiteral(u16, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
             }
         },
         .uint32 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .four_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseUnsignedLiteral(u32, item) orelse return error.UnsupportedType;
+                const value = parseUnsignedLiteral(u32, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u32, data[index * @sizeOf(u32) ..][0..@sizeOf(u32)], value, .little);
             }
         },
         .uint64 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseUnsignedLiteral(u64, item) orelse return error.UnsupportedType;
+                const value = parseUnsignedLiteral(u64, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], value, .little);
             }
         },
         .float32 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .four_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseFloatLiteral(f32, item) orelse return error.UnsupportedType;
+                const value = parseFloatLiteral(f32, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u32, data[index * @sizeOf(u32) ..][0..@sizeOf(u32)], @bitCast(value), .little);
             }
         },
         .float64 => {
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
             for (items, 0..) |item, index| {
-                const value = parseFloatLiteral(f64, item) orelse return error.UnsupportedType;
+                const value = parseFloatLiteral(f64, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                 std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
             }
         },
@@ -7907,7 +7907,7 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
             if (findEnum(file, type_name)) |enum_decl| {
                 const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
                 for (items, 0..) |item, index| {
-                    const value = enumLiteralOrdinal(enum_decl, item) orelse return error.UnsupportedType;
+                    const value = enumLiteralOrdinal(enum_decl, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
                     std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
                 }
             } else {
@@ -17274,10 +17274,11 @@ test "schema struct const flats resolve scalar const field references" {
         \\struct Sample {
         \\  id @0 :UInt32;
         \\  shade @1 :Color;
+        \\  scores @2 :List(UInt32);
         \\  const defaultId :UInt32 = 99;
         \\}
-        \\const sample :Sample = (id = .globalId, shade = chosen);
-        \\const nested :Sample = (id = Sample.defaultId, shade = blue);
+        \\const sample :Sample = (id = .globalId, shade = chosen, scores = [.globalId, 2]);
+        \\const nested :Sample = (id = Sample.defaultId, shade = blue, scores = [Sample.defaultId]);
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
@@ -17292,6 +17293,9 @@ test "schema struct const flats resolve scalar const field references" {
     const sample_root = try sample_reader.getRoot();
     try std.testing.expectEqual(@as(u32, 12345), sample_root.getUInt32(0, 0));
     try std.testing.expectEqual(@as(u16, 1), sample_root.getUInt16(4, 0));
+    const sample_scores = try sample_root.getPointerField(0).getList(.four_bytes);
+    try std.testing.expectEqual(@as(u32, 12345), sample_scores.getUInt32(0));
+    try std.testing.expectEqual(@as(u32, 2), sample_scores.getUInt32(1));
 
     const nested_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[3])).?;
     defer std.testing.allocator.free(nested_flat);
@@ -17301,6 +17305,8 @@ test "schema struct const flats resolve scalar const field references" {
     const nested_root = try nested_reader.getRoot();
     try std.testing.expectEqual(@as(u32, 99), nested_root.getUInt32(0, 0));
     try std.testing.expectEqual(@as(u16, 1), nested_root.getUInt16(4, 0));
+    const nested_scores = try nested_root.getPointerField(0).getList(.four_bytes);
+    try std.testing.expectEqual(@as(u32, 99), nested_scores.getUInt32(0));
 }
 
 test "schema code generator resolves const reference scalar defaults for flats" {
