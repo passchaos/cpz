@@ -7690,7 +7690,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         },
         .list => |list_child| {
             const items = decl.list_items orelse return;
-            try emitListConst(allocator, out, file, scope, indent, const_name, list_child.*, items);
+            try emitListConst(allocator, out, file, scope, indent, const_name, list_child.*, items, true);
         },
         .named => |type_name| {
             if (decl.is_embed) {
@@ -8206,7 +8206,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             } else if (decl.list_items) |items| {
                 const resolved = resolveNamedAlias(file, scope, type_name, 0) orelse return;
                 if (resolved != .list) return;
-                try emitListConst(allocator, out, file, scope, indent, const_name, resolved.list.*, items);
+                try emitListConst(allocator, out, file, scope, indent, const_name, resolved.list.*, items, false);
             } else {
                 const enum_decl = findEnum(file, type_name) orelse return;
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
@@ -8220,7 +8220,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         },
         .list => |child| {
             const items = decl.list_items orelse return;
-            try emitListConst(allocator, out, file, scope, indent, const_name, child.*, items);
+            try emitListConst(allocator, out, file, scope, indent, const_name, child.*, items, false);
         },
         .optional => |child| try emitOptionalConstValue(allocator, out, file, scope, indent, const_name, child.*, decl),
         else => return,
@@ -10075,29 +10075,32 @@ fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), inden
     , .{ indent, name, zig_type, if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal });
 }
 
-fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, child: Type, items: []const ConstListItem) LayoutError!void {
+fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, child: Type, items: []const ConstListItem, comptime optional_value: bool) LayoutError!void {
     switch (resolveTypeScoped(file, scope, child)) {
-        .void => try emitListConstOfType(allocator, out, file, scope, indent, name, "void", items, voidConstItem),
-        .bool => try emitListConstOfType(allocator, out, file, scope, indent, name, "bool", items, boolConstItem),
-        .int8 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i8", items, numericConstItem),
-        .int16 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i16", items, numericConstItem),
-        .int32 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i32", items, numericConstItem),
-        .int64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i64", items, numericConstItem),
-        .uint8 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u8", items, numericConstItem),
-        .uint16 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u16", items, numericConstItem),
-        .uint32 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u32", items, numericConstItem),
-        .uint64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u64", items, numericConstItem),
-        .float32 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f32", items, float32ConstItem),
-        .float64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f64", items, float64ConstItem),
-        .text => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, stringConstItem),
-        .data => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, dataConstItem),
+        .void => try emitListConstOfType(allocator, out, file, scope, indent, name, "void", items, voidConstItem, optional_value),
+        .bool => try emitListConstOfType(allocator, out, file, scope, indent, name, "bool", items, boolConstItem, optional_value),
+        .int8 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i8", items, numericConstItem, optional_value),
+        .int16 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i16", items, numericConstItem, optional_value),
+        .int32 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i32", items, numericConstItem, optional_value),
+        .int64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "i64", items, numericConstItem, optional_value),
+        .uint8 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u8", items, numericConstItem, optional_value),
+        .uint16 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u16", items, numericConstItem, optional_value),
+        .uint32 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u32", items, numericConstItem, optional_value),
+        .uint64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u64", items, numericConstItem, optional_value),
+        .float32 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f32", items, float32ConstItem, optional_value),
+        .float64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f64", items, float64ConstItem, optional_value),
+        .text => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, stringConstItem, optional_value),
+        .data => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, dataConstItem, optional_value),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return;
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
-            try appendFmt(allocator, out,
-                \\{s}pub const {s}: []const {s} = &[_]{s}{{
-            , .{ indent, name, zig_type, zig_type });
+            const value_type = if (optional_value)
+                try std.fmt.allocPrint(allocator, "?[]const {s}", .{zig_type})
+            else
+                try std.fmt.allocPrint(allocator, "[]const {s}", .{zig_type});
+            defer allocator.free(value_type);
+            try appendFmt(allocator, out, "{s}pub const {s}: {s} = &[_]{s}{{", .{ indent, name, value_type, zig_type });
             for (items, 0..) |item, i| {
                 if (i != 0) try out.appendSlice(allocator, ", ");
                 try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, item.literal)});
@@ -10119,10 +10122,16 @@ fn emitListConstOfType(
     zig_type: []const u8,
     items: []const ConstListItem,
     comptime itemLiteral: fn (std.mem.Allocator, ConstListItem) LayoutError![]const u8,
+    comptime optional_value: bool,
 ) LayoutError!void {
+    const value_type = if (optional_value)
+        try std.fmt.allocPrint(allocator, "?[]const {s}", .{zig_type})
+    else
+        try std.fmt.allocPrint(allocator, "[]const {s}", .{zig_type});
+    defer allocator.free(value_type);
     try appendFmt(allocator, out,
-        \\{s}pub const {s}: []const {s} = &[_]{s}{{
-    , .{ indent, name, zig_type, zig_type });
+        \\{s}pub const {s}: {s} = &[_]{s}{{
+    , .{ indent, name, value_type, zig_type });
     for (items, 0..) |item, i| {
         if (i != 0) try out.appendSlice(allocator, ", ");
         const resolved_item = resolveScalarConstListItem(file, scope, item);
