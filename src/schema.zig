@@ -2444,7 +2444,7 @@ pub const Parser = struct {
             try self.skipRawUntilSemicolon();
             return;
         }
-        const block_text_literal = ty == .text and self.constLiteralFirstByte() == '`';
+        const block_text_literal = typeAcceptsTextLiteral(ty) and self.constLiteralFirstByte() == '`';
         const list_literal = !block_text_literal and self.constLiteralStartsList();
         if (!block_text_literal and self.constLiteralStartsUnsupported(list_literal)) {
             try self.expect(.equal);
@@ -2503,7 +2503,7 @@ pub const Parser = struct {
                 };
                 const list_end = self.currentTokenStart();
                 break :list_blk std.mem.trim(u8, self.lexer.source[list_start..list_end], " \t\r\n");
-            } else if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) data_blk: {
+            } else if (typeAcceptsDataLiteral(ty) and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) data_blk: {
                 try self.expect(.integer);
                 if (self.lookahead.tag != .string) {
                     ty.deinit(self.allocator);
@@ -4376,6 +4376,23 @@ fn resolveNamedAlias(file: *const File, scope: ?*const Struct, name: []const u8,
 fn isSimpleConstType(ty: Type) bool {
     return switch (ty) {
         .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data, .list, .named => true,
+        .optional => |child| isSimpleConstType(child.*),
+        else => false,
+    };
+}
+
+fn typeAcceptsTextLiteral(ty: Type) bool {
+    return switch (ty) {
+        .text => true,
+        .optional => |child| typeAcceptsTextLiteral(child.*),
+        else => false,
+    };
+}
+
+fn typeAcceptsDataLiteral(ty: Type) bool {
+    return switch (ty) {
+        .data => true,
+        .optional => |child| typeAcceptsDataLiteral(child.*),
         else => false,
     };
 }
@@ -5982,6 +5999,12 @@ fn methodStructDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const 
     return structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, scope, default_literal));
 }
 
+fn methodOptionalDefaultChildOrNull(file: *const File, scope: ?*const Struct, child: Type, default_literal: []const u8) ?Type {
+    const resolved_literal = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, default_literal), " \t\r\n");
+    if (std.mem.eql(u8, resolved_literal, "null")) return null;
+    return resolveTypeScoped(file, scope, child);
+}
+
 fn emitMethodListDefaultList(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, element_size_literal: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
@@ -6147,11 +6170,15 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     defer allocator.free(container_literal);
     var ty = try parseTypeArgAlloc(allocator, field.ty);
     defer ty.deinit(allocator);
-    const flat = switch (resolveTypeScoped(file, scope, ty)) {
-        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, scope, ty, default_literal),
+    const resolved_ty = switch (resolveTypeScoped(file, scope, ty)) {
+        .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, default_literal) orelse return,
+        else => |resolved| resolved,
+    };
+    const flat = switch (resolved_ty) {
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, scope, resolved_ty, default_literal),
         .named => |type_name| blk: {
             if (findEnum(file, type_name) != null) {
-                break :blk try scalarConstFlatBytesAlloc(allocator, file, scope, ty, default_literal);
+                break :blk try scalarConstFlatBytesAlloc(allocator, file, scope, resolved_ty, default_literal);
             }
             if (findStructDirect(file, type_name) != null) {
                 break :blk (try methodStructDefaultFlatBytesAlloc(allocator, file, scope, type_name, default_literal)) orelse return;
@@ -6188,7 +6215,7 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         \\{s}    }}
         \\
     , .{ indent, container_literal, indent, flat_literal, indent, indent, indent, indent, indent });
-    switch (resolveTypeScoped(file, scope, ty)) {
+    switch (resolved_ty) {
         .void => try appendFmt(allocator, out,
             \\{s}    pub fn get(message_reader: *cpz.MessageReader) !void {{
             \\{s}        _ = try message_reader.getRoot();
@@ -9306,7 +9333,10 @@ fn resolveConstReferenceLiteral(file: *const File, scope: ?*const Struct, litera
 
 fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError!?[]u8 {
     const decl = findConstReference(file, scope, literal) orelse return null;
-    const resolved_ty = resolveTypeScoped(file, scope, decl.ty);
+    const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
+        .optional => |child| resolveTypeScoped(file, scope, child.*),
+        else => |resolved| resolved,
+    };
     if (is_text) {
         if (resolved_ty != .text) return null;
         if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);

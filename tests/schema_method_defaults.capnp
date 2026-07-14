@@ -13,6 +13,8 @@ interface Defaults {
   const defaultLocalMode :ModeAlias = running;
   const defaultLabel :Text = "local";
   const defaultPayload :Data = 0x"0a 0b";
+  const defaultMaybeLabel :?Text = "maybe local";
+  const defaultMaybePayload :?Data = 0x"0e 0f";
   const defaultNumbers :List(UInt16) = [7, 8];
   const defaultLabels :List(Text) = ["alpha", "beta"];
   const defaultPayloads :List(Data) = [0x"0c 0d", "raw"];
@@ -26,6 +28,8 @@ interface Defaults {
 
   const defaultItems :List(Item) = [(value = 10, label = "ten"), (value = 20, label = "twenty")];
   const defaultItem :Item = (value = 99, label = "ninety-nine");
+  const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
+  const defaultMaybeNumbers :?List(UInt16) = [5, 6];
 
   scalars @0 (
     v :Void = void,
@@ -61,4 +65,12 @@ interface Defaults {
   ) -> ();
 
   structs @3 (item :Item = defaultItem) -> (result :Item = (value = 123, label = "result"));
+
+  optionals @4 (
+    label :?Text = defaultMaybeLabel,
+    payload :?Data = defaultMaybePayload,
+    numbers :?List(UInt16) = defaultMaybeNumbers,
+    item :?Item = defaultMaybeItem,
+    emptyLabel :?Text = null
+  ) -> (result :?Item = defaultMaybeItem);
 }
