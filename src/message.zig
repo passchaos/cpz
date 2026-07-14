@@ -574,8 +574,24 @@ pub const OwnedMessageReader = struct {
         return self.reader.getRootTextDefault(default_value);
     }
 
+    pub fn getRootTextDefaultByteCount(self: *OwnedMessageReader, default_value: []const u8) Error!usize {
+        return self.reader.getRootTextDefaultByteCount(default_value);
+    }
+
+    pub fn rootTextDefaultMatchesBytes(self: *OwnedMessageReader, default_value: []const u8, count: usize) Error!bool {
+        return self.reader.rootTextDefaultMatchesBytes(default_value, count);
+    }
+
     pub fn getRootDataDefault(self: *OwnedMessageReader, default_value: []const u8) Error![]const u8 {
         return self.reader.getRootDataDefault(default_value);
+    }
+
+    pub fn getRootDataDefaultByteCount(self: *OwnedMessageReader, default_value: []const u8) Error!usize {
+        return self.reader.getRootDataDefaultByteCount(default_value);
+    }
+
+    pub fn rootDataDefaultMatchesBytes(self: *OwnedMessageReader, default_value: []const u8, count: usize) Error!bool {
+        return self.reader.rootDataDefaultMatchesBytes(default_value, count);
     }
 
     pub fn getRootCapability(self: *OwnedMessageReader) Error!u32 {
@@ -1021,8 +1037,24 @@ pub const MessageReaderView = struct {
         return self.reader.getRootTextDefault(default_value);
     }
 
+    pub fn getRootTextDefaultByteCount(self: *MessageReaderView, default_value: []const u8) Error!usize {
+        return self.reader.getRootTextDefaultByteCount(default_value);
+    }
+
+    pub fn rootTextDefaultMatchesBytes(self: *MessageReaderView, default_value: []const u8, count: usize) Error!bool {
+        return self.reader.rootTextDefaultMatchesBytes(default_value, count);
+    }
+
     pub fn getRootDataDefault(self: *MessageReaderView, default_value: []const u8) Error![]const u8 {
         return self.reader.getRootDataDefault(default_value);
+    }
+
+    pub fn getRootDataDefaultByteCount(self: *MessageReaderView, default_value: []const u8) Error!usize {
+        return self.reader.getRootDataDefaultByteCount(default_value);
+    }
+
+    pub fn rootDataDefaultMatchesBytes(self: *MessageReaderView, default_value: []const u8, count: usize) Error!bool {
+        return self.reader.rootDataDefaultMatchesBytes(default_value, count);
     }
 
     pub fn getRootCapability(self: *MessageReaderView) Error!u32 {
@@ -2246,6 +2278,14 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).getTextDefault(default_value);
     }
 
+    pub fn getRootTextDefaultByteCount(self: *MessageBuilder, default_value: []const u8) Error!usize {
+        return (try self.getRootPointer()).getTextDefaultByteCount(default_value);
+    }
+
+    pub fn rootTextDefaultMatchesBytes(self: *MessageBuilder, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getRootPointer()).textDefaultMatchesBytes(default_value, count);
+    }
+
     pub fn getRootTextByteCount(self: *MessageBuilder) Error!usize {
         return (try self.getRootPointer()).getTextByteCount();
     }
@@ -2260,6 +2300,14 @@ pub const MessageBuilder = struct {
 
     pub fn getRootDataDefault(self: *MessageBuilder, default_value: []const u8) Error![]const u8 {
         return (try self.getRootPointer()).getDataDefault(default_value);
+    }
+
+    pub fn getRootDataDefaultByteCount(self: *MessageBuilder, default_value: []const u8) Error!usize {
+        return (try self.getRootPointer()).getDataDefaultByteCount(default_value);
+    }
+
+    pub fn rootDataDefaultMatchesBytes(self: *MessageBuilder, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getRootPointer()).dataDefaultMatchesBytes(default_value, count);
     }
 
     pub fn getRootDataByteCount(self: *MessageBuilder) Error!usize {
@@ -2726,6 +2774,14 @@ pub const MessageReader = struct {
         return (try self.getRootPointer()).getTextDefault(default_value);
     }
 
+    pub fn getRootTextDefaultByteCount(self: *MessageReader, default_value: []const u8) Error!usize {
+        return (try self.getRootPointer()).getTextDefaultByteCount(default_value);
+    }
+
+    pub fn rootTextDefaultMatchesBytes(self: *MessageReader, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getRootPointer()).textDefaultMatchesBytes(default_value, count);
+    }
+
     pub fn getRootTextByteCount(self: *MessageReader) Error!usize {
         return (try self.getRootPointer()).getTextByteCount();
     }
@@ -2740,6 +2796,14 @@ pub const MessageReader = struct {
 
     pub fn getRootDataDefault(self: *MessageReader, default_value: []const u8) Error![]const u8 {
         return (try self.getRootPointer()).getDataDefault(default_value);
+    }
+
+    pub fn getRootDataDefaultByteCount(self: *MessageReader, default_value: []const u8) Error!usize {
+        return (try self.getRootPointer()).getDataDefaultByteCount(default_value);
+    }
+
+    pub fn rootDataDefaultMatchesBytes(self: *MessageReader, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getRootPointer()).dataDefaultMatchesBytes(default_value, count);
     }
 
     pub fn getRootDataByteCount(self: *MessageReader) Error!usize {
@@ -3475,6 +3539,20 @@ pub const PointerBuilder = struct {
         }).getTextDefault(default_value);
     }
 
+    pub fn getTextDefaultByteCount(self: PointerBuilder, default_value: []const u8) Error!usize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getTextDefaultByteCount(default_value);
+    }
+
+    pub fn textDefaultMatchesBytes(self: PointerBuilder, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getTextDefaultByteCount(default_value)) == count;
+    }
+
     pub fn getTextByteCount(self: PointerBuilder) Error!usize {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return (PointerReader{
@@ -3507,6 +3585,20 @@ pub const PointerBuilder = struct {
             .word_index = self.word_index,
             .nesting_left = reader.options.nesting_limit,
         }).getDataDefault(default_value);
+    }
+
+    pub fn getDataDefaultByteCount(self: PointerBuilder, default_value: []const u8) Error!usize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getDataDefaultByteCount(default_value);
+    }
+
+    pub fn dataDefaultMatchesBytes(self: PointerBuilder, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getDataDefaultByteCount(default_value)) == count;
     }
 
     pub fn getDataByteCount(self: PointerBuilder) Error!usize {
@@ -4139,6 +4231,14 @@ pub const PointerReader = struct {
         return self.getText();
     }
 
+    pub fn getTextDefaultByteCount(self: PointerReader, default_value: []const u8) Error!usize {
+        return (try self.getTextDefault(default_value)).len;
+    }
+
+    pub fn textDefaultMatchesBytes(self: PointerReader, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getTextDefaultByteCount(default_value)) == count;
+    }
+
     pub fn getTextByteCount(self: PointerReader) Error!usize {
         return (try self.getText()).len;
     }
@@ -4154,6 +4254,14 @@ pub const PointerReader = struct {
     pub fn getDataDefault(self: PointerReader, default_value: []const u8) Error![]const u8 {
         if ((try self.raw()) == 0) return default_value;
         return self.getData();
+    }
+
+    pub fn getDataDefaultByteCount(self: PointerReader, default_value: []const u8) Error!usize {
+        return (try self.getDataDefault(default_value)).len;
+    }
+
+    pub fn dataDefaultMatchesBytes(self: PointerReader, default_value: []const u8, count: usize) Error!bool {
+        return (try self.getDataDefaultByteCount(default_value)) == count;
     }
 
     pub fn getDataByteCount(self: PointerReader) Error!usize {
@@ -6089,7 +6197,13 @@ test "owned message readers parse flat and packed bytes" {
     var empty_owned = try OwnedMessageReader.initFlat(testing.allocator, empty_flat, .{});
     defer empty_owned.deinit(testing.allocator);
     try testing.expectEqualSlices(u8, "owned default", try empty_owned.getRootTextDefault("owned default"));
+    try testing.expectEqual(@as(usize, "owned default".len), try empty_owned.getRootTextDefaultByteCount("owned default"));
+    try testing.expect(try empty_owned.rootTextDefaultMatchesBytes("owned default", "owned default".len));
+    try testing.expect(!try empty_owned.rootTextDefaultMatchesBytes("owned default", "owned default".len + 1));
     try testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, try empty_owned.getRootDataDefault(&[_]u8{ 1, 2 }));
+    try testing.expectEqual(@as(usize, 2), try empty_owned.getRootDataDefaultByteCount(&[_]u8{ 1, 2 }));
+    try testing.expect(try empty_owned.rootDataDefaultMatchesBytes(&[_]u8{ 1, 2 }, 2));
+    try testing.expect(!try empty_owned.rootDataDefaultMatchesBytes(&[_]u8{ 1, 2 }, 3));
 
     var data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
     defer data_builder.deinit();
@@ -6099,6 +6213,9 @@ test "owned message readers parse flat and packed bytes" {
     var data_owned = try OwnedMessageReader.initFlat(testing.allocator, data_flat, .{});
     defer data_owned.deinit(testing.allocator);
     try testing.expectEqualSlices(u8, &[_]u8{ 4, 5 }, try data_owned.getRootDataDefault(&[_]u8{ 1, 2 }));
+    try testing.expectEqual(@as(usize, 2), try data_owned.getRootDataDefaultByteCount(&[_]u8{ 1, 2 }));
+    try testing.expect(try data_owned.rootDataDefaultMatchesBytes(&[_]u8{ 1, 2 }, 2));
+    try testing.expect(!try data_owned.rootDataDefaultMatchesBytes(&[_]u8{ 1, 2 }, 3));
 
     var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
     defer text_builder.deinit();
@@ -6108,6 +6225,9 @@ test "owned message readers parse flat and packed bytes" {
     var text_owned = try OwnedMessageReader.initFlat(testing.allocator, text_flat, .{});
     defer text_owned.deinit(testing.allocator);
     try testing.expectEqualSlices(u8, "owned root text", try text_owned.getRootTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "owned root text".len), try text_owned.getRootTextDefaultByteCount("ignored"));
+    try testing.expect(try text_owned.rootTextDefaultMatchesBytes("ignored", "owned root text".len));
+    try testing.expect(!try text_owned.rootTextDefaultMatchesBytes("ignored", "ignored".len));
 
     const trailer = [_]u8{ 0xde, 0xad };
     const flat_with_trailer = try std.mem.concat(testing.allocator, u8, &.{ flat, &trailer });
@@ -6264,6 +6384,9 @@ test "message reader views parse flat bytes without copying message data" {
     var empty_view = try MessageReaderView.initFlat(testing.allocator, empty_flat, .{});
     defer empty_view.deinit(testing.allocator);
     try testing.expectEqualSlices(u8, "view default", try empty_view.getRootTextDefault("view default"));
+    try testing.expectEqual(@as(usize, "view default".len), try empty_view.getRootTextDefaultByteCount("view default"));
+    try testing.expect(try empty_view.rootTextDefaultMatchesBytes("view default", "view default".len));
+    try testing.expect(!try empty_view.rootTextDefaultMatchesBytes("view default", "view default".len + 1));
 
     var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
     defer text_builder.deinit();
@@ -6273,6 +6396,9 @@ test "message reader views parse flat bytes without copying message data" {
     var text_view = try MessageReaderView.initFlat(testing.allocator, text_flat, .{});
     defer text_view.deinit(testing.allocator);
     try testing.expectEqualSlices(u8, "view root text", try text_view.getRootTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "view root text".len), try text_view.getRootTextDefaultByteCount("ignored"));
+    try testing.expect(try text_view.rootTextDefaultMatchesBytes("ignored", "view root text".len));
+    try testing.expect(!try text_view.rootTextDefaultMatchesBytes("ignored", "ignored".len));
 }
 
 test "message builder writes flat and packed streams directly" {
@@ -7691,42 +7817,67 @@ test "message builder and reader expose scalar root pointer helpers" {
     var empty_text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
     defer empty_text_builder.deinit();
     try testing.expectEqualSlices(u8, "default root", try empty_text_builder.getRootTextDefault("default root"));
+    try testing.expectEqual(@as(usize, "default root".len), try empty_text_builder.getRootTextDefaultByteCount("default root"));
+    try testing.expect(try empty_text_builder.rootTextDefaultMatchesBytes("default root", "default root".len));
+    try testing.expect(!try empty_text_builder.rootTextDefaultMatchesBytes("default root", "default root".len + 1));
     var empty_text_reader = MessageReader.init(try empty_text_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, "default root", try empty_text_reader.getRootTextDefault("default root"));
+    try testing.expectEqual(@as(usize, "default root".len), try empty_text_reader.getRootTextDefaultByteCount("default root"));
+    try testing.expect(try empty_text_reader.rootTextDefaultMatchesBytes("default root", "default root".len));
+    try testing.expect(!try empty_text_reader.rootTextDefaultMatchesBytes("default root", "default root".len + 1));
 
     var text_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
     defer text_builder.deinit();
     try text_builder.setRootText("root text");
     try testing.expectEqualSlices(u8, "root text", try text_builder.getRootText());
     try testing.expectEqualSlices(u8, "root text", try text_builder.getRootTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "root text".len), try text_builder.getRootTextDefaultByteCount("ignored"));
+    try testing.expect(try text_builder.rootTextDefaultMatchesBytes("ignored", "root text".len));
+    try testing.expect(!try text_builder.rootTextDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expectEqual(@as(usize, "root text".len), try text_builder.getRootTextByteCount());
     try testing.expect(try text_builder.rootTextMatchesBytes("root text".len));
     try testing.expect(!try text_builder.rootTextMatchesBytes("root text".len + 1));
     var text_reader = MessageReader.init(try text_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, "root text", try text_reader.getRootText());
     try testing.expectEqualSlices(u8, "root text", try text_reader.getRootTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "root text".len), try text_reader.getRootTextDefaultByteCount("ignored"));
+    try testing.expect(try text_reader.rootTextDefaultMatchesBytes("ignored", "root text".len));
+    try testing.expect(!try text_reader.rootTextDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expectEqual(@as(usize, "root text".len), try text_reader.getRootTextByteCount());
     try testing.expect(try text_reader.rootTextMatchesBytes("root text".len));
     try testing.expect(!try text_reader.rootTextMatchesBytes("root text".len + 1));
     try testing.expectError(error.TextContainsInteriorNul, empty_text_reader.getRootTextDefault("bad\x00default"));
+    try testing.expectError(error.TextContainsInteriorNul, empty_text_reader.getRootTextDefaultByteCount("bad\x00default"));
 
     var empty_data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
     defer empty_data_builder.deinit();
     try testing.expectEqualSlices(u8, &[_]u8{ 9, 9 }, try empty_data_builder.getRootDataDefault(&[_]u8{ 9, 9 }));
+    try testing.expectEqual(@as(usize, 2), try empty_data_builder.getRootDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try empty_data_builder.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
+    try testing.expect(!try empty_data_builder.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
     var empty_data_reader = MessageReader.init(try empty_data_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, &[_]u8{ 9, 9 }, try empty_data_reader.getRootDataDefault(&[_]u8{ 9, 9 }));
+    try testing.expectEqual(@as(usize, 2), try empty_data_reader.getRootDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try empty_data_reader.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
+    try testing.expect(!try empty_data_reader.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
 
     var data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
     defer data_builder.deinit();
     try data_builder.setRootData(&[_]u8{ 3, 1, 4 });
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_builder.getRootData());
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_builder.getRootDataDefault(&[_]u8{ 9, 9 }));
+    try testing.expectEqual(@as(usize, 3), try data_builder.getRootDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try data_builder.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
+    try testing.expect(!try data_builder.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
     try testing.expectEqual(@as(usize, 3), try data_builder.getRootDataByteCount());
     try testing.expect(try data_builder.rootDataMatchesBytes(3));
     try testing.expect(!try data_builder.rootDataMatchesBytes(4));
     var data_reader = MessageReader.init(try data_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_reader.getRootData());
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_reader.getRootDataDefault(&[_]u8{ 9, 9 }));
+    try testing.expectEqual(@as(usize, 3), try data_reader.getRootDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try data_reader.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
+    try testing.expect(!try data_reader.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
     try testing.expectEqual(@as(usize, 3), try data_reader.getRootDataByteCount());
     try testing.expect(try data_reader.rootDataMatchesBytes(3));
     try testing.expect(!try data_reader.rootDataMatchesBytes(4));
@@ -7744,6 +7895,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(usize, "root text".len), try text_root_pointer.getTextByteCount());
     try testing.expect(try text_root_pointer.textMatchesBytes("root text".len));
     try testing.expect(!try text_root_pointer.textMatchesBytes("root text".len + 1));
+    try testing.expectEqual(@as(usize, "root text".len), try text_root_pointer.getTextDefaultByteCount("ignored"));
+    try testing.expect(try text_root_pointer.textDefaultMatchesBytes("ignored", "root text".len));
+    try testing.expect(!try text_root_pointer.textDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expect(text_root_pointer.matchesLocation(0, 0));
     try testing.expect(text_root_pointer.matchesPointerType(.far));
     try testing.expect(text_root_pointer.isFarPointer());
@@ -7759,6 +7913,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(usize, "root text".len), try text_pointer_reader.getTextByteCount());
     try testing.expect(try text_pointer_reader.textMatchesBytes("root text".len));
     try testing.expect(!try text_pointer_reader.textMatchesBytes("root text".len + 1));
+    try testing.expectEqual(@as(usize, "root text".len), try text_pointer_reader.getTextDefaultByteCount("ignored"));
+    try testing.expect(try text_pointer_reader.textDefaultMatchesBytes("ignored", "root text".len));
+    try testing.expect(!try text_pointer_reader.textDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expect(text_pointer_reader.matchesLocation(0, 0));
     try testing.expect(text_pointer_reader.matchesPointerType(.list));
     try testing.expect(text_pointer_reader.isListPointer());
@@ -7803,6 +7960,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(usize, "root text".len), try owned_text.getRootTextByteCount());
     try testing.expect(try owned_text.rootTextMatchesBytes("root text".len));
     try testing.expect(!try owned_text.rootTextMatchesBytes("root text".len + 1));
+    try testing.expectEqual(@as(usize, "root text".len), try owned_text.getRootTextDefaultByteCount("ignored"));
+    try testing.expect(try owned_text.rootTextDefaultMatchesBytes("ignored", "root text".len));
+    try testing.expect(!try owned_text.rootTextDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expect(try owned_text.matchesRootPointerType(.list));
     try testing.expect(try owned_text.isRootListPointer());
     try testing.expect(try owned_text.isRootNearPointer());
@@ -7812,6 +7972,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(usize, "root text".len), try viewed_text.getRootTextByteCount());
     try testing.expect(try viewed_text.rootTextMatchesBytes("root text".len));
     try testing.expect(!try viewed_text.rootTextMatchesBytes("root text".len + 1));
+    try testing.expectEqual(@as(usize, "root text".len), try viewed_text.getRootTextDefaultByteCount("ignored"));
+    try testing.expect(try viewed_text.rootTextDefaultMatchesBytes("ignored", "root text".len));
+    try testing.expect(!try viewed_text.rootTextDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expect(try viewed_text.matchesRootPointerType(.list));
     try testing.expect(try viewed_text.isRootListPointer());
     try testing.expect(try viewed_text.isRootNearPointer());
@@ -7830,10 +7993,16 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(usize, 3), try data_root_pointer.getDataByteCount());
     try testing.expect(try data_root_pointer.dataMatchesBytes(3));
     try testing.expect(!try data_root_pointer.dataMatchesBytes(4));
+    try testing.expectEqual(@as(usize, 3), try data_root_pointer.getDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try data_root_pointer.dataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
+    try testing.expect(!try data_root_pointer.dataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
     const data_pointer_reader = try data_reader.getRootPointer();
     try testing.expectEqual(@as(usize, 3), try data_pointer_reader.getDataByteCount());
     try testing.expect(try data_pointer_reader.dataMatchesBytes(3));
     try testing.expect(!try data_pointer_reader.dataMatchesBytes(4));
+    try testing.expectEqual(@as(usize, 3), try data_pointer_reader.getDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try data_pointer_reader.dataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
+    try testing.expect(!try data_pointer_reader.dataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
 
     const data_flat = try data_builder.toFlatBytes();
     defer testing.allocator.free(data_flat);
@@ -7842,11 +8011,17 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(usize, 3), try owned_data.getRootDataByteCount());
     try testing.expect(try owned_data.rootDataMatchesBytes(3));
     try testing.expect(!try owned_data.rootDataMatchesBytes(4));
+    try testing.expectEqual(@as(usize, 3), try owned_data.getRootDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try owned_data.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
+    try testing.expect(!try owned_data.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
     var viewed_data = try MessageReaderView.initFlat(testing.allocator, data_flat, .{});
     defer viewed_data.deinit(testing.allocator);
     try testing.expectEqual(@as(usize, 3), try viewed_data.getRootDataByteCount());
     try testing.expect(try viewed_data.rootDataMatchesBytes(3));
     try testing.expect(!try viewed_data.rootDataMatchesBytes(4));
+    try testing.expectEqual(@as(usize, 3), try viewed_data.getRootDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(try viewed_data.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 3));
+    try testing.expect(!try viewed_data.rootDataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
 }
 
 test "message builder can disown and adopt root pointers" {
