@@ -2481,6 +2481,20 @@ pub const PointerBuilder = struct {
         }).getCapabilityIndex();
     }
 
+    pub fn maxCapabilityCount(self: PointerBuilder) Error!usize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).maxCapabilityCount();
+    }
+
+    pub fn matchesMaxCapabilityCount(self: PointerBuilder, count: usize) bool {
+        return (self.maxCapabilityCount() catch return false) == count;
+    }
+
     pub fn copyFrom(self: PointerBuilder, source: PointerReader) Error!void {
         try self.copyFromMode(source, false);
     }
@@ -2886,6 +2900,17 @@ pub const PointerReader = struct {
         if (resolved.raw == 0) return error.NullPointer;
         if (wire.pointerType(resolved.raw) != .other) return error.InvalidPointerKind;
         return (try wire.decodeOther(resolved.raw)).index;
+    }
+
+    pub fn maxCapabilityCount(self: PointerReader) Error!usize {
+        const resolved = try self.resolve();
+        if (resolved.raw == 0) return error.NullPointer;
+        if (wire.pointerType(resolved.raw) != .other) return error.InvalidPointerKind;
+        return (try wire.decodeOther(resolved.raw)).maxCapabilityCount();
+    }
+
+    pub fn matchesMaxCapabilityCount(self: PointerReader, count: usize) bool {
+        return (self.maxCapabilityCount() catch return false) == count;
     }
 
     fn descend(self: PointerReader, words: usize) Error!void {
@@ -5580,12 +5605,18 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expect(cap_root_pointer.isOtherPointer());
     try testing.expect(cap_root_pointer.isNearPointer());
     try testing.expect(!cap_root_pointer.isListPointer());
+    try testing.expectEqual(@as(usize, 4243), try cap_root_pointer.maxCapabilityCount());
+    try testing.expect(cap_root_pointer.matchesMaxCapabilityCount(4243));
+    try testing.expect(!cap_root_pointer.matchesMaxCapabilityCount(4242));
     const cap_pointer_reader = try cap_reader.getRootPointer();
     try testing.expect(cap_pointer_reader.matchesPointerType(.other));
     try testing.expect(cap_pointer_reader.isCapabilityPointer());
     try testing.expect(cap_pointer_reader.isOtherPointer());
     try testing.expect(cap_pointer_reader.isNearPointer());
     try testing.expect(!cap_pointer_reader.isListPointer());
+    try testing.expectEqual(@as(usize, 4243), try cap_pointer_reader.maxCapabilityCount());
+    try testing.expect(cap_pointer_reader.matchesMaxCapabilityCount(4243));
+    try testing.expect(!cap_pointer_reader.matchesMaxCapabilityCount(4242));
 
     try testing.expect(try text_builder.matchesRootPointerType(.far));
     try testing.expect(try text_builder.isRootFarPointer());
