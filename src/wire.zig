@@ -133,6 +133,10 @@ pub const StructPointer = struct {
         return targetWordIndex(pointer_word_index, self.offset_words);
     }
 
+    pub fn matchesTargetIndex(self: StructPointer, pointer_word_index: usize, expected: usize) bool {
+        return (self.targetIndex(pointer_word_index) catch return false) == expected;
+    }
+
     pub fn dataWordCount(self: StructPointer) u16 {
         return self.data_words;
     }
@@ -181,6 +185,10 @@ pub const ListPointer = struct {
 
     pub fn targetIndex(self: ListPointer, pointer_word_index: usize) Error!usize {
         return targetWordIndex(pointer_word_index, self.offset_words);
+    }
+
+    pub fn matchesTargetIndex(self: ListPointer, pointer_word_index: usize, expected: usize) bool {
+        return (self.targetIndex(pointer_word_index) catch return false) == expected;
     }
 
     pub fn elementSize(self: ListPointer) ElementSize {
@@ -535,6 +543,8 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(u16, 2), struct_ptr.pointer_count);
     try testing.expectEqual(StructSize{ .data_words = 3, .pointer_count = 2 }, struct_ptr.size());
     try testing.expectEqual(@as(usize, 3), try struct_ptr.targetIndex(0));
+    try testing.expect(struct_ptr.matchesTargetIndex(0, 3));
+    try testing.expect(!struct_ptr.matchesTargetIndex(0, 2));
     try testing.expectEqual(@as(u16, 3), struct_ptr.dataWordCount());
     try testing.expectEqual(@as(u16, 2), struct_ptr.pointerCount());
     try testing.expectEqual(@as(usize, 5), struct_ptr.totalWords());
@@ -562,6 +572,8 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(ElementSize.byte, list_ptr.element_size);
     try testing.expectEqual(@as(u29, 53), list_ptr.element_count_or_words);
     try testing.expectEqual(@as(usize, 8), try list_ptr.targetIndex(1));
+    try testing.expect(list_ptr.matchesTargetIndex(1, 8));
+    try testing.expect(!list_ptr.matchesTargetIndex(1, 7));
     try testing.expectEqual(ElementSize.byte, list_ptr.elementSize());
     try testing.expectEqual(@as(usize, 53), list_ptr.elementCountOrWordCount());
     try testing.expectEqual(@as(usize, 53), try list_ptr.elementCount());
