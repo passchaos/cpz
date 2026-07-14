@@ -9102,6 +9102,21 @@ fn listStructFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *con
     return flat;
 }
 
+fn listNestedFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, child: Type, literal: []const u8) LayoutError![]u8 {
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, @sizeOf(u64));
+    try appendScalarListPointer(allocator, file, scope, &segment, 0, 0, 0, child, literal);
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
     const items = constListItemsFromInlineLiteralAlloc(allocator, default_expression) catch |err| switch (err) {
         error.UnexpectedToken, error.InvalidToken => return,
@@ -9132,6 +9147,11 @@ fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
             const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, default_expression, false);
             defer allocator.free(flat);
             try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, false);
+        },
+        .list => {
+            const flat = try listNestedFieldDefaultFlatBytesAlloc(allocator, file, scope, child, default_expression);
+            defer allocator.free(flat);
+            try emitFlatListContainerFromBytes(allocator, out, indent, container_name, flat, ".pointer", null, null);
         },
         .named => |type_name| {
             if (findEnum(file, type_name)) |enum_decl| {
