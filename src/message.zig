@@ -418,6 +418,22 @@ pub const OwnedMessageReader = struct {
         return self.reader.rootListMatchesLen(expected, count);
     }
 
+    pub fn rootListIsEmpty(self: *OwnedMessageReader, expected: ?wire.ElementSize) Error!bool {
+        return self.reader.rootListIsEmpty(expected);
+    }
+
+    pub fn rootListHasIndex(self: *OwnedMessageReader, expected: ?wire.ElementSize, index: usize) Error!bool {
+        return self.reader.rootListHasIndex(expected, index);
+    }
+
+    pub fn getRootListFirstIndex(self: *OwnedMessageReader, expected: ?wire.ElementSize) Error!usize {
+        return self.reader.getRootListFirstIndex(expected);
+    }
+
+    pub fn getRootListLastIndex(self: *OwnedMessageReader, expected: ?wire.ElementSize) Error!usize {
+        return self.reader.getRootListLastIndex(expected);
+    }
+
     pub fn getRootListElementSize(self: *OwnedMessageReader, expected: ?wire.ElementSize) Error!wire.ElementSize {
         return self.reader.getRootListElementSize(expected);
     }
@@ -831,6 +847,22 @@ pub const MessageReaderView = struct {
 
     pub fn rootListMatchesLen(self: *MessageReaderView, expected: ?wire.ElementSize, count: usize) Error!bool {
         return self.reader.rootListMatchesLen(expected, count);
+    }
+
+    pub fn rootListIsEmpty(self: *MessageReaderView, expected: ?wire.ElementSize) Error!bool {
+        return self.reader.rootListIsEmpty(expected);
+    }
+
+    pub fn rootListHasIndex(self: *MessageReaderView, expected: ?wire.ElementSize, index: usize) Error!bool {
+        return self.reader.rootListHasIndex(expected, index);
+    }
+
+    pub fn getRootListFirstIndex(self: *MessageReaderView, expected: ?wire.ElementSize) Error!usize {
+        return self.reader.getRootListFirstIndex(expected);
+    }
+
+    pub fn getRootListLastIndex(self: *MessageReaderView, expected: ?wire.ElementSize) Error!usize {
+        return self.reader.getRootListLastIndex(expected);
     }
 
     pub fn getRootListElementSize(self: *MessageReaderView, expected: ?wire.ElementSize) Error!wire.ElementSize {
@@ -1440,6 +1472,22 @@ pub const Orphan = struct {
         return (self.getListLen(expected) catch return false) == count;
     }
 
+    pub fn listIsEmpty(self: Orphan, expected: ?wire.ElementSize) bool {
+        return (self.getList(expected) catch return false).isEmpty();
+    }
+
+    pub fn listHasIndex(self: Orphan, expected: ?wire.ElementSize, index: usize) bool {
+        return (self.getList(expected) catch return false).hasIndex(index);
+    }
+
+    pub fn getListFirstIndex(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).firstIndex();
+    }
+
+    pub fn getListLastIndex(self: Orphan, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).lastIndex();
+    }
+
     pub fn getListElementSize(self: Orphan, expected: ?wire.ElementSize) Error!wire.ElementSize {
         return (try self.getList(expected)).elementSize();
     }
@@ -1732,6 +1780,22 @@ pub const MessageBuilder = struct {
 
     pub fn rootListMatchesLen(self: *MessageBuilder, expected: ?wire.ElementSize, count: usize) Error!bool {
         return (try self.getRootList(expected)).matchesLen(count);
+    }
+
+    pub fn rootListIsEmpty(self: *MessageBuilder, expected: ?wire.ElementSize) Error!bool {
+        return (try self.getRootList(expected)).isEmpty();
+    }
+
+    pub fn rootListHasIndex(self: *MessageBuilder, expected: ?wire.ElementSize, index: usize) Error!bool {
+        return (try self.getRootList(expected)).hasIndex(index);
+    }
+
+    pub fn getRootListFirstIndex(self: *MessageBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getRootList(expected)).firstIndex();
+    }
+
+    pub fn getRootListLastIndex(self: *MessageBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getRootList(expected)).lastIndex();
     }
 
     pub fn getRootListElementSize(self: *MessageBuilder, expected: ?wire.ElementSize) Error!wire.ElementSize {
@@ -2462,6 +2526,22 @@ pub const MessageReader = struct {
         return (try self.getRootList(expected)).matchesLen(count);
     }
 
+    pub fn rootListIsEmpty(self: *MessageReader, expected: ?wire.ElementSize) Error!bool {
+        return (try self.getRootList(expected)).isEmpty();
+    }
+
+    pub fn rootListHasIndex(self: *MessageReader, expected: ?wire.ElementSize, index: usize) Error!bool {
+        return (try self.getRootList(expected)).hasIndex(index);
+    }
+
+    pub fn getRootListFirstIndex(self: *MessageReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getRootList(expected)).firstIndex();
+    }
+
+    pub fn getRootListLastIndex(self: *MessageReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getRootList(expected)).lastIndex();
+    }
+
     pub fn getRootListElementSize(self: *MessageReader, expected: ?wire.ElementSize) Error!wire.ElementSize {
         return (try self.getRootList(expected)).elementSize();
     }
@@ -3153,6 +3233,22 @@ pub const PointerBuilder = struct {
         return (try self.getList(expected)).matchesLen(count);
     }
 
+    pub fn listIsEmpty(self: PointerBuilder, expected: ?wire.ElementSize) Error!bool {
+        return (try self.getList(expected)).isEmpty();
+    }
+
+    pub fn listHasIndex(self: PointerBuilder, expected: ?wire.ElementSize, index: usize) Error!bool {
+        return (try self.getList(expected)).hasIndex(index);
+    }
+
+    pub fn getListFirstIndex(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).firstIndex();
+    }
+
+    pub fn getListLastIndex(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).lastIndex();
+    }
+
     pub fn getListElementSize(self: PointerBuilder, expected: ?wire.ElementSize) Error!wire.ElementSize {
         return (try self.getList(expected)).elementSize();
     }
@@ -3786,6 +3882,22 @@ pub const PointerReader = struct {
 
     pub fn listMatchesLen(self: PointerReader, expected: ?wire.ElementSize, count: usize) Error!bool {
         return (try self.getList(expected)).matchesLen(count);
+    }
+
+    pub fn listIsEmpty(self: PointerReader, expected: ?wire.ElementSize) Error!bool {
+        return (try self.getList(expected)).isEmpty();
+    }
+
+    pub fn listHasIndex(self: PointerReader, expected: ?wire.ElementSize, index: usize) Error!bool {
+        return (try self.getList(expected)).hasIndex(index);
+    }
+
+    pub fn getListFirstIndex(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).firstIndex();
+    }
+
+    pub fn getListLastIndex(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).lastIndex();
     }
 
     pub fn getListElementSize(self: PointerReader, expected: ?wire.ElementSize) Error!wire.ElementSize {
@@ -6364,6 +6476,11 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(@as(u16, 222), try builder_root_list.getUInt16(1));
     try testing.expectEqual(@as(usize, 2), try builder.getRootListLen(.two_bytes));
     try testing.expect(try builder.rootListMatchesLen(.two_bytes, 2));
+    try testing.expect(!try builder.rootListIsEmpty(.two_bytes));
+    try testing.expect(try builder.rootListHasIndex(.two_bytes, 1));
+    try testing.expect(!try builder.rootListHasIndex(.two_bytes, 2));
+    try testing.expectEqual(@as(usize, 0), try builder.getRootListFirstIndex(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try builder.getRootListLastIndex(.two_bytes));
     try testing.expectEqual(wire.ElementSize.two_bytes, try builder.getRootListElementSize(.two_bytes));
     try testing.expect(try builder.rootListMatchesElementSize(.two_bytes, .two_bytes));
     try testing.expectEqual(@as(usize, 16), try builder.getRootListElementBitCount(.two_bytes));
@@ -6443,6 +6560,11 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(@as(u16, 222), builder_view_nums.getUInt16(1));
     try testing.expectEqual(@as(usize, 2), try root_ptr_builder.getListLen(.two_bytes));
     try testing.expect(try root_ptr_builder.listMatchesLen(.two_bytes, 2));
+    try testing.expect(!try root_ptr_builder.listIsEmpty(.two_bytes));
+    try testing.expect(try root_ptr_builder.listHasIndex(.two_bytes, 1));
+    try testing.expect(!try root_ptr_builder.listHasIndex(.two_bytes, 2));
+    try testing.expectEqual(@as(usize, 0), try root_ptr_builder.getListFirstIndex(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try root_ptr_builder.getListLastIndex(.two_bytes));
     try testing.expectEqual(wire.ElementSize.two_bytes, try root_ptr_builder.getListElementSize(.two_bytes));
     try testing.expect(try root_ptr_builder.listMatchesElementSize(.two_bytes, .two_bytes));
     try testing.expectEqual(@as(usize, 16), try root_ptr_builder.getListElementBitCount(.two_bytes));
@@ -6479,6 +6601,11 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(@as(u16, 222), direct_read_nums.getUInt16(1));
     try testing.expectEqual(@as(usize, 2), try reader.getRootListLen(.two_bytes));
     try testing.expect(try reader.rootListMatchesLen(.two_bytes, 2));
+    try testing.expect(!try reader.rootListIsEmpty(.two_bytes));
+    try testing.expect(try reader.rootListHasIndex(.two_bytes, 1));
+    try testing.expect(!try reader.rootListHasIndex(.two_bytes, 2));
+    try testing.expectEqual(@as(usize, 0), try reader.getRootListFirstIndex(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try reader.getRootListLastIndex(.two_bytes));
     try testing.expectEqual(wire.ElementSize.two_bytes, try reader.getRootListElementSize(.two_bytes));
     try testing.expect(try reader.rootListMatchesElementSize(.two_bytes, .two_bytes));
     try testing.expectEqual(@as(usize, 16), try reader.getRootListElementBitCount(.two_bytes));
@@ -6498,6 +6625,11 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(@as(u16, 222), read_nums.getUInt16(1));
     try testing.expectEqual(@as(usize, 2), try root_ptr.getListLen(.two_bytes));
     try testing.expect(try root_ptr.listMatchesLen(.two_bytes, 2));
+    try testing.expect(!try root_ptr.listIsEmpty(.two_bytes));
+    try testing.expect(try root_ptr.listHasIndex(.two_bytes, 1));
+    try testing.expect(!try root_ptr.listHasIndex(.two_bytes, 2));
+    try testing.expectEqual(@as(usize, 0), try root_ptr.getListFirstIndex(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try root_ptr.getListLastIndex(.two_bytes));
     try testing.expectEqual(wire.ElementSize.two_bytes, try root_ptr.getListElementSize(.two_bytes));
     try testing.expect(try root_ptr.listMatchesElementSize(.two_bytes, .two_bytes));
     try testing.expectEqual(@as(usize, 16), try root_ptr.getListElementBitCount(.two_bytes));
@@ -6518,6 +6650,11 @@ test "root pointer APIs support non-struct roots" {
     defer owned_nums.deinit(testing.allocator);
     try testing.expectEqual(@as(usize, 2), try owned_nums.getRootListLen(.two_bytes));
     try testing.expect(try owned_nums.rootListMatchesLen(.two_bytes, 2));
+    try testing.expect(!try owned_nums.rootListIsEmpty(.two_bytes));
+    try testing.expect(try owned_nums.rootListHasIndex(.two_bytes, 1));
+    try testing.expect(!try owned_nums.rootListHasIndex(.two_bytes, 2));
+    try testing.expectEqual(@as(usize, 0), try owned_nums.getRootListFirstIndex(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try owned_nums.getRootListLastIndex(.two_bytes));
     try testing.expectEqual(wire.ElementSize.two_bytes, try owned_nums.getRootListElementSize(.two_bytes));
     try testing.expect(try owned_nums.rootListMatchesElementSize(.two_bytes, .two_bytes));
     try testing.expectEqual(@as(usize, 16), try owned_nums.getRootListElementBitCount(.two_bytes));
@@ -6536,6 +6673,11 @@ test "root pointer APIs support non-struct roots" {
     defer view_nums.deinit(testing.allocator);
     try testing.expectEqual(@as(usize, 2), try view_nums.getRootListLen(.two_bytes));
     try testing.expect(try view_nums.rootListMatchesLen(.two_bytes, 2));
+    try testing.expect(!try view_nums.rootListIsEmpty(.two_bytes));
+    try testing.expect(try view_nums.rootListHasIndex(.two_bytes, 1));
+    try testing.expect(!try view_nums.rootListHasIndex(.two_bytes, 2));
+    try testing.expectEqual(@as(usize, 0), try view_nums.getRootListFirstIndex(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try view_nums.getRootListLastIndex(.two_bytes));
     try testing.expectEqual(wire.ElementSize.two_bytes, try view_nums.getRootListElementSize(.two_bytes));
     try testing.expect(try view_nums.rootListMatchesElementSize(.two_bytes, .two_bytes));
     try testing.expectEqual(@as(usize, 16), try view_nums.getRootListElementBitCount(.two_bytes));
@@ -6914,6 +7056,11 @@ test "pointer builders can disown and adopt within a message" {
     const orphan_text = try orphan.getList(.byte);
     try testing.expectEqual(@as(usize, 8), try orphan.getListLen(.byte));
     try testing.expect(orphan.listMatchesLen(.byte, 8));
+    try testing.expect(!orphan.listIsEmpty(.byte));
+    try testing.expect(orphan.listHasIndex(.byte, 7));
+    try testing.expect(!orphan.listHasIndex(.byte, 8));
+    try testing.expectEqual(@as(usize, 0), try orphan.getListFirstIndex(.byte));
+    try testing.expectEqual(@as(usize, 7), try orphan.getListLastIndex(.byte));
     try testing.expectEqual(wire.ElementSize.byte, try orphan.getListElementSize(.byte));
     try testing.expect(orphan.listMatchesElementSize(.byte, .byte));
     try testing.expectEqual(@as(usize, 8), try orphan.getListElementBitCount(.byte));
