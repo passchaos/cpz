@@ -9717,6 +9717,70 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         field_name, field_name,
     });
 
+    try appendFmt(allocator, out,
+        \\    pub fn {s}ListStructElementDataWordCount(self: @This(), expected: ?cpz.ElementSize) !u16 {{
+        \\        return (try self.{s}AsPointer()).getListStructElementDataWordCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListStructElementPointerCount(self: @This(), expected: ?cpz.ElementSize) !u16 {{
+        \\        return (try self.{s}AsPointer()).getListStructElementPointerCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListStructElementTotalWords(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListStructElementTotalWords(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListStructElementDataByteCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListStructElementDataByteCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListStructElementPointerByteCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListStructElementPointerByteCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListStructElementTotalByteCount(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListStructElementTotalByteCount(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesStructElementDataWords(self: @This(), expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataWords(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesStructElementPointerCount(self: @This(), expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerCount(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesStructElementTotalWords(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalWords(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesStructElementDataBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataBytes(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesStructElementPointerBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerBytes(expected, count);
+        \\    }}
+        \\
+        \\    pub fn {s}ListMatchesStructElementTotalBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalBytes(expected, count);
+        \\    }}
+        \\
+    , .{
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
+
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
             const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
@@ -12232,6 +12296,70 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\
     , .{
         field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
+
+    try appendFmt(allocator, out,
+        \\        pub fn get_{s}ListStructElementDataWordCount(self: Builder, expected: ?cpz.ElementSize) !u16 {{
+        \\            return (try self.get_{s}AsPointer()).getListStructElementDataWordCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListStructElementPointerCount(self: Builder, expected: ?cpz.ElementSize) !u16 {{
+        \\            return (try self.get_{s}AsPointer()).getListStructElementPointerCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListStructElementTotalWords(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListStructElementTotalWords(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListStructElementDataByteCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListStructElementDataByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListStructElementPointerByteCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListStructElementPointerByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListStructElementTotalByteCount(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListStructElementTotalByteCount(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesStructElementDataWords(self: Builder, expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataWords(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesStructElementPointerCount(self: Builder, expected: ?cpz.ElementSize, count: u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerCount(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesStructElementTotalWords(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalWords(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesStructElementDataBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesStructElementPointerBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerBytes(expected, count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListMatchesStructElementTotalBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalBytes(expected, count);
+        \\        }}
+        \\
+    , .{
         field_name, field_name,
         field_name, field_name,
         field_name, field_name,
