@@ -8527,6 +8527,36 @@ fn emitTextOrDataListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *
     , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, accessor, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
+fn emitStructListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, item_type_name: []const u8, flat: []const u8) LayoutError!void {
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+        \\{s}        return message_reader.getRootList(.composite);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
+        \\{s}        return {s}.fromReader(try (try list(message_reader)).getStructElement(index));
+        \\{s}    }}
+        \\
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent, indent, indent, indent, indent, indent });
+}
+
 fn emitEnumListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, enum_decl: *const EnumDecl, items: []const ConstListItem) LayoutError!void {
     const flat = try listEnumFlatBytesAlloc(allocator, enum_decl, items);
     defer allocator.free(flat);
@@ -9057,6 +9087,21 @@ fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, litera
     return flat;
 }
 
+fn listStructFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, type_name: []const u8, literal: []const u8) LayoutError![]u8 {
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, @sizeOf(u64));
+    try appendStructListPointer(allocator, file, &segment, 0, 0, 0, type_name, literal);
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
     const items = constListItemsFromInlineLiteralAlloc(allocator, default_expression) catch |err| switch (err) {
         error.UnexpectedToken, error.InvalidToken => return,
@@ -9089,10 +9134,17 @@ fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
             try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, false);
         },
         .named => |type_name| {
-            const enum_decl = findEnum(file, type_name) orelse return;
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-            defer allocator.free(zig_type);
-            try emitEnumListFlatContainer(allocator, out, indent, container_name, zig_type, enum_decl, items);
+            if (findEnum(file, type_name)) |enum_decl| {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try emitEnumListFlatContainer(allocator, out, indent, container_name, zig_type, enum_decl, items);
+            } else if (findStructDirect(file, type_name) != null) {
+                const flat = try listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, default_expression);
+                defer allocator.free(flat);
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try emitStructListFlatContainerFromBytes(allocator, out, indent, container_name, zig_type, flat);
+            }
         },
         else => return,
     }
