@@ -138,6 +138,10 @@ pub const ConstListItem = struct {
         return std.mem.eql(u8, self.literal, item_literal);
     }
 
+    pub fn hasAnnotations(self: ConstListItem) bool {
+        return self.annotations.len != 0;
+    }
+
     pub fn matchesAnnotations(self: ConstListItem, item_annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, item_annotations);
     }
@@ -171,6 +175,10 @@ pub const ConstMetadata = struct {
         return std.mem.eql(u8, self.name, const_name);
     }
 
+    pub fn hasId(self: ConstMetadata) bool {
+        return self.id != null;
+    }
+
     pub fn matchesId(self: ConstMetadata, const_id: u64) bool {
         return self.id != null and self.id.? == const_id;
     }
@@ -185,6 +193,10 @@ pub const ConstMetadata = struct {
 
     pub fn matchesLiteral(self: ConstMetadata, const_literal: []const u8) bool {
         return std.mem.eql(u8, self.literal, const_literal);
+    }
+
+    pub fn hasAnnotations(self: ConstMetadata) bool {
+        return self.annotations.len != 0;
     }
 
     pub fn matchesAnnotations(self: ConstMetadata, annotations: []const u8) bool {
@@ -207,8 +219,16 @@ pub const ConstMetadata = struct {
         return self.is_struct_literal == is_struct;
     }
 
+    pub fn hasEmbedPath(self: ConstMetadata) bool {
+        return self.embed_path.len != 0;
+    }
+
     pub fn matchesEmitted(self: ConstMetadata, is_emitted: bool) bool {
         return self.emitted == is_emitted;
+    }
+
+    pub fn hasListItems(self: ConstMetadata) bool {
+        return self.list_item_count != 0;
     }
 
     pub fn matchesListItemCount(self: ConstMetadata, count: usize) bool {
@@ -384,6 +404,10 @@ pub const EnumValueMetadata = struct {
         return self.ordinal == raw;
     }
 
+    pub fn hasAnnotations(self: EnumValueMetadata) bool {
+        return self.annotations.len != 0;
+    }
+
     pub fn matchesAnnotations(self: EnumValueMetadata, annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, annotations);
     }
@@ -433,12 +457,20 @@ pub const FieldMetadata = struct {
         return std.mem.eql(u8, self.default, default_value);
     }
 
+    pub fn hasDefault(self: FieldMetadata) bool {
+        return self.default.len != 0;
+    }
+
     pub fn matchesExplicitDefault(self: FieldMetadata, has_default: bool) bool {
         return self.has_explicit_default == has_default;
     }
 
     pub fn matchesHexDefault(self: FieldMetadata, is_hex: bool) bool {
         return self.default_is_hex_data == is_hex;
+    }
+
+    pub fn hasAnnotations(self: FieldMetadata) bool {
+        return self.annotations.len != 0;
     }
 
     pub fn matchesAnnotations(self: FieldMetadata, annotations: []const u8) bool {
@@ -602,12 +634,24 @@ pub const DeclarationMetadata = struct {
         return self.kind == declaration_kind;
     }
 
+    pub fn hasId(self: DeclarationMetadata) bool {
+        return self.id != null;
+    }
+
     pub fn matchesId(self: DeclarationMetadata, declaration_id: u64) bool {
         return self.id != null and self.id.? == declaration_id;
     }
 
+    pub fn hasAnnotations(self: DeclarationMetadata) bool {
+        return self.annotations.len != 0;
+    }
+
     pub fn matchesAnnotations(self: DeclarationMetadata, annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, annotations);
+    }
+
+    pub fn hasParameters(self: DeclarationMetadata) bool {
+        return self.parameter_count != 0;
     }
 
     pub fn matchesParameterCount(self: DeclarationMetadata, count: usize) bool {
@@ -669,6 +713,10 @@ pub const MethodField = struct {
         return std.mem.eql(u8, self.resolved_ty, field_type);
     }
 
+    pub fn hasDefault(self: MethodField) bool {
+        return self.default_literal != null;
+    }
+
     pub fn matchesDefault(self: MethodField, default_value: []const u8) bool {
         return self.default_literal != null and std.mem.eql(u8, self.default_literal.?, default_value);
     }
@@ -679,6 +727,10 @@ pub const MethodField = struct {
 
     pub fn matchesHexDefault(self: MethodField, is_hex: bool) bool {
         return self.default_is_hex_data == is_hex;
+    }
+
+    pub fn hasAnnotations(self: MethodField) bool {
+        return self.annotations.len != 0;
     }
 
     pub fn matchesAnnotations(self: MethodField, annotations: []const u8) bool {
@@ -753,6 +805,10 @@ pub const InterfaceMethodMetadata = struct {
         return std.mem.eql(u8, self.resolved_results_type, method_type);
     }
 
+    pub fn hasAnnotations(self: InterfaceMethodMetadata) bool {
+        return self.annotations.len != 0;
+    }
+
     pub fn matchesAnnotations(self: InterfaceMethodMetadata, annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, annotations);
     }
@@ -761,12 +817,24 @@ pub const InterfaceMethodMetadata = struct {
         return self.streaming == is_streaming;
     }
 
+    pub fn hasParameters(self: InterfaceMethodMetadata) bool {
+        return self.parameter_count != 0;
+    }
+
     pub fn matchesParameterCount(self: InterfaceMethodMetadata, count: usize) bool {
         return self.parameter_count == count;
     }
 
+    pub fn hasParamFields(self: InterfaceMethodMetadata) bool {
+        return self.param_field_count != 0;
+    }
+
     pub fn matchesParamFieldCount(self: InterfaceMethodMetadata, count: usize) bool {
         return self.param_field_count == count;
+    }
+
+    pub fn hasResultFields(self: InterfaceMethodMetadata) bool {
+        return self.result_field_count != 0;
     }
 
     pub fn matchesResultFieldCount(self: InterfaceMethodMetadata, count: usize) bool {
@@ -1031,6 +1099,10 @@ pub const AnnotationMetadata = struct {
         return self.index == annotation_index;
     }
 
+    pub fn hasId(self: AnnotationMetadata) bool {
+        return self.id != null;
+    }
+
     pub fn hasTarget(self: AnnotationMetadata, name: []const u8) bool {
         return self.targets.hasTarget(name);
     }
@@ -1057,6 +1129,10 @@ pub const AnnotationMetadata = struct {
 
     pub fn matchesResolvedType(self: AnnotationMetadata, annotation_type: []const u8) bool {
         return std.mem.eql(u8, self.resolved_ty, annotation_type);
+    }
+
+    pub fn hasAnnotations(self: AnnotationMetadata) bool {
+        return self.annotations.len != 0;
     }
 
     pub fn matchesAnnotations(self: AnnotationMetadata, annotations: []const u8) bool {
