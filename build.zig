@@ -126,6 +126,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{
             .{ .name = "cpz", .module = cpz_mod },
             .{ .name = "Base", .module = generated_import_base },
+            .{ .name = "schema_import_base", .module = generated_import_base },
             .{ .name = "Child", .module = generated_import_base },
             .{ .name = "Local", .module = generated_import_base },
             .{ .name = "Extra", .module = generated_import_base },
