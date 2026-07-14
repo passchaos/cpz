@@ -26,6 +26,10 @@ interface Defaults {
     label @1 :Text;
   }
 
+  interface Callback {
+    done @0 () -> ();
+  }
+
   const defaultItems :List(Item) = [(value = 10, label = "ten"), (value = 20, label = "twenty")];
   const defaultItem :Item = (value = 99, label = "ninety-nine");
   const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
@@ -84,4 +88,6 @@ interface Defaults {
     anyList :AnyPointer = defaultNumbers,
     listValue :AnyList = defaultNumbers
   ) -> ();
+
+  capabilityDefaults @6 (callback :Callback = void) -> ();
 }

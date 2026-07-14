@@ -38,7 +38,7 @@ test "generated optional constants expose values and flats" {
 }
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 6), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -251,4 +251,15 @@ test "generated method default flats resolve any pointer const references" {
     var list_value_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".reader(.{});
     const list_value = try generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".get(&list_value_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 8), list_value.getUInt16(1));
+}
+
+test "generated method default flats expose named capability null defaults" {
+    try std.testing.expectEqualStrings("capabilityDefaults", generated.Defaults.@"cpz.methodByName"("capabilityDefaults").?.name);
+
+    var callback_reader = generated.Defaults.@"cpz.method.capabilityDefaults.params.field.callback.defaultFlat".reader(.{});
+    try std.testing.expect(try generated.Defaults.@"cpz.method.capabilityDefaults.params.field.callback.defaultFlat".isNull(&callback_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.@"cpz.method.capabilityDefaults.params.field.callback.defaultFlat".rawPointer(&callback_reader));
+
+    var callback_wrapped = generated.Defaults.@"cpz.method.capabilityDefaults.params.field.callback.defaultFlat".init(.{});
+    try std.testing.expect(try callback_wrapped.isNull());
 }
