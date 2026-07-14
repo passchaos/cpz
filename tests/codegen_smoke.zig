@@ -656,6 +656,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(!try generated.Person.@"cpz.owned.isNull"(&owned_root_reader));
     const owned_pointer = try generated.Person.@"cpz.owned.pointer"(&owned_root_reader);
     try std.testing.expect(!try generated.Person.@"cpz.owned.pointerIsNull"(&owned_root_reader));
+    try std.testing.expectEqual(@as(u32, 0), try generated.Person.@"cpz.owned.pointerSegmentId"(&owned_root_reader));
+    try std.testing.expectEqual(@as(usize, 0), try generated.Person.@"cpz.owned.pointerWordIndex"(&owned_root_reader));
+    try std.testing.expect(try generated.Person.@"cpz.owned.pointerMatchesLocation"(&owned_root_reader, 0, 0));
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try owned_pointer.pointerType()).?);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.owned.pointerKind"(&owned_root_reader)).?);
     try std.testing.expect(try generated.Person.@"cpz.owned.matchesPointerKind"(&owned_root_reader, .struct_ptr));
@@ -750,6 +753,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(!try generated.Person.@"cpz.view.isNull"(&viewed_root_reader));
     const view_pointer = try generated.Person.@"cpz.view.pointer"(&viewed_root_reader);
     try std.testing.expect(!try generated.Person.@"cpz.view.pointerIsNull"(&viewed_root_reader));
+    try std.testing.expectEqual(@as(u32, 0), try generated.Person.@"cpz.view.pointerSegmentId"(&viewed_root_reader));
+    try std.testing.expectEqual(@as(usize, 0), try generated.Person.@"cpz.view.pointerWordIndex"(&viewed_root_reader));
+    try std.testing.expect(try generated.Person.@"cpz.view.pointerMatchesLocation"(&viewed_root_reader, 0, 0));
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try view_pointer.pointerType()).?);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.view.pointerKind"(&viewed_root_reader)).?);
     try std.testing.expect(try generated.Person.@"cpz.view.matchesPointerKind"(&viewed_root_reader, .struct_ptr));

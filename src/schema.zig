@@ -7475,6 +7475,18 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return (try @"cpz.reader".getRootPointer()).isNull();
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.pointerSegmentId"(@"cpz.reader": *cpz.OwnedMessageReader) !u32 {{
+        \\        return (try @"cpz.reader".getRootPointer()).segmentId();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerWordIndex"(@"cpz.reader": *cpz.OwnedMessageReader) !usize {{
+        \\        return (try @"cpz.reader".getRootPointer()).pointerWordIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerMatchesLocation"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        \\        return (try @"cpz.reader".getRootPointer()).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.pointerKind"(@"cpz.reader": *cpz.OwnedMessageReader) !?cpz.wire.PointerType {{
         \\        return @"cpz.reader".getRootPointerKind();
         \\    }}
@@ -7721,6 +7733,18 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.pointerIsNull"(@"cpz.view": *cpz.MessageReaderView) !bool {{
         \\        return (try @"cpz.view".getRootPointer()).isNull();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerSegmentId"(@"cpz.view": *cpz.MessageReaderView) !u32 {{
+        \\        return (try @"cpz.view".getRootPointer()).segmentId();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerWordIndex"(@"cpz.view": *cpz.MessageReaderView) !usize {{
+        \\        return (try @"cpz.view".getRootPointer()).pointerWordIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerMatchesLocation"(@"cpz.view": *cpz.MessageReaderView, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        \\        return (try @"cpz.view".getRootPointer()).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
         \\    }}
         \\
         \\    pub fn @"cpz.view.pointerKind"(@"cpz.view": *cpz.MessageReaderView) !?cpz.wire.PointerType {{
