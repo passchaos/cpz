@@ -325,6 +325,21 @@ pub const ConstMetadata = struct {
         return null;
     }
 
+    pub fn listItemByStructFieldCount(self: ConstMetadata, count: usize) ?ConstListItem {
+        for (self.list_items) |item| if (item.struct_field_count == count) return item;
+        return null;
+    }
+
+    pub fn listItemByStructFieldName(self: ConstMetadata, field_name: []const u8) ?ConstListItem {
+        for (self.list_items) |item| if (item.structFieldByName(field_name) != null) return item;
+        return null;
+    }
+
+    pub fn listItemByStructFieldLiteral(self: ConstMetadata, field_literal: []const u8) ?ConstListItem {
+        for (self.list_items) |item| if (item.structFieldByLiteral(field_literal) != null) return item;
+        return null;
+    }
+
     pub fn hasStructFields(self: ConstMetadata) bool {
         return self.struct_field_count != 0;
     }
@@ -6780,6 +6795,23 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}}}
         \\
     , .{ indent, indent, indent, indent });
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.constByListItemStructFieldCount"(@"cpz.count": usize) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| for (@"cpz.const".list_items) |@"cpz.item"| if (@"cpz.item".struct_field_count == @"cpz.count") return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.constByListItemStructFieldName"(@"cpz.name": []const u8) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| for (@"cpz.const".list_items) |@"cpz.item"| if (@"cpz.item".structFieldByName(@"cpz.name") != null) return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.constByListItemStructFieldLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| for (@"cpz.const".list_items) |@"cpz.item"| if (@"cpz.item".structFieldByLiteral(@"cpz.literal") != null) return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (consts.len != 0) try out.append(allocator, '\n');
 }
 
@@ -7034,6 +7066,23 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}}}
         \\
     , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldCount"(@"cpz.count": usize) ?cpz.schema.ConstListItem {{
+        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".struct_field_count == @"cpz.count") return @"cpz.item";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldName"(@"cpz.name": []const u8) ?cpz.schema.ConstListItem {{
+        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".structFieldByName(@"cpz.name") != null) return @"cpz.item";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".structFieldByLiteral(@"cpz.literal") != null) return @"cpz.item";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
     if (decl.list_items) |items| {
         for (items) |item| {
             const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
