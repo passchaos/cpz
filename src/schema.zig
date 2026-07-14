@@ -1,6 +1,7 @@
 const std = @import("std");
 const message = @import("message.zig");
 const serialize = @import("serialize.zig");
+const wire = @import("wire.zig");
 
 pub const Error = error{
     UnexpectedToken,
@@ -1453,7 +1454,7 @@ pub const File = struct {
     }
 };
 
-pub const LayoutError = Error || serialize.Error || error{
+pub const LayoutError = Error || serialize.Error || wire.Error || error{
     UnsupportedInlineComposite,
 };
 
@@ -7234,6 +7235,30 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.schema".@"cpz.const.{s}.structFields";
             \\
         , .{ indent, const_name, indent, fields.len, indent, const_name });
+        if (try structLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
+            defer allocator.free(flat_bytes);
+            const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
+            defer allocator.free(flat_literal);
+            try appendFmt(allocator, out,
+                \\{s}    pub const flatBytes: []const u8 = {s};
+                \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                \\
+                \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+                \\{s}        return cpz.MessageReader.init(@This().segments, options);
+                \\{s}    }}
+                \\
+                \\{s}    pub fn root(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+                \\{s}        return message_reader.getRoot();
+                \\{s}    }}
+                \\
+                \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+                \\{s}        var @"cpz.reader" = reader(options);
+                \\{s}        return @"cpz.reader".validate();
+                \\{s}    }}
+                \\
+            , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+        }
         for (fields) |field| {
             const field_name = try zigIdentAlloc(allocator, field.name);
             defer allocator.free(field_name);
@@ -7346,6 +7371,95 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         },
         else => return,
     }
+}
+
+fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {
+    if (!decl.is_struct_literal) return null;
+    const type_name = switch (resolveTypeScoped(file, scope, decl.ty)) {
+        .named => |name| name,
+        else => return null,
+    };
+    const struct_decl = findStructDirect(file, type_name) orelse return null;
+    var layout = try planStructLayout(allocator, file, struct_decl);
+    defer layout.deinit(allocator);
+    const fields = decl.struct_fields orelse return null;
+
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    const object_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
+    try segment.appendNTimes(allocator, 0, (1 + object_words) * @sizeOf(u64));
+    writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeStruct(0, layout.data_words, layout.pointer_count));
+
+    for (fields) |const_field| {
+        const field_layout = findFieldLayoutByName(&layout, const_field.name) orelse return null;
+        const field = field_layout.field;
+        switch (field_layout.slot) {
+            .data_byte => |byte_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .uint32 => {
+                    const value = parseU32Literal(const_field.literal) orelse return null;
+                    const default_value = parseU32Literal(field.default_literal orelse "0") orelse return null;
+                    const stored: u32 = @as(u32, @intCast(value)) ^ default_value;
+                    std.mem.writeInt(u32, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                },
+                else => return null,
+            },
+            .pointer => |pointer_index| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .text => {
+                    const text = try simpleQuotedTextLiteralAlloc(allocator, const_field.literal) orelse return null;
+                    defer allocator.free(text);
+                    const pointer_word_index = 1 + @as(usize, layout.data_words) + pointer_index;
+                    const target_word_index = segment.items.len / @sizeOf(u64);
+                    const text_len_with_nul = text.len + 1;
+                    const padded_len = ((text_len_with_nul + @sizeOf(u64) - 1) / @sizeOf(u64)) * @sizeOf(u64);
+                    try segment.appendNTimes(allocator, 0, padded_len);
+                    const text_start = target_word_index * @sizeOf(u64);
+                    @memcpy(segment.items[text_start..][0..text.len], text);
+                    segment.items[text_start + text.len] = 0;
+                    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
+                    const raw = try wire.encodeList(offset, .byte, text_len_with_nul);
+                    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
+                },
+                else => return null,
+            },
+            else => return null,
+        }
+    }
+
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
+fn findFieldLayoutByName(layout: *const StructLayout, name: []const u8) ?FieldLayout {
+    for (layout.fields) |field_layout| {
+        if (std.mem.eql(u8, field_layout.field.name, name)) return field_layout;
+    }
+    return null;
+}
+
+fn parseU32Literal(raw_literal: []const u8) ?u32 {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    if (raw.len == 0 or raw[0] == '.') return null;
+    const value = parseInteger(raw) catch return null;
+    if (value > std.math.maxInt(u32)) return null;
+    return @intCast(value);
+}
+
+fn simpleQuotedTextLiteralAlloc(allocator: std.mem.Allocator, literal: []const u8) LayoutError!?[]u8 {
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    if (raw.len < 2 or raw[0] != '"' or raw[raw.len - 1] != '"') return null;
+    const inner = raw[1 .. raw.len - 1];
+    if (std.mem.indexOfScalar(u8, inner, '\\') != null) return null;
+    return try allocator.dupe(u8, inner);
+}
+
+fn writeWordBytes(dest: []u8, value: u64) void {
+    std.mem.writeInt(u64, dest[0..@sizeOf(u64)], value, .little);
 }
 
 fn emitEmbeddedStructConst(

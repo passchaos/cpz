@@ -549,6 +549,15 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("name", generated.globalRawPerson.fieldByName("name").?.name);
     try std.testing.expectEqualStrings("name", generated.globalRawPerson.fieldByLiteral("\"raw\"").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstStructField, null), generated.globalRawPerson.fieldByName("missing"));
+    try std.testing.expect(generated.globalRawPerson.flatBytes.len > 0);
+    try std.testing.expectEqual(@as(usize, 1), generated.globalRawPerson.segments.len);
+    var raw_person_reader = generated.globalRawPerson.reader(.{});
+    const raw_person_root = try generated.globalRawPerson.root(&raw_person_reader);
+    try std.testing.expectEqual(generated.Person.size, raw_person_root.size());
+    try std.testing.expectEqual(@as(u32, 9), raw_person_root.getUInt32(0, 42));
+    try std.testing.expectEqualSlices(u8, "raw", try raw_person_root.getPointerField(0).getText());
+    const raw_person_stats = try generated.globalRawPerson.validate(.{});
+    try std.testing.expect(raw_person_stats.total_words > 0);
     try std.testing.expect(!generated.@"cpz.consts"[11].emitted);
     try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.consts"[12].name);
     try std.testing.expectEqualStrings("Data", generated.@"cpz.consts"[12].ty);
