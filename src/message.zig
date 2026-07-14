@@ -3556,6 +3556,34 @@ pub const ListBuilder = struct {
         };
     }
 
+    pub fn elementMatchesPointerType(self: ListBuilder, index: usize, expected: wire.PointerType) Error!bool {
+        return (try self.getPointerElement(index)).matchesPointerType(expected);
+    }
+
+    pub fn elementIsStructPointer(self: ListBuilder, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isStructPointer();
+    }
+
+    pub fn elementIsListPointer(self: ListBuilder, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isListPointer();
+    }
+
+    pub fn elementIsFarPointer(self: ListBuilder, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isFarPointer();
+    }
+
+    pub fn elementIsOtherPointer(self: ListBuilder, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isOtherPointer();
+    }
+
+    pub fn elementIsCapabilityPointer(self: ListBuilder, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isCapabilityPointer();
+    }
+
+    pub fn elementIsNearPointer(self: ListBuilder, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isNearPointer();
+    }
+
     pub fn clearPointerElement(self: ListBuilder, index: usize) Error!void {
         (try self.getPointerElement(index)).clear();
     }
@@ -3899,6 +3927,34 @@ pub const ListReader = struct {
             .word_index = self.start + element_bits / wire.bits_per_word + self.data_words,
             .nesting_left = self.nesting_left,
         };
+    }
+
+    pub fn elementMatchesPointerType(self: ListReader, index: usize, expected: wire.PointerType) Error!bool {
+        return (try self.getPointerElement(index)).matchesPointerType(expected);
+    }
+
+    pub fn elementIsStructPointer(self: ListReader, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isStructPointer();
+    }
+
+    pub fn elementIsListPointer(self: ListReader, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isListPointer();
+    }
+
+    pub fn elementIsFarPointer(self: ListReader, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isFarPointer();
+    }
+
+    pub fn elementIsOtherPointer(self: ListReader, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isOtherPointer();
+    }
+
+    pub fn elementIsCapabilityPointer(self: ListReader, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isCapabilityPointer();
+    }
+
+    pub fn elementIsNearPointer(self: ListReader, index: usize) Error!bool {
+        return (try self.getPointerElement(index)).isNearPointer();
     }
 
     pub fn getStructElement(self: ListReader, index: usize) Error!StructReader {
@@ -4877,6 +4933,13 @@ test "builders can clear arbitrary list elements" {
 
     const pointers = try (try root.getPointerField(2)).initList(.pointer, 1);
     try (try pointers.getPointerElement(0)).setText("drop");
+    try testing.expect(try pointers.elementMatchesPointerType(0, .list));
+    try testing.expect(try pointers.elementIsListPointer(0));
+    try testing.expect(try pointers.elementIsNearPointer(0));
+    try testing.expect(!try pointers.elementIsStructPointer(0));
+    try testing.expect(!try pointers.elementIsFarPointer(0));
+    try testing.expect(!try pointers.elementIsOtherPointer(0));
+    try testing.expect(!try pointers.elementIsCapabilityPointer(0));
     try pointers.clearElements(0, 1);
 
     const structs = try (try root.getPointerField(3)).initStructList(1, .{ .data_words = 1, .pointer_count = 1 });
@@ -4890,7 +4953,15 @@ test "builders can clear arbitrary list elements" {
     const read_root = try reader.getRoot();
     try testing.expectEqual(@as(u32, 0), (try read_root.getPointerField(0).getList(.four_bytes)).getUInt32(1));
     try testing.expect(!(try read_root.getPointerField(1).getList(.bit)).getBool(0));
-    try testing.expect((try (try read_root.getPointerField(2).getList(.pointer)).getPointerElement(0)).isNull());
+    const read_pointers = try read_root.getPointerField(2).getList(.pointer);
+    try testing.expect((try read_pointers.getPointerElement(0)).isNull());
+    try testing.expect(!try read_pointers.elementMatchesPointerType(0, .list));
+    try testing.expect(!try read_pointers.elementIsListPointer(0));
+    try testing.expect(!try read_pointers.elementIsNearPointer(0));
+    try testing.expect(!try read_pointers.elementIsStructPointer(0));
+    try testing.expect(!try read_pointers.elementIsFarPointer(0));
+    try testing.expect(!try read_pointers.elementIsOtherPointer(0));
+    try testing.expect(!try read_pointers.elementIsCapabilityPointer(0));
     const read_item = try (try read_root.getPointerField(3).getList(.composite)).getStructElement(0);
     try testing.expectEqual(@as(u16, 0), read_item.getUInt16(0, 0));
     try testing.expect(read_item.getPointerField(0).isNull());
