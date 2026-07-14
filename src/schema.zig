@@ -3659,6 +3659,12 @@ fn parseInteger(text: []const u8) (std.fmt.ParseIntError || error{InvalidToken})
     if (text.len > 2 and text[0] == '0' and (text[1] == 'x' or text[1] == 'X')) {
         return std.fmt.parseInt(u64, text[2..], 16);
     }
+    if (text.len > 2 and text[0] == '0' and (text[1] == 'b' or text[1] == 'B')) {
+        return std.fmt.parseInt(u64, text[2..], 2);
+    }
+    if (text.len > 2 and text[0] == '0' and (text[1] == 'o' or text[1] == 'O')) {
+        return std.fmt.parseInt(u64, text[2..], 8);
+    }
     return std.fmt.parseInt(u64, text, 10);
 }
 
@@ -3678,7 +3684,7 @@ fn isIdentContinue(c: u8) bool {
 
 fn isNumberContinue(c: u8) bool {
     return switch (c) {
-        '0'...'9', 'a'...'f', 'A'...'F', 'x', 'X', '.', '+', '-' => true,
+        '0'...'9', 'a'...'f', 'A'...'F', 'o', 'O', 'x', 'X', '.', '+', '-' => true,
         else => false,
     };
 }
@@ -3715,6 +3721,24 @@ test "schema parser handles structs, file ids, lists, comments" {
     try std.testing.expectEqual(Type.int32, file.structs[0].fields[2].ty.list.*);
     try std.testing.expect(file.structs[0].fields[3].ty == .named);
     try std.testing.expectEqualStrings("Person", file.structs[0].fields[3].ty.named);
+}
+
+test "schema parser accepts binary and octal integer literals" {
+    var file = try parse(std.testing.allocator,
+        \\@0b101010;
+        \\struct Bits @0o77 {
+        \\  field @0b10 :UInt32;
+        \\}
+        \\enum Mode {
+        \\  active @0O7;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(?u64, 42), file.id);
+    try std.testing.expectEqual(@as(?u64, 63), file.structs[0].id);
+    try std.testing.expectEqual(@as(u32, 2), file.structs[0].fields[0].ordinal);
+    try std.testing.expectEqual(@as(u16, 7), file.enums[0].values[0].ordinal);
 }
 
 test "schema parser rejects invalid syntax" {
