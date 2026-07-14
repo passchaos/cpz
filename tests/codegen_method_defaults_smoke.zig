@@ -2,7 +2,7 @@ const std = @import("std");
 const generated = @import("generated_method_defaults_schema");
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 3), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 4), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -114,4 +114,18 @@ test "generated method default flats expose typed list getters" {
     const item1 = try generated.Defaults.@"cpz.method.lists.params.field.items.defaultFlat".get(&items_reader, 1);
     try std.testing.expectEqual(@as(u32, 20), item1.value());
     try std.testing.expectEqualStrings("twenty", try item1.label());
+}
+
+test "generated method default flats expose typed struct getters" {
+    try std.testing.expectEqualStrings("structs", generated.Defaults.@"cpz.methodByName"("structs").?.name);
+
+    var item_reader = generated.Defaults.@"cpz.method.structs.params.field.item.defaultFlat".reader(.{});
+    const item = try generated.Defaults.@"cpz.method.structs.params.field.item.defaultFlat".get(&item_reader);
+    try std.testing.expectEqual(@as(u32, 99), item.value());
+    try std.testing.expectEqualStrings("ninety-nine", try item.label());
+
+    var result_reader = generated.Defaults.@"cpz.method.structs.results.field.result.defaultFlat".reader(.{});
+    const result = try generated.Defaults.@"cpz.method.structs.results.field.result.defaultFlat".get(&result_reader);
+    try std.testing.expectEqual(@as(u32, 123), result.value());
+    try std.testing.expectEqualStrings("result", try result.label());
 }

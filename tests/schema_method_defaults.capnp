@@ -25,6 +25,7 @@ interface Defaults {
   }
 
   const defaultItems :List(Item) = [(value = 10, label = "ten"), (value = 20, label = "twenty")];
+  const defaultItem :Item = (value = 99, label = "ninety-nine");
 
   scalars @0 (
     v :Void = void,
@@ -58,4 +59,6 @@ interface Defaults {
     groups :List(List(UInt16)) = defaultGroups,
     items :List(Item) = defaultItems
   ) -> ();
+
+  structs @3 (item :Item = defaultItem) -> (result :Item = (value = 123, label = "result"));
 }

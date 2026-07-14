@@ -5978,6 +5978,10 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
     }
 }
 
+fn methodStructDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, default_literal: []const u8) LayoutError!?[]u8 {
+    return structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, scope, default_literal));
+}
+
 fn emitMethodListDefaultList(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, element_size_literal: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
@@ -6146,8 +6150,13 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     const flat = switch (resolveTypeScoped(file, scope, ty)) {
         .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, scope, ty, default_literal),
         .named => |type_name| blk: {
-            if (findEnum(file, type_name) == null) return;
-            break :blk try scalarConstFlatBytesAlloc(allocator, file, scope, ty, default_literal);
+            if (findEnum(file, type_name) != null) {
+                break :blk try scalarConstFlatBytesAlloc(allocator, file, scope, ty, default_literal);
+            }
+            if (findStructDirect(file, type_name) != null) {
+                break :blk (try methodStructDefaultFlatBytesAlloc(allocator, file, scope, type_name, default_literal)) orelse return;
+            }
+            return;
         },
         .text => blk: {
             const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, default_literal, true)) orelse try inlineQuotedStringBytesAlloc(allocator, default_literal);
@@ -6216,19 +6225,33 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
             \\
         , .{ indent, indent, indent }),
         .named => |type_name| {
-            if (findEnum(file, type_name) == null) return;
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-            defer allocator.free(zig_type);
-            try appendFmt(allocator, out,
-                \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader) !u16 {{
-                \\{s}        return (try message_reader.getRoot()).getUInt16(0, 0);
-                \\{s}    }}
-                \\
-                \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
-                \\{s}        return std.enums.fromInt({s}, try @This().getRaw(message_reader)) orelse error.InvalidEnumValue;
-                \\{s}    }}
-                \\
-            , .{ indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+            if (findEnum(file, type_name) != null) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader) !u16 {{
+                    \\{s}        return (try message_reader.getRoot()).getUInt16(0, 0);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
+                    \\{s}        return std.enums.fromInt({s}, try @This().getRaw(message_reader)) orelse error.InvalidEnumValue;
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+            } else if (findStructDirect(file, type_name) != null) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}    pub fn root(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+                    \\{s}        return message_reader.getRoot();
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
+                    \\{s}        return {s}.fromReader(try @This().root(message_reader));
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+            }
         },
         .list => |child| try emitMethodListDefaultGetters(allocator, out, file, scope, indent, child.*),
         else => {},
