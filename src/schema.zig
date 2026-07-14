@@ -7307,6 +7307,18 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return (try @"cpz.reader".getRootPointer()).isNull();
         \\    }}
         \\
+        \\    pub fn @"cpz.root.pointerSegmentId"(@"cpz.reader": *cpz.MessageReader) !u32 {{
+        \\        return (try @"cpz.reader".getRootPointer()).segmentId();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.pointerWordIndex"(@"cpz.reader": *cpz.MessageReader) !usize {{
+        \\        return (try @"cpz.reader".getRootPointer()).pointerWordIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.pointerMatchesLocation"(@"cpz.reader": *cpz.MessageReader, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        \\        return (try @"cpz.reader".getRootPointer()).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.rawPointer"(@"cpz.reader": *cpz.MessageReader) !cpz.Word {{
         \\        return @"cpz.reader".getRootRawPointer();
         \\    }}
@@ -8041,6 +8053,18 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.pointerIsNull"(@"cpz.builder": *cpz.MessageBuilder) !bool {{
         \\        return (try @"cpz.builder".getRootPointer()).isNull();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.pointerSegmentId"(@"cpz.builder": *cpz.MessageBuilder) !u32 {{
+        \\        return (try @"cpz.builder".getRootPointer()).segmentId();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.pointerWordIndex"(@"cpz.builder": *cpz.MessageBuilder) !usize {{
+        \\        return (try @"cpz.builder".getRootPointer()).pointerWordIndex();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.pointerMatchesLocation"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        \\        return (try @"cpz.builder".getRootPointer()).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.rawPointer"(@"cpz.builder": *cpz.MessageBuilder) !cpz.Word {{

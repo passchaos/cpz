@@ -590,6 +590,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(try generated.Person.@"cpz.builderRoot.pointerIsNear"(&builder));
     const builder_root_pointer = try generated.Person.@"cpz.builderRoot.pointer"(&builder);
     try std.testing.expect(!try generated.Person.@"cpz.builderRoot.pointerIsNull"(&builder));
+    try std.testing.expectEqual(@as(u32, 0), try generated.Person.@"cpz.builderRoot.pointerSegmentId"(&builder));
+    try std.testing.expectEqual(@as(usize, 0), try generated.Person.@"cpz.builderRoot.pointerWordIndex"(&builder));
+    try std.testing.expect(try generated.Person.@"cpz.builderRoot.pointerMatchesLocation"(&builder, 0, 0));
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, builder_root_pointer.pointerType().?);
     const builder_root_raw = try generated.Person.@"cpz.builderRoot.rawPointer"(&builder);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, cpz.wire.pointerType(builder_root_raw));
@@ -1053,6 +1056,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(try generated.Person.@"cpz.root.pointerIsNear"(&reader));
     const reader_root_pointer = try generated.Person.@"cpz.root.pointer"(&reader);
     try std.testing.expect(!try generated.Person.@"cpz.root.pointerIsNull"(&reader));
+    try std.testing.expectEqual(@as(u32, 0), try generated.Person.@"cpz.root.pointerSegmentId"(&reader));
+    try std.testing.expectEqual(@as(usize, 0), try generated.Person.@"cpz.root.pointerWordIndex"(&reader));
+    try std.testing.expect(try generated.Person.@"cpz.root.pointerMatchesLocation"(&reader, 0, 0));
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try reader_root_pointer.pointerType()).?);
     const reader_root_raw = try generated.Person.@"cpz.root.rawPointer"(&reader);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, cpz.wire.pointerType(reader_root_raw));
