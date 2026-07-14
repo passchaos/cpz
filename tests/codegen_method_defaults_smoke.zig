@@ -38,7 +38,7 @@ test "generated optional constants expose values and flats" {
 }
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 5), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 6), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -224,4 +224,27 @@ test "generated method default flats expose typed optional pointer getters" {
     const result = try generated.Defaults.@"cpz.method.optionals.results.field.result.defaultFlat".get(&result_reader);
     try std.testing.expectEqual(@as(u32, 77), result.value());
     try std.testing.expectEqualStrings("seventy-seven", try result.label());
+}
+
+test "generated method default flats resolve any pointer const references" {
+    try std.testing.expectEqualStrings("anyDefaults", generated.Defaults.@"cpz.methodByName"("anyDefaults").?.name);
+
+    var any_struct_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.anyStruct.defaultFlat".reader(.{});
+    const any_struct = try generated.Defaults.@"cpz.method.anyDefaults.params.field.anyStruct.defaultFlat".asStruct(&any_struct_reader);
+    try std.testing.expectEqual(@as(u32, 99), any_struct.getUInt32(0, 0));
+    var any_struct_wrapped = generated.Defaults.@"cpz.method.anyDefaults.params.field.anyStruct.defaultFlat".init(.{});
+    const wrapped_any_struct = try any_struct_wrapped.asStruct();
+    try std.testing.expectEqual(@as(u32, 99), wrapped_any_struct.getUInt32(0, 0));
+
+    var struct_value_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.structValue.defaultFlat".reader(.{});
+    const struct_value = try generated.Defaults.@"cpz.method.anyDefaults.params.field.structValue.defaultFlat".get(&struct_value_reader);
+    try std.testing.expectEqual(@as(u32, 99), struct_value.getUInt32(0, 0));
+
+    var any_list_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.anyList.defaultFlat".reader(.{});
+    const any_list = try generated.Defaults.@"cpz.method.anyDefaults.params.field.anyList.defaultFlat".asList(&any_list_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 7), any_list.getUInt16(0));
+
+    var list_value_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".reader(.{});
+    const list_value = try generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".get(&list_value_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 8), list_value.getUInt16(1));
 }

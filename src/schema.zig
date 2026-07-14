@@ -5999,6 +5999,22 @@ fn methodStructDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const 
     return structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, scope, default_literal));
 }
 
+fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, default_literal: []const u8, comptime want: enum { any, struct_ptr, list }) LayoutError![]u8 {
+    const decl = findConstReference(file, scope, default_literal) orelse return error.UnsupportedType;
+    switch (resolveTypeScoped(file, scope, decl.ty)) {
+        .named => |type_name| {
+            if (want == .list) return error.UnsupportedType;
+            if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
+            return (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, decl.literal)) orelse error.UnsupportedType;
+        },
+        .list => |child| {
+            if (want == .struct_ptr) return error.UnsupportedType;
+            return methodListDefaultFlatBytesAlloc(allocator, file, scope, child.*, decl.literal);
+        },
+        else => return error.UnsupportedType,
+    }
+}
+
 fn methodOptionalDefaultChildOrNull(file: *const File, scope: ?*const Struct, child: Type, default_literal: []const u8) ?Type {
     const resolved_literal = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, default_literal), " \t\r\n");
     if (std.mem.eql(u8, resolved_literal, "null")) return null;
@@ -6392,6 +6408,36 @@ fn emitMethodDefaultReaderWrapper(allocator: std.mem.Allocator, out: *std.ArrayL
             }
         },
         .list => |child| try emitMethodDefaultReaderListGetters(allocator, out, file, scope, indent, container_literal, child.*),
+        .any_pointer => try appendFmt(allocator, out,
+            \\{s}        pub fn pointer(self: *@This()) !cpz.PointerReader {{
+            \\{s}            return @{s}.pointer(&self.reader);
+            \\{s}        }}
+            \\
+            \\{s}        pub fn get(self: *@This()) !cpz.PointerReader {{
+            \\{s}            return @{s}.get(&self.reader);
+            \\{s}        }}
+            \\
+            \\{s}        pub fn asStruct(self: *@This()) !cpz.StructReader {{
+            \\{s}            return @{s}.asStruct(&self.reader);
+            \\{s}        }}
+            \\
+            \\{s}        pub fn asList(self: *@This(), expected: ?cpz.ElementSize) !cpz.ListReader {{
+            \\{s}            return @{s}.asList(&self.reader, expected);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent, indent, indent, container_literal, indent, indent, indent, container_literal, indent, indent, indent, container_literal, indent }),
+        .any_struct => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This()) !cpz.StructReader {{
+            \\{s}            return @{s}.get(&self.reader);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
+        .any_list => try appendFmt(allocator, out,
+            \\{s}        pub fn get(self: *@This(), expected: ?cpz.ElementSize) !cpz.ListReader {{
+            \\{s}            return @{s}.get(&self.reader, expected);
+            \\{s}        }}
+            \\
+        , .{ indent, indent, container_literal, indent }),
         else => {},
     }
     try appendFmt(allocator, out,
@@ -6448,6 +6494,18 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
             break :blk try blobFieldDefaultFlatBytesAlloc(allocator, bytes, false);
         },
         .list => |child| methodListDefaultFlatBytesAlloc(allocator, file, scope, child.*, default_literal) catch |err| switch (err) {
+            error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
+            else => return err,
+        },
+        .any_pointer => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, default_literal, .any) catch |err| switch (err) {
+            error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
+            else => return err,
+        },
+        .any_struct => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, default_literal, .struct_ptr) catch |err| switch (err) {
+            error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
+            else => return err,
+        },
+        .any_list => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, default_literal, .list) catch |err| switch (err) {
             error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
             else => return err,
         },
@@ -6552,6 +6610,36 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
             }
         },
         .list => |child| try emitMethodListDefaultGetters(allocator, out, file, scope, indent, child.*),
+        .any_pointer => try appendFmt(allocator, out,
+            \\{s}    pub fn pointer(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+            \\{s}        return message_reader.getRootPointer();
+            \\{s}    }}
+            \\
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+            \\{s}        return @This().pointer(message_reader);
+            \\{s}    }}
+            \\
+            \\{s}    pub fn asStruct(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+            \\{s}        return (try @This().pointer(message_reader)).getStruct(null);
+            \\{s}    }}
+            \\
+            \\{s}    pub fn asList(message_reader: *cpz.MessageReader, expected: ?cpz.ElementSize) !cpz.ListReader {{
+            \\{s}        return (try @This().pointer(message_reader)).getList(expected);
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent }),
+        .any_struct => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+            \\{s}        return (try message_reader.getRootPointer()).getStruct(null);
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+        .any_list => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader, expected: ?cpz.ElementSize) !cpz.ListReader {{
+            \\{s}        return (try message_reader.getRootPointer()).getList(expected);
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
         else => {},
     }
     try emitMethodDefaultReaderWrapper(allocator, out, file, scope, indent, container_literal, resolved_ty, is_null_default);
@@ -8441,6 +8529,7 @@ fn parseTypeArgAlloc(allocator: std.mem.Allocator, raw_arg: []const u8) LayoutEr
         child.* = try parseTypeArgAlloc(allocator, raw[1..]);
         return .{ .optional = child };
     }
+    if (std.mem.eql(u8, raw, "AnyList")) return .any_list;
     if (std.mem.endsWith(u8, raw, "List") and raw.len > "List".len) {
         const child = try allocator.create(Type);
         errdefer allocator.destroy(child);

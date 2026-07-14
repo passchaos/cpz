@@ -76,4 +76,11 @@ interface Defaults {
     emptyLabel :?Text = null,
     any :AnyPointer = null
   ) -> (result :?Item = defaultMaybeItem);
+
+  anyDefaults @5 (
+    anyStruct :AnyPointer = defaultItem,
+    structValue :AnyStruct = defaultItem,
+    anyList :AnyPointer = defaultNumbers,
+    listValue :AnyList = defaultNumbers
+  ) -> ();
 }
