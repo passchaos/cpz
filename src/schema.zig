@@ -8496,7 +8496,25 @@ fn supportsScalarConstFlatContainer(file: *const File, scope: ?*const Struct, ty
     };
 }
 
+fn resolveScalarConstLiteral(file: *const File, scope: ?*const Struct, literal: []const u8) []const u8 {
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    const name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
+    const owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else null;
+    if (scope) |decl| {
+        if (owner == null or typeNameEqualsCanonical(owner.?, decl.name)) {
+            for (decl.consts) |const_decl| {
+                if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
+            }
+        }
+    }
+    for (file.consts) |const_decl| {
+        if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
+    }
+    return literal;
+}
+
 fn scalarConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) LayoutError![]u8 {
+    const resolved_literal = resolveScalarConstLiteral(file, scope, literal);
     const segment_words: usize = 2;
     const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
     errdefer allocator.free(flat);
@@ -8508,49 +8526,49 @@ fn scalarConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, sc
     switch (resolveTypeScoped(file, scope, ty)) {
         .void => {},
         .bool => {
-            const value = parseBoolLiteral(literal) orelse return error.InvalidToken;
+            const value = parseBoolLiteral(resolved_literal) orelse return error.InvalidToken;
             if (value) setBit(data, 0);
         },
         .int8 => {
-            const value = parseSignedLiteral(i8, literal) orelse return error.InvalidToken;
+            const value = parseSignedLiteral(i8, resolved_literal) orelse return error.InvalidToken;
             data[0] = @bitCast(value);
         },
         .int16 => {
-            const value = parseSignedLiteral(i16, literal) orelse return error.InvalidToken;
+            const value = parseSignedLiteral(i16, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u16, data[0..@sizeOf(u16)], @bitCast(value), .little);
         },
         .int32 => {
-            const value = parseSignedLiteral(i32, literal) orelse return error.InvalidToken;
+            const value = parseSignedLiteral(i32, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u32, data[0..@sizeOf(u32)], @bitCast(value), .little);
         },
         .int64 => {
-            const value = parseSignedLiteral(i64, literal) orelse return error.InvalidToken;
+            const value = parseSignedLiteral(i64, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u64, data[0..@sizeOf(u64)], @bitCast(value), .little);
         },
-        .uint8 => data[0] = parseUnsignedLiteral(u8, literal) orelse return error.InvalidToken,
+        .uint8 => data[0] = parseUnsignedLiteral(u8, resolved_literal) orelse return error.InvalidToken,
         .uint16 => {
-            const value = parseUnsignedLiteral(u16, literal) orelse return error.InvalidToken;
+            const value = parseUnsignedLiteral(u16, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u16, data[0..@sizeOf(u16)], value, .little);
         },
         .uint32 => {
-            const value = parseUnsignedLiteral(u32, literal) orelse return error.InvalidToken;
+            const value = parseUnsignedLiteral(u32, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u32, data[0..@sizeOf(u32)], value, .little);
         },
         .uint64 => {
-            const value = parseUnsignedLiteral(u64, literal) orelse return error.InvalidToken;
+            const value = parseUnsignedLiteral(u64, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u64, data[0..@sizeOf(u64)], value, .little);
         },
         .float32 => {
-            const value = parseFloatLiteral(f32, literal) orelse return error.InvalidToken;
+            const value = parseFloatLiteral(f32, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u32, data[0..@sizeOf(u32)], @bitCast(value), .little);
         },
         .float64 => {
-            const value = parseFloatLiteral(f64, literal) orelse return error.InvalidToken;
+            const value = parseFloatLiteral(f64, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u64, data[0..@sizeOf(u64)], @bitCast(value), .little);
         },
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const ordinal = enumLiteralOrdinal(enum_decl, literal) orelse return error.InvalidToken;
+            const ordinal = enumLiteralOrdinal(enum_decl, resolved_literal) orelse return error.InvalidToken;
             std.mem.writeInt(u16, data[0..@sizeOf(u16)], ordinal, .little);
         },
         else => return error.UnsupportedType,
@@ -17190,6 +17208,25 @@ test "schema struct const flat emission supports wider integers and floats" {
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
     try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
+}
+
+test "schema code generator resolves const reference scalar defaults for flats" {
+    const source =
+        \\struct Field {
+        \\  const noDiscriminant :UInt16 = 0xffff;
+        \\  discriminantValue @0 :UInt16 = Field.noDiscriminant;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const discriminantValueDefaultFlat = struct") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "\\xFF\\xFF\\x00\\x00\\x00\\x00\\x00\\x00") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return (try root(message_reader)).getUInt16(0, 0);") != null);
 }
 
 test "schema code generator converts C-style escaped string defaults to Zig literals" {
