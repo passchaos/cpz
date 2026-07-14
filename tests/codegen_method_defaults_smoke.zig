@@ -71,7 +71,7 @@ test "generated struct pointer null defaults expose flats" {
     try std.testing.expect(generated.NullPointerDefaults.itemDefaultFlat.matchesSerializedSize(generated.NullPointerDefaults.itemDefaultFlat.flatBytes.len));
 }
 
-test "generated struct text and data defaults resolve const references" {
+test "generated struct field defaults resolve const references" {
     var empty_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
     defer empty_builder.deinit();
     _ = try generated.ConstRefDefaults.initRootTyped(&empty_builder);
@@ -81,6 +81,14 @@ test "generated struct text and data defaults resolve const references" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try empty_root.data());
     try std.testing.expectEqualStrings("local text", try empty_root.localTextField());
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x56, 0x78 }, try empty_root.localDataField());
+    try std.testing.expectEqual(true, empty_root.flag());
+    try std.testing.expectEqual(@as(u32, 123), empty_root.amount());
+    try std.testing.expectApproxEqAbs(@as(f64, 125.0), empty_root.ratio(), 0.0);
+    try std.testing.expectEqual(generated.Mode.on, try empty_root.mode());
+    try std.testing.expectEqual(false, empty_root.localFlagField());
+    try std.testing.expectEqual(@as(u32, 456), empty_root.localAmountField());
+    try std.testing.expectApproxEqAbs(@as(f64, -2.5), empty_root.localRatioField(), 0.0);
+    try std.testing.expectEqual(generated.Mode.off, try empty_root.localModeField());
 
     var empty_builder_reader = cpz.MessageReader.init(try empty_builder.segmentsConst(), .{});
     const empty_root_builder = try generated.ConstRefDefaults.getRootTyped(&empty_builder);
@@ -88,8 +96,17 @@ test "generated struct text and data defaults resolve const references" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try empty_root_builder.get_data());
     try std.testing.expectEqualStrings("local text", try empty_root_builder.get_localTextField());
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x56, 0x78 }, try empty_root_builder.get_localDataField());
+    try std.testing.expectEqual(true, try empty_root_builder.get_flag());
+    try std.testing.expectEqual(@as(u32, 123), try empty_root_builder.get_amount());
+    try std.testing.expectApproxEqAbs(@as(f64, 125.0), try empty_root_builder.get_ratio(), 0.0);
+    try std.testing.expectEqual(generated.Mode.on, try empty_root_builder.get_mode());
+    try std.testing.expectEqual(false, try empty_root_builder.get_localFlagField());
+    try std.testing.expectEqual(@as(u32, 456), try empty_root_builder.get_localAmountField());
+    try std.testing.expectApproxEqAbs(@as(f64, -2.5), try empty_root_builder.get_localRatioField(), 0.0);
+    try std.testing.expectEqual(generated.Mode.off, try empty_root_builder.get_localModeField());
     const empty_root_as_reader = empty_root_builder.asReader(&empty_builder_reader);
     try std.testing.expectEqualStrings("local text", try empty_root_as_reader.localTextField());
+    try std.testing.expectEqual(@as(u32, 456), empty_root_as_reader.localAmountField());
 
     var text_default_reader = generated.ConstRefDefaults.textDefaultFlat.reader(.{});
     try std.testing.expectEqualStrings("referenced text", try generated.ConstRefDefaults.textDefaultFlat.get(&text_default_reader));
@@ -99,6 +116,22 @@ test "generated struct text and data defaults resolve const references" {
     try std.testing.expectEqualStrings("local text", try generated.ConstRefDefaults.localTextFieldDefaultFlat.get(&local_text_default_reader));
     var local_data_default_reader = generated.ConstRefDefaults.localDataFieldDefaultFlat.reader(.{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x56, 0x78 }, try generated.ConstRefDefaults.localDataFieldDefaultFlat.get(&local_data_default_reader));
+    var flag_default_reader = generated.ConstRefDefaults.flagDefaultFlat.reader(.{});
+    try std.testing.expectEqual(true, try generated.ConstRefDefaults.flagDefaultFlat.get(&flag_default_reader));
+    var amount_default_reader = generated.ConstRefDefaults.amountDefaultFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 123), try generated.ConstRefDefaults.amountDefaultFlat.get(&amount_default_reader));
+    var ratio_default_reader = generated.ConstRefDefaults.ratioDefaultFlat.reader(.{});
+    try std.testing.expectApproxEqAbs(@as(f64, 125.0), try generated.ConstRefDefaults.ratioDefaultFlat.get(&ratio_default_reader), 0.0);
+    var mode_default_reader = generated.ConstRefDefaults.modeDefaultFlat.reader(.{});
+    try std.testing.expectEqual(generated.Mode.on, try generated.ConstRefDefaults.modeDefaultFlat.get(&mode_default_reader));
+    var local_flag_default_reader = generated.ConstRefDefaults.localFlagFieldDefaultFlat.reader(.{});
+    try std.testing.expectEqual(false, try generated.ConstRefDefaults.localFlagFieldDefaultFlat.get(&local_flag_default_reader));
+    var local_amount_default_reader = generated.ConstRefDefaults.localAmountFieldDefaultFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 456), try generated.ConstRefDefaults.localAmountFieldDefaultFlat.get(&local_amount_default_reader));
+    var local_ratio_default_reader = generated.ConstRefDefaults.localRatioFieldDefaultFlat.reader(.{});
+    try std.testing.expectApproxEqAbs(@as(f64, -2.5), try generated.ConstRefDefaults.localRatioFieldDefaultFlat.get(&local_ratio_default_reader), 0.0);
+    var local_mode_default_reader = generated.ConstRefDefaults.localModeFieldDefaultFlat.reader(.{});
+    try std.testing.expectEqual(generated.Mode.off, try generated.ConstRefDefaults.localModeFieldDefaultFlat.get(&local_mode_default_reader));
 }
 
 test "generated method default flats expose typed scalar and enum getters" {

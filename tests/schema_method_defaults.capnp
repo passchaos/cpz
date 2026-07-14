@@ -5,6 +5,10 @@ enum Mode {
 
 const referencedText :Text = "referenced text";
 const referencedData :Data = 0x"12 34";
+const referencedFlag :Bool = true;
+const referencedAmount :UInt32 = 123;
+const referencedRatio :Float64 = +1.25e2;
+const referencedMode :Mode = on;
 
 struct MaybeDefaults {
   absent @0 :?Text = null;
@@ -20,11 +24,23 @@ struct NullPointerDefaults {
 struct ConstRefDefaults {
   const localText :Text = "local text";
   const localData :Data = 0x"56 78";
+  const localFlag :Bool = false;
+  const localAmount :UInt32 = 456;
+  const localRatio :Float64 = -2.5;
+  const localMode :Mode = off;
 
   text @0 :Text = referencedText;
   data @1 :Data = referencedData;
   localTextField @2 :Text = localText;
   localDataField @3 :Data = localData;
+  flag @4 :Bool = referencedFlag;
+  amount @5 :UInt32 = referencedAmount;
+  ratio @6 :Float64 = referencedRatio;
+  mode @7 :Mode = referencedMode;
+  localFlagField @8 :Bool = localFlag;
+  localAmountField @9 :UInt32 = localAmount;
+  localRatioField @10 :Float64 = localRatio;
+  localModeField @11 :Mode = localMode;
 }
 
 interface Defaults {

@@ -13673,12 +13673,12 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\        return self.reader.getBool({}, {s});
             \\    }}
             \\
-        , .{ field_name, union_layout.discriminant_byte, field.union_discriminant, bit, try defaultBoolLiteral(field) }) else try appendFmt(allocator, out,
+        , .{ field_name, union_layout.discriminant_byte, field.union_discriminant, bit, try resolvedFieldDefaultBoolLiteral(file, layout.decl, field) }) else try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) bool {{
             \\        return self.reader.getBool({}, {s});
             \\    }}
             \\
-        , .{ field_name, bit, try defaultBoolLiteral(field) }),
+        , .{ field_name, bit, try resolvedFieldDefaultBoolLiteral(file, layout.decl, field) }),
         .data_byte => |byte| try emitDataGetter(allocator, out, file, layout, field_name, field, byte),
         .pointer => |index| try emitPointerGetter(allocator, out, file, layout, owner_name, field_name, field, index),
     }
@@ -13687,16 +13687,16 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
 fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
     const union_layout = unionLayoutForField(layout, field);
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
-        .int8 => try scalarGetter(allocator, out, field_name, "i8", "getInt8", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .int16 => try scalarGetter(allocator, out, field_name, "i16", "getInt16", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .int32 => try scalarGetter(allocator, out, field_name, "i32", "getInt32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .int64 => try scalarGetter(allocator, out, field_name, "i64", "getInt64", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .uint8 => try scalarGetter(allocator, out, field_name, "u8", "getUInt8", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .uint16 => try scalarGetter(allocator, out, field_name, "u16", "getUInt16", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .uint32 => try scalarGetter(allocator, out, field_name, "u32", "getUInt32", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .uint64 => try scalarGetter(allocator, out, field_name, "u64", "getUInt64", byte, defaultScalarLiteral(field), union_layout, field.union_discriminant),
-        .float32 => try scalarGetter(allocator, out, field_name, "f32", "getFloat32", byte, defaultFloatLiteral(field, "f32"), union_layout, field.union_discriminant),
-        .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, defaultFloatLiteral(field, "f64"), union_layout, field.union_discriminant),
+        .int8 => try scalarGetter(allocator, out, field_name, "i8", "getInt8", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .int16 => try scalarGetter(allocator, out, field_name, "i16", "getInt16", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .int32 => try scalarGetter(allocator, out, field_name, "i32", "getInt32", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .int64 => try scalarGetter(allocator, out, field_name, "i64", "getInt64", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .uint8 => try scalarGetter(allocator, out, field_name, "u8", "getUInt8", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .uint16 => try scalarGetter(allocator, out, field_name, "u16", "getUInt16", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .uint32 => try scalarGetter(allocator, out, field_name, "u32", "getUInt32", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .uint64 => try scalarGetter(allocator, out, field_name, "u64", "getUInt64", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field.union_discriminant),
+        .float32 => try scalarGetter(allocator, out, field_name, "f32", "getFloat32", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f32"), union_layout, field.union_discriminant),
+        .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f64"), union_layout, field.union_discriminant),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
@@ -13718,7 +13718,7 @@ fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
                 \\        return self.reader.getUInt16({}, {});
                 \\    }}
                 \\
-            , .{ zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+            , .{ zig_type, byte, try resolvedFieldDefaultEnumOrdinal(file, layout.decl, enum_decl, field), field_name, byte, try resolvedFieldDefaultEnumOrdinal(file, layout.decl, enum_decl, field) });
         },
         else => return error.UnsupportedType,
     }
@@ -16662,13 +16662,13 @@ fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                 \\        }}
                 \\
                 \\        pub fn set_{s}(self: Builder, new_value: bool) !void {{
-            , .{ bit, try defaultBoolLiteral(field), field_name });
+            , .{ bit, try resolvedFieldDefaultBoolLiteral(file, layout.decl, field), field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return self.builder.setBool({}, new_value, {s});
                 \\        }}
                 \\
-            , .{ bit, try defaultBoolLiteral(field) });
+            , .{ bit, try resolvedFieldDefaultBoolLiteral(file, layout.decl, field) });
         },
         .data_byte => |byte| try emitDataBuilderMethod(allocator, out, file, layout, field_name, field, byte),
         .pointer => |index| try emitPointerBuilderMethod(allocator, out, file, layout, owner_name, field_name, field, index),
@@ -16678,16 +16678,16 @@ fn emitFieldBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, field_name: []const u8, field: *const Field, byte: usize) LayoutError!void {
     const union_layout = unionLayoutForField(layout, field);
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
-        .int8 => try scalarSetter(allocator, out, field_name, "i8", "getInt8", "setInt8", byte, defaultScalarLiteral(field), union_layout, field),
-        .int16 => try scalarSetter(allocator, out, field_name, "i16", "getInt16", "setInt16", byte, defaultScalarLiteral(field), union_layout, field),
-        .int32 => try scalarSetter(allocator, out, field_name, "i32", "getInt32", "setInt32", byte, defaultScalarLiteral(field), union_layout, field),
-        .int64 => try scalarSetter(allocator, out, field_name, "i64", "getInt64", "setInt64", byte, defaultScalarLiteral(field), union_layout, field),
-        .uint8 => try scalarSetter(allocator, out, field_name, "u8", "getUInt8", "setUInt8", byte, defaultScalarLiteral(field), union_layout, field),
-        .uint16 => try scalarSetter(allocator, out, field_name, "u16", "getUInt16", "setUInt16", byte, defaultScalarLiteral(field), union_layout, field),
-        .uint32 => try scalarSetter(allocator, out, field_name, "u32", "getUInt32", "setUInt32", byte, defaultScalarLiteral(field), union_layout, field),
-        .uint64 => try scalarSetter(allocator, out, field_name, "u64", "getUInt64", "setUInt64", byte, defaultScalarLiteral(field), union_layout, field),
-        .float32 => try scalarSetter(allocator, out, field_name, "f32", "getFloat32", "setFloat32", byte, defaultFloatLiteral(field, "f32"), union_layout, field),
-        .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, defaultFloatLiteral(field, "f64"), union_layout, field),
+        .int8 => try scalarSetter(allocator, out, field_name, "i8", "getInt8", "setInt8", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .int16 => try scalarSetter(allocator, out, field_name, "i16", "getInt16", "setInt16", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .int32 => try scalarSetter(allocator, out, field_name, "i32", "getInt32", "setInt32", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .int64 => try scalarSetter(allocator, out, field_name, "i64", "getInt64", "setInt64", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .uint8 => try scalarSetter(allocator, out, field_name, "u8", "getUInt8", "setUInt8", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .uint16 => try scalarSetter(allocator, out, field_name, "u16", "getUInt16", "setUInt16", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .uint32 => try scalarSetter(allocator, out, field_name, "u32", "getUInt32", "setUInt32", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .uint64 => try scalarSetter(allocator, out, field_name, "u64", "getUInt64", "setUInt64", byte, resolvedFieldDefaultScalarLiteral(file, layout.decl, field), union_layout, field),
+        .float32 => try scalarSetter(allocator, out, field_name, "f32", "getFloat32", "setFloat32", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f32"), union_layout, field),
+        .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f64"), union_layout, field),
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
@@ -16701,27 +16701,27 @@ fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
                 \\        }}
                 \\
                 \\        pub fn get_{s}_raw(self: Builder) !u16 {{
-            , .{ zig_type, byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name });
+            , .{ zig_type, byte, try resolvedFieldDefaultEnumOrdinal(file, layout.decl, enum_decl, field), field_name });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\            return self.builder.getUInt16({}, {});
                 \\        }}
                 \\
                 \\        pub fn set_{s}(self: Builder, new_value: {s}) !void {{
-            , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name, zig_type });
+            , .{ byte, try resolvedFieldDefaultEnumOrdinal(file, layout.decl, enum_decl, field), field_name, zig_type });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return self.builder.setUInt16({}, @intFromEnum(new_value), {});
                 \\        }}
                 \\
                 \\        pub fn set_{s}_raw(self: Builder, new_value: u16) !void {{
-            , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal), field_name });
+            , .{ byte, try resolvedFieldDefaultEnumOrdinal(file, layout.decl, enum_decl, field), field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return self.builder.setUInt16({}, new_value, {});
                 \\        }}
                 \\
-            , .{ byte, try enumDefaultOrdinal(enum_decl, field.default_literal) });
+            , .{ byte, try resolvedFieldDefaultEnumOrdinal(file, layout.decl, enum_decl, field) });
         },
         else => return error.UnsupportedType,
     }
@@ -18146,6 +18146,12 @@ fn defaultScalarLiteral(field: *const Field) []const u8 {
     return if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal;
 }
 
+fn resolvedFieldDefaultScalarLiteral(file: *const File, scope: ?*const Struct, field: *const Field) []const u8 {
+    const literal = field.default_literal orelse return "0";
+    const resolved = resolveScalarConstLiteral(file, scope, literal);
+    return if (std.mem.startsWith(u8, resolved, "+")) resolved[1..] else resolved;
+}
+
 fn schemaTypeNameAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError![]u8 {
     return switch (ty) {
         .void => allocator.dupe(u8, "Void"),
@@ -18231,6 +18237,11 @@ fn defaultFloatLiteral(field: *const Field, comptime zig_type: []const u8) []con
     return floatConstLiteral(literal, zig_type);
 }
 
+fn resolvedFieldDefaultFloatLiteral(file: *const File, scope: ?*const Struct, field: *const Field, comptime zig_type: []const u8) []const u8 {
+    const literal = field.default_literal orelse return "0";
+    return floatConstLiteral(resolveScalarConstLiteral(file, scope, literal), zig_type);
+}
+
 fn floatConstLiteral(literal: []const u8, comptime zig_type: []const u8) []const u8 {
     const unsigned = if (std.mem.startsWith(u8, literal, "+")) literal[1..] else literal;
     if (std.mem.eql(u8, unsigned, "inf")) return if (std.mem.eql(u8, zig_type, "f32")) "std.math.inf(f32)" else "std.math.inf(f64)";
@@ -18249,6 +18260,11 @@ fn defaultBoolLiteral(field: *const Field) LayoutError![]const u8 {
     return boolConstLiteral(literal);
 }
 
+fn resolvedFieldDefaultBoolLiteral(file: *const File, scope: ?*const Struct, field: *const Field) LayoutError![]const u8 {
+    const literal = field.default_literal orelse return "false";
+    return boolConstLiteral(resolveScalarConstLiteral(file, scope, literal));
+}
+
 fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u16 {
     const raw_name = literal orelse return 0;
     const name = if (std.mem.lastIndexOfScalar(u8, raw_name, '.')) |dot| raw_name[dot + 1 ..] else raw_name;
@@ -18256,6 +18272,11 @@ fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u
         if (std.mem.eql(u8, value.name, name)) return value.ordinal;
     }
     return error.InvalidToken;
+}
+
+fn resolvedFieldDefaultEnumOrdinal(file: *const File, scope: ?*const Struct, decl: *const EnumDecl, field: *const Field) LayoutError!u16 {
+    const literal = field.default_literal orelse return enumDefaultOrdinal(decl, null);
+    return enumDefaultOrdinal(decl, resolveScalarConstLiteral(file, scope, literal));
 }
 
 test "schema parser and code generator preserve declaration ids" {
