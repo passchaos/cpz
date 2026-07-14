@@ -4165,6 +4165,11 @@ test "schema parser accepts wildcard annotation targets" {
     try std.testing.expect(file.annotations[0].targets.hasTarget("annotation"));
 }
 
+test "schema parser rejects wildcard annotation target mixed with explicit targets" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(*, field) :Void;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(field, *) :Void;"));
+}
+
 test "schema parser records imported type aliases" {
     const source =
         \\using Other = import "other.capnp";
