@@ -123,6 +123,7 @@ pub const ConstDecl = struct {
     emit_value: bool = true,
     annotations: []const u8 = "",
     list_items: ?[]ConstListItem = null,
+    struct_fields: ?[]ConstStructField = null,
 
     pub fn deinit(self: *ConstDecl, allocator: std.mem.Allocator) void {
         self.ty.deinit(allocator);
@@ -132,6 +133,7 @@ pub const ConstDecl = struct {
             deinitConstListItems(allocator, items);
             allocator.free(items);
         }
+        if (self.struct_fields) |fields| allocator.free(fields);
         self.* = undefined;
     }
 };
@@ -164,6 +166,24 @@ pub const ConstListItem = struct {
     }
 };
 
+pub const ConstStructField = struct {
+    index: usize = 0,
+    name: []const u8,
+    literal: []const u8,
+
+    pub fn matchesIndex(self: ConstStructField, field_index: usize) bool {
+        return self.index == field_index;
+    }
+
+    pub fn matchesName(self: ConstStructField, field_name: []const u8) bool {
+        return std.mem.eql(u8, self.name, field_name);
+    }
+
+    pub fn matchesLiteral(self: ConstStructField, field_literal: []const u8) bool {
+        return std.mem.eql(u8, self.literal, field_literal);
+    }
+};
+
 pub const ConstMetadata = struct {
     index: usize = 0,
     name: []const u8,
@@ -180,6 +200,8 @@ pub const ConstMetadata = struct {
     annotations: []const u8 = "",
     list_item_count: usize = 0,
     list_items: []const ConstListItem = &.{},
+    struct_field_count: usize = 0,
+    struct_fields: []const ConstStructField = &.{},
 
     pub fn matchesIndex(self: ConstMetadata, const_index: usize) bool {
         return self.index == const_index;
@@ -276,12 +298,152 @@ pub const ConstMetadata = struct {
         for (self.list_items) |item| if (std.mem.eql(u8, item.annotations, annotations)) return item;
         return null;
     }
+
+    pub fn hasStructFields(self: ConstMetadata) bool {
+        return self.struct_field_count != 0;
+    }
+
+    pub fn matchesStructFieldCount(self: ConstMetadata, count: usize) bool {
+        return self.struct_field_count == count;
+    }
+
+    pub fn structFieldByIndex(self: ConstMetadata, field_index: usize) ?ConstStructField {
+        if (field_index >= self.struct_fields.len) return null;
+        return self.struct_fields[field_index];
+    }
+
+    pub fn structFieldByName(self: ConstMetadata, field_name: []const u8) ?ConstStructField {
+        for (self.struct_fields) |field| if (std.mem.eql(u8, field.name, field_name)) return field;
+        return null;
+    }
+
+    pub fn structFieldByLiteral(self: ConstMetadata, field_literal: []const u8) ?ConstStructField {
+        for (self.struct_fields) |field| if (std.mem.eql(u8, field.literal, field_literal)) return field;
+        return null;
+    }
 };
 
 fn deinitConstListItems(allocator: std.mem.Allocator, items: []const ConstListItem) void {
     for (items) |item| {
         if (item.owns_literal) allocator.free(item.literal);
     }
+}
+
+fn parseConstStructFieldsAlloc(allocator: std.mem.Allocator, expression: []const u8) Error![]ConstStructField {
+    const source = std.mem.trim(u8, expression, " \t\r\n");
+    var index = try skipTriviaIndex(source, 0);
+    if (index >= source.len or source[index] != '(') return error.UnexpectedToken;
+    index += 1;
+
+    var fields = std.ArrayList(ConstStructField).empty;
+    errdefer fields.deinit(allocator);
+
+    while (true) {
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len) return error.UnexpectedToken;
+        if (source[index] == ')') {
+            index += 1;
+            break;
+        }
+        if (!isIdentStart(source[index])) return error.UnexpectedToken;
+        const name_start = index;
+        index += 1;
+        while (index < source.len and isIdentContinue(source[index])) index += 1;
+        const name = source[name_start..index];
+
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len or source[index] != '=') return error.UnexpectedToken;
+        index += 1;
+        index = try skipTriviaIndex(source, index);
+        const literal_start = index;
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        var brace_depth: usize = 0;
+        while (index < source.len) {
+            switch (source[index]) {
+                '"' => {
+                    index += 1;
+                    while (index < source.len) {
+                        if (source[index] == '\\') {
+                            index += 2;
+                        } else if (source[index] == '"') {
+                            index += 1;
+                            break;
+                        } else {
+                            index += 1;
+                        }
+                    }
+                    if (index > source.len) return error.UnexpectedToken;
+                    continue;
+                },
+                '#' => {
+                    index = skipLineCommentIndex(source, index);
+                    continue;
+                },
+                '/' => {
+                    const next = try skipRawSlashIndex(source, index);
+                    if (next != index + 1) {
+                        index = next;
+                        continue;
+                    }
+                    index = next;
+                    continue;
+                },
+                '(' => {
+                    paren_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                ')' => {
+                    if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) break;
+                    if (paren_depth != 0) paren_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                '[' => {
+                    bracket_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                ']' => {
+                    if (bracket_depth != 0) bracket_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                '{' => {
+                    brace_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                '}' => {
+                    if (brace_depth != 0) brace_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                ',' => if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) break,
+                else => {},
+            }
+            index += 1;
+        }
+        const literal = std.mem.trim(u8, source[literal_start..index], " \t\r\n");
+        try fields.append(allocator, .{ .index = fields.items.len, .name = name, .literal = literal });
+
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len) return error.UnexpectedToken;
+        if (source[index] == ',') {
+            index += 1;
+            continue;
+        }
+        if (source[index] == ')') {
+            index += 1;
+            break;
+        }
+        return error.UnexpectedToken;
+    }
+
+    index = try skipTriviaIndex(source, index);
+    if (index != source.len) return error.UnexpectedToken;
+    return fields.toOwnedSlice(allocator);
 }
 
 pub const ImportDecl = struct {
@@ -2248,6 +2410,11 @@ pub const Parser = struct {
             const is_embed = std.mem.startsWith(u8, split.default_expression, "embed");
             const embed_path = if (is_embed) embedPathFromExpression(split.default_expression) orelse "" else "";
             const is_struct_literal = std.mem.startsWith(u8, split.default_expression, "(");
+            var struct_fields: ?[]ConstStructField = null;
+            errdefer if (struct_fields) |fields| self.allocator.free(fields);
+            if (is_struct_literal) {
+                struct_fields = try parseConstStructFieldsAlloc(self.allocator, split.default_expression);
+            }
             const entry = try decl_names.getOrPut(name);
             if (entry.found_existing) {
                 ty.deinit(self.allocator);
@@ -2263,6 +2430,7 @@ pub const Parser = struct {
                 .is_struct_literal = is_struct_literal,
                 .emit_value = false,
                 .annotations = split.annotations,
+                .struct_fields = struct_fields,
             });
             return;
         }
@@ -4363,6 +4531,10 @@ test "schema parser skips common top-level using and const declarations" {
     try std.testing.expectEqualStrings("rawPerson", file.consts[3].name);
     try std.testing.expectEqualStrings("(name = \"Raw\")", file.consts[3].literal);
     try std.testing.expect(!file.consts[3].emit_value);
+    try std.testing.expect(file.consts[3].is_struct_literal);
+    try std.testing.expectEqual(@as(usize, 1), file.consts[3].struct_fields.?.len);
+    try std.testing.expectEqualStrings("name", file.consts[3].struct_fields.?[0].name);
+    try std.testing.expectEqualStrings("\"Raw\"", file.consts[3].struct_fields.?[0].literal);
     try std.testing.expectEqualStrings("blockText", file.consts[4].name);
 }
 
@@ -6548,6 +6720,13 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}}}
         \\
     , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.constByStructFieldCount"(@"cpz.count": usize) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (@"cpz.const".is_struct_literal and @"cpz.const".struct_field_count == @"cpz.count") return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent });
     if (consts.len != 0) try out.append(allocator, '\n');
 }
 
@@ -6597,6 +6776,11 @@ fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
         try out.appendSlice(allocator, ", .list_items = ");
         try appendConstListItemsLiteral(allocator, out, items);
     }
+    if (decl.struct_fields) |fields| {
+        try appendFmt(allocator, out, ", .struct_field_count = {}", .{fields.len});
+        try out.appendSlice(allocator, ", .struct_fields = ");
+        try appendConstStructFieldsLiteral(allocator, out, fields);
+    }
     try out.appendSlice(allocator, " }");
 }
 
@@ -6616,6 +6800,19 @@ fn appendConstListItemsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList
             try appendFmt(allocator, out, ", .annotations = {s}", .{annotations});
         }
         try out.appendSlice(allocator, " }");
+    }
+    try out.appendSlice(allocator, "}");
+}
+
+fn appendConstStructFieldsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fields: []const ConstStructField) LayoutError!void {
+    try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{");
+    for (fields, 0..) |field, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        const name_literal = try zigStringLiteralAlloc(allocator, field.name);
+        defer allocator.free(name_literal);
+        const literal = try zigStringLiteralAlloc(allocator, field.literal);
+        defer allocator.free(literal);
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .literal = {s} }}", .{ field.index, name_literal, literal });
     }
     try out.appendSlice(allocator, "}");
 }
@@ -6793,6 +6990,48 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.annotations": []const u8 = {s};
                 \\
             , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, const_name, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations });
+        }
+    }
+    try appendFmt(allocator, out,
+        \\{s}pub const @"cpz.const.{s}.structFieldCount": usize = {};
+        \\{s}pub const @"cpz.const.{s}.structFields": []const cpz.schema.ConstStructField =
+    , .{ indent, const_name, if (decl.struct_fields) |fields| fields.len else 0, indent, const_name });
+    if (decl.struct_fields) |fields| {
+        try appendConstStructFieldsLiteral(allocator, out, fields);
+    } else {
+        try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{}");
+    }
+    try out.appendSlice(allocator, ";\n");
+    try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.const.{s}.structFieldByIndex"(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
+        \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.structFields".len) return null;
+        \\{s}    return @This().@"cpz.const.{s}.structFields"[@"cpz.index"];
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.const.{s}.structFieldByName"(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
+        \\{s}    for (@This().@"cpz.const.{s}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+        \\{s}pub fn @"cpz.const.{s}.structFieldByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
+        \\{s}    for (@This().@"cpz.const.{s}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
+    if (decl.struct_fields) |fields| {
+        for (fields) |field| {
+            const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
+            defer allocator.free(field_name_literal);
+            const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
+            defer allocator.free(field_literal);
+            try appendFmt(allocator, out,
+                \\{s}pub const @"cpz.const.{s}.structField.{}.index": usize = {};
+                \\{s}pub const @"cpz.const.{s}.structField.{}.metadata": cpz.schema.ConstStructField = @This().@"cpz.const.{s}.structFields"[{}];
+                \\{s}pub const @"cpz.const.{s}.structField.{}.name": []const u8 = {s};
+                \\{s}pub const @"cpz.const.{s}.structField.{}.literal": []const u8 = {s};
+                \\
+            , .{ indent, const_name, field.index, field.index, indent, const_name, field.index, const_name, field.index, indent, const_name, field.index, field_name_literal, indent, const_name, field.index, field_literal });
         }
     }
     try out.appendSlice(allocator,
