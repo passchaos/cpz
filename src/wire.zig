@@ -114,6 +114,10 @@ pub const StructSize = struct {
     pub fn matchesPointerCount(self: StructSize, count: u16) bool {
         return self.pointer_count == count;
     }
+
+    pub fn matchesTotalWords(self: StructSize, count: usize) bool {
+        return self.totalWords() == count;
+    }
 };
 
 pub const StructPointer = struct {
@@ -537,6 +541,7 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expect(!struct_ptr.isEmpty());
     try testing.expect(struct_ptr.hasDataWords());
     try testing.expect(struct_ptr.hasPointers());
+    try testing.expect(struct_ptr.size().matchesTotalWords(5));
     try testing.expect(struct_ptr.matchesSize(.{ .data_words = 3, .pointer_count = 2 }));
     try testing.expect(struct_ptr.matchesDataWords(3));
     try testing.expect(!struct_ptr.matchesDataWords(2));
