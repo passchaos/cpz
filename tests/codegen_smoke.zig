@@ -434,6 +434,16 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expect(field_payloads_default_stats.total_words > 0);
     try std.testing.expectEqualStrings("\"an\" \"on\"", generated.Person.@"cpz.field.nickname.default");
     try std.testing.expect(generated.Person.@"cpz.field.nickname.hasExplicitDefault");
+    try std.testing.expect(generated.Person.nicknameDefaultFlat.flatBytes.len > 0);
+    var field_nickname_default_reader = generated.Person.nicknameDefaultFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, "anon", try generated.Person.nicknameDefaultFlat.get(&field_nickname_default_reader));
+    try std.testing.expectEqual(@as(usize, 4), try generated.Person.nicknameDefaultFlat.getByteCount(&field_nickname_default_reader));
+    try std.testing.expect((try generated.Person.nicknameDefaultFlat.validate(.{})).total_words > 0);
+    try std.testing.expect(generated.Person.blockNameDefaultFlat.flatBytes.len > 0);
+    var field_block_name_default_reader = generated.Person.blockNameDefaultFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, "block\n    default", try generated.Person.blockNameDefaultFlat.get(&field_block_name_default_reader));
+    try std.testing.expectEqual(@as(usize, "block\n    default".len), try generated.Person.blockNameDefaultFlat.getByteCount(&field_block_name_default_reader));
+    try std.testing.expect((try generated.Person.blockNameDefaultFlat.validate(.{})).total_words > 0);
     try std.testing.expectEqualStrings("[(id = 101, name = \"default child\")]", generated.Person.@"cpz.field.children.default");
     try std.testing.expect(generated.Person.@"cpz.field.children.hasExplicitDefault");
     try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.annotations");
@@ -480,6 +490,11 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("0x\"ca fe\"", generated.Person.@"cpz.field.defaultPayload.default");
     try std.testing.expect(generated.Person.@"cpz.field.defaultPayload.hasExplicitDefault");
     try std.testing.expect(generated.Person.@"cpz.field.defaultPayload.defaultIsHexData");
+    try std.testing.expect(generated.Person.defaultPayloadDefaultFlat.flatBytes.len > 0);
+    var field_payload_default_reader = generated.Person.defaultPayloadDefaultFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xca, 0xfe }, try generated.Person.defaultPayloadDefaultFlat.get(&field_payload_default_reader));
+    try std.testing.expectEqual(@as(usize, 2), try generated.Person.defaultPayloadDefaultFlat.getByteCount(&field_payload_default_reader));
+    try std.testing.expect((try generated.Person.defaultPayloadDefaultFlat.validate(.{})).total_words > 0);
     try std.testing.expect(generated.Person.@"cpz.fieldByName"("defaultPayload").?.has_explicit_default);
     try std.testing.expect(generated.Person.@"cpz.fieldByName"("defaultPayload").?.default_is_hex_data);
     try std.testing.expectEqualStrings("defaultPayload", generated.Person.@"cpz.fieldByDefault"("0x\"ca fe\"").?.name);

@@ -9117,6 +9117,56 @@ fn listNestedFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *con
     return flat;
 }
 
+fn blobFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, bytes: []const u8, comptime is_text: bool) LayoutError![]u8 {
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, @sizeOf(u64));
+    try appendByteListPointerAtWord(allocator, &segment, 0, bytes, is_text);
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
+fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, field_name: []const u8, bytes: []const u8, comptime is_text: bool) LayoutError!void {
+    const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+    defer allocator.free(container_name);
+    const flat = try blobFieldDefaultFlatBytesAlloc(allocator, bytes, is_text);
+    defer allocator.free(flat);
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    const get_method = if (is_text) "getRootText" else "getRootData";
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader) ![]const u8 {{
+        \\{s}        return message_reader.{s}();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getByteCount(message_reader: *cpz.MessageReader) !usize {{
+        \\{s}        return (try get(message_reader)).len;
+        \\{s}    }}
+        \\
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, get_method, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+}
+
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
     const items = constListItemsFromInlineLiteralAlloc(allocator, default_expression) catch |err| switch (err) {
         error.UnexpectedToken, error.InvalidToken => return,
@@ -9174,13 +9224,25 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
     for (layout.fields) |field_layout| {
         const field = field_layout.field;
         if (field.default_expression.len == 0) continue;
-        const child = switch (resolveTypeScoped(file, layout.decl, field.ty)) {
-            .list => |list_child| list_child.*,
-            else => continue,
-        };
         const field_name = try zigIdentAlloc(allocator, field.name);
         defer allocator.free(field_name);
-        try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, child, field.default_expression);
+        switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+            .text => {
+                const literal = field.default_literal orelse continue;
+                try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, literal, true);
+            },
+            .data => {
+                const literal = field.default_literal orelse continue;
+                const bytes = if (field.default_is_hex_data)
+                    try hexBytesAlloc(allocator, literal)
+                else
+                    try decodedStringBytesAlloc(allocator, literal);
+                defer allocator.free(bytes);
+                try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, false);
+            },
+            .list => |list_child| try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, list_child.*, field.default_expression),
+            else => continue,
+        }
     }
 }
 
