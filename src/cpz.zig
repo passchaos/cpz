@@ -68,6 +68,7 @@ pub const packToWriter = packing.packToWriter;
 pub const unpack = packing.unpack;
 pub const unpackInto = packing.unpackInto;
 pub const unpackToWriter = packing.unpackToWriter;
+pub const unpackReaderToWriter = packing.unpackReaderToWriter;
 pub const Segment = serialize.Segment;
 pub const ConstSegment = serialize.ConstSegment;
 pub const FlatMessage = serialize.FlatMessage;
@@ -190,6 +191,11 @@ test "top-level stream framing helpers round-trip" {
     var unpacked_flat_writer = std.Io.Writer.fixed(&unpacked_flat_writer_buffer);
     try unpackToWriter(&unpacked_flat_writer, packed_flat);
     try testing.expectEqualSlices(u8, flat, std.Io.Writer.buffered(&unpacked_flat_writer));
+    var packed_flat_reader = std.Io.Reader.fixed(packed_flat);
+    var unpacked_flat_reader_writer_buffer: [256]u8 = undefined;
+    var unpacked_flat_reader_writer = std.Io.Writer.fixed(&unpacked_flat_reader_writer_buffer);
+    try unpackReaderToWriter(&packed_flat_reader, &unpacked_flat_reader_writer);
+    try testing.expectEqualSlices(u8, flat, std.Io.Writer.buffered(&unpacked_flat_reader_writer));
 
     var flat_buffer: [128]u8 = undefined;
     var flat_writer = std.Io.Writer.fixed(&flat_buffer);

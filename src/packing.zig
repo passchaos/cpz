@@ -345,6 +345,54 @@ fn writeZeroesToWriter(writer: *std.Io.Writer, byte_count: usize) std.Io.Writer.
     }
 }
 
+/// Decode a packed Cap'n Proto stream from an Io reader directly to an Io
+/// writer without allocating the complete packed or unpacked byte sequence.
+pub fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
+    while (true) {
+        const tag = reader.takeByte() catch |err| switch (err) {
+            error.EndOfStream => return,
+            else => |e| return e,
+        };
+
+        var word = [_]u8{0} ** wire.bytes_per_word;
+        inline for (0..wire.bytes_per_word) |j| {
+            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                word[j] = try takePackedReaderByte(reader);
+            }
+        }
+        try writer.writeAll(&word);
+
+        if (tag == 0x00) {
+            const additional_bytes = @as(usize, try takePackedReaderByte(reader)) * wire.bytes_per_word;
+            try writeZeroesToWriter(writer, additional_bytes);
+        } else if (tag == 0xff) {
+            const raw_bytes = @as(usize, try takePackedReaderByte(reader)) * wire.bytes_per_word;
+            try copyPackedReaderBytesToWriter(reader, writer, raw_bytes);
+        }
+    }
+}
+
+fn takePackedReaderByte(reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!u8 {
+    return reader.takeByte() catch |err| switch (err) {
+        error.EndOfStream => error.PackedInputTruncated,
+        else => |e| e,
+    };
+}
+
+fn copyPackedReaderBytesToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer, byte_count: usize) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
+    var buffer: [4096]u8 = undefined;
+    var remaining = byte_count;
+    while (remaining != 0) {
+        const chunk = @min(remaining, buffer.len);
+        reader.readSliceAll(buffer[0..chunk]) catch |err| switch (err) {
+            error.EndOfStream => return error.PackedInputTruncated,
+            else => |e| return e,
+        };
+        try writer.writeAll(buffer[0..chunk]);
+        remaining -= chunk;
+    }
+}
+
 fn writePackedSlice(dest: []u8, out_i: *usize, bytes: []const u8) Error!void {
     if (dest.len - out_i.* < bytes.len) return error.PackedOutputTooSmall;
     @memcpy(dest[out_i.* .. out_i.* + bytes.len], bytes);
@@ -478,4 +526,25 @@ test "unpackToWriter matches allocating decoder" {
 
     var truncated_writer = std.Io.Writer.fixed(&buffer);
     try testing.expectError(error.PackedInputTruncated, unpackToWriter(&truncated_writer, packed_bytes[0 .. packed_bytes.len - 1]));
+}
+
+test "unpackReaderToWriter streams packed input to writer" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const unpacked = ([_]u8{0x8a} ** 4096) ++ ([_]u8{0} ** 64) ++ [_]u8{
+        0x08, 0x00, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+    };
+    const packed_bytes = try pack(allocator, &unpacked);
+    defer allocator.free(packed_bytes);
+
+    var reader = std.Io.Reader.fixed(packed_bytes);
+    var buffer: [8192]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    try unpackReaderToWriter(&reader, &writer);
+    try testing.expectEqualSlices(u8, &unpacked, std.Io.Writer.buffered(&writer));
+
+    var truncated_reader = std.Io.Reader.fixed(packed_bytes[0 .. packed_bytes.len - 1]);
+    var truncated_writer = std.Io.Writer.fixed(&buffer);
+    try testing.expectError(error.PackedInputTruncated, unpackReaderToWriter(&truncated_reader, &truncated_writer));
 }
