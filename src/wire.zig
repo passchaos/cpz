@@ -293,6 +293,20 @@ pub const ListPointer = struct {
         return self.element_count_or_words;
     }
 
+    pub fn payloadBitCount(self: ListPointer) Error!usize {
+        if (self.element_size == .composite) return error.UnsupportedElementSize;
+        return std.math.mul(usize, self.element_size.bits(), self.element_count_or_words) catch return error.MessageTooLarge;
+    }
+
+    pub fn payloadByteCount(self: ListPointer) Error!usize {
+        return std.math.divCeil(usize, try self.payloadBitCount(), 8) catch unreachable;
+    }
+
+    pub fn payloadWordCount(self: ListPointer) Error!usize {
+        if (self.element_size == .composite) return self.element_count_or_words;
+        return wordsForBits(try self.payloadBitCount());
+    }
+
     pub fn elementCount(self: ListPointer) Error!usize {
         if (self.element_size == .composite) return error.UnsupportedElementSize;
         return self.element_count_or_words;
@@ -321,6 +335,18 @@ pub const ListPointer = struct {
 
     pub fn matchesElementCountOrWordCount(self: ListPointer, count: usize) bool {
         return @as(usize, self.element_count_or_words) == count;
+    }
+
+    pub fn matchesPayloadBits(self: ListPointer, count: usize) bool {
+        return (self.payloadBitCount() catch return false) == count;
+    }
+
+    pub fn matchesPayloadBytes(self: ListPointer, count: usize) bool {
+        return (self.payloadByteCount() catch return false) == count;
+    }
+
+    pub fn matchesPayloadWords(self: ListPointer, count: usize) bool {
+        return (self.payloadWordCount() catch return false) == count;
     }
 };
 
@@ -750,20 +776,32 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(usize, 53), list_ptr.elementCountOrWordCount());
     try testing.expectEqual(@as(usize, 53), try list_ptr.elementCount());
     try testing.expectError(error.UnsupportedElementSize, list_ptr.compositeWordCount());
+    try testing.expectEqual(@as(usize, 424), try list_ptr.payloadBitCount());
+    try testing.expectEqual(@as(usize, 53), try list_ptr.payloadByteCount());
+    try testing.expectEqual(@as(usize, 7), try list_ptr.payloadWordCount());
     try testing.expect(list_ptr.hasElementsOrWords());
     try testing.expect(list_ptr.matchesElementSize(.byte));
     try testing.expect(list_ptr.matchesElementCount(53));
     try testing.expect(!list_ptr.matchesElementCount(52));
     try testing.expect(!list_ptr.matchesCompositeWordCount(53));
     try testing.expect(list_ptr.matchesElementCountOrWordCount(53));
+    try testing.expect(list_ptr.matchesPayloadBits(424));
+    try testing.expect(list_ptr.matchesPayloadBytes(53));
+    try testing.expect(list_ptr.matchesPayloadWords(7));
+    try testing.expect(!list_ptr.matchesPayloadWords(6));
 
     const composite_raw = try encodeList(1, .composite, 7);
     const composite_ptr = try decodeList(composite_raw);
     try testing.expectError(error.UnsupportedElementSize, composite_ptr.elementCount());
     try testing.expectEqual(@as(usize, 7), try composite_ptr.compositeWordCount());
+    try testing.expectError(error.UnsupportedElementSize, composite_ptr.payloadBitCount());
+    try testing.expectError(error.UnsupportedElementSize, composite_ptr.payloadByteCount());
+    try testing.expectEqual(@as(usize, 7), try composite_ptr.payloadWordCount());
     try testing.expect(!composite_ptr.matchesElementCount(7));
+    try testing.expect(!composite_ptr.matchesPayloadBits(0));
     try testing.expect(composite_ptr.matchesCompositeWordCount(7));
     try testing.expect(!composite_ptr.matchesCompositeWordCount(8));
+    try testing.expect(composite_ptr.matchesPayloadWords(7));
 }
 
 test "wire signed offsets and far/capability pointers" {
