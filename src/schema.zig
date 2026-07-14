@@ -7451,6 +7451,10 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".validateWithOptions(@"cpz.options");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.messageTotalSize"(@"cpz.reader": *cpz.MessageReader) !cpz.MessageSize {{
+        \\        return @"cpz.reader".totalSize();
+        \\    }}
+        \\
         \\    pub fn @"cpz.root.messageTotalSizeWithOptions"(@"cpz.reader": *cpz.MessageReader, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
         \\        return @"cpz.reader".totalSizeWithOptions(@"cpz.options");
         \\    }}
@@ -7589,6 +7593,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.validateWithOptions"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
         \\        return @"cpz.builder".validate(@"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.messageTotalSize"(@"cpz.builder": *cpz.MessageBuilder) !cpz.MessageSize {{
+        \\        return @"cpz.builder".totalSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.messageTotalSizeWithOptions"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+        \\        return @"cpz.builder".totalSizeWithOptions(@"cpz.options");
         \\    }}
         \\
         \\    pub fn @"cpz.builderRoot.toFlatBytes"(@"cpz.builder": *cpz.MessageBuilder) ![]u8 {{

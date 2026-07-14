@@ -623,6 +623,10 @@ test "generated reader and builder accessors compile and round-trip" {
     const builder_validation_stats = try generated.Person.@"cpz.builderRoot.validate"(&builder);
     try std.testing.expectEqual(direct_builder_validation_stats.total_words, builder_validation_stats.total_words);
     try std.testing.expect(builder_validation_stats.total_words >= builder_root_size.word_count);
+    const builder_message_size = try generated.Person.@"cpz.builderRoot.messageTotalSize"(&builder);
+    try std.testing.expectEqual(builder_validation_stats.size().word_count, builder_message_size.word_count);
+    const builder_message_size_with_options = try generated.Person.@"cpz.builderRoot.messageTotalSizeWithOptions"(&builder, .{ .capability_count_limit = 100 });
+    try std.testing.expectEqual(builder_message_size.word_count, builder_message_size_with_options.word_count);
     const flat_root_bytes = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&builder);
     defer std.testing.allocator.free(flat_root_bytes);
     try std.testing.expect(flat_root_bytes.len > 0);
@@ -943,6 +947,8 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(@as(usize, 0), validation_stats.maxCapabilityCount());
     const validation_with_options = try generated.Person.@"cpz.root.validateWithOptions"(&reader, .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(validation_stats.total_words, validation_with_options.total_words);
+    const message_size = try generated.Person.@"cpz.root.messageTotalSize"(&reader);
+    try std.testing.expectEqual(validation_stats.size().word_count, message_size.word_count);
     const message_size_with_options = try generated.Person.@"cpz.root.messageTotalSizeWithOptions"(&reader, .{ .capability_count_limit = 100 });
     try std.testing.expectEqual(validation_with_options.size().word_count, message_size_with_options.word_count);
     try std.testing.expect(message_size_with_options.hasWords());
@@ -1180,11 +1186,13 @@ test "generated scalar root helpers work" {
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.builderRoot.statsWithOptions"(&cap_builder, .{ .capability_count_limit = 1 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.builderRoot.totalSizeWithOptions"(&cap_builder, .{ .capability_count_limit = 1 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.builderRoot.validateWithOptions"(&cap_builder, .{ .capability_count_limit = 1 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.builderRoot.messageTotalSizeWithOptions"(&cap_builder, .{ .capability_count_limit = 1 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, cap_builder.totalSizeWithOptions(.{ .capability_count_limit = 1 }));
     var cap_reader = cpz.MessageReader.init(try cap_builder.segmentsConst(), .{});
     try std.testing.expectEqual(@as(u32, 7777), try generated.Person.@"cpz.root.capability"(&cap_reader));
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.statsWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.totalSizeWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
+    try std.testing.expectError(error.InvalidCapabilityPointer, generated.Person.@"cpz.root.messageTotalSizeWithOptions"(&cap_reader, .{ .capability_count_limit = 1 }));
 }
 
 test "generated list root helpers work" {
