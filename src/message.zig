@@ -550,8 +550,24 @@ pub const OwnedMessageReader = struct {
         return self.reader.getRootText();
     }
 
+    pub fn getRootTextByteCount(self: *OwnedMessageReader) Error!usize {
+        return self.reader.getRootTextByteCount();
+    }
+
+    pub fn rootTextMatchesBytes(self: *OwnedMessageReader, count: usize) Error!bool {
+        return self.reader.rootTextMatchesBytes(count);
+    }
+
     pub fn getRootData(self: *OwnedMessageReader) Error![]const u8 {
         return self.reader.getRootData();
+    }
+
+    pub fn getRootDataByteCount(self: *OwnedMessageReader) Error!usize {
+        return self.reader.getRootDataByteCount();
+    }
+
+    pub fn rootDataMatchesBytes(self: *OwnedMessageReader, count: usize) Error!bool {
+        return self.reader.rootDataMatchesBytes(count);
     }
 
     pub fn getRootTextDefault(self: *OwnedMessageReader, default_value: []const u8) Error![]const u8 {
@@ -981,8 +997,24 @@ pub const MessageReaderView = struct {
         return self.reader.getRootText();
     }
 
+    pub fn getRootTextByteCount(self: *MessageReaderView) Error!usize {
+        return self.reader.getRootTextByteCount();
+    }
+
+    pub fn rootTextMatchesBytes(self: *MessageReaderView, count: usize) Error!bool {
+        return self.reader.rootTextMatchesBytes(count);
+    }
+
     pub fn getRootData(self: *MessageReaderView) Error![]const u8 {
         return self.reader.getRootData();
+    }
+
+    pub fn getRootDataByteCount(self: *MessageReaderView) Error!usize {
+        return self.reader.getRootDataByteCount();
+    }
+
+    pub fn rootDataMatchesBytes(self: *MessageReaderView, count: usize) Error!bool {
+        return self.reader.rootDataMatchesBytes(count);
     }
 
     pub fn getRootTextDefault(self: *MessageReaderView, default_value: []const u8) Error![]const u8 {
@@ -2198,12 +2230,28 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).getTextDefault(default_value);
     }
 
+    pub fn getRootTextByteCount(self: *MessageBuilder) Error!usize {
+        return (try self.getRootPointer()).getTextByteCount();
+    }
+
+    pub fn rootTextMatchesBytes(self: *MessageBuilder, count: usize) Error!bool {
+        return (try self.getRootPointer()).textMatchesBytes(count);
+    }
+
     pub fn getRootData(self: *MessageBuilder) Error![]const u8 {
         return (try self.getRootPointer()).getData();
     }
 
     pub fn getRootDataDefault(self: *MessageBuilder, default_value: []const u8) Error![]const u8 {
         return (try self.getRootPointer()).getDataDefault(default_value);
+    }
+
+    pub fn getRootDataByteCount(self: *MessageBuilder) Error!usize {
+        return (try self.getRootPointer()).getDataByteCount();
+    }
+
+    pub fn rootDataMatchesBytes(self: *MessageBuilder, count: usize) Error!bool {
+        return (try self.getRootPointer()).dataMatchesBytes(count);
     }
 
     pub fn getRootCapability(self: *MessageBuilder) Error!u32 {
@@ -2662,12 +2710,28 @@ pub const MessageReader = struct {
         return (try self.getRootPointer()).getTextDefault(default_value);
     }
 
+    pub fn getRootTextByteCount(self: *MessageReader) Error!usize {
+        return (try self.getRootPointer()).getTextByteCount();
+    }
+
+    pub fn rootTextMatchesBytes(self: *MessageReader, count: usize) Error!bool {
+        return (try self.getRootPointer()).textMatchesBytes(count);
+    }
+
     pub fn getRootData(self: *MessageReader) Error![]const u8 {
         return (try self.getRootPointer()).getData();
     }
 
     pub fn getRootDataDefault(self: *MessageReader, default_value: []const u8) Error![]const u8 {
         return (try self.getRootPointer()).getDataDefault(default_value);
+    }
+
+    pub fn getRootDataByteCount(self: *MessageReader) Error!usize {
+        return (try self.getRootPointer()).getDataByteCount();
+    }
+
+    pub fn rootDataMatchesBytes(self: *MessageReader, count: usize) Error!bool {
+        return (try self.getRootPointer()).dataMatchesBytes(count);
     }
 
     pub fn getRootCapability(self: *MessageReader) Error!u32 {
@@ -3395,6 +3459,20 @@ pub const PointerBuilder = struct {
         }).getTextDefault(default_value);
     }
 
+    pub fn getTextByteCount(self: PointerBuilder) Error!usize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getTextByteCount();
+    }
+
+    pub fn textMatchesBytes(self: PointerBuilder, count: usize) Error!bool {
+        return (try self.getTextByteCount()) == count;
+    }
+
     pub fn getData(self: PointerBuilder) Error![]const u8 {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return (PointerReader{
@@ -3413,6 +3491,20 @@ pub const PointerBuilder = struct {
             .word_index = self.word_index,
             .nesting_left = reader.options.nesting_limit,
         }).getDataDefault(default_value);
+    }
+
+    pub fn getDataByteCount(self: PointerBuilder) Error!usize {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return (PointerReader{
+            .message = &reader,
+            .segment_id = self.segment_id,
+            .word_index = self.word_index,
+            .nesting_left = reader.options.nesting_limit,
+        }).getDataByteCount();
+    }
+
+    pub fn dataMatchesBytes(self: PointerBuilder, count: usize) Error!bool {
+        return (try self.getDataByteCount()) == count;
     }
 
     pub fn setCapability(self: PointerBuilder, index: u32) void {
@@ -4031,6 +4123,14 @@ pub const PointerReader = struct {
         return self.getText();
     }
 
+    pub fn getTextByteCount(self: PointerReader) Error!usize {
+        return (try self.getText()).len;
+    }
+
+    pub fn textMatchesBytes(self: PointerReader, count: usize) Error!bool {
+        return (try self.getTextByteCount()) == count;
+    }
+
     pub fn getData(self: PointerReader) Error![]const u8 {
         return (try self.getList(.byte)).bytes();
     }
@@ -4038,6 +4138,14 @@ pub const PointerReader = struct {
     pub fn getDataDefault(self: PointerReader, default_value: []const u8) Error![]const u8 {
         if ((try self.raw()) == 0) return default_value;
         return self.getData();
+    }
+
+    pub fn getDataByteCount(self: PointerReader) Error!usize {
+        return (try self.getData()).len;
+    }
+
+    pub fn dataMatchesBytes(self: PointerReader, count: usize) Error!bool {
+        return (try self.getDataByteCount()) == count;
     }
 
     pub fn getCapabilityIndex(self: PointerReader) Error!u32 {
@@ -7561,9 +7669,15 @@ test "message builder and reader expose scalar root pointer helpers" {
     try text_builder.setRootText("root text");
     try testing.expectEqualSlices(u8, "root text", try text_builder.getRootText());
     try testing.expectEqualSlices(u8, "root text", try text_builder.getRootTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "root text".len), try text_builder.getRootTextByteCount());
+    try testing.expect(try text_builder.rootTextMatchesBytes("root text".len));
+    try testing.expect(!try text_builder.rootTextMatchesBytes("root text".len + 1));
     var text_reader = MessageReader.init(try text_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, "root text", try text_reader.getRootText());
     try testing.expectEqualSlices(u8, "root text", try text_reader.getRootTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "root text".len), try text_reader.getRootTextByteCount());
+    try testing.expect(try text_reader.rootTextMatchesBytes("root text".len));
+    try testing.expect(!try text_reader.rootTextMatchesBytes("root text".len + 1));
     try testing.expectError(error.TextContainsInteriorNul, empty_text_reader.getRootTextDefault("bad\x00default"));
 
     var empty_data_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
@@ -7577,9 +7691,15 @@ test "message builder and reader expose scalar root pointer helpers" {
     try data_builder.setRootData(&[_]u8{ 3, 1, 4 });
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_builder.getRootData());
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_builder.getRootDataDefault(&[_]u8{ 9, 9 }));
+    try testing.expectEqual(@as(usize, 3), try data_builder.getRootDataByteCount());
+    try testing.expect(try data_builder.rootDataMatchesBytes(3));
+    try testing.expect(!try data_builder.rootDataMatchesBytes(4));
     var data_reader = MessageReader.init(try data_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_reader.getRootData());
     try testing.expectEqualSlices(u8, &[_]u8{ 3, 1, 4 }, try data_reader.getRootDataDefault(&[_]u8{ 9, 9 }));
+    try testing.expectEqual(@as(usize, 3), try data_reader.getRootDataByteCount());
+    try testing.expect(try data_reader.rootDataMatchesBytes(3));
+    try testing.expect(!try data_reader.rootDataMatchesBytes(4));
 
     var cap_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
     defer cap_builder.deinit();
@@ -7591,6 +7711,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     const text_root_pointer = try text_builder.getRootPointer();
     try testing.expectEqual(@as(u32, 0), text_root_pointer.segmentId());
     try testing.expectEqual(@as(usize, 0), text_root_pointer.pointerWordIndex());
+    try testing.expectEqual(@as(usize, "root text".len), try text_root_pointer.getTextByteCount());
+    try testing.expect(try text_root_pointer.textMatchesBytes("root text".len));
+    try testing.expect(!try text_root_pointer.textMatchesBytes("root text".len + 1));
     try testing.expect(text_root_pointer.matchesLocation(0, 0));
     try testing.expect(text_root_pointer.matchesPointerType(.far));
     try testing.expect(text_root_pointer.isFarPointer());
@@ -7603,6 +7726,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     const text_pointer_reader = try text_pointer_reader_message.getRootPointer();
     try testing.expectEqual(@as(u32, 0), text_pointer_reader.segmentId());
     try testing.expectEqual(@as(usize, 0), text_pointer_reader.pointerWordIndex());
+    try testing.expectEqual(@as(usize, "root text".len), try text_pointer_reader.getTextByteCount());
+    try testing.expect(try text_pointer_reader.textMatchesBytes("root text".len));
+    try testing.expect(!try text_pointer_reader.textMatchesBytes("root text".len + 1));
     try testing.expect(text_pointer_reader.matchesLocation(0, 0));
     try testing.expect(text_pointer_reader.matchesPointerType(.list));
     try testing.expect(text_pointer_reader.isListPointer());
@@ -7644,12 +7770,18 @@ test "message builder and reader expose scalar root pointer helpers" {
     defer testing.allocator.free(text_flat);
     var owned_text = try OwnedMessageReader.initFlat(testing.allocator, text_flat, .{});
     defer owned_text.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, "root text".len), try owned_text.getRootTextByteCount());
+    try testing.expect(try owned_text.rootTextMatchesBytes("root text".len));
+    try testing.expect(!try owned_text.rootTextMatchesBytes("root text".len + 1));
     try testing.expect(try owned_text.matchesRootPointerType(.list));
     try testing.expect(try owned_text.isRootListPointer());
     try testing.expect(try owned_text.isRootNearPointer());
     try testing.expect(!try owned_text.isRootOtherPointer());
     var viewed_text = try MessageReaderView.initFlat(testing.allocator, text_flat, .{});
     defer viewed_text.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, "root text".len), try viewed_text.getRootTextByteCount());
+    try testing.expect(try viewed_text.rootTextMatchesBytes("root text".len));
+    try testing.expect(!try viewed_text.rootTextMatchesBytes("root text".len + 1));
     try testing.expect(try viewed_text.matchesRootPointerType(.list));
     try testing.expect(try viewed_text.isRootListPointer());
     try testing.expect(try viewed_text.isRootNearPointer());
@@ -7663,6 +7795,28 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expect(try cap_reader.isRootCapabilityPointer());
     try testing.expect(try cap_reader.isRootOtherPointer());
     try testing.expect(try cap_reader.isRootNearPointer());
+
+    const data_root_pointer = try data_builder.getRootPointer();
+    try testing.expectEqual(@as(usize, 3), try data_root_pointer.getDataByteCount());
+    try testing.expect(try data_root_pointer.dataMatchesBytes(3));
+    try testing.expect(!try data_root_pointer.dataMatchesBytes(4));
+    const data_pointer_reader = try data_reader.getRootPointer();
+    try testing.expectEqual(@as(usize, 3), try data_pointer_reader.getDataByteCount());
+    try testing.expect(try data_pointer_reader.dataMatchesBytes(3));
+    try testing.expect(!try data_pointer_reader.dataMatchesBytes(4));
+
+    const data_flat = try data_builder.toFlatBytes();
+    defer testing.allocator.free(data_flat);
+    var owned_data = try OwnedMessageReader.initFlat(testing.allocator, data_flat, .{});
+    defer owned_data.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 3), try owned_data.getRootDataByteCount());
+    try testing.expect(try owned_data.rootDataMatchesBytes(3));
+    try testing.expect(!try owned_data.rootDataMatchesBytes(4));
+    var viewed_data = try MessageReaderView.initFlat(testing.allocator, data_flat, .{});
+    defer viewed_data.deinit(testing.allocator);
+    try testing.expectEqual(@as(usize, 3), try viewed_data.getRootDataByteCount());
+    try testing.expect(try viewed_data.rootDataMatchesBytes(3));
+    try testing.expect(!try viewed_data.rootDataMatchesBytes(4));
 }
 
 test "message builder can disown and adopt root pointers" {
