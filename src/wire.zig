@@ -293,6 +293,22 @@ pub const ListPointer = struct {
         return self.element_count_or_words;
     }
 
+    pub fn isCompositeList(self: ListPointer) bool {
+        return self.element_size == .composite;
+    }
+
+    pub fn isPointerList(self: ListPointer) bool {
+        return self.element_size == .pointer;
+    }
+
+    pub fn isBitList(self: ListPointer) bool {
+        return self.element_size == .bit;
+    }
+
+    pub fn isByteList(self: ListPointer) bool {
+        return self.element_size == .byte;
+    }
+
     pub fn payloadBitCount(self: ListPointer) Error!usize {
         if (self.element_size == .composite) return error.UnsupportedElementSize;
         return std.math.mul(usize, self.element_size.bits(), self.element_count_or_words) catch return error.MessageTooLarge;
@@ -319,6 +335,18 @@ pub const ListPointer = struct {
 
     pub fn hasElementsOrWords(self: ListPointer) bool {
         return self.element_count_or_words != 0;
+    }
+
+    pub fn hasPayloadBits(self: ListPointer) bool {
+        return (self.payloadBitCount() catch return false) != 0;
+    }
+
+    pub fn hasPayloadBytes(self: ListPointer) bool {
+        return (self.payloadByteCount() catch return false) != 0;
+    }
+
+    pub fn hasPayloadWords(self: ListPointer) bool {
+        return (self.payloadWordCount() catch return false) != 0;
     }
 
     pub fn matchesElementSize(self: ListPointer, expected: ElementSize) bool {
@@ -779,7 +807,14 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(usize, 424), try list_ptr.payloadBitCount());
     try testing.expectEqual(@as(usize, 53), try list_ptr.payloadByteCount());
     try testing.expectEqual(@as(usize, 7), try list_ptr.payloadWordCount());
+    try testing.expect(!list_ptr.isCompositeList());
+    try testing.expect(!list_ptr.isPointerList());
+    try testing.expect(!list_ptr.isBitList());
+    try testing.expect(list_ptr.isByteList());
     try testing.expect(list_ptr.hasElementsOrWords());
+    try testing.expect(list_ptr.hasPayloadBits());
+    try testing.expect(list_ptr.hasPayloadBytes());
+    try testing.expect(list_ptr.hasPayloadWords());
     try testing.expect(list_ptr.matchesElementSize(.byte));
     try testing.expect(list_ptr.matchesElementCount(53));
     try testing.expect(!list_ptr.matchesElementCount(52));
@@ -792,11 +827,16 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
 
     const composite_raw = try encodeList(1, .composite, 7);
     const composite_ptr = try decodeList(composite_raw);
+    try testing.expect(composite_ptr.isCompositeList());
+    try testing.expect(!composite_ptr.isPointerList());
     try testing.expectError(error.UnsupportedElementSize, composite_ptr.elementCount());
     try testing.expectEqual(@as(usize, 7), try composite_ptr.compositeWordCount());
     try testing.expectError(error.UnsupportedElementSize, composite_ptr.payloadBitCount());
     try testing.expectError(error.UnsupportedElementSize, composite_ptr.payloadByteCount());
     try testing.expectEqual(@as(usize, 7), try composite_ptr.payloadWordCount());
+    try testing.expect(!composite_ptr.hasPayloadBits());
+    try testing.expect(!composite_ptr.hasPayloadBytes());
+    try testing.expect(composite_ptr.hasPayloadWords());
     try testing.expect(!composite_ptr.matchesElementCount(7));
     try testing.expect(!composite_ptr.matchesPayloadBits(0));
     try testing.expect(composite_ptr.matchesCompositeWordCount(7));
