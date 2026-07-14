@@ -287,6 +287,7 @@ pub const ImportMetadata = struct {
 const UnionBuilder = struct {
     fields: std.ArrayList(Field) = .empty,
     field_names: std.StringHashMap(void),
+    annotations: []const u8 = "",
     next_discriminant: u16 = 0,
 
     fn init(allocator: std.mem.Allocator) UnionBuilder {
@@ -300,6 +301,10 @@ const UnionBuilder = struct {
     }
 };
 
+pub const UnionDecl = struct {
+    annotations: []const u8 = "",
+};
+
 pub const Struct = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -307,12 +312,14 @@ pub const Struct = struct {
     annotations: []const u8 = "",
     parameters: []const []const u8 = &.{},
     fields: []Field,
+    unions: []UnionDecl = &.{},
     consts: []ConstDecl,
     aliases: []AliasDecl,
 
     pub fn deinit(self: *Struct, allocator: std.mem.Allocator) void {
         for (self.fields) |*field| field.deinit(allocator);
         allocator.free(self.fields);
+        allocator.free(self.unions);
         for (self.consts) |*c| c.deinit(allocator);
         allocator.free(self.consts);
         for (self.aliases) |*a| a.deinit(allocator);
@@ -424,6 +431,7 @@ pub const FieldMetadata = struct {
 
 pub const UnionMetadata = struct {
     index: u32,
+    annotations: []const u8 = "",
     discriminant_byte: usize,
     data_bit: usize = 0,
     data_bits: usize = 0,
@@ -437,6 +445,10 @@ pub const UnionMetadata = struct {
 
     pub fn matchesDiscriminantByte(self: UnionMetadata, byte_offset: usize) bool {
         return self.discriminant_byte == byte_offset;
+    }
+
+    pub fn matchesAnnotations(self: UnionMetadata, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
     }
 
     pub fn matchesDataBit(self: UnionMetadata, bit: usize) bool {
@@ -1074,6 +1086,7 @@ pub const FieldLayout = struct {
 
 pub const UnionLayout = struct {
     discriminant_byte: usize,
+    annotations: []const u8 = "",
     data_bit: usize = 0,
     data_bits: usize = 0,
     pointer: ?usize = null,
@@ -2504,7 +2517,7 @@ pub const Parser = struct {
                 try self.parseNamedAggregate(&fields, &field_names, &member_names, &unions, null);
                 continue;
             }
-            if (self.isKeyword("union") and (try self.peekNext()).tag == .l_brace) {
+            if (try self.isAnonymousUnionStart()) {
                 try self.advance();
                 const union_index: u32 = @intCast(unions.items.len);
                 try unions.append(self.allocator, UnionBuilder.init(self.allocator));
@@ -2534,6 +2547,8 @@ pub const Parser = struct {
         }
         try self.expect(.r_brace);
         for (unions.items) |*u| try appendUnionFields(self.allocator, &fields, &field_names, u);
+        const union_decls = try unionDeclsFromBuilders(self.allocator, unions.items);
+        errdefer self.allocator.free(union_decls);
         for (unions.items) |*u| u.deinit(self.allocator);
         unions.deinit(self.allocator);
         return .{
@@ -2543,12 +2558,14 @@ pub const Parser = struct {
             .annotations = annotations,
             .parameters = parameters,
             .fields = try fields.toOwnedSlice(self.allocator),
+            .unions = union_decls,
             .consts = try consts.toOwnedSlice(self.allocator),
             .aliases = try aliases.toOwnedSlice(self.allocator),
         };
     }
 
     fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
+        union_builder.annotations = try self.takeRawUntilLeftBrace();
         try self.expect(.l_brace);
         try self.parseAnonymousUnionBody(union_builder, union_index);
     }
@@ -2578,9 +2595,9 @@ pub const Parser = struct {
             else
                 try self.allocator.dupe(u8, name);
             defer self.allocator.free(union_prefix);
-            try self.skipUntil(.l_brace);
             const union_index: u32 = @intCast(unions.items.len);
             try unions.append(self.allocator, UnionBuilder.init(self.allocator));
+            unions.items[union_index].annotations = try self.takeRawUntilLeftBrace();
             _ = ordinal;
             try self.parseNamedUnionBody(union_prefix, &unions.items[union_index], union_index);
             return;
@@ -2633,8 +2650,9 @@ pub const Parser = struct {
                 try self.parseNamedAggregate(fields, field_names, member_names, unions, group_prefix);
                 continue;
             }
-            if (self.isKeyword("union") and (try self.peekNext()).tag == .l_brace) {
+            if (try self.isAnonymousUnionStart()) {
                 try self.advance();
+                _ = try self.takeRawUntilLeftBrace();
                 try self.skipCurrentBracedBody();
                 continue;
             }
@@ -2982,6 +3000,16 @@ pub const Parser = struct {
         token = try lexer.next();
         if (token.tag != .identifier) return false;
         if (!std.mem.eql(u8, token.lexeme, "union") and !std.mem.eql(u8, token.lexeme, "group")) return false;
+        while (token.tag != .eof and token.tag != .semicolon and token.tag != .r_brace) : (token = try lexer.next()) {
+            if (token.tag == .l_brace) return true;
+        }
+        return false;
+    }
+
+    fn isAnonymousUnionStart(self: *const Parser) Error!bool {
+        if (!self.isKeyword("union")) return false;
+        var lexer = self.lexer;
+        var token = try lexer.next();
         while (token.tag != .eof and token.tag != .semicolon and token.tag != .r_brace) : (token = try lexer.next()) {
             if (token.tag == .l_brace) return true;
         }
@@ -3429,6 +3457,14 @@ fn appendUnionFields(allocator: std.mem.Allocator, fields: *std.ArrayList(Field)
     union_builder.fields.clearRetainingCapacity();
 }
 
+fn unionDeclsFromBuilders(allocator: std.mem.Allocator, builders: []const UnionBuilder) std.mem.Allocator.Error![]UnionDecl {
+    const decls = try allocator.alloc(UnionDecl, builders.len);
+    for (builders, 0..) |builder, index| {
+        decls[index] = .{ .annotations = builder.annotations };
+    }
+    return decls;
+}
+
 pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!LayoutFile {
     var layouts = std.ArrayList(StructLayout).empty;
     errdefer {
@@ -3448,7 +3484,10 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
     const union_count = countUnions(decl.fields);
     const unions = try allocator.alloc(UnionLayout, union_count);
     errdefer allocator.free(unions);
-    for (unions) |*u| u.* = .{ .discriminant_byte = 0 };
+    for (unions, 0..) |*u, index| u.* = .{
+        .discriminant_byte = 0,
+        .annotations = if (index < decl.unions.len) decl.unions[index].annotations else "",
+    };
     const union_requirements = try allocator.alloc(UnionRequirement, union_count);
     defer allocator.free(union_requirements);
     for (union_requirements) |*req| req.* = .{};
@@ -4160,6 +4199,8 @@ test "schema parser lowers simple named group declarations" {
     try std.testing.expectEqual(Type.uint32, file.structs[0].fields[4].ty);
     try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[4].union_index);
     try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[4].union_discriminant);
+    try std.testing.expectEqual(@as(usize, 1), file.structs[0].unions.len);
+    try std.testing.expectEqualStrings("$Ann.name(\"selected\")", file.structs[0].unions[0].annotations);
 }
 
 test "schema parser accepts TypeList shorthand" {
@@ -6581,14 +6622,17 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     , .{layout.unions.len});
     for (layout.unions, 0..) |union_layout, index| {
         const field_count = unionFieldCount(layout, @intCast(index));
+        const annotation_literal = try zigStringLiteralAlloc(allocator, union_layout.annotations);
+        defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.union.{}.index": u32 = {};
             \\    pub const @"cpz.union.{}.discriminantByte": usize = {};
+            \\    pub const @"cpz.union.{}.annotations": []const u8 = {s};
             \\    pub const @"cpz.union.{}.dataBit": usize = {};
             \\    pub const @"cpz.union.{}.dataBits": usize = {};
             \\    pub const @"cpz.union.{}.fieldCount": usize = {};
             \\    pub const @"cpz.union.{}.pointer": ?usize = 
-        , .{ index, index, index, union_layout.discriminant_byte, index, union_layout.data_bit, index, union_layout.data_bits, index, field_count, index });
+        , .{ index, index, index, union_layout.discriminant_byte, index, annotation_literal, index, union_layout.data_bit, index, union_layout.data_bits, index, field_count, index });
         if (union_layout.pointer) |pointer| {
             try appendFmt(allocator, out, "{};\n", .{pointer});
         } else {
@@ -6659,7 +6703,9 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
-        try appendFmt(allocator, out, ".{{ .index = {}, .discriminant_byte = {}, .field_count = {}, .fields = ", .{ index, union_layout.discriminant_byte, unionFieldCount(layout, @intCast(index)) });
+        const annotation_literal = try zigStringLiteralAlloc(allocator, union_layout.annotations);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out, ".{{ .index = {}, .annotations = {s}, .discriminant_byte = {}, .field_count = {}, .fields = ", .{ index, annotation_literal, union_layout.discriminant_byte, unionFieldCount(layout, @intCast(index)) });
         try appendUnionFieldMetadataLiteral(allocator, out, file, layout, @intCast(index));
         if (union_layout.data_bits != 0) {
             try appendFmt(allocator, out, ", .data_bit = {}, .data_bits = {}", .{ union_layout.data_bit, union_layout.data_bits });
@@ -6693,6 +6739,11 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\
         \\    pub fn @"cpz.unionByFieldCount"(@"cpz.count": usize) ?cpz.schema.UnionMetadata {
         \\        for (@This().@"cpz.unions") |@"cpz.union"| if (@"cpz.union".field_count == @"cpz.count") return @"cpz.union";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.unionByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.UnionMetadata {
+        \\        for (@This().@"cpz.unions") |@"cpz.union"| if (std.mem.eql(u8, @"cpz.union".annotations, @"cpz.annotationFilter")) return @"cpz.union";
         \\        return null;
         \\    }
         \\

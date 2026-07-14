@@ -33,7 +33,7 @@ const globalDataItems :List(Data) = [0x"aa bb" $schemaNote("hex-item"), "pl" "ai
 const globalRawPerson :Person = (id = 9, name = "raw");
 const globalEmbeddedData :Data = embed "fixtures/raw.bin";
 
-annotation schemaNote @0xa110ca110c (file, struct, field) :Text;
+annotation schemaNote @0xa110ca110c (file, struct, field, union) :Text;
 annotation marker(interface, method) :Void;
 annotation labels(enumerant) :List(Text);
 
@@ -71,7 +71,7 @@ struct Person $schemaNote("person") {
 
 struct Choice {
   before @0 :Text;
-  union {
+  union $schemaNote("anonymous-union") {
     name @1 :Text;
     id @2 :UInt32;
   }
@@ -79,7 +79,7 @@ struct Choice {
     created @4 :UInt64;
     label @5 :Text;
   }
-  selected :union {
+  selected :union $schemaNote("named-union") {
     text @6 :Text;
     code @7 :UInt32;
   }
