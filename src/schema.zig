@@ -7861,8 +7861,80 @@ fn listUnsignedFlatBytesAlloc(comptime T: type, allocator: std.mem.Allocator, it
     writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, element_size, items.len));
     const data = flat[2 * @sizeOf(u64) ..];
     for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
         const value = parseUnsignedLiteral(T, item.literal) orelse return error.InvalidToken;
         std.mem.writeInt(T, data[item.index * @sizeOf(T) ..][0..@sizeOf(T)], value, .little);
+    }
+    return flat;
+}
+
+fn listSignedFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.mem.Allocator, items: []const ConstListItem, element_size: wire.ElementSize) LayoutError![]u8 {
+    const data_words = try wire.wordsForList(element_size, items.len);
+    const segment_words = 1 + data_words;
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    errdefer allocator.free(flat);
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, element_size, items.len));
+    const data = flat[2 * @sizeOf(u64) ..];
+    for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
+        const value = parseSignedLiteral(T, item.literal) orelse return error.InvalidToken;
+        std.mem.writeInt(U, data[item.index * @sizeOf(U) ..][0..@sizeOf(U)], @bitCast(value), .little);
+    }
+    return flat;
+}
+
+fn listFloatFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.mem.Allocator, items: []const ConstListItem, element_size: wire.ElementSize) LayoutError![]u8 {
+    const data_words = try wire.wordsForList(element_size, items.len);
+    const segment_words = 1 + data_words;
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    errdefer allocator.free(flat);
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, element_size, items.len));
+    const data = flat[2 * @sizeOf(u64) ..];
+    for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
+        const value = parseFloatLiteral(T, item.literal) orelse return error.InvalidToken;
+        std.mem.writeInt(U, data[item.index * @sizeOf(U) ..][0..@sizeOf(U)], @bitCast(value), .little);
+    }
+    return flat;
+}
+
+fn listBoolFlatBytesAlloc(allocator: std.mem.Allocator, items: []const ConstListItem) LayoutError![]u8 {
+    const data_words = try wire.wordsForList(.bit, items.len);
+    const segment_words = 1 + data_words;
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    errdefer allocator.free(flat);
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, .bit, items.len));
+    const data = flat[2 * @sizeOf(u64) ..];
+    for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
+        const value = parseBoolLiteral(item.literal) orelse return error.InvalidToken;
+        if (value) setBit(data, item.index);
+    }
+    return flat;
+}
+
+fn listVoidFlatBytesAlloc(allocator: std.mem.Allocator, items: []const ConstListItem) LayoutError![]u8 {
+    const segment_words: usize = 1;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    errdefer allocator.free(flat);
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, .void, items.len));
+    for (items) |item| {
+        if (item.index >= items.len or !std.mem.eql(u8, item.literal, "void")) return error.InvalidToken;
     }
     return flat;
 }
@@ -7956,15 +8028,14 @@ fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, enum_decl: *const EnumDe
     writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, .two_bytes, items.len));
     const data = flat[2 * @sizeOf(u64) ..];
     for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
         const ordinal = try enumDefaultOrdinal(enum_decl, item.literal);
         std.mem.writeInt(u16, data[item.index * @sizeOf(u16) ..][0..@sizeOf(u16)], ordinal, .little);
     }
     return flat;
 }
 
-fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
-    const flat = try listUnsignedFlatBytesAlloc(T, allocator, items, element_size);
-    defer allocator.free(flat);
+fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8, element_size_literal: []const u8) LayoutError!void {
     const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
     defer allocator.free(flat_literal);
     try appendFmt(allocator, out,
@@ -7988,6 +8059,36 @@ fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator,
         \\{s}}};
         \\
     , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, element_size_literal, indent, indent, indent, indent, indent, indent });
+}
+
+fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
+    const flat = try listUnsignedFlatBytesAlloc(T, allocator, items, element_size);
+    defer allocator.free(flat);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal);
+}
+
+fn emitSignedListFlatContainer(comptime T: type, comptime U: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
+    const flat = try listSignedFlatBytesAlloc(T, U, allocator, items, element_size);
+    defer allocator.free(flat);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal);
+}
+
+fn emitFloatListFlatContainer(comptime T: type, comptime U: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
+    const flat = try listFloatFlatBytesAlloc(T, U, allocator, items, element_size);
+    defer allocator.free(flat);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal);
+}
+
+fn emitBoolListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem) LayoutError!void {
+    const flat = try listBoolFlatBytesAlloc(allocator, items);
+    defer allocator.free(flat);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, ".bit");
+}
+
+fn emitVoidListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem) LayoutError!void {
+    const flat = try listVoidFlatBytesAlloc(allocator, items);
+    defer allocator.free(flat);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, ".void");
 }
 
 fn emitTextOrDataListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool) LayoutError!void {
@@ -8126,10 +8227,30 @@ fn emitListConstOfType(
         try out.appendSlice(allocator, literal);
     }
     try out.appendSlice(allocator, "};\n\n");
-    if (std.mem.eql(u8, zig_type, "u16")) {
+    if (std.mem.eql(u8, zig_type, "void")) {
+        try emitVoidListFlatContainer(allocator, out, indent, name, items);
+    } else if (std.mem.eql(u8, zig_type, "bool")) {
+        try emitBoolListFlatContainer(allocator, out, indent, name, items);
+    } else if (std.mem.eql(u8, zig_type, "i8")) {
+        try emitSignedListFlatContainer(i8, u8, allocator, out, indent, name, items, .byte, ".byte");
+    } else if (std.mem.eql(u8, zig_type, "i16")) {
+        try emitSignedListFlatContainer(i16, u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes");
+    } else if (std.mem.eql(u8, zig_type, "i32")) {
+        try emitSignedListFlatContainer(i32, u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
+    } else if (std.mem.eql(u8, zig_type, "i64")) {
+        try emitSignedListFlatContainer(i64, u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes");
+    } else if (std.mem.eql(u8, zig_type, "u8")) {
+        try emitUnsignedListFlatContainer(u8, allocator, out, indent, name, items, .byte, ".byte");
+    } else if (std.mem.eql(u8, zig_type, "u16")) {
         try emitUnsignedListFlatContainer(u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes");
     } else if (std.mem.eql(u8, zig_type, "u32")) {
         try emitUnsignedListFlatContainer(u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
+    } else if (std.mem.eql(u8, zig_type, "u64")) {
+        try emitUnsignedListFlatContainer(u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes");
+    } else if (std.mem.eql(u8, zig_type, "f32")) {
+        try emitFloatListFlatContainer(f32, u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
+    } else if (std.mem.eql(u8, zig_type, "f64")) {
+        try emitFloatListFlatContainer(f64, u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes");
     } else if (std.mem.eql(u8, zig_type, "[]const u8")) {
         if (itemLiteral == stringConstItem) {
             try emitTextOrDataListFlatContainer(allocator, out, indent, name, items, true);

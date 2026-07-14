@@ -89,6 +89,26 @@ pub fn build(b: *std.Build) void {
     const codegen_smoke_tests = b.addTest(.{ .root_module = codegen_smoke_mod });
     test_step.dependOn(&b.addRunArtifact(codegen_smoke_tests).step);
 
+    const run_scalar_const_lists_codegen = b.addRunArtifact(cpzc);
+    run_scalar_const_lists_codegen.addFileArg(b.path("tests/schema_scalar_const_lists.capnp"));
+    const generated_scalar_const_lists_schema = b.createModule(.{
+        .root_source_file = run_scalar_const_lists_codegen.captureStdOut(.{ .basename = "schema_scalar_const_lists.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const codegen_scalar_const_lists_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_scalar_const_lists_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "generated_scalar_const_lists_schema", .module = generated_scalar_const_lists_schema },
+        },
+    });
+    const codegen_scalar_const_lists_smoke_tests = b.addTest(.{ .root_module = codegen_scalar_const_lists_smoke_mod });
+    test_step.dependOn(&b.addRunArtifact(codegen_scalar_const_lists_smoke_tests).step);
+
     const run_keyword_schema_codegen = b.addRunArtifact(cpzc);
     run_keyword_schema_codegen.addFileArg(b.path("tests/schema_keywords.capnp"));
     const generated_keyword_schema = b.createModule(.{
