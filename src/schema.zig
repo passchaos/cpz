@@ -9132,6 +9132,27 @@ fn blobFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, bytes: []const u
     return flat;
 }
 
+fn structFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, type_name: []const u8, default_expression: []const u8) LayoutError!?[]u8 {
+    const struct_decl = findStructDirect(file, type_name) orelse return null;
+    var layout = try planStructLayout(allocator, file, struct_decl);
+    defer layout.deinit(allocator);
+    const fields = parseConstStructFieldsAlloc(allocator, default_expression) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => return null,
+        else => return err,
+    };
+    defer allocator.free(fields);
+    const object = try structLiteralObjectBytesAlloc(allocator, file, struct_decl, &layout, fields, true) orelse return null;
+    defer allocator.free(object);
+    const segment_words = object.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + object.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], object);
+    return flat;
+}
+
 fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, field_name: []const u8, bytes: []const u8, comptime is_text: bool) LayoutError!void {
     const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
     defer allocator.free(container_name);
@@ -9241,6 +9262,16 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, false);
             },
             .list => |list_child| try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, list_child.*, field.default_expression),
+            .named => |type_name| {
+                if (findEnum(file, type_name) != null or findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) continue;
+                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, field.default_expression)) orelse continue;
+                defer allocator.free(flat);
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                const container_name = try std.fmt.allocPrint(allocator, "{s}DefaultFlat", .{field_name});
+                defer allocator.free(container_name);
+                try emitEmbeddedStructConst(allocator, out, "    ", container_name, zig_type, flat);
+            },
             else => continue,
         }
     }

@@ -49,7 +49,7 @@ struct Person $schemaNote("person") {
   favorite @3 :Color = Color.green;
   scores @4 :List(UInt32) = [1, 2, 3];
   children @5 :List(Person) = [(id = 101, name = "default child")];
-  friend @6 :Person;
+  friend @6 :Person = (id = 303, name = "default friend");
   palette @7 :List(Color) = [red, blue];
   nickname @8 :Text = "an" "on";
   blockName @20 :Text = `block

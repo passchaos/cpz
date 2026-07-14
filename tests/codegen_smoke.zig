@@ -398,6 +398,14 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqual(@as(u32, 3), try generated.Person.scoresDefaultFlat.get(&field_scores_default_reader, 2));
     const field_scores_default_stats = try generated.Person.scoresDefaultFlat.validate(.{});
     try std.testing.expect(field_scores_default_stats.total_words > 0);
+    try std.testing.expectEqualStrings("(id = 303, name = \"default friend\")", generated.Person.@"cpz.field.friend.default");
+    try std.testing.expect(generated.Person.@"cpz.field.friend.hasExplicitDefault");
+    try std.testing.expect(generated.Person.friendDefaultFlat.flatBytes.len > 0);
+    var field_friend_default_reader = generated.Person.friendDefaultFlat.reader(.{});
+    const field_friend_default = try generated.Person.friendDefaultFlat.root(&field_friend_default_reader);
+    try std.testing.expectEqual(@as(u32, 303), field_friend_default.id());
+    try std.testing.expectEqualSlices(u8, "default friend", try field_friend_default.name());
+    try std.testing.expect((try generated.Person.friendDefaultFlat.validate(.{})).total_words > 0);
     try std.testing.expectEqualStrings("[red, blue]", generated.Person.@"cpz.field.palette.default");
     try std.testing.expect(generated.Person.@"cpz.field.palette.hasExplicitDefault");
     try std.testing.expect(generated.Person.paletteDefaultFlat.flatBytes.len > 0);
