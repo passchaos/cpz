@@ -8035,7 +8035,7 @@ fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, enum_decl: *const EnumDe
     return flat;
 }
 
-fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8, element_size_literal: []const u8) LayoutError!void {
+fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8, element_size_literal: []const u8, get_type: ?[]const u8, get_method: ?[]const u8) LayoutError!void {
     const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
     defer allocator.free(flat_literal);
     try appendFmt(allocator, out,
@@ -8052,43 +8052,66 @@ fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayL
         \\{s}        return message_reader.getRootList({s});
         \\{s}    }}
         \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, element_size_literal, indent });
+    if (get_type) |ty| {
+        if (get_method) |method| {
+            try appendFmt(allocator, out,
+                \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
+                \\{s}        const @"cpz.list" = try list(message_reader);
+                \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+                \\{s}        return @"cpz.list".{s}(index);
+                \\{s}    }}
+                \\
+            , .{ indent, ty, indent, indent, indent, method, indent });
+        } else {
+            try appendFmt(allocator, out,
+                \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !void {{
+                \\{s}        const @"cpz.list" = try list(message_reader);
+                \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+                \\{s}        return {{}};
+                \\{s}    }}
+                \\
+            , .{ indent, indent, indent, indent, indent });
+        }
+    }
+    try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
         \\{s}        var @"cpz.reader" = reader(options);
         \\{s}        return @"cpz.reader".validate();
         \\{s}    }}
         \\{s}}};
         \\
-    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, element_size_literal, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent });
 }
 
-fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
+fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8, get_method: []const u8) LayoutError!void {
     const flat = try listUnsignedFlatBytesAlloc(T, allocator, items, element_size);
     defer allocator.free(flat);
-    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal, @typeName(T), get_method);
 }
 
-fn emitSignedListFlatContainer(comptime T: type, comptime U: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
+fn emitSignedListFlatContainer(comptime T: type, comptime U: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8, get_method: []const u8) LayoutError!void {
     const flat = try listSignedFlatBytesAlloc(T, U, allocator, items, element_size);
     defer allocator.free(flat);
-    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal, @typeName(T), get_method);
 }
 
-fn emitFloatListFlatContainer(comptime T: type, comptime U: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
+fn emitFloatListFlatContainer(comptime T: type, comptime U: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8, get_method: []const u8) LayoutError!void {
     const flat = try listFloatFlatBytesAlloc(T, U, allocator, items, element_size);
     defer allocator.free(flat);
-    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal);
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, element_size_literal, @typeName(T), get_method);
 }
 
 fn emitBoolListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem) LayoutError!void {
     const flat = try listBoolFlatBytesAlloc(allocator, items);
     defer allocator.free(flat);
-    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, ".bit");
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, ".bit", "bool", "getBool");
 }
 
 fn emitVoidListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem) LayoutError!void {
     const flat = try listVoidFlatBytesAlloc(allocator, items);
     defer allocator.free(flat);
-    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, ".void");
+    try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, ".void", "void", null);
 }
 
 fn emitTextOrDataListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool) LayoutError!void {
@@ -8232,25 +8255,25 @@ fn emitListConstOfType(
     } else if (std.mem.eql(u8, zig_type, "bool")) {
         try emitBoolListFlatContainer(allocator, out, indent, name, items);
     } else if (std.mem.eql(u8, zig_type, "i8")) {
-        try emitSignedListFlatContainer(i8, u8, allocator, out, indent, name, items, .byte, ".byte");
+        try emitSignedListFlatContainer(i8, u8, allocator, out, indent, name, items, .byte, ".byte", "getInt8");
     } else if (std.mem.eql(u8, zig_type, "i16")) {
-        try emitSignedListFlatContainer(i16, u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes");
+        try emitSignedListFlatContainer(i16, u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes", "getInt16");
     } else if (std.mem.eql(u8, zig_type, "i32")) {
-        try emitSignedListFlatContainer(i32, u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
+        try emitSignedListFlatContainer(i32, u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes", "getInt32");
     } else if (std.mem.eql(u8, zig_type, "i64")) {
-        try emitSignedListFlatContainer(i64, u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes");
+        try emitSignedListFlatContainer(i64, u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes", "getInt64");
     } else if (std.mem.eql(u8, zig_type, "u8")) {
-        try emitUnsignedListFlatContainer(u8, allocator, out, indent, name, items, .byte, ".byte");
+        try emitUnsignedListFlatContainer(u8, allocator, out, indent, name, items, .byte, ".byte", "getUInt8");
     } else if (std.mem.eql(u8, zig_type, "u16")) {
-        try emitUnsignedListFlatContainer(u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes");
+        try emitUnsignedListFlatContainer(u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes", "getUInt16");
     } else if (std.mem.eql(u8, zig_type, "u32")) {
-        try emitUnsignedListFlatContainer(u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
+        try emitUnsignedListFlatContainer(u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes", "getUInt32");
     } else if (std.mem.eql(u8, zig_type, "u64")) {
-        try emitUnsignedListFlatContainer(u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes");
+        try emitUnsignedListFlatContainer(u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes", "getUInt64");
     } else if (std.mem.eql(u8, zig_type, "f32")) {
-        try emitFloatListFlatContainer(f32, u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
+        try emitFloatListFlatContainer(f32, u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes", "getFloat32");
     } else if (std.mem.eql(u8, zig_type, "f64")) {
-        try emitFloatListFlatContainer(f64, u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes");
+        try emitFloatListFlatContainer(f64, u64, allocator, out, indent, name, items, .eight_bytes, ".eight_bytes", "getFloat64");
     } else if (std.mem.eql(u8, zig_type, "[]const u8")) {
         if (itemLiteral == stringConstItem) {
             try emitTextOrDataListFlatContainer(allocator, out, indent, name, items, true);

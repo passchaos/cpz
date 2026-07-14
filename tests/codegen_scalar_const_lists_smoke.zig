@@ -11,6 +11,8 @@ test "generated scalar list constants expose flat containers" {
     const voids_flat = try generated.voidsFlat.list(&voids_reader);
     try std.testing.expectEqual(@as(usize, 3), voids_flat.len());
     try std.testing.expectEqual(.void, voids_flat.elementSize());
+    try generated.voidsFlat.get(&voids_reader, 0);
+    try std.testing.expectError(error.PointerOutOfBounds, generated.voidsFlat.get(&voids_reader, 99));
     const voids_stats = try generated.voidsFlat.validate(.{});
     try std.testing.expect(voids_stats.hasLists());
 
@@ -22,6 +24,9 @@ test "generated scalar list constants expose flat containers" {
     try std.testing.expectEqual(true, flags_flat.getBool(0));
     try std.testing.expectEqual(false, flags_flat.getBool(1));
     try std.testing.expectEqual(true, flags_flat.getBool(8));
+    try std.testing.expectEqual(true, try generated.flagsFlat.get(&flags_reader, 0));
+    try std.testing.expectEqual(false, try generated.flagsFlat.get(&flags_reader, 1));
+    try std.testing.expectError(error.PointerOutOfBounds, generated.flagsFlat.get(&flags_reader, 99));
     const flags_stats = try generated.flagsFlat.validate(.{});
     try std.testing.expect(flags_stats.total_words > 0);
 
@@ -31,6 +36,8 @@ test "generated scalar list constants expose flat containers" {
     try std.testing.expectEqual(@as(i8, -128), int8s_flat.getInt8(0));
     try std.testing.expectEqual(@as(i8, -1), int8s_flat.getInt8(1));
     try std.testing.expectEqual(@as(i8, 127), int8s_flat.getInt8(3));
+    try std.testing.expectEqual(@as(i8, -128), try generated.int8sFlat.get(&int8s_reader, 0));
+    try std.testing.expectEqual(@as(i8, 127), try generated.int8sFlat.get(&int8s_reader, 3));
     const int8s_stats = try generated.int8sFlat.validate(.{});
     try std.testing.expect(int8s_stats.total_words > 0);
 
@@ -39,6 +46,8 @@ test "generated scalar list constants expose flat containers" {
     const int16s_flat = try generated.int16sFlat.list(&int16s_reader);
     try std.testing.expectEqual(@as(i16, -1234), int16s_flat.getInt16(0));
     try std.testing.expectEqual(@as(i16, 5678), int16s_flat.getInt16(2));
+    try std.testing.expectEqual(@as(i16, -1234), try generated.int16sFlat.get(&int16s_reader, 0));
+    try std.testing.expectEqual(@as(i16, 5678), try generated.int16sFlat.get(&int16s_reader, 2));
     const int16s_stats = try generated.int16sFlat.validate(.{});
     try std.testing.expect(int16s_stats.total_words > 0);
 
@@ -47,6 +56,8 @@ test "generated scalar list constants expose flat containers" {
     const int32s_flat = try generated.int32sFlat.list(&int32s_reader);
     try std.testing.expectEqual(@as(i32, -100000), int32s_flat.getInt32(0));
     try std.testing.expectEqual(@as(i32, 200000), int32s_flat.getInt32(2));
+    try std.testing.expectEqual(@as(i32, -100000), try generated.int32sFlat.get(&int32s_reader, 0));
+    try std.testing.expectEqual(@as(i32, 200000), try generated.int32sFlat.get(&int32s_reader, 2));
     const int32s_stats = try generated.int32sFlat.validate(.{});
     try std.testing.expect(int32s_stats.total_words > 0);
 
@@ -55,6 +66,8 @@ test "generated scalar list constants expose flat containers" {
     const int64s_flat = try generated.int64sFlat.list(&int64s_reader);
     try std.testing.expectEqual(@as(i64, -9000000000), int64s_flat.getInt64(0));
     try std.testing.expectEqual(@as(i64, 9000000000), int64s_flat.getInt64(2));
+    try std.testing.expectEqual(@as(i64, -9000000000), try generated.int64sFlat.get(&int64s_reader, 0));
+    try std.testing.expectEqual(@as(i64, 9000000000), try generated.int64sFlat.get(&int64s_reader, 2));
     const int64s_stats = try generated.int64sFlat.validate(.{});
     try std.testing.expect(int64s_stats.total_words > 0);
 
@@ -63,6 +76,8 @@ test "generated scalar list constants expose flat containers" {
     const uint8s_flat = try generated.uint8sFlat.list(&uint8s_reader);
     try std.testing.expectEqual(@as(u8, 0), uint8s_flat.getUInt8(0));
     try std.testing.expectEqual(@as(u8, 255), uint8s_flat.getUInt8(2));
+    try std.testing.expectEqual(@as(u8, 0), try generated.uint8sFlat.get(&uint8s_reader, 0));
+    try std.testing.expectEqual(@as(u8, 255), try generated.uint8sFlat.get(&uint8s_reader, 2));
     const uint8s_stats = try generated.uint8sFlat.validate(.{});
     try std.testing.expect(uint8s_stats.total_words > 0);
 
@@ -71,6 +86,8 @@ test "generated scalar list constants expose flat containers" {
     const uint16s_flat = try generated.uint16sFlat.list(&uint16s_reader);
     try std.testing.expectEqual(@as(u16, 1), uint16s_flat.getUInt16(0));
     try std.testing.expectEqual(@as(u16, 65535), uint16s_flat.getUInt16(1));
+    try std.testing.expectEqual(@as(u16, 1), try generated.uint16sFlat.get(&uint16s_reader, 0));
+    try std.testing.expectEqual(@as(u16, 65535), try generated.uint16sFlat.get(&uint16s_reader, 1));
     const uint16s_stats = try generated.uint16sFlat.validate(.{});
     try std.testing.expect(uint16s_stats.total_words > 0);
 
@@ -79,6 +96,8 @@ test "generated scalar list constants expose flat containers" {
     const uint32s_flat = try generated.uint32sFlat.list(&uint32s_reader);
     try std.testing.expectEqual(@as(u32, 1), uint32s_flat.getUInt32(0));
     try std.testing.expectEqual(@as(u32, 4294967295), uint32s_flat.getUInt32(1));
+    try std.testing.expectEqual(@as(u32, 1), try generated.uint32sFlat.get(&uint32s_reader, 0));
+    try std.testing.expectEqual(@as(u32, 4294967295), try generated.uint32sFlat.get(&uint32s_reader, 1));
     const uint32s_stats = try generated.uint32sFlat.validate(.{});
     try std.testing.expect(uint32s_stats.total_words > 0);
 
@@ -87,6 +106,8 @@ test "generated scalar list constants expose flat containers" {
     const uint64s_flat = try generated.uint64sFlat.list(&uint64s_reader);
     try std.testing.expectEqual(@as(u64, 0), uint64s_flat.getUInt64(0));
     try std.testing.expectEqual(@as(u64, 18446744073709551615), uint64s_flat.getUInt64(1));
+    try std.testing.expectEqual(@as(u64, 0), try generated.uint64sFlat.get(&uint64s_reader, 0));
+    try std.testing.expectEqual(@as(u64, 18446744073709551615), try generated.uint64sFlat.get(&uint64s_reader, 1));
     const uint64s_stats = try generated.uint64sFlat.validate(.{});
     try std.testing.expect(uint64s_stats.total_words > 0);
 
@@ -95,6 +116,9 @@ test "generated scalar list constants expose flat containers" {
     try std.testing.expectApproxEqAbs(@as(f32, 1.5), float32s_flat.getFloat32(0), 0.0);
     try std.testing.expectApproxEqAbs(@as(f32, -2.25), float32s_flat.getFloat32(1), 0.0);
     try std.testing.expect(std.math.isInf(float32s_flat.getFloat32(2)));
+    try std.testing.expectApproxEqAbs(@as(f32, 1.5), try generated.float32sFlat.get(&float32s_reader, 0), 0.0);
+    try std.testing.expectApproxEqAbs(@as(f32, -2.25), try generated.float32sFlat.get(&float32s_reader, 1), 0.0);
+    try std.testing.expect(std.math.isInf(try generated.float32sFlat.get(&float32s_reader, 2)));
     const float32s_stats = try generated.float32sFlat.validate(.{});
     try std.testing.expect(float32s_stats.total_words > 0);
 
@@ -103,6 +127,9 @@ test "generated scalar list constants expose flat containers" {
     try std.testing.expectApproxEqAbs(@as(f64, 125.0), float64s_flat.getFloat64(0), 0.0);
     try std.testing.expectApproxEqAbs(@as(f64, -0.5), float64s_flat.getFloat64(1), 0.0);
     try std.testing.expect(std.math.isNan(float64s_flat.getFloat64(2)));
+    try std.testing.expectApproxEqAbs(@as(f64, 125.0), try generated.float64sFlat.get(&float64s_reader, 0), 0.0);
+    try std.testing.expectApproxEqAbs(@as(f64, -0.5), try generated.float64sFlat.get(&float64s_reader, 1), 0.0);
+    try std.testing.expect(std.math.isNan(try generated.float64sFlat.get(&float64s_reader, 2)));
     const float64s_stats = try generated.float64sFlat.validate(.{});
     try std.testing.expect(float64s_stats.total_words > 0);
 }
