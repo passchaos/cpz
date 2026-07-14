@@ -2250,6 +2250,10 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqualStrings("id", union0_metadata.fieldByIndex(1).?.name);
     try std.testing.expect(union0_metadata.hasPointer(1));
     try std.testing.expect(!union0_metadata.hasPointer(4));
+    try std.testing.expect(union0_metadata.matchesPointer(1));
+    try std.testing.expect(!union0_metadata.matchesPointer(4));
+    try std.testing.expect(union0_metadata.matchesDataBit(32));
+    try std.testing.expect(union0_metadata.matchesDataBits(32));
     try std.testing.expect(union0_metadata.containsDataBit(32));
     try std.testing.expect(union0_metadata.containsDataBit(63));
     try std.testing.expect(!union0_metadata.containsDataBit(64));

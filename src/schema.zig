@@ -419,6 +419,18 @@ pub const UnionMetadata = struct {
         return self.discriminant_byte == byte_offset;
     }
 
+    pub fn matchesDataBit(self: UnionMetadata, bit: usize) bool {
+        return self.data_bit == bit;
+    }
+
+    pub fn matchesDataBits(self: UnionMetadata, bits: usize) bool {
+        return self.data_bits == bits;
+    }
+
+    pub fn matchesPointer(self: UnionMetadata, pointer_index: usize) bool {
+        return self.pointer != null and self.pointer.? == pointer_index;
+    }
+
     pub fn fieldByName(self: UnionMetadata, name: []const u8) ?FieldMetadata {
         for (self.fields) |field| if (std.mem.eql(u8, field.name, name)) return field;
         return null;
@@ -479,7 +491,7 @@ pub const UnionMetadata = struct {
     }
 
     pub fn hasPointer(self: UnionMetadata, pointer_index: usize) bool {
-        return self.pointer != null and self.pointer.? == pointer_index;
+        return self.matchesPointer(pointer_index);
     }
 
     pub fn containsDataBit(self: UnionMetadata, bit: usize) bool {
