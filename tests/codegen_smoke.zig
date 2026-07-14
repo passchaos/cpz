@@ -772,6 +772,13 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 1), generated.Person.@"cpz.const.defaultScores.listItem.1.metadata".index);
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItem.1.metadata".literal);
     try std.testing.expectEqualStrings("8", generated.Person.@"cpz.const.defaultScores.listItem.1.literal");
+    try std.testing.expect(generated.Person.defaultScoresFlat.flatBytes.len > 0);
+    var default_scores_reader = generated.Person.defaultScoresFlat.reader(.{});
+    const default_scores_flat = try generated.Person.defaultScoresFlat.list(&default_scores_reader);
+    try std.testing.expectEqual(@as(usize, 3), default_scores_flat.len());
+    try std.testing.expectEqual(@as(u16, 7), default_scores_flat.getUInt16(0));
+    try std.testing.expectEqual(@as(u16, 8), default_scores_flat.getUInt16(1));
+    try std.testing.expectEqual(@as(u16, 9), default_scores_flat.getUInt16(2));
     try std.testing.expectEqual(@as(u16, 99), generated.Person.defaultAge);
     try std.testing.expectEqualSlices(u8, "nested const", generated.Person.defaultAlias);
     try std.testing.expectEqual(generated.Color.red, generated.Person.defaultColor);

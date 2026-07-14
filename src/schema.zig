@@ -7849,8 +7849,8 @@ fn emitEmbeddedStructConst(
     });
 }
 
-fn listUInt32FlatBytesAlloc(allocator: std.mem.Allocator, items: []const ConstListItem) LayoutError![]u8 {
-    const data_words = try wire.wordsForList(.four_bytes, items.len);
+fn listUnsignedFlatBytesAlloc(comptime T: type, allocator: std.mem.Allocator, items: []const ConstListItem, element_size: wire.ElementSize) LayoutError![]u8 {
+    const data_words = try wire.wordsForList(element_size, items.len);
     const segment_words = 1 + data_words;
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
@@ -7858,17 +7858,17 @@ fn listUInt32FlatBytesAlloc(allocator: std.mem.Allocator, items: []const ConstLi
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
-    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, .four_bytes, items.len));
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, element_size, items.len));
     const data = flat[2 * @sizeOf(u64) ..];
     for (items) |item| {
-        const value = parseUnsignedLiteral(u32, item.literal) orelse return error.InvalidToken;
-        std.mem.writeInt(u32, data[item.index * @sizeOf(u32) ..][0..@sizeOf(u32)], value, .little);
+        const value = parseUnsignedLiteral(T, item.literal) orelse return error.InvalidToken;
+        std.mem.writeInt(T, data[item.index * @sizeOf(T) ..][0..@sizeOf(T)], value, .little);
     }
     return flat;
 }
 
-fn emitUInt32ListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem) LayoutError!void {
-    const flat = try listUInt32FlatBytesAlloc(allocator, items);
+fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8) LayoutError!void {
+    const flat = try listUnsignedFlatBytesAlloc(T, allocator, items, element_size);
     defer allocator.free(flat);
     const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
     defer allocator.free(flat_literal);
@@ -7883,7 +7883,7 @@ fn emitUInt32ListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    }}
         \\
         \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
-        \\{s}        return message_reader.getRootList(.four_bytes);
+        \\{s}        return message_reader.getRootList({s});
         \\{s}    }}
         \\
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
@@ -7892,7 +7892,7 @@ fn emitUInt32ListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    }}
         \\{s}}};
         \\
-    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, element_size_literal, indent, indent, indent, indent, indent, indent });
 }
 
 fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {
@@ -7955,8 +7955,10 @@ fn emitListConstOfType(
         try out.appendSlice(allocator, literal);
     }
     try out.appendSlice(allocator, "};\n\n");
-    if (std.mem.eql(u8, zig_type, "u32")) {
-        try emitUInt32ListFlatContainer(allocator, out, indent, name, items);
+    if (std.mem.eql(u8, zig_type, "u16")) {
+        try emitUnsignedListFlatContainer(u16, allocator, out, indent, name, items, .two_bytes, ".two_bytes");
+    } else if (std.mem.eql(u8, zig_type, "u32")) {
+        try emitUnsignedListFlatContainer(u32, allocator, out, indent, name, items, .four_bytes, ".four_bytes");
     }
 }
 
