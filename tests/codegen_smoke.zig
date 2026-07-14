@@ -404,8 +404,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 18), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 18), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
@@ -881,6 +881,37 @@ test "generated simple constants compile" {
     try std.testing.expect(null_person_root.getPointerField(12).isNull());
     const null_person_stats = try generated.globalNullPerson.validate(.{});
     try std.testing.expect(null_person_stats.total_words > 0);
+    try std.testing.expectEqualStrings("globalChoice", generated.@"cpz.consts"[17].name);
+    try std.testing.expectEqualStrings("Choice", generated.@"cpz.consts"[17].ty);
+    try std.testing.expectEqualStrings("(id = 123, selected_code = 456)", generated.@"cpz.consts"[17].literal);
+    try std.testing.expect(generated.@"cpz.consts"[17].is_struct_literal);
+    try std.testing.expect(generated.@"cpz.consts"[17].matchesStructFieldCount(2));
+    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.const.globalChoice.index");
+    try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalChoice.structFieldCount");
+    try std.testing.expectEqualStrings("id", generated.@"cpz.const.globalChoice.structField.0.name");
+    try std.testing.expectEqualStrings("123", generated.@"cpz.const.globalChoice.structField.0.literal");
+    try std.testing.expectEqualStrings("selected_code", generated.@"cpz.const.globalChoice.structField.1.name");
+    try std.testing.expectEqualStrings("456", generated.@"cpz.const.globalChoice.structField.1.literal");
+    try std.testing.expectEqual(@as(usize, 2), generated.globalChoice.fieldCount);
+    try std.testing.expectEqualStrings("123", generated.globalChoice.id);
+    try std.testing.expectEqualStrings("456", generated.globalChoice.selected_code);
+    try std.testing.expect(generated.globalChoice.flatBytes.len > 0);
+    var choice_reader = generated.globalChoice.reader(.{});
+    const choice_typed = try generated.globalChoice.typedRoot(&choice_reader);
+    try std.testing.expectEqual(generated.Choice.Union0.id, choice_typed.union0().?);
+    try std.testing.expectEqual(@as(u16, 1), choice_typed.union0Discriminant());
+    try std.testing.expectEqual(@as(u32, 123), try choice_typed.id());
+    try std.testing.expectEqual(generated.Choice.Union1.selected_code, choice_typed.union1().?);
+    try std.testing.expectEqual(@as(u16, 1), choice_typed.union1Discriminant());
+    try std.testing.expectEqual(@as(u32, 456), try choice_typed.selected_code());
+    var choice_raw_reader = generated.globalChoice.reader(.{});
+    const choice_root = try generated.globalChoice.root(&choice_raw_reader);
+    try std.testing.expectEqual(@as(u16, 1), choice_root.getUInt16(0, 0));
+    try std.testing.expectEqual(@as(u16, 1), choice_root.getUInt16(2, 0));
+    try std.testing.expectEqual(@as(u32, 123), choice_root.getUInt32(4, 0));
+    try std.testing.expectEqual(@as(u32, 456), choice_root.getUInt32(16, 0));
+    const choice_stats = try generated.globalChoice.validate(.{});
+    try std.testing.expect(choice_stats.total_words > 0);
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);

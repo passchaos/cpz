@@ -7865,6 +7865,10 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
     for (fields) |const_field| {
         const field_layout = findFieldLayoutByName(layout, const_field.name) orelse return error.UnsupportedType;
         const field = field_layout.field;
+        if (field.union_index) |union_index| {
+            const union_layout = layout.unions[@intCast(union_index)];
+            std.mem.writeInt(u16, segment.items[object_start_bytes + union_layout.discriminant_byte ..][0..@sizeOf(u16)], field.union_discriminant, .little);
+        }
         switch (field_layout.slot) {
             .data_bit => |bit_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
                 .bool => {
