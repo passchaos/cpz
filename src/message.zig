@@ -1638,9 +1638,25 @@ pub const Orphan = struct {
         return self.asReader(&reader).getText();
     }
 
+    pub fn getTextByteCount(self: Orphan) Error!usize {
+        return (try self.getText()).len;
+    }
+
+    pub fn textMatchesBytes(self: Orphan, count: usize) bool {
+        return (self.getTextByteCount() catch return false) == count;
+    }
+
     pub fn getData(self: Orphan) Error![]const u8 {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return self.asReader(&reader).getData();
+    }
+
+    pub fn getDataByteCount(self: Orphan) Error!usize {
+        return (try self.getData()).len;
+    }
+
+    pub fn dataMatchesBytes(self: Orphan, count: usize) bool {
+        return (self.getDataByteCount() catch return false) == count;
     }
 
     pub fn getCapabilityIndex(self: Orphan) Error!u32 {
@@ -7162,6 +7178,10 @@ test "pointer builders can disown and adopt within a message" {
     const orphan_size = try orphan.totalSize();
     try testing.expectEqual(@as(usize, 1), orphan_size.word_count);
     const orphan_text = try orphan.getList(.byte);
+    try testing.expectEqualSlices(u8, "move me", try orphan.getText());
+    try testing.expectEqual(@as(usize, "move me".len), try orphan.getTextByteCount());
+    try testing.expect(orphan.textMatchesBytes("move me".len));
+    try testing.expect(!orphan.textMatchesBytes("move me".len + 1));
     try testing.expectEqual(@as(usize, 8), try orphan.getListLen(.byte));
     try testing.expect(orphan.listMatchesLen(.byte, 8));
     try testing.expect(!orphan.listIsEmpty(.byte));
@@ -7221,6 +7241,10 @@ test "pointer list elements can disown and adopt within a message" {
 
     var orphan = try list.disownPointerElement(0);
     try testing.expect((try list.getPointerElement(0)).isNull());
+    try testing.expectEqualSlices(u8, "first", try orphan.getText());
+    try testing.expectEqual(@as(usize, "first".len), try orphan.getTextByteCount());
+    try testing.expect(orphan.textMatchesBytes("first".len));
+    try testing.expect(!orphan.textMatchesBytes("first".len + 1));
     try testing.expectEqual(@as(usize, 6), try orphan.getListLen(.byte));
     try testing.expect(orphan.listMatchesLen(.byte, 6));
     try testing.expectEqual(@as(usize, 48), try orphan.getListContentBitCount(.byte));
@@ -7331,6 +7355,9 @@ test "message builder allocates scalar orphans" {
     defer text_builder.deinit();
     var text_orphan = try text_builder.newOrphanText("allocated text");
     try testing.expectEqualSlices(u8, "allocated text", try text_orphan.getText());
+    try testing.expectEqual(@as(usize, "allocated text".len), try text_orphan.getTextByteCount());
+    try testing.expect(text_orphan.textMatchesBytes("allocated text".len));
+    try testing.expect(!text_orphan.textMatchesBytes("allocated text".len + 1));
     try (try text_builder.getRootPointer()).adopt(&text_orphan);
     var text_reader = MessageReader.init(try text_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, "allocated text", try text_reader.getRootText());
@@ -7339,6 +7366,9 @@ test "message builder allocates scalar orphans" {
     defer data_builder.deinit();
     var data_orphan = try data_builder.newOrphanData(&[_]u8{ 1, 3, 3, 7 });
     try testing.expectEqualSlices(u8, &[_]u8{ 1, 3, 3, 7 }, try data_orphan.getData());
+    try testing.expectEqual(@as(usize, 4), try data_orphan.getDataByteCount());
+    try testing.expect(data_orphan.dataMatchesBytes(4));
+    try testing.expect(!data_orphan.dataMatchesBytes(5));
     try (try data_builder.getRootPointer()).adopt(&data_orphan);
     var data_reader = MessageReader.init(try data_builder.segmentsConst(), .{});
     try testing.expectEqualSlices(u8, &[_]u8{ 1, 3, 3, 7 }, try data_reader.getRootData());
