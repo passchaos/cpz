@@ -312,6 +312,7 @@ pub const UnionDecl = struct {
 pub const GroupDecl = struct {
     index: usize = 0,
     name: []const u8,
+    ordinal: ?u32 = null,
     annotations: []const u8 = "",
 
     pub fn matchesIndex(self: GroupDecl, group_index: usize) bool {
@@ -320,6 +321,10 @@ pub const GroupDecl = struct {
 
     pub fn matchesName(self: GroupDecl, group_name: []const u8) bool {
         return std.mem.eql(u8, self.name, group_name);
+    }
+
+    pub fn matchesOrdinal(self: GroupDecl, ordinal: u32) bool {
+        return self.ordinal != null and self.ordinal.? == ordinal;
     }
 
     pub fn matchesAnnotations(self: GroupDecl, annotations: []const u8) bool {
@@ -2636,6 +2641,7 @@ pub const Parser = struct {
             try groups.append(self.allocator, .{
                 .index = groups.items.len,
                 .name = name,
+                .ordinal = ordinal,
                 .annotations = group_annotations,
             });
             try self.parseNamedGroupBody(group_prefix, fields, field_names, member_names, unions, groups);
@@ -7033,10 +7039,18 @@ fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         try appendFmt(allocator, out,
             \\    pub const @"cpz.group.{s}.index": usize = {};
             \\    pub const @"cpz.group.{s}.name": []const u8 = {s};
+            \\    pub const @"cpz.group.{s}.ordinal": ?u32 =
+        , .{ group_name, group.index, group_name, name_literal, group_name });
+        if (group.ordinal) |ordinal| {
+            try appendFmt(allocator, out, "{};\n", .{ordinal});
+        } else {
+            try out.appendSlice(allocator, "null;\n");
+        }
+        try appendFmt(allocator, out,
             \\    pub const @"cpz.group.{s}.annotations": []const u8 = {s};
             \\    pub const @"cpz.group.{s}.metadata": cpz.schema.GroupDecl = @"cpz.groups"[{}];
             \\
-        , .{ group_name, group.index, group_name, name_literal, group_name, annotation_literal, group_name, group.index });
+        , .{ group_name, annotation_literal, group_name, group.index });
     }
     try out.appendSlice(allocator, "    pub const @\"cpz.groups\": []const cpz.schema.GroupDecl = &[_]cpz.schema.GroupDecl{");
     for (groups, 0..) |group, index| {
@@ -7045,7 +7059,11 @@ fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(name_literal);
         const annotation_literal = try zigStringLiteralAlloc(allocator, group.annotations);
         defer allocator.free(annotation_literal);
-        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .annotations = {s} }}", .{ group.index, name_literal, annotation_literal });
+        try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}", .{ group.index, name_literal });
+        if (group.ordinal) |ordinal| {
+            try appendFmt(allocator, out, ", .ordinal = {}", .{ordinal});
+        }
+        try appendFmt(allocator, out, ", .annotations = {s} }}", .{annotation_literal});
     }
     try out.appendSlice(allocator,
         \\};
@@ -7056,6 +7074,11 @@ fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         \\
         \\    pub fn @"cpz.groupByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.GroupDecl {
         \\        for (@"cpz.groups") |@"cpz.group"| if (std.mem.eql(u8, @"cpz.group".annotations, @"cpz.annotationFilter")) return @"cpz.group";
+        \\        return null;
+        \\    }
+        \\
+        \\    pub fn @"cpz.groupByOrdinal"(@"cpz.ordinal": u32) ?cpz.schema.GroupDecl {
+        \\        for (@"cpz.groups") |@"cpz.group"| if (@"cpz.group".ordinal != null and @"cpz.group".ordinal.? == @"cpz.ordinal") return @"cpz.group";
         \\        return null;
         \\    }
         \\
