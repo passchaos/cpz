@@ -7381,6 +7381,9 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\
     , .{ indent, const_name, annotation_literal });
     if (!decl.emit_value) return;
+    if (supportsScalarConstFlatContainer(file, scope, decl.ty)) {
+        try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, decl.ty, decl.literal);
+    }
     switch (resolveTypeScoped(file, scope, decl.ty)) {
         .void => try appendFmt(allocator, out,
             \\{s}pub const {s}: void = {{}};
@@ -8485,6 +8488,76 @@ fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, enum_decl: *const EnumDe
     return flat;
 }
 
+fn supportsScalarConstFlatContainer(file: *const File, scope: ?*const Struct, ty: Type) bool {
+    return switch (resolveTypeScoped(file, scope, ty)) {
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => true,
+        .named => |type_name| findEnum(file, type_name) != null,
+        else => false,
+    };
+}
+
+fn scalarConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) LayoutError![]u8 {
+    const segment_words: usize = 2;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    errdefer allocator.free(flat);
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeStruct(0, 1, 0));
+    const data = flat[2 * @sizeOf(u64) ..][0..@sizeOf(u64)];
+    switch (resolveTypeScoped(file, scope, ty)) {
+        .void => {},
+        .bool => {
+            const value = parseBoolLiteral(literal) orelse return error.InvalidToken;
+            if (value) setBit(data, 0);
+        },
+        .int8 => {
+            const value = parseSignedLiteral(i8, literal) orelse return error.InvalidToken;
+            data[0] = @bitCast(value);
+        },
+        .int16 => {
+            const value = parseSignedLiteral(i16, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u16, data[0..@sizeOf(u16)], @bitCast(value), .little);
+        },
+        .int32 => {
+            const value = parseSignedLiteral(i32, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u32, data[0..@sizeOf(u32)], @bitCast(value), .little);
+        },
+        .int64 => {
+            const value = parseSignedLiteral(i64, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u64, data[0..@sizeOf(u64)], @bitCast(value), .little);
+        },
+        .uint8 => data[0] = parseUnsignedLiteral(u8, literal) orelse return error.InvalidToken,
+        .uint16 => {
+            const value = parseUnsignedLiteral(u16, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u16, data[0..@sizeOf(u16)], value, .little);
+        },
+        .uint32 => {
+            const value = parseUnsignedLiteral(u32, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u32, data[0..@sizeOf(u32)], value, .little);
+        },
+        .uint64 => {
+            const value = parseUnsignedLiteral(u64, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u64, data[0..@sizeOf(u64)], value, .little);
+        },
+        .float32 => {
+            const value = parseFloatLiteral(f32, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u32, data[0..@sizeOf(u32)], @bitCast(value), .little);
+        },
+        .float64 => {
+            const value = parseFloatLiteral(f64, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u64, data[0..@sizeOf(u64)], @bitCast(value), .little);
+        },
+        .named => |type_name| {
+            const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
+            const ordinal = enumLiteralOrdinal(enum_decl, literal) orelse return error.InvalidToken;
+            std.mem.writeInt(u16, data[0..@sizeOf(u16)], ordinal, .little);
+        },
+        else => return error.UnsupportedType,
+    }
+    return flat;
+}
+
 fn emitFlatContainerSizeHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}    pub const serializedSize: usize = flatBytes.len;
@@ -8553,6 +8626,87 @@ fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayL
         \\{s}}};
         \\
     , .{ indent, indent, indent, indent, indent });
+}
+
+fn emitScalarConstFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, ty: Type, literal: []const u8) LayoutError!void {
+    const flat = try scalarConstFlatBytesAlloc(allocator, file, scope, ty, literal);
+    defer allocator.free(flat);
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn root(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+        \\{s}        return message_reader.getRoot();
+        \\{s}    }}
+        \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent });
+    switch (resolveTypeScoped(file, scope, ty)) {
+        .void => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !void {{
+            \\{s}        _ = try root(message_reader);
+            \\{s}        return {{}};
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent, indent }),
+        .bool => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !bool {{
+            \\{s}        return (try root(message_reader)).getBool(0, false);
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+        .int8 => try emitScalarConstFlatGet(allocator, out, indent, "i8", "getInt8", "0"),
+        .int16 => try emitScalarConstFlatGet(allocator, out, indent, "i16", "getInt16", "0"),
+        .int32 => try emitScalarConstFlatGet(allocator, out, indent, "i32", "getInt32", "0"),
+        .int64 => try emitScalarConstFlatGet(allocator, out, indent, "i64", "getInt64", "0"),
+        .uint8 => try emitScalarConstFlatGet(allocator, out, indent, "u8", "getUInt8", "0"),
+        .uint16 => try emitScalarConstFlatGet(allocator, out, indent, "u16", "getUInt16", "0"),
+        .uint32 => try emitScalarConstFlatGet(allocator, out, indent, "u32", "getUInt32", "0"),
+        .uint64 => try emitScalarConstFlatGet(allocator, out, indent, "u64", "getUInt64", "0"),
+        .float32 => try emitScalarConstFlatGet(allocator, out, indent, "f32", "getFloat32", "0"),
+        .float64 => try emitScalarConstFlatGet(allocator, out, indent, "f64", "getFloat64", "0"),
+        .named => |type_name| {
+            if (findEnum(file, type_name) == null) return error.UnsupportedType;
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader) !u16 {{
+                \\{s}        return (try root(message_reader)).getUInt16(0, 0);
+                \\{s}    }}
+                \\
+                \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
+                \\{s}        return std.enums.fromInt({s}, try getRaw(message_reader)) orelse error.InvalidEnumValue;
+                \\{s}    }}
+                \\
+            , .{ indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+        },
+        else => return error.UnsupportedType,
+    }
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, indent, indent, indent, indent });
+}
+
+fn emitScalarConstFlatGet(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, zig_type: []const u8, get_method: []const u8, default_literal: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
+        \\{s}        return (try root(message_reader)).{s}(0, {s});
+        \\{s}    }}
+        \\
+    , .{ indent, zig_type, indent, get_method, default_literal, indent });
 }
 
 fn emitUnsignedListFlatContainer(comptime T: type, allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, element_size: wire.ElementSize, element_size_literal: []const u8, get_method: []const u8) LayoutError!void {
