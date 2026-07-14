@@ -7055,6 +7055,38 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{}");
             }
             try out.appendSlice(allocator, ";\n");
+            try appendFmt(allocator, out,
+                \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByIndex"(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
+                \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.listItem.{}.structFields".len) return null;
+                \\{s}    return @This().@"cpz.const.{s}.listItem.{}.structFields"[@"cpz.index"];
+                \\{s}}}
+                \\
+                \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByName"(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
+                \\{s}    for (@This().@"cpz.const.{s}.listItem.{}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+                \\{s}    return null;
+                \\{s}}}
+                \\
+            , .{ indent, const_name, item.index, indent, const_name, item.index, indent, const_name, item.index, indent, indent, const_name, item.index, indent, const_name, item.index, indent, indent });
+            try appendFmt(allocator, out,
+                \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
+                \\{s}    for (@This().@"cpz.const.{s}.listItem.{}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
+                \\{s}    return null;
+                \\{s}}}
+                \\
+            , .{ indent, const_name, item.index, indent, const_name, item.index, indent, indent });
+            for (item.struct_fields) |field| {
+                const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
+                defer allocator.free(field_name_literal);
+                const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
+                defer allocator.free(field_literal);
+                try appendFmt(allocator, out,
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.index": usize = {};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.metadata": cpz.schema.ConstStructField = @This().@"cpz.const.{s}.listItem.{}.structFields"[{}];
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.name": []const u8 = {s};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.literal": []const u8 = {s};
+                    \\
+                , .{ indent, const_name, item.index, field.index, field.index, indent, const_name, item.index, field.index, const_name, item.index, field.index, indent, const_name, item.index, field.index, field_name_literal, indent, const_name, item.index, field.index, field_literal });
+            }
         }
     }
     try appendFmt(allocator, out,
