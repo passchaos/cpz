@@ -3,6 +3,10 @@ enum Mode {
   on @1;
 }
 
+struct MaybeDefaults {
+  absent @0 :?Text = null;
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;

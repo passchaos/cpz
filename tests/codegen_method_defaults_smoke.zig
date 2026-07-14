@@ -37,6 +37,15 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.defaultNothingFlat.rawPointer(&nothing_reader));
 }
 
+test "generated struct optional null defaults expose flats" {
+    try std.testing.expectEqualStrings("null", generated.MaybeDefaults.@"cpz.field.absent.default");
+    var absent_reader = generated.MaybeDefaults.absentDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.MaybeDefaults.absentDefaultFlat.isNull(&absent_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.absentDefaultFlat.rawPointer(&absent_reader));
+    try std.testing.expect(generated.MaybeDefaults.absentDefaultFlat.matchesSegmentCount(1));
+    try std.testing.expect(generated.MaybeDefaults.absentDefaultFlat.matchesSerializedSize(generated.MaybeDefaults.absentDefaultFlat.flatBytes.len));
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

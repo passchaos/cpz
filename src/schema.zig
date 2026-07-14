@@ -10994,7 +10994,12 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
         defer allocator.free(field_name);
         const resolved_ty = switch (resolveTypeScoped(file, layout.decl, field.ty)) {
             .optional => |child| blk: {
-                if (std.mem.eql(u8, std.mem.trim(u8, field.default_expression, " \t\r\n"), "null")) continue;
+                if (std.mem.eql(u8, std.mem.trim(u8, field.default_expression, " \t\r\n"), "null")) {
+                    const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+                    defer allocator.free(container_name);
+                    try emitNullPointerFlatContainer(allocator, out, "    ", container_name);
+                    continue;
+                }
                 break :blk resolveTypeScoped(file, layout.decl, child.*);
             },
             else => |resolved| resolved,
