@@ -7387,6 +7387,50 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return getRoot(@"cpz.reader".asReader());
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.traversalLimitWords"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
+        \\        return @"cpz.reader".traversalLimitWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.traversalLimitBytes"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
+        \\        return @"cpz.reader".traversalLimitBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.matchesTraversalLimitWords"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.count": usize) bool {{
+        \\        return @"cpz.reader".matchesTraversalLimitWords(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.matchesTraversalLimitBytes"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.count": usize) bool {{
+        \\        return @"cpz.reader".matchesTraversalLimitBytes(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.traversalRemainingWords"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
+        \\        return @"cpz.reader".traversalRemainingWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.traversalRemainingBytes"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
+        \\        return @"cpz.reader".traversalRemainingBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.nestingLimit"(@"cpz.reader": *const cpz.OwnedMessageReader) u16 {{
+        \\        return @"cpz.reader".nestingLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.matchesNestingLimit"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.count": u16) bool {{
+        \\        return @"cpz.reader".matchesNestingLimit(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.capabilityCountLimit"(@"cpz.reader": *const cpz.OwnedMessageReader) ?usize {{
+        \\        return @"cpz.reader".capabilityCountLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.hasCapabilityCountLimit"(@"cpz.reader": *const cpz.OwnedMessageReader) bool {{
+        \\        return @"cpz.reader".hasCapabilityCountLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.matchesCapabilityCountLimit"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.count": usize) bool {{
+        \\        return @"cpz.reader".matchesCapabilityCountLimit(@"cpz.count");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.validate"(@"cpz.reader": *cpz.OwnedMessageReader) !cpz.MessageStats {{
         \\        return @"cpz.reader".validate();
         \\    }}
@@ -7497,6 +7541,50 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.root"(@"cpz.view": *cpz.MessageReaderView) !@This() {{
         \\        return getRoot(@"cpz.view".asReader());
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.traversalLimitWords"(@"cpz.view": *const cpz.MessageReaderView) usize {{
+        \\        return @"cpz.view".traversalLimitWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.traversalLimitBytes"(@"cpz.view": *const cpz.MessageReaderView) usize {{
+        \\        return @"cpz.view".traversalLimitBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.matchesTraversalLimitWords"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.count": usize) bool {{
+        \\        return @"cpz.view".matchesTraversalLimitWords(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.matchesTraversalLimitBytes"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.count": usize) bool {{
+        \\        return @"cpz.view".matchesTraversalLimitBytes(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.traversalRemainingWords"(@"cpz.view": *const cpz.MessageReaderView) usize {{
+        \\        return @"cpz.view".traversalRemainingWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.traversalRemainingBytes"(@"cpz.view": *const cpz.MessageReaderView) usize {{
+        \\        return @"cpz.view".traversalRemainingBytes();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.nestingLimit"(@"cpz.view": *const cpz.MessageReaderView) u16 {{
+        \\        return @"cpz.view".nestingLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.matchesNestingLimit"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.count": u16) bool {{
+        \\        return @"cpz.view".matchesNestingLimit(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.capabilityCountLimit"(@"cpz.view": *const cpz.MessageReaderView) ?usize {{
+        \\        return @"cpz.view".capabilityCountLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.hasCapabilityCountLimit"(@"cpz.view": *const cpz.MessageReaderView) bool {{
+        \\        return @"cpz.view".hasCapabilityCountLimit();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.matchesCapabilityCountLimit"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.count": usize) bool {{
+        \\        return @"cpz.view".matchesCapabilityCountLimit(@"cpz.count");
         \\    }}
         \\
         \\    pub fn @"cpz.view.validate"(@"cpz.view": *cpz.MessageReaderView) !cpz.MessageStats {{
