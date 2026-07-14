@@ -2536,7 +2536,19 @@ test "generated list orphan wrappers can allocate new orphans" {
     try std.testing.expectEqual(generated.Person.size.totalByteCount(), try children_orphan.contentByteCount());
     try std.testing.expect(children_orphan.matchesContentBytes(generated.Person.size.totalByteCount()));
     try std.testing.expectEqual(generated.Person.size, try children_orphan.structElementSize());
+    try std.testing.expectEqual(generated.Person.size.data_words, try children_orphan.structElementDataWordCount());
+    try std.testing.expectEqual(generated.Person.size.pointer_count, try children_orphan.structElementPointerCount());
+    try std.testing.expectEqual(generated.Person.size.totalWords(), try children_orphan.structElementTotalWords());
+    try std.testing.expectEqual(generated.Person.size.dataByteCount(), try children_orphan.structElementDataByteCount());
+    try std.testing.expectEqual(generated.Person.size.pointerByteCount(), try children_orphan.structElementPointerByteCount());
+    try std.testing.expectEqual(generated.Person.size.totalByteCount(), try children_orphan.structElementTotalByteCount());
     try std.testing.expect(children_orphan.matchesStructElementSize(generated.Person.size));
+    try std.testing.expect(children_orphan.matchesStructElementDataWords(generated.Person.size.data_words));
+    try std.testing.expect(children_orphan.matchesStructElementPointerCount(generated.Person.size.pointer_count));
+    try std.testing.expect(children_orphan.matchesStructElementTotalWords(generated.Person.size.totalWords()));
+    try std.testing.expect(children_orphan.matchesStructElementDataBytes(generated.Person.size.dataByteCount()));
+    try std.testing.expect(children_orphan.matchesStructElementPointerBytes(generated.Person.size.pointerByteCount()));
+    try std.testing.expect(children_orphan.matchesStructElementTotalBytes(generated.Person.size.totalByteCount()));
     try person_builder.adopt_children_typed(&children_orphan);
 
     var dropped_scores = try generated.Person.Person_scores_Orphan.newOrphan(&builder, 1);
