@@ -8279,6 +8279,58 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootList(@"cpz.elementSize");
         \\    }}
         \\
+        \\    pub fn @"cpz.root.listLen"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).len();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listMatchesLen"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).matchesLen(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listElementSize"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).elementSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listMatchesElementSize"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.expected": cpz.ElementSize) !bool {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).matchesElementSize(@"cpz.expected");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listElementBitCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).elementBitCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listElementByteCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).elementByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listElementWordCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).elementWordCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listContentBitCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).contentBitCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listContentByteCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).contentByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listContentWordCount"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).contentWordCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listMatchesContentBytes"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).matchesContentBytes(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listStructElementSize"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize) !cpz.StructSize {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).structElementSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.root.listMatchesStructElementSize"(@"cpz.reader": *cpz.MessageReader, @"cpz.elementSize": cpz.ElementSize, @"cpz.expected": cpz.StructSize) !bool {{
+        \\        return (try @"cpz.root.list"(@"cpz.reader", @"cpz.elementSize")).matchesStructElementSize(@"cpz.expected");
+        \\    }}
+        \\
         \\    pub fn @"cpz.builderRoot.initList"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
         \\        return @"cpz.builder".initRootList(@"cpz.elementSize", @"cpz.count");
         \\    }}
@@ -8289,6 +8341,58 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.builderRoot.list"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !cpz.ListBuilder {{
         \\        return @"cpz.builder".getRootList(@"cpz.elementSize");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listLen"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).len();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listMatchesLen"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).matchesLen(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listElementSize"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !cpz.ElementSize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).elementSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listMatchesElementSize"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.expected": cpz.ElementSize) !bool {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).matchesElementSize(@"cpz.expected");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listElementBitCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).elementBitCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listElementByteCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).elementByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listElementWordCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).elementWordCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listContentBitCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).contentBitCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listContentByteCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).contentByteCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listContentWordCount"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !usize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).contentWordCount();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listMatchesContentBytes"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).matchesContentBytes(@"cpz.count");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listStructElementSize"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize) !cpz.StructSize {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).structElementSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.builderRoot.listMatchesStructElementSize"(@"cpz.builder": *cpz.MessageBuilder, @"cpz.elementSize": cpz.ElementSize, @"cpz.expected": cpz.StructSize) !bool {{
+        \\        return (try @"cpz.builderRoot.list"(@"cpz.builder", @"cpz.elementSize")).matchesStructElementSize(@"cpz.expected");
         \\    }}
         \\
         \\    pub fn @"cpz.root.text"(@"cpz.reader": *cpz.MessageReader) ![]const u8 {{
