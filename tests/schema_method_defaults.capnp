@@ -4,6 +4,16 @@ enum Mode {
 }
 
 interface Defaults {
+  enum LocalMode {
+    stopped @0;
+    running @1;
+  }
+
+  using ModeAlias = LocalMode;
+  const defaultLocalMode :ModeAlias = running;
+  const defaultLabel :Text = "local";
+  const defaultPayload :Data = 0x"0a 0b";
+
   scalars @0 (
     v :Void = void,
     b :Bool = true,
@@ -21,4 +31,10 @@ interface Defaults {
     text :Text = "hi",
     data :Data = 0x"01 02"
   ) -> (resultMode :Mode = off);
+
+  scoped @1 (
+    mode :ModeAlias = defaultLocalMode,
+    label :Text = defaultLabel,
+    payload :Data = defaultPayload
+  ) -> (resultMode :ModeAlias = defaultLocalMode);
 }

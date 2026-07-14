@@ -5597,8 +5597,8 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
         try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "params", method.param_fields, "    ");
         try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "results", method.result_fields, "    ");
-        for (method.param_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, method_name, "params", field, "    ");
-        for (method.result_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, method_name, "results", field, "    ");
+        for (method.param_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, &alias_scope, method_name, "params", field, "    ");
+        for (method.result_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, &alias_scope, method_name, "results", field, "    ");
     }
     try appendFmt(allocator, out,
         \\}};
@@ -5895,7 +5895,7 @@ fn emitMethodScalarDefaultGet(allocator: std.mem.Allocator, out: *std.ArrayList(
     , .{ indent, zig_type, indent, get_method, indent });
 }
 
-fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, method_name: []const u8, kind: []const u8, field: MethodField, indent: []const u8) LayoutError!void {
+fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, method_name: []const u8, kind: []const u8, field: MethodField, indent: []const u8) LayoutError!void {
     const default_literal = field.default_literal orelse return;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
@@ -5905,19 +5905,19 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     defer allocator.free(container_literal);
     var ty = try parseTypeArgAlloc(allocator, field.ty);
     defer ty.deinit(allocator);
-    const flat = switch (resolveTypeScoped(file, null, ty)) {
-        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, null, ty, default_literal),
+    const flat = switch (resolveTypeScoped(file, scope, ty)) {
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, scope, ty, default_literal),
         .named => |type_name| blk: {
             if (findEnum(file, type_name) == null) return;
-            break :blk try scalarConstFlatBytesAlloc(allocator, file, null, ty, default_literal);
+            break :blk try scalarConstFlatBytesAlloc(allocator, file, scope, ty, default_literal);
         },
         .text => blk: {
-            const bytes = try inlineQuotedStringBytesAlloc(allocator, default_literal);
+            const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, default_literal, true)) orelse try inlineQuotedStringBytesAlloc(allocator, default_literal);
             defer allocator.free(bytes);
             break :blk try blobFieldDefaultFlatBytesAlloc(allocator, bytes, true);
         },
         .data => blk: {
-            const bytes = try inlineDataBytesAlloc(allocator, default_literal);
+            const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, default_literal, false)) orelse try inlineDataBytesAlloc(allocator, default_literal);
             defer allocator.free(bytes);
             break :blk try blobFieldDefaultFlatBytesAlloc(allocator, bytes, false);
         },
@@ -5937,7 +5937,7 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         \\{s}    }}
         \\
     , .{ indent, container_literal, indent, flat_literal, indent, indent, indent, indent, indent });
-    switch (resolveTypeScoped(file, null, ty)) {
+    switch (resolveTypeScoped(file, scope, ty)) {
         .void => try appendFmt(allocator, out,
             \\{s}    pub fn get(message_reader: *cpz.MessageReader) !void {{
             \\{s}        _ = try message_reader.getRoot();

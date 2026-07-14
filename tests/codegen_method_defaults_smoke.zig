@@ -2,7 +2,7 @@ const std = @import("std");
 const generated = @import("generated_method_defaults_schema");
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -55,4 +55,24 @@ test "generated method default flats expose typed scalar and enum getters" {
 
     var result_mode_reader = generated.Defaults.@"cpz.method.scalars.results.field.resultMode.defaultFlat".reader(.{});
     try std.testing.expectEqual(generated.Mode.off, try generated.Defaults.@"cpz.method.scalars.results.field.resultMode.defaultFlat".get(&result_mode_reader));
+}
+
+test "generated method default flats resolve interface scoped aliases and const references" {
+    try std.testing.expectEqualStrings("scoped", generated.Defaults.@"cpz.methodByName"("scoped").?.name);
+    try std.testing.expectEqualStrings("Defaults.LocalMode", generated.Defaults.@"cpz.method.scoped.params.field.mode.resolvedType");
+    try std.testing.expectEqualStrings("defaultLocalMode", generated.Defaults.@"cpz.method.scoped.params.field.mode.default".?);
+
+    var mode_reader = generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".reader(.{});
+    try std.testing.expectEqual(@as(u16, 1), try generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".getRaw(&mode_reader));
+    var mode_reader_typed = generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".reader(.{});
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.Defaults.@"cpz.method.scoped.params.field.mode.defaultFlat".get(&mode_reader_typed));
+
+    var label_reader = generated.Defaults.@"cpz.method.scoped.params.field.label.defaultFlat".reader(.{});
+    try std.testing.expectEqualStrings("local", try generated.Defaults.@"cpz.method.scoped.params.field.label.defaultFlat".get(&label_reader));
+
+    var payload_reader = generated.Defaults.@"cpz.method.scoped.params.field.payload.defaultFlat".reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0a, 0x0b }, try generated.Defaults.@"cpz.method.scoped.params.field.payload.defaultFlat".get(&payload_reader));
+
+    var result_mode_reader = generated.Defaults.@"cpz.method.scoped.results.field.resultMode.defaultFlat".reader(.{});
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.Defaults.@"cpz.method.scoped.results.field.resultMode.defaultFlat".get(&result_mode_reader));
 }
