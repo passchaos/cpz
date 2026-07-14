@@ -2335,6 +2335,17 @@ test "generated builders can use typed list field orphans" {
     const decoded_scores = (try scores_orphan.decode(&scores_decode_reader)).?.list;
     try std.testing.expectEqual(cpz.wire.ElementSize.four_bytes, decoded_scores.element_size);
     try std.testing.expectEqual(@as(u29, 2), decoded_scores.element_count_or_words);
+    try std.testing.expectEqual(@as(usize, 2), try scores_orphan.len());
+    try std.testing.expect(scores_orphan.matchesLen(2));
+    try std.testing.expectEqual(cpz.ElementSize.four_bytes, try scores_orphan.elementSize());
+    try std.testing.expect(scores_orphan.matchesElementSize(.four_bytes));
+    try std.testing.expectEqual(@as(usize, 32), try scores_orphan.elementBitCount());
+    try std.testing.expectEqual(@as(usize, 4), try scores_orphan.elementByteCount());
+    try std.testing.expectError(error.UnsupportedElementSize, scores_orphan.elementWordCount());
+    try std.testing.expectEqual(@as(usize, 64), try scores_orphan.contentBitCount());
+    try std.testing.expectEqual(@as(usize, 8), try scores_orphan.contentByteCount());
+    try std.testing.expectEqual(@as(usize, 1), try scores_orphan.contentWordCount());
+    try std.testing.expect(scores_orphan.matchesContentBytes(8));
     try person_builder.adopt_scores_typed(&scores_orphan);
     try std.testing.expect(scores_orphan.isNull());
 
@@ -2362,6 +2373,10 @@ test "generated list orphan wrappers can allocate new orphans" {
     const orphan_scores = try scores_orphan.get();
     try orphan_scores.set(0, 123);
     try orphan_scores.set(1, 456);
+    try std.testing.expectEqual(@as(usize, 2), try scores_orphan.len());
+    try std.testing.expect(scores_orphan.matchesLen(2));
+    try std.testing.expectEqual(cpz.ElementSize.four_bytes, try scores_orphan.elementSize());
+    try std.testing.expectEqual(@as(usize, 8), try scores_orphan.contentByteCount());
     const scores_orphan_stats = try scores_orphan.validate();
     try std.testing.expect(scores_orphan_stats.total_words > 0);
     const scores_orphan_size = try scores_orphan.totalSize();
@@ -2373,6 +2388,17 @@ test "generated list orphan wrappers can allocate new orphans" {
     const child = try orphan_children.get(0);
     try child.set_id(654);
     try child.set_name("List orphan child");
+    try std.testing.expectEqual(@as(usize, 1), try children_orphan.len());
+    try std.testing.expect(children_orphan.matchesLen(1));
+    try std.testing.expectEqual(cpz.ElementSize.composite, try children_orphan.elementSize());
+    try std.testing.expect(children_orphan.matchesElementSize(.composite));
+    try std.testing.expectEqual(generated.Person.size.totalWords() * cpz.wire.bits_per_word, try children_orphan.elementBitCount());
+    try std.testing.expectEqual(generated.Person.size.totalByteCount(), try children_orphan.elementByteCount());
+    try std.testing.expectEqual(generated.Person.size.totalWords(), try children_orphan.elementWordCount());
+    try std.testing.expectEqual(generated.Person.size.totalByteCount(), try children_orphan.contentByteCount());
+    try std.testing.expect(children_orphan.matchesContentBytes(generated.Person.size.totalByteCount()));
+    try std.testing.expectEqual(generated.Person.size, try children_orphan.structElementSize());
+    try std.testing.expect(children_orphan.matchesStructElementSize(generated.Person.size));
     try person_builder.adopt_children_typed(&children_orphan);
 
     var dropped_scores = try generated.Person.Person_scores_Orphan.newOrphan(&builder, 1);

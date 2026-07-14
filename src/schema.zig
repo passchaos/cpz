@@ -10053,6 +10053,58 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return .{{ .list = try self.orphan.getList({s}) }};
         \\        }}
         \\
+        \\        pub fn len(self: @This()) !usize {{
+        \\            return self.orphan.getListLen({s});
+        \\        }}
+        \\
+        \\        pub fn matchesLen(self: @This(), count: usize) bool {{
+        \\            return self.orphan.listMatchesLen({s}, count);
+        \\        }}
+        \\
+        \\        pub fn elementSize(self: @This()) !cpz.ElementSize {{
+        \\            return self.orphan.getListElementSize({s});
+        \\        }}
+        \\
+        \\        pub fn matchesElementSize(self: @This(), element_size: cpz.ElementSize) bool {{
+        \\            return self.orphan.listMatchesElementSize({s}, element_size);
+        \\        }}
+        \\
+        \\        pub fn elementBitCount(self: @This()) !usize {{
+        \\            return self.orphan.getListElementBitCount({s});
+        \\        }}
+        \\
+        \\        pub fn elementByteCount(self: @This()) !usize {{
+        \\            return self.orphan.getListElementByteCount({s});
+        \\        }}
+        \\
+        \\        pub fn elementWordCount(self: @This()) !usize {{
+        \\            return self.orphan.getListElementWordCount({s});
+        \\        }}
+        \\
+        \\        pub fn contentBitCount(self: @This()) !usize {{
+        \\            return self.orphan.getListContentBitCount({s});
+        \\        }}
+        \\
+        \\        pub fn contentByteCount(self: @This()) !usize {{
+        \\            return self.orphan.getListContentByteCount({s});
+        \\        }}
+        \\
+        \\        pub fn contentWordCount(self: @This()) !usize {{
+        \\            return self.orphan.getListContentWordCount({s});
+        \\        }}
+        \\
+        \\        pub fn matchesContentBytes(self: @This(), count: usize) bool {{
+        \\            return self.orphan.listMatchesContentBytes({s}, count);
+        \\        }}
+        \\
+        \\        pub fn structElementSize(self: @This()) !cpz.StructSize {{
+        \\            return self.orphan.getListStructElementSize({s});
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementSize(self: @This(), @"cpz.size": cpz.StructSize) bool {{
+        \\            return self.orphan.listMatchesStructElementSize({s}, @"cpz.size");
+        \\        }}
+        \\
         \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s}_{s}_List {{
         \\            return .{{ .list = try self.orphan.asReader(message_reader).getList({s}) }};
         \\        }}
@@ -10082,7 +10134,32 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\        }}
         \\    }};
         \\
-    , .{ owner_name, field_name, list_orphan_new, owner_name, field_name, try listElementSizeLiteral(file, scope, child), owner_name, field_name, try listElementSizeLiteral(file, scope, child), owner_name, field_name });
+    , .{
+        owner_name,
+        field_name,
+        list_orphan_new,
+        owner_name,
+        field_name,
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        owner_name,
+        field_name,
+        try listElementSizeLiteral(file, scope, child),
+        owner_name,
+        field_name,
+    });
 
     try appendFmt(allocator, out,
         \\
