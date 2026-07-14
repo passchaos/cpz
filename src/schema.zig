@@ -8420,7 +8420,11 @@ fn emitFlatContainerSizeHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}        return segmentCount == count;
         \\{s}    }}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+        \\{s}    pub fn totalSize(options: cpz.ReaderOptions) !cpz.MessageSize {{
+        \\{s}        return (try @This().validate(options)).size();
+        \\{s}    }}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
 fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8, element_size_literal: []const u8, get_type: ?[]const u8, get_method: ?[]const u8) LayoutError!void {

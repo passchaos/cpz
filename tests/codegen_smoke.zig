@@ -394,6 +394,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqual(@as(usize, 1), generated.Person.scoresDefaultFlat.segmentCount);
     try std.testing.expect(generated.Person.scoresDefaultFlat.matchesSerializedSize(generated.Person.scoresDefaultFlat.flatBytes.len));
     try std.testing.expect(generated.Person.scoresDefaultFlat.matchesSegmentCount(1));
+    const field_scores_default_size = try generated.Person.scoresDefaultFlat.totalSize(.{});
+    try std.testing.expect(field_scores_default_size.word_count > 0);
     var field_scores_default_reader = generated.Person.scoresDefaultFlat.reader(.{});
     const field_scores_default = try generated.Person.scoresDefaultFlat.list(&field_scores_default_reader);
     try std.testing.expectEqual(@as(usize, 3), field_scores_default.len());
