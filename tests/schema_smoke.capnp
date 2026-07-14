@@ -55,8 +55,8 @@ struct Person $schemaNote("person") {
   blockName @20 :Text = `block
     default
     ;
-  aliases @9 :TextList;
-  payloads @10 :DataList;
+  aliases @9 :TextList = ["default", "alias"];
+  payloads @10 :DataList = [0x"0a 0b", "bytes"];
   defaultPayload @21 :Data = 0x"ca fe";
   flags @11 :BoolList;
   ratios @12 :Float32List;

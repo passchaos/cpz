@@ -8489,6 +8489,10 @@ fn emitVoidListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u
 fn emitTextOrDataListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool) LayoutError!void {
     const flat = try listTextOrDataFlatBytesAlloc(allocator, items, is_text);
     defer allocator.free(flat);
+    try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, name, flat, is_text);
+}
+
+fn emitTextOrDataListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8, comptime is_text: bool) LayoutError!void {
     const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
     defer allocator.free(flat_literal);
     const accessor = if (is_text) "getText" else "getData";
@@ -9025,6 +9029,34 @@ fn constListItemsFromInlineLiteralAlloc(allocator: std.mem.Allocator, literal: [
     return items;
 }
 
+fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, literal: []const u8, comptime is_text: bool) LayoutError![]u8 {
+    const items = try parseInlineConstListElementsAlloc(allocator, literal);
+    defer allocator.free(items);
+
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
+
+    for (items, 0..) |item, index| {
+        const bytes = if (is_text)
+            try inlineQuotedStringBytesAlloc(allocator, item)
+        else
+            try inlineDataBytesAlloc(allocator, item);
+        defer allocator.free(bytes);
+        try appendByteListPointerAtWord(allocator, &segment, 1 + index, bytes, is_text);
+    }
+
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
     const items = constListItemsFromInlineLiteralAlloc(allocator, default_expression) catch |err| switch (err) {
         error.UnexpectedToken, error.InvalidToken => return,
@@ -9046,6 +9078,16 @@ fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
         .uint64 => try emitUnsignedListFlatContainer(u64, allocator, out, indent, container_name, items, .eight_bytes, ".eight_bytes", "getUInt64"),
         .float32 => try emitFloatListFlatContainer(f32, u32, allocator, out, indent, container_name, items, .four_bytes, ".four_bytes", "getFloat32"),
         .float64 => try emitFloatListFlatContainer(f64, u64, allocator, out, indent, container_name, items, .eight_bytes, ".eight_bytes", "getFloat64"),
+        .text => {
+            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, default_expression, true);
+            defer allocator.free(flat);
+            try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, true);
+        },
+        .data => {
+            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, default_expression, false);
+            defer allocator.free(flat);
+            try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, false);
+        },
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return;
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
