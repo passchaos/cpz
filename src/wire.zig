@@ -78,6 +78,28 @@ pub const ElementSize = enum(u3) {
         };
     }
 
+    pub fn isPrimitive(self: ElementSize) bool {
+        return switch (self) {
+            .void, .bit, .byte, .two_bytes, .four_bytes, .eight_bytes => true,
+            .pointer, .composite => false,
+        };
+    }
+
+    pub fn isScalar(self: ElementSize) bool {
+        return switch (self) {
+            .bit, .byte, .two_bytes, .four_bytes, .eight_bytes => true,
+            .void, .pointer, .composite => false,
+        };
+    }
+
+    pub fn isPointerLike(self: ElementSize) bool {
+        return self == .pointer or self == .composite;
+    }
+
+    pub fn isNonCompositeList(self: ElementSize) bool {
+        return self != .composite;
+    }
+
     pub fn isFixedWidth(self: ElementSize) bool {
         return self != .composite;
     }
@@ -554,6 +576,20 @@ test "element size helper methods" {
     try testing.expect(!ElementSize.void.isInlineData());
     try testing.expect(!ElementSize.pointer.isInlineData());
     try testing.expect(!ElementSize.composite.isInlineData());
+    try testing.expect(ElementSize.void.isPrimitive());
+    try testing.expect(ElementSize.bit.isPrimitive());
+    try testing.expect(ElementSize.eight_bytes.isPrimitive());
+    try testing.expect(!ElementSize.pointer.isPrimitive());
+    try testing.expect(!ElementSize.composite.isPrimitive());
+    try testing.expect(ElementSize.bit.isScalar());
+    try testing.expect(ElementSize.eight_bytes.isScalar());
+    try testing.expect(!ElementSize.void.isScalar());
+    try testing.expect(!ElementSize.pointer.isScalar());
+    try testing.expect(ElementSize.pointer.isPointerLike());
+    try testing.expect(ElementSize.composite.isPointerLike());
+    try testing.expect(!ElementSize.byte.isPointerLike());
+    try testing.expect(ElementSize.pointer.isNonCompositeList());
+    try testing.expect(!ElementSize.composite.isNonCompositeList());
     try testing.expect(!ElementSize.void.hasPayloadBits());
     try testing.expect(ElementSize.pointer.hasPayloadBits());
     try testing.expectEqual(@as(usize, 16), ElementSize.two_bytes.bits());
