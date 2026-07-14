@@ -10167,6 +10167,34 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).pointerType();
         \\        }}
         \\
+        \\        pub fn elementMatchesPointerKind(self: @This(), index: usize, @"cpz.kind": cpz.wire.PointerType) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesPointerType(@"cpz.kind");
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsStruct(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isStructPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsList(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isListPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsFar(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isFarPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsOther(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isOtherPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsCapability(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isCapabilityPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsNear(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isNearPointer();
+        \\        }}
+        \\
         \\        pub fn elementRawPointer(self: @This(), index: usize) !cpz.Word {{
         \\            return (try self.list.getPointerElement(index)).raw();
         \\        }}
@@ -10230,6 +10258,34 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\
         \\        pub fn elementPointerKind(self: @This(), index: usize) !?cpz.wire.PointerType {{
         \\            return (try self.list.getPointerElement(index)).pointerType();
+        \\        }}
+        \\
+        \\        pub fn elementMatchesPointerKind(self: @This(), index: usize, @"cpz.kind": cpz.wire.PointerType) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesPointerType(@"cpz.kind");
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsStruct(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isStructPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsList(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isListPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsFar(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isFarPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsOther(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isOtherPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsCapability(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isCapabilityPointer();
+        \\        }}
+        \\
+        \\        pub fn elementPointerIsNear(self: @This(), index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).isNearPointer();
         \\        }}
         \\
         \\        pub fn elementRawPointer(self: @This(), index: usize) !cpz.Word {{

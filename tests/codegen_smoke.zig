@@ -984,6 +984,13 @@ test "generated reader and builder accessors compile and round-trip" {
     try aliases.set(1, "Lovelace");
     try std.testing.expectEqual(false, try aliases.elementIsNull(0));
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try aliases.elementPointerKind(0)).?);
+    try std.testing.expect(try aliases.elementMatchesPointerKind(0, .list));
+    try std.testing.expect(!try aliases.elementPointerIsStruct(0));
+    try std.testing.expect(try aliases.elementPointerIsList(0));
+    try std.testing.expect(!try aliases.elementPointerIsFar(0));
+    try std.testing.expect(!try aliases.elementPointerIsOther(0));
+    try std.testing.expect(!try aliases.elementPointerIsCapability(0));
+    try std.testing.expect(try aliases.elementPointerIsNear(0));
     const alias_element_raw = try aliases.elementRawPointer(0);
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(alias_element_raw));
     const alias_element_decoded = (try aliases.elementDecodedPointer(0)).?.list;
@@ -1258,6 +1265,13 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.get(1));
     try std.testing.expectEqual(false, try read_aliases.elementIsNull(1));
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try read_aliases.elementPointerKind(1)).?);
+    try std.testing.expect(try read_aliases.elementMatchesPointerKind(1, .list));
+    try std.testing.expect(!try read_aliases.elementPointerIsStruct(1));
+    try std.testing.expect(try read_aliases.elementPointerIsList(1));
+    try std.testing.expect(!try read_aliases.elementPointerIsFar(1));
+    try std.testing.expect(!try read_aliases.elementPointerIsOther(1));
+    try std.testing.expect(!try read_aliases.elementPointerIsCapability(1));
+    try std.testing.expect(try read_aliases.elementPointerIsNear(1));
     const read_alias_element_raw = try read_aliases.elementRawPointer(1);
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_alias_element_raw));
     const read_alias_decoded = (try read_aliases.elementDecodedPointer(1)).?.list;
