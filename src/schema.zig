@@ -7168,6 +7168,34 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.pointerType();
         \\        }}
         \\
+        \\        pub fn matchesPointerType(self: @This(), expected: cpz.wire.PointerType) bool {{
+        \\            return self.orphan.matchesPointerType(expected);
+        \\        }}
+        \\
+        \\        pub fn isStructPointer(self: @This()) bool {{
+        \\            return self.orphan.isStructPointer();
+        \\        }}
+        \\
+        \\        pub fn isListPointer(self: @This()) bool {{
+        \\            return self.orphan.isListPointer();
+        \\        }}
+        \\
+        \\        pub fn isFarPointer(self: @This()) bool {{
+        \\            return self.orphan.isFarPointer();
+        \\        }}
+        \\
+        \\        pub fn isOtherPointer(self: @This()) bool {{
+        \\            return self.orphan.isOtherPointer();
+        \\        }}
+        \\
+        \\        pub fn isCapabilityPointer(self: @This()) bool {{
+        \\            return self.orphan.isCapabilityPointer();
+        \\        }}
+        \\
+        \\        pub fn isNearPointer(self: @This()) bool {{
+        \\            return self.orphan.isNearPointer();
+        \\        }}
+        \\
         \\        pub fn decode(self: @This(), message_reader: *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
         \\            return self.orphan.decode(message_reader);
         \\        }}

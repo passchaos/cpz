@@ -1694,6 +1694,13 @@ test "generated builders can disown and adopt pointer fields" {
     try typed_friend.set_name("Typed orphan");
     var typed_orphan: generated.Person.Orphan = try person_builder.disown_friend_typed();
     try std.testing.expect(!typed_orphan.isNull());
+    try std.testing.expect(typed_orphan.matchesPointerType(.struct_ptr));
+    try std.testing.expect(typed_orphan.isStructPointer());
+    try std.testing.expect(typed_orphan.isNearPointer());
+    try std.testing.expect(!typed_orphan.isListPointer());
+    try std.testing.expect(!typed_orphan.isFarPointer());
+    try std.testing.expect(!typed_orphan.isOtherPointer());
+    try std.testing.expect(!typed_orphan.isCapabilityPointer());
     const orphan_builder = try typed_orphan.get();
     try std.testing.expectEqual(@as(u32, 3030), try orphan_builder.get_id());
     try std.testing.expectEqualSlices(u8, "Typed orphan", try orphan_builder.get_name());
