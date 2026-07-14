@@ -1094,6 +1094,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.ElementSize.byte, alias_element_decoded.element_size);
     try std.testing.expectEqual(@as(usize, 2), try aliases.elementListLen(0, .byte));
     try std.testing.expect(try aliases.elementListMatchesLen(0, .byte, 2));
+    try std.testing.expect(!try aliases.elementListIsEmpty(0, .byte));
+    try std.testing.expect(try aliases.elementListHasIndex(0, .byte, 1));
+    try std.testing.expect(!try aliases.elementListHasIndex(0, .byte, 2));
+    try std.testing.expectEqual(@as(usize, 0), try aliases.elementListFirstIndex(0, .byte));
+    try std.testing.expectEqual(@as(usize, 1), try aliases.elementListLastIndex(0, .byte));
     try std.testing.expectEqual(cpz.ElementSize.byte, try aliases.elementListElementSize(0, .byte));
     try std.testing.expect(try aliases.elementListMatchesElementSize(0, .byte, .byte));
     try std.testing.expectEqual(@as(usize, 8), try aliases.elementListElementBitCount(0, .byte));
@@ -1522,6 +1527,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.ElementSize.byte, read_alias_decoded.element_size);
     try std.testing.expectEqual(@as(usize, 9), try read_aliases.elementListLen(1, .byte));
     try std.testing.expect(try read_aliases.elementListMatchesLen(1, .byte, 9));
+    try std.testing.expect(!try read_aliases.elementListIsEmpty(1, .byte));
+    try std.testing.expect(try read_aliases.elementListHasIndex(1, .byte, 8));
+    try std.testing.expect(!try read_aliases.elementListHasIndex(1, .byte, 9));
+    try std.testing.expectEqual(@as(usize, 0), try read_aliases.elementListFirstIndex(1, .byte));
+    try std.testing.expectEqual(@as(usize, 8), try read_aliases.elementListLastIndex(1, .byte));
     try std.testing.expectEqual(cpz.ElementSize.byte, try read_aliases.elementListElementSize(1, .byte));
     try std.testing.expect(try read_aliases.elementListMatchesElementSize(1, .byte, .byte));
     try std.testing.expectEqual(@as(usize, 8), try read_aliases.elementListElementBitCount(1, .byte));

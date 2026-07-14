@@ -11809,6 +11809,22 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).listMatchesLen(expected, count);
         \\        }}
         \\
+        \\        pub fn elementListIsEmpty(self: @This(), index: usize, expected: ?cpz.ElementSize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listIsEmpty(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListHasIndex(self: @This(), index: usize, expected: ?cpz.ElementSize, element_index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listHasIndex(expected, element_index);
+        \\        }}
+        \\
+        \\        pub fn elementListFirstIndex(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListFirstIndex(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListLastIndex(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListLastIndex(expected);
+        \\        }}
+        \\
         \\        pub fn elementListElementSize(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ElementSize {{
         \\            return (try self.list.getPointerElement(index)).getListElementSize(expected);
         \\        }}
@@ -12088,6 +12104,22 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\
         \\        pub fn elementListMatchesLen(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
         \\            return (try self.list.getPointerElement(index)).listMatchesLen(expected, count);
+        \\        }}
+        \\
+        \\        pub fn elementListIsEmpty(self: @This(), index: usize, expected: ?cpz.ElementSize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listIsEmpty(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListHasIndex(self: @This(), index: usize, expected: ?cpz.ElementSize, element_index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listHasIndex(expected, element_index);
+        \\        }}
+        \\
+        \\        pub fn elementListFirstIndex(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListFirstIndex(expected);
+        \\        }}
+        \\
+        \\        pub fn elementListLastIndex(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getListLastIndex(expected);
         \\        }}
         \\
         \\        pub fn elementListElementSize(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ElementSize {{
