@@ -9457,6 +9457,15 @@ fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
     try emitBlobFlatContainer(allocator, out, indent, container_name, bytes, is_text);
 }
 
+fn emitScalarFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, ty: Type, literal: []const u8) LayoutError!void {
+    const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+    defer allocator.free(container_name);
+    emitScalarConstFlatContainer(allocator, out, file, scope, indent, container_name, ty, literal) catch |err| switch (err) {
+        error.InvalidToken, error.UnsupportedType => return,
+        else => return err,
+    };
+}
+
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
     const items = constListItemsFromInlineLiteralAlloc(allocator, default_expression) catch |err| switch (err) {
         error.UnexpectedToken, error.InvalidToken => return,
@@ -9524,6 +9533,10 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
             else => |resolved| resolved,
         };
         switch (resolved_ty) {
+            .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => {
+                const literal = field.default_literal orelse continue;
+                try emitScalarFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, resolved_ty, literal);
+            },
             .text => {
                 const literal = field.default_literal orelse continue;
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, literal, true);
@@ -9539,7 +9552,12 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
             },
             .list => |list_child| try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, list_child.*, field.default_expression),
             .named => |type_name| {
-                if (findEnum(file, type_name) != null or findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) continue;
+                if (findEnum(file, type_name) != null) {
+                    const literal = field.default_literal orelse continue;
+                    try emitScalarFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, resolved_ty, literal);
+                    continue;
+                }
+                if (findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) continue;
                 const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, field.default_expression)) orelse continue;
                 defer allocator.free(flat);
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
