@@ -228,11 +228,23 @@ pub const MessageStats = struct {
         return self.max_capability_index;
     }
 
+    pub fn hasMaxCapabilityIndex(self: MessageStats) bool {
+        return self.max_capability_index != null;
+    }
+
+    pub fn matchesMaxCapabilityIndex(self: MessageStats, index: u32) bool {
+        return self.max_capability_index != null and self.max_capability_index.? == index;
+    }
+
     pub fn maxCapabilityCount(self: MessageStats) usize {
         if (self.max_capability_index) |index| {
             return @as(usize, index) + 1;
         }
         return 0;
+    }
+
+    pub fn matchesMaxCapabilityCount(self: MessageStats, count: usize) bool {
+        return self.maxCapabilityCount() == count;
     }
 };
 
@@ -245,6 +257,9 @@ test "message stats byte helper methods" {
     try testing.expectEqual(@as(usize, 0), empty.byteCount());
     try testing.expect(empty.matchesBytes(0));
     try testing.expect(empty.isEmpty());
+    try testing.expect(!empty.hasMaxCapabilityIndex());
+    try testing.expect(!empty.matchesMaxCapabilityIndex(0));
+    try testing.expect(empty.matchesMaxCapabilityCount(0));
 
     const stats = MessageStats{
         .pointer_slots = 4,
@@ -265,6 +280,11 @@ test "message stats byte helper methods" {
     try testing.expect(stats.matchesBytes(96));
     try testing.expect(!stats.matchesBytes(95));
     try testing.expectEqual(@as(usize, 4), stats.maxCapabilityCount());
+    try testing.expect(stats.hasMaxCapabilityIndex());
+    try testing.expect(stats.matchesMaxCapabilityIndex(3));
+    try testing.expect(!stats.matchesMaxCapabilityIndex(4));
+    try testing.expect(stats.matchesMaxCapabilityCount(4));
+    try testing.expect(!stats.matchesMaxCapabilityCount(3));
     try testing.expectEqual(@as(usize, 96), stats.size().byteCount());
 }
 
