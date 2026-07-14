@@ -4932,6 +4932,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("3", generated.Service.@"cpz.method.ping.params.field.attempts.default".?);
     try std.testing.expect(generated.Service.@"cpz.method.ping.params.field.attempts.hasExplicitDefault");
     try std.testing.expectEqualStrings("$schemaNote(\"attempts\")", generated.Service.@"cpz.method.ping.params.field.attempts.annotations");
+    try std.testing.expect(generated.Service.@"cpz.method.ping.params.field.attempts.defaultFlat".flatBytes.len > 0);
+    var attempts_default_reader = generated.Service.@"cpz.method.ping.params.field.attempts.defaultFlat".reader(.{});
+    try std.testing.expectEqual(@as(u32, 3), try generated.Service.@"cpz.method.ping.params.field.attempts.defaultFlat".get(&attempts_default_reader));
+    try std.testing.expect((try generated.Service.@"cpz.method.ping.params.field.attempts.defaultFlat".totalSize(.{})).hasWords());
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.results.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Service.@"cpz.method.ping.results.fields".len);
     try std.testing.expectEqualStrings("response", generated.Service.@"cpz.method.ping.results.fields"[0].name);
@@ -4960,6 +4964,10 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.fields"[0].default_is_hex_data);
     try std.testing.expectEqualStrings("chunk", generated.Service.@"cpz.method.streamIt.params.fields.fieldByHexDefault"(true).?.name);
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultIsHexData");
+    try std.testing.expect(generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultFlat".flatBytes.len > 0);
+    var chunk_default_reader = generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultFlat".reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xde, 0xad }, try generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultFlat".get(&chunk_default_reader));
+    try std.testing.expect((try generated.Service.@"cpz.method.streamIt.params.field.chunk.defaultFlat".totalSize(.{})).hasWords());
     try std.testing.expect(generated.Service.@"cpz.methods"[2].streaming);
     try std.testing.expect(generated.Service.@"cpz.methods"[2].matchesStreaming(true));
     try std.testing.expect(generated.Service.@"cpz.method.streamIt.streaming");

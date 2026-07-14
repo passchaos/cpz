@@ -5597,6 +5597,8 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
         try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "params", method.param_fields, "    ");
         try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "results", method.result_fields, "    ");
+        for (method.param_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, method_name, "params", field, "    ");
+        for (method.result_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, method_name, "results", field, "    ");
     }
     try appendFmt(allocator, out,
         \\}};
@@ -5882,6 +5884,76 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
     const method_parameters_name = try std.fmt.allocPrint(allocator, "cpz.method.{s}.parameters", .{method_name});
     defer allocator.free(method_parameters_name);
     try emitParameterLookupHelpers(allocator, out, method_parameters_name, indent);
+}
+
+fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, method_name: []const u8, kind: []const u8, field: MethodField, indent: []const u8) LayoutError!void {
+    const default_literal = field.default_literal orelse return;
+    const field_name = try zigIdentAlloc(allocator, field.name);
+    defer allocator.free(field_name);
+    const container_name = try std.fmt.allocPrint(allocator, "cpz.method.{s}.{s}.field.{s}.defaultFlat", .{ method_name, kind, field_name });
+    defer allocator.free(container_name);
+    const container_literal = try zigStringLiteralAlloc(allocator, container_name);
+    defer allocator.free(container_literal);
+    var ty = try parseTypeArgAlloc(allocator, field.ty);
+    defer ty.deinit(allocator);
+    const flat = switch (resolveTypeScoped(file, null, ty)) {
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, null, ty, default_literal),
+        .text => blk: {
+            const bytes = try inlineQuotedStringBytesAlloc(allocator, default_literal);
+            defer allocator.free(bytes);
+            break :blk try blobFieldDefaultFlatBytesAlloc(allocator, bytes, true);
+        },
+        .data => blk: {
+            const bytes = try inlineDataBytesAlloc(allocator, default_literal);
+            defer allocator.free(bytes);
+            break :blk try blobFieldDefaultFlatBytesAlloc(allocator, bytes, false);
+        },
+        else => return,
+    };
+    defer allocator.free(flat);
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const @{s} = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+    , .{ indent, container_literal, indent, flat_literal, indent, indent, indent, indent, indent });
+    switch (resolveTypeScoped(file, null, ty)) {
+        .text => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) ![]const u8 {{
+            \\{s}        return message_reader.getRootText();
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+        .data => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) ![]const u8 {{
+            \\{s}        return message_reader.getRootData();
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+        .uint32 => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !u32 {{
+            \\{s}        return (try message_reader.getRoot()).getUInt32(0, 0);
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+        else => {},
+    }
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, indent, indent, indent, indent });
 }
 
 fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
