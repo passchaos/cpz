@@ -7738,16 +7738,16 @@ fn appendPointerListPointer(allocator: std.mem.Allocator, segment: *std.ArrayLis
     return target_word_index;
 }
 
-fn appendPointerListOfByteLists(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, items: []const []const u8, comptime text_items: bool) LayoutError!void {
+fn appendPointerListOfByteLists(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, items: []const []const u8, comptime text_items: bool) LayoutError!void {
     const list_start_words = try appendPointerListPointer(allocator, segment, pointer_index, data_words, object_start_words, items.len);
     for (items, 0..) |item, index| {
-        const bytes = (if (text_items)
+        const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, item, text_items)) orelse ((if (text_items)
             inlineQuotedStringBytesAlloc(allocator, item)
         else
             inlineDataBytesAlloc(allocator, item)) catch |err| switch (err) {
             error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
             else => return err,
-        };
+        });
         defer allocator.free(bytes);
         try appendByteListPointerAtWord(allocator, segment, list_start_words + index, bytes, text_items);
     }
@@ -7895,8 +7895,8 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
                 std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
             }
         },
-        .text => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, true),
-        .data => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, false),
+        .text => try appendPointerListOfByteLists(allocator, file, scope, segment, pointer_index, data_words, object_start_words, items, true),
+        .data => try appendPointerListOfByteLists(allocator, file, scope, segment, pointer_index, data_words, object_start_words, items, false),
         .list => |child| {
             const list_start_words = try appendPointerListPointer(allocator, segment, pointer_index, data_words, object_start_words, items.len);
             for (items, 0..) |item, index| {
@@ -8479,7 +8479,7 @@ fn decodedStringBytesAlloc(allocator: std.mem.Allocator, raw: []const u8) Layout
     return out.toOwnedSlice(allocator);
 }
 
-fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, items: []const ConstListItem, comptime nul_terminated: bool) LayoutError![]u8 {
+fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, comptime nul_terminated: bool) LayoutError![]u8 {
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
     try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
@@ -8487,10 +8487,10 @@ fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, items: []const Con
 
     for (items) |item| {
         if (item.index >= items.len) return error.InvalidToken;
-        const bytes = if (item.is_hex_data)
+        const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, item.literal, nul_terminated)) orelse (if (item.is_hex_data)
             try hexBytesAlloc(allocator, item.literal)
         else
-            try decodedStringBytesAlloc(allocator, item.literal);
+            try decodedStringBytesAlloc(allocator, item.literal));
         defer allocator.free(bytes);
         try appendByteListPointer(allocator, &segment, 0, 0, bytes, nul_terminated, 1 + item.index);
     }
@@ -8580,6 +8580,22 @@ fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const
 
 fn resolveConstReferenceLiteral(file: *const File, scope: ?*const Struct, literal: []const u8) []const u8 {
     return if (findConstReference(file, scope, literal)) |decl| decl.literal else literal;
+}
+
+fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError!?[]u8 {
+    const decl = findConstReference(file, scope, literal) orelse return null;
+    const resolved_ty = resolveTypeScoped(file, scope, decl.ty);
+    if (is_text) {
+        if (resolved_ty != .text) return null;
+        if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
+        return try decodedStringBytesAlloc(allocator, decl.literal);
+    }
+    if (resolved_ty != .data) return null;
+    if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
+    return if (decl.is_hex_data)
+        try hexBytesAlloc(allocator, decl.literal)
+    else
+        try decodedStringBytesAlloc(allocator, decl.literal);
 }
 
 fn resolveScalarConstListItem(file: *const File, scope: ?*const Struct, item: ConstListItem) ConstListItem {
@@ -8832,8 +8848,8 @@ fn emitVoidListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u
     try emitFlatListContainerFromBytes(allocator, out, indent, name, flat, ".void", "void", null);
 }
 
-fn emitTextOrDataListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool) LayoutError!void {
-    const flat = try listTextOrDataFlatBytesAlloc(allocator, items, is_text);
+fn emitTextOrDataListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool) LayoutError!void {
+    const flat = try listTextOrDataFlatBytesAlloc(allocator, file, scope, items, is_text);
     defer allocator.free(flat);
     try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, name, flat, is_text);
 }
@@ -9040,9 +9056,9 @@ fn emitListConstOfType(
         try emitFloatListFlatContainer(f64, u64, allocator, out, file, scope, indent, name, items, .eight_bytes, ".eight_bytes", "getFloat64");
     } else if (std.mem.eql(u8, zig_type, "[]const u8")) {
         if (itemLiteral == stringConstItem) {
-            try emitTextOrDataListFlatContainer(allocator, out, indent, name, items, true);
+            try emitTextOrDataListFlatContainer(allocator, out, file, scope, indent, name, items, true);
         } else if (itemLiteral == dataConstItem) {
-            try emitTextOrDataListFlatContainer(allocator, out, indent, name, items, false);
+            try emitTextOrDataListFlatContainer(allocator, out, file, scope, indent, name, items, false);
         }
     }
 }
@@ -9417,7 +9433,7 @@ fn constListItemsFromInlineLiteralAlloc(allocator: std.mem.Allocator, literal: [
     return items;
 }
 
-fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, literal: []const u8, comptime is_text: bool) LayoutError![]u8 {
+fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError![]u8 {
     const items = try parseInlineConstListElementsAlloc(allocator, literal);
     defer allocator.free(items);
 
@@ -9427,7 +9443,7 @@ fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, litera
     writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
 
     for (items, 0..) |item, index| {
-        const bytes = if (is_text)
+        const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, item, is_text)) orelse if (is_text)
             try inlineQuotedStringBytesAlloc(allocator, item)
         else
             try inlineDataBytesAlloc(allocator, item);
@@ -9584,12 +9600,12 @@ fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
         .float32 => try emitFloatListFlatContainer(f32, u32, allocator, out, file, scope, indent, container_name, items, .four_bytes, ".four_bytes", "getFloat32"),
         .float64 => try emitFloatListFlatContainer(f64, u64, allocator, out, file, scope, indent, container_name, items, .eight_bytes, ".eight_bytes", "getFloat64"),
         .text => {
-            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, default_expression, true);
+            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, default_expression, true);
             defer allocator.free(flat);
             try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, true);
         },
         .data => {
-            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, default_expression, false);
+            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, default_expression, false);
             defer allocator.free(flat);
             try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, false);
         },
@@ -17286,6 +17302,48 @@ test "schema struct const flat emission supports wider integers and floats" {
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
     try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
+}
+
+test "schema text and data list flats resolve const item references" {
+    const source =
+        \\const hello :Text = "hi";
+        \\const blob :Data = 0x"01 02";
+        \\const names :List(Text) = [hello, "ok"];
+        \\const blobs :List(Data) = [blob, 0x"03"];
+        \\struct Box {
+        \\  const local :Text = "local";
+        \\  names @0 :List(Text) = [Box.local, hello];
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+
+    const names_flat = try listTextOrDataFlatBytesAlloc(std.testing.allocator, &file, null, file.consts[2].list_items.?, true);
+    defer std.testing.allocator.free(names_flat);
+    var names_segments: [1]serialize.ConstSegment = undefined;
+    const names_view = try serialize.readFlatMessageViewInto(&names_segments, names_flat);
+    var names_reader = message.MessageReader.init(names_view.segments, .{});
+    const names = try names_reader.getRootList(.pointer);
+    try std.testing.expectEqualSlices(u8, "hi", try (try names.getPointerElement(0)).getText());
+    try std.testing.expectEqualSlices(u8, "ok", try (try names.getPointerElement(1)).getText());
+
+    const blobs_flat = try listTextOrDataFlatBytesAlloc(std.testing.allocator, &file, null, file.consts[3].list_items.?, false);
+    defer std.testing.allocator.free(blobs_flat);
+    var blobs_segments: [1]serialize.ConstSegment = undefined;
+    const blobs_view = try serialize.readFlatMessageViewInto(&blobs_segments, blobs_flat);
+    var blobs_reader = message.MessageReader.init(blobs_view.segments, .{});
+    const blobs = try blobs_reader.getRootList(.pointer);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, try (try blobs.getPointerElement(0)).getData());
+    try std.testing.expectEqualSlices(u8, &[_]u8{3}, try (try blobs.getPointerElement(1)).getData());
+
+    const default_flat = try listTextOrDataFieldDefaultFlatBytesAlloc(std.testing.allocator, &file, &file.structs[0], file.structs[0].fields[0].default_expression, true);
+    defer std.testing.allocator.free(default_flat);
+    var default_segments: [1]serialize.ConstSegment = undefined;
+    const default_view = try serialize.readFlatMessageViewInto(&default_segments, default_flat);
+    var default_reader = message.MessageReader.init(default_view.segments, .{});
+    const defaults = try default_reader.getRootList(.pointer);
+    try std.testing.expectEqualSlices(u8, "local", try (try defaults.getPointerElement(0)).getText());
+    try std.testing.expectEqualSlices(u8, "hi", try (try defaults.getPointerElement(1)).getText());
 }
 
 test "schema list flats resolve scalar const item references" {
