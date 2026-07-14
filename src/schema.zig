@@ -5886,6 +5886,15 @@ fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayLi
     try emitParameterLookupHelpers(allocator, out, method_parameters_name, indent);
 }
 
+fn emitMethodScalarDefaultGet(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, zig_type: []const u8, get_method: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
+        \\{s}        return (try message_reader.getRoot()).{s}(0, 0);
+        \\{s}    }}
+        \\
+    , .{ indent, zig_type, indent, get_method, indent });
+}
+
 fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, method_name: []const u8, kind: []const u8, field: MethodField, indent: []const u8) LayoutError!void {
     const default_literal = field.default_literal orelse return;
     const field_name = try zigIdentAlloc(allocator, field.name);
@@ -5898,6 +5907,10 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     defer ty.deinit(allocator);
     const flat = switch (resolveTypeScoped(file, null, ty)) {
         .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try scalarConstFlatBytesAlloc(allocator, file, null, ty, default_literal),
+        .named => |type_name| blk: {
+            if (findEnum(file, type_name) == null) return;
+            break :blk try scalarConstFlatBytesAlloc(allocator, file, null, ty, default_literal);
+        },
         .text => blk: {
             const bytes = try inlineQuotedStringBytesAlloc(allocator, default_literal);
             defer allocator.free(bytes);
@@ -5925,6 +5938,29 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
         \\
     , .{ indent, container_literal, indent, flat_literal, indent, indent, indent, indent, indent });
     switch (resolveTypeScoped(file, null, ty)) {
+        .void => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !void {{
+            \\{s}        _ = try message_reader.getRoot();
+            \\{s}        return {{}};
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent, indent }),
+        .bool => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !bool {{
+            \\{s}        return (try message_reader.getRoot()).getBool(0, false);
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+        .int8 => try emitMethodScalarDefaultGet(allocator, out, indent, "i8", "getInt8"),
+        .int16 => try emitMethodScalarDefaultGet(allocator, out, indent, "i16", "getInt16"),
+        .int32 => try emitMethodScalarDefaultGet(allocator, out, indent, "i32", "getInt32"),
+        .int64 => try emitMethodScalarDefaultGet(allocator, out, indent, "i64", "getInt64"),
+        .uint8 => try emitMethodScalarDefaultGet(allocator, out, indent, "u8", "getUInt8"),
+        .uint16 => try emitMethodScalarDefaultGet(allocator, out, indent, "u16", "getUInt16"),
+        .uint32 => try emitMethodScalarDefaultGet(allocator, out, indent, "u32", "getUInt32"),
+        .uint64 => try emitMethodScalarDefaultGet(allocator, out, indent, "u64", "getUInt64"),
+        .float32 => try emitMethodScalarDefaultGet(allocator, out, indent, "f32", "getFloat32"),
+        .float64 => try emitMethodScalarDefaultGet(allocator, out, indent, "f64", "getFloat64"),
         .text => try appendFmt(allocator, out,
             \\{s}    pub fn get(message_reader: *cpz.MessageReader) ![]const u8 {{
             \\{s}        return message_reader.getRootText();
@@ -5937,12 +5973,21 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
             \\{s}    }}
             \\
         , .{ indent, indent, indent }),
-        .uint32 => try appendFmt(allocator, out,
-            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !u32 {{
-            \\{s}        return (try message_reader.getRoot()).getUInt32(0, 0);
-            \\{s}    }}
-            \\
-        , .{ indent, indent, indent }),
+        .named => |type_name| {
+            if (findEnum(file, type_name) == null) return;
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader) !u16 {{
+                \\{s}        return (try message_reader.getRoot()).getUInt16(0, 0);
+                \\{s}    }}
+                \\
+                \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
+                \\{s}        return std.enums.fromInt({s}, try @This().getRaw(message_reader)) orelse error.InvalidEnumValue;
+                \\{s}    }}
+                \\
+            , .{ indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+        },
         else => {},
     }
     try emitFlatContainerSizeHelpers(allocator, out, indent);
@@ -18039,6 +18084,27 @@ test "schema struct const flats resolve scalar const field references" {
     try std.testing.expectEqual(@as(u32, 99), nested_scores.getUInt32(0));
     try std.testing.expectEqualSlices(u8, "nested", try nested_root.getPointerField(label_pointer).getText());
     try std.testing.expectEqualSlices(u8, &[_]u8{ 1, 2 }, try nested_root.getPointerField(payload_pointer).getData());
+}
+
+test "schema method default flats expose typed enum getters" {
+    const source =
+        \\enum Color {
+        \\  red @0;
+        \\  blue @1;
+        \\}
+        \\interface Service {
+        \\  choose @0 (color :Color = blue) -> ();
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.method.choose.params.field.color.defaultFlat\" = struct") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(message_reader: *cpz.MessageReader) !u16") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "std.enums.fromInt") != null);
 }
 
 test "schema code generator resolves const reference scalar defaults for flats" {
