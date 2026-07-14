@@ -7431,6 +7431,34 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".getRootPointerKind();
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.matchesPointerKind"(@"cpz.reader": *cpz.OwnedMessageReader, @"cpz.kind": cpz.wire.PointerType) !bool {{
+        \\        return @"cpz.reader".matchesRootPointerType(@"cpz.kind");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerIsStruct"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return @"cpz.reader".isRootStructPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerIsList"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return @"cpz.reader".isRootListPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerIsFar"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return @"cpz.reader".isRootFarPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerIsOther"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return @"cpz.reader".isRootOtherPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerIsCapability"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return @"cpz.reader".isRootCapabilityPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.pointerIsNear"(@"cpz.reader": *cpz.OwnedMessageReader) !bool {{
+        \\        return @"cpz.reader".isRootNearPointer();
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.rawPointer"(@"cpz.reader": *cpz.OwnedMessageReader) !cpz.Word {{
         \\        return @"cpz.reader".getRootRawPointer();
         \\    }}
@@ -7649,6 +7677,34 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.pointerKind"(@"cpz.view": *cpz.MessageReaderView) !?cpz.wire.PointerType {{
         \\        return @"cpz.view".getRootPointerKind();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.matchesPointerKind"(@"cpz.view": *cpz.MessageReaderView, @"cpz.kind": cpz.wire.PointerType) !bool {{
+        \\        return @"cpz.view".matchesRootPointerType(@"cpz.kind");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerIsStruct"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return @"cpz.view".isRootStructPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerIsList"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return @"cpz.view".isRootListPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerIsFar"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return @"cpz.view".isRootFarPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerIsOther"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return @"cpz.view".isRootOtherPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerIsCapability"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return @"cpz.view".isRootCapabilityPointer();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.pointerIsNear"(@"cpz.view": *cpz.MessageReaderView) !bool {{
+        \\        return @"cpz.view".isRootNearPointer();
         \\    }}
         \\
         \\    pub fn @"cpz.view.rawPointer"(@"cpz.view": *cpz.MessageReaderView) !cpz.Word {{

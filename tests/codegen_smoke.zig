@@ -655,6 +655,13 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(!try generated.Person.@"cpz.owned.pointerIsNull"(&owned_root_reader));
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try owned_pointer.pointerType()).?);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.owned.pointerKind"(&owned_root_reader)).?);
+    try std.testing.expect(try generated.Person.@"cpz.owned.matchesPointerKind"(&owned_root_reader, .struct_ptr));
+    try std.testing.expect(try generated.Person.@"cpz.owned.pointerIsStruct"(&owned_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.owned.pointerIsList"(&owned_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.owned.pointerIsFar"(&owned_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.owned.pointerIsOther"(&owned_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.owned.pointerIsCapability"(&owned_root_reader));
+    try std.testing.expect(try generated.Person.@"cpz.owned.pointerIsNear"(&owned_root_reader));
     const owned_raw_pointer = try generated.Person.@"cpz.owned.rawPointer"(&owned_root_reader);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, cpz.wire.pointerType(owned_raw_pointer));
     const owned_decoded_pointer = (try generated.Person.@"cpz.owned.decodedPointer"(&owned_root_reader)).?.struct_ptr;
@@ -742,6 +749,13 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(!try generated.Person.@"cpz.view.pointerIsNull"(&viewed_root_reader));
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try view_pointer.pointerType()).?);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.Person.@"cpz.view.pointerKind"(&viewed_root_reader)).?);
+    try std.testing.expect(try generated.Person.@"cpz.view.matchesPointerKind"(&viewed_root_reader, .struct_ptr));
+    try std.testing.expect(try generated.Person.@"cpz.view.pointerIsStruct"(&viewed_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.view.pointerIsList"(&viewed_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.view.pointerIsFar"(&viewed_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.view.pointerIsOther"(&viewed_root_reader));
+    try std.testing.expect(!try generated.Person.@"cpz.view.pointerIsCapability"(&viewed_root_reader));
+    try std.testing.expect(try generated.Person.@"cpz.view.pointerIsNear"(&viewed_root_reader));
     const view_raw_pointer = try generated.Person.@"cpz.view.rawPointer"(&viewed_root_reader);
     try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, cpz.wire.pointerType(view_raw_pointer));
     const view_decoded_pointer = (try generated.Person.@"cpz.view.decodedPointer"(&viewed_root_reader)).?.struct_ptr;
