@@ -7379,6 +7379,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".consumedLen();
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.asReader"(@"cpz.reader": *cpz.OwnedMessageReader) *cpz.MessageReader {{
+        \\        return @"cpz.reader".asReader();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.root"(@"cpz.reader": *cpz.OwnedMessageReader) !@This() {{
+        \\        return getRoot(@"cpz.reader".asReader());
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.validate"(@"cpz.reader": *cpz.OwnedMessageReader) !cpz.MessageStats {{
+        \\        return @"cpz.reader".validate();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.validateWithOptions"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\        return @"cpz.reader".validateWithOptions(@"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.totalSize"(@"cpz.reader": *cpz.OwnedMessageReader) !cpz.MessageSize {{
+        \\        return @"cpz.reader".totalSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.totalSizeWithOptions"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+        \\        return @"cpz.reader".totalSizeWithOptions(@"cpz.options");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.sourceConsumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".sourceConsumedLen();
         \\    }}
@@ -7389,6 +7413,30 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.consumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
         \\        return @"cpz.view".consumedLen();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.asReader"(@"cpz.view": *cpz.MessageReaderView) *cpz.MessageReader {{
+        \\        return @"cpz.view".asReader();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.root"(@"cpz.view": *cpz.MessageReaderView) !@This() {{
+        \\        return getRoot(@"cpz.view".asReader());
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.validate"(@"cpz.view": *cpz.MessageReaderView) !cpz.MessageStats {{
+        \\        return @"cpz.view".validate();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.validateWithOptions"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\        return @"cpz.view".validateWithOptions(@"cpz.options");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.totalSize"(@"cpz.view": *cpz.MessageReaderView) !cpz.MessageSize {{
+        \\        return @"cpz.view".totalSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.totalSizeWithOptions"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+        \\        return @"cpz.view".totalSizeWithOptions(@"cpz.options");
         \\    }}
         \\
         \\    pub fn @"cpz.view.sourceConsumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
