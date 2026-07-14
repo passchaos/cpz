@@ -255,6 +255,10 @@ pub const FarPointer = struct {
         return self.two_word_landing_pad == is_double;
     }
 
+    pub fn matchesSingleFar(self: FarPointer, is_single: bool) bool {
+        return self.isSingleFar() == is_single;
+    }
+
     pub fn landingPadWordIndex(self: FarPointer) usize {
         return self.landing_pad_offset;
     }
@@ -631,6 +635,8 @@ test "wire signed offsets and far/capability pointers" {
     try testing.expect(!far.isSingleFar());
     try testing.expect(far.matchesDoubleFar(true));
     try testing.expect(!far.matchesDoubleFar(false));
+    try testing.expect(!far.matchesSingleFar(true));
+    try testing.expect(far.matchesSingleFar(false));
     try testing.expectEqual(@as(usize, 17), far.landingPadWordIndex());
     try testing.expectEqual(@as(u32, 9), far.landingPadSegmentId());
     try testing.expect(far.matchesLandingPadWordIndex(17));
@@ -640,6 +646,7 @@ test "wire signed offsets and far/capability pointers" {
     try testing.expect(single_far.isSingleFar());
     try testing.expect(!single_far.isDoubleFar());
     try testing.expect(single_far.matchesDoubleFar(false));
+    try testing.expect(single_far.matchesSingleFar(true));
 
     const cap_raw = encodeCapability(1234);
     const decoded_cap = try decode(cap_raw);
