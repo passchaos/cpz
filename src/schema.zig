@@ -7484,6 +7484,222 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
     return flat;
 }
 
+fn parseInlineConstListElementsAlloc(allocator: std.mem.Allocator, expression: []const u8) LayoutError![]const []const u8 {
+    const source = std.mem.trim(u8, expression, " \t\r\n");
+    var index = try skipTriviaIndex(source, 0);
+    if (index >= source.len or source[index] != '[') return error.UnsupportedType;
+    index += 1;
+
+    var items = std.ArrayList([]const u8).empty;
+    errdefer items.deinit(allocator);
+    while (true) {
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len) return error.UnexpectedToken;
+        if (source[index] == ']') {
+            index += 1;
+            break;
+        }
+
+        const item_start = index;
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        var brace_depth: usize = 0;
+        while (index < source.len) {
+            switch (source[index]) {
+                '"' => {
+                    index += 1;
+                    while (index < source.len) {
+                        if (source[index] == '\\') {
+                            index += 2;
+                        } else if (source[index] == '"') {
+                            index += 1;
+                            break;
+                        } else {
+                            index += 1;
+                        }
+                    }
+                    if (index > source.len) return error.UnexpectedToken;
+                    continue;
+                },
+                '#' => {
+                    index = skipLineCommentIndex(source, index);
+                    continue;
+                },
+                '/' => {
+                    const next = try skipRawSlashIndex(source, index);
+                    if (next != index + 1) {
+                        index = next;
+                        continue;
+                    }
+                    index = next;
+                    continue;
+                },
+                '(' => {
+                    paren_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                ')' => {
+                    if (paren_depth != 0) paren_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                '[' => {
+                    bracket_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                ']' => {
+                    if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) break;
+                    if (bracket_depth != 0) bracket_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                '{' => {
+                    brace_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                '}' => {
+                    if (brace_depth != 0) brace_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                ',' => if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) break,
+                else => {},
+            }
+            index += 1;
+        }
+        if (index >= source.len) return error.UnexpectedToken;
+        const item = std.mem.trim(u8, source[item_start..index], " \t\r\n");
+        if (item.len == 0) return error.UnexpectedToken;
+        try items.append(allocator, item);
+
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len) return error.UnexpectedToken;
+        if (source[index] == ',') {
+            index += 1;
+            continue;
+        }
+        if (source[index] == ']') {
+            index += 1;
+            break;
+        }
+        return error.UnexpectedToken;
+    }
+
+    index = try skipTriviaIndex(source, index);
+    if (index != source.len) return error.UnexpectedToken;
+    return items.toOwnedSlice(allocator);
+}
+
+fn appendInlineListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, element_size: wire.ElementSize, element_count: usize) LayoutError![]u8 {
+    const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
+    const target_word_index = segment.items.len / @sizeOf(u64);
+    const list_words = try wire.wordsForList(element_size, element_count);
+    try segment.appendNTimes(allocator, 0, list_words * @sizeOf(u64));
+    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
+    const raw = try wire.encodeList(offset, element_size, element_count);
+    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
+    return segment.items[target_word_index * @sizeOf(u64) ..][0 .. list_words * @sizeOf(u64)];
+}
+
+fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, child_ty: Type, literal: []const u8) LayoutError!void {
+    const items = try parseInlineConstListElementsAlloc(allocator, literal);
+    defer allocator.free(items);
+    switch (resolveTypeScoped(file, scope, child_ty)) {
+        .void => {
+            _ = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .void, items.len);
+            for (items) |item| if (!std.mem.eql(u8, item, "void")) return error.UnsupportedType;
+        },
+        .bool => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .bit, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseBoolLiteral(item) orelse return error.UnsupportedType;
+                if (value) setBit(data, index);
+            }
+        },
+        .int8 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .byte, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseSignedLiteral(i8, item) orelse return error.UnsupportedType;
+                data[index] = @bitCast(value);
+            }
+        },
+        .int16 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseSignedLiteral(i16, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], @bitCast(value), .little);
+            }
+        },
+        .int32 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .four_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseSignedLiteral(i32, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u32, data[index * @sizeOf(u32) ..][0..@sizeOf(u32)], @bitCast(value), .little);
+            }
+        },
+        .int64 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseSignedLiteral(i64, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
+            }
+        },
+        .uint8 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .byte, items.len);
+            for (items, 0..) |item, index| {
+                data[index] = parseUnsignedLiteral(u8, item) orelse return error.UnsupportedType;
+            }
+        },
+        .uint16 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseUnsignedLiteral(u16, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
+            }
+        },
+        .uint32 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .four_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseUnsignedLiteral(u32, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u32, data[index * @sizeOf(u32) ..][0..@sizeOf(u32)], value, .little);
+            }
+        },
+        .uint64 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseUnsignedLiteral(u64, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], value, .little);
+            }
+        },
+        .float32 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .four_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseFloatLiteral(f32, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u32, data[index * @sizeOf(u32) ..][0..@sizeOf(u32)], @bitCast(value), .little);
+            }
+        },
+        .float64 => {
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = parseFloatLiteral(f64, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
+            }
+        },
+        .named => |type_name| {
+            const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
+            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
+            for (items, 0..) |item, index| {
+                const value = enumLiteralOrdinal(enum_decl, item) orelse return error.UnsupportedType;
+                std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
+            }
+        },
+        else => return error.UnsupportedType,
+    }
+}
+
 fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, fields: []const ConstStructField, segment: *std.ArrayList(u8), object_start_words: usize) LayoutError!void {
     const object_start_bytes = object_start_words * @sizeOf(u64);
     for (fields) |const_field| {
@@ -7577,6 +7793,7 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
                     defer allocator.free(data);
                     try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
                 },
+                .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, const_field.literal),
                 else => return error.UnsupportedType,
             },
             else => return error.UnsupportedType,
