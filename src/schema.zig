@@ -10657,6 +10657,22 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.orphan.listMatchesLen({s}, count);
         \\        }}
         \\
+        \\        pub fn isEmpty(self: @This()) bool {{
+        \\            return (self.get() catch return false).isEmpty();
+        \\        }}
+        \\
+        \\        pub fn hasIndex(self: @This(), index: usize) bool {{
+        \\            return (self.get() catch return false).hasIndex(index);
+        \\        }}
+        \\
+        \\        pub fn firstIndex(self: @This()) !usize {{
+        \\            return (try self.get()).firstIndex();
+        \\        }}
+        \\
+        \\        pub fn lastIndex(self: @This()) !usize {{
+        \\            return (try self.get()).lastIndex();
+        \\        }}
+        \\
         \\        pub fn elementSize(self: @This()) !cpz.ElementSize {{
         \\            return self.orphan.getListElementSize({s});
         \\        }}

@@ -2557,6 +2557,11 @@ test "generated builders can use typed list field orphans" {
     try std.testing.expectEqual(@as(u29, 2), decoded_scores.element_count_or_words);
     try std.testing.expectEqual(@as(usize, 2), try scores_orphan.len());
     try std.testing.expect(scores_orphan.matchesLen(2));
+    try std.testing.expect(!scores_orphan.isEmpty());
+    try std.testing.expect(scores_orphan.hasIndex(1));
+    try std.testing.expect(!scores_orphan.hasIndex(2));
+    try std.testing.expectEqual(@as(usize, 0), try scores_orphan.firstIndex());
+    try std.testing.expectEqual(@as(usize, 1), try scores_orphan.lastIndex());
     try std.testing.expectEqual(cpz.ElementSize.four_bytes, try scores_orphan.elementSize());
     try std.testing.expect(scores_orphan.matchesElementSize(.four_bytes));
     try std.testing.expectEqual(@as(usize, 32), try scores_orphan.elementBitCount());
