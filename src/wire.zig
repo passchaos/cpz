@@ -133,6 +133,18 @@ pub const StructSize = struct {
         return @as(usize, self.data_words) + @as(usize, self.pointer_count);
     }
 
+    pub fn dataByteCount(self: StructSize) usize {
+        return @as(usize, self.data_words) * bytes_per_word;
+    }
+
+    pub fn pointerByteCount(self: StructSize) usize {
+        return @as(usize, self.pointer_count) * bytes_per_word;
+    }
+
+    pub fn totalByteCount(self: StructSize) usize {
+        return self.totalWords() * bytes_per_word;
+    }
+
     pub fn isEmpty(self: StructSize) bool {
         return self.data_words == 0 and self.pointer_count == 0;
     }
@@ -155,6 +167,18 @@ pub const StructSize = struct {
 
     pub fn matchesTotalWords(self: StructSize, count: usize) bool {
         return self.totalWords() == count;
+    }
+
+    pub fn matchesDataBytes(self: StructSize, count: usize) bool {
+        return self.dataByteCount() == count;
+    }
+
+    pub fn matchesPointerBytes(self: StructSize, count: usize) bool {
+        return self.pointerByteCount() == count;
+    }
+
+    pub fn matchesTotalBytes(self: StructSize, count: usize) bool {
+        return self.totalByteCount() == count;
     }
 };
 
@@ -191,6 +215,18 @@ pub const StructPointer = struct {
         return self.size().totalWords();
     }
 
+    pub fn dataByteCount(self: StructPointer) usize {
+        return self.size().dataByteCount();
+    }
+
+    pub fn pointerByteCount(self: StructPointer) usize {
+        return self.size().pointerByteCount();
+    }
+
+    pub fn totalByteCount(self: StructPointer) usize {
+        return self.size().totalByteCount();
+    }
+
     pub fn isEmpty(self: StructPointer) bool {
         return self.size().isEmpty();
     }
@@ -217,6 +253,18 @@ pub const StructPointer = struct {
 
     pub fn matchesTotalWords(self: StructPointer, count: usize) bool {
         return self.totalWords() == count;
+    }
+
+    pub fn matchesDataBytes(self: StructPointer, count: usize) bool {
+        return self.dataByteCount() == count;
+    }
+
+    pub fn matchesPointerBytes(self: StructPointer, count: usize) bool {
+        return self.pointerByteCount() == count;
+    }
+
+    pub fn matchesTotalBytes(self: StructPointer, count: usize) bool {
+        return self.totalByteCount() == count;
     }
 };
 
@@ -614,6 +662,25 @@ test "element size helper methods" {
     try testing.expectError(error.UnsupportedElementSize, ElementSize.composite.wordsForElements(1));
 }
 
+test "struct size byte helper methods" {
+    const testing = std.testing;
+
+    const empty = StructSize{};
+    try testing.expectEqual(@as(usize, 0), empty.dataByteCount());
+    try testing.expectEqual(@as(usize, 0), empty.pointerByteCount());
+    try testing.expectEqual(@as(usize, 0), empty.totalByteCount());
+    try testing.expect(empty.matchesTotalBytes(0));
+
+    const size = StructSize{ .data_words = 3, .pointer_count = 2 };
+    try testing.expectEqual(@as(usize, 24), size.dataByteCount());
+    try testing.expectEqual(@as(usize, 16), size.pointerByteCount());
+    try testing.expectEqual(@as(usize, 40), size.totalByteCount());
+    try testing.expect(size.matchesDataBytes(24));
+    try testing.expect(size.matchesPointerBytes(16));
+    try testing.expect(size.matchesTotalBytes(40));
+    try testing.expect(!size.matchesTotalBytes(41));
+}
+
 test "wire pointer encoding matches Cap'n Proto spec examples" {
     const testing = std.testing;
 
@@ -644,6 +711,9 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(u16, 3), struct_ptr.dataWordCount());
     try testing.expectEqual(@as(u16, 2), struct_ptr.pointerCount());
     try testing.expectEqual(@as(usize, 5), struct_ptr.totalWords());
+    try testing.expectEqual(@as(usize, 24), struct_ptr.dataByteCount());
+    try testing.expectEqual(@as(usize, 16), struct_ptr.pointerByteCount());
+    try testing.expectEqual(@as(usize, 40), struct_ptr.totalByteCount());
     try testing.expect(!struct_ptr.isEmpty());
     try testing.expect(struct_ptr.hasDataWords());
     try testing.expect(struct_ptr.hasPointers());
@@ -655,6 +725,10 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expect(!struct_ptr.matchesPointerCount(3));
     try testing.expect(struct_ptr.matchesTotalWords(5));
     try testing.expect(!struct_ptr.matchesTotalWords(4));
+    try testing.expect(struct_ptr.matchesDataBytes(24));
+    try testing.expect(struct_ptr.matchesPointerBytes(16));
+    try testing.expect(struct_ptr.matchesTotalBytes(40));
+    try testing.expect(!struct_ptr.matchesTotalBytes(32));
 
     const text_raw = try encodeList(6, .byte, 53);
     try testing.expectEqual(@as(Word, 0x0000_01aa_0000_0019), text_raw);
