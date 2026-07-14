@@ -9868,6 +9868,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.structElementTotalWords();
         \\        }}
         \\
+        \\        pub fn structElementDataByteCount(self: @This()) usize {{
+        \\            return self.list.structElementDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn structElementPointerByteCount(self: @This()) usize {{
+        \\            return self.list.structElementPointerByteCount();
+        \\        }}
+        \\
+        \\        pub fn structElementTotalByteCount(self: @This()) usize {{
+        \\            return self.list.structElementTotalByteCount();
+        \\        }}
+        \\
         \\        pub fn matchesStructElementDataWords(self: @This(), count: u16) bool {{
         \\            return self.list.matchesStructElementDataWords(count);
         \\        }}
@@ -9878,6 +9890,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn matchesStructElementTotalWords(self: @This(), count: usize) bool {{
         \\            return self.list.matchesStructElementTotalWords(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementDataBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementDataBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementPointerBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementPointerBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementTotalBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementTotalBytes(count);
         \\        }}
         \\
         \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_List {{
@@ -10405,6 +10429,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.structElementTotalWords();
         \\        }}
         \\
+        \\        pub fn structElementDataByteCount(self: @This()) usize {{
+        \\            return self.list.structElementDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn structElementPointerByteCount(self: @This()) usize {{
+        \\            return self.list.structElementPointerByteCount();
+        \\        }}
+        \\
+        \\        pub fn structElementTotalByteCount(self: @This()) usize {{
+        \\            return self.list.structElementTotalByteCount();
+        \\        }}
+        \\
         \\        pub fn matchesStructElementDataWords(self: @This(), count: u16) bool {{
         \\            return self.list.matchesStructElementDataWords(count);
         \\        }}
@@ -10415,6 +10451,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\
         \\        pub fn matchesStructElementTotalWords(self: @This(), count: usize) bool {{
         \\            return self.list.matchesStructElementTotalWords(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementDataBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementDataBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementPointerBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementPointerBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementTotalBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementTotalBytes(count);
         \\        }}
         \\
         \\        pub fn orphanage(self: @This()) cpz.Orphanage {{

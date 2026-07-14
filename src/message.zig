@@ -4192,6 +4192,18 @@ pub const ListBuilder = struct {
         return self.structElementSize().totalWords();
     }
 
+    pub fn structElementDataByteCount(self: ListBuilder) usize {
+        return self.structElementSize().dataByteCount();
+    }
+
+    pub fn structElementPointerByteCount(self: ListBuilder) usize {
+        return self.structElementSize().pointerByteCount();
+    }
+
+    pub fn structElementTotalByteCount(self: ListBuilder) usize {
+        return self.structElementSize().totalByteCount();
+    }
+
     pub fn matchesStructElementDataWords(self: ListBuilder, count: u16) bool {
         return self.structElementSize().matchesDataWords(count);
     }
@@ -4202,6 +4214,18 @@ pub const ListBuilder = struct {
 
     pub fn matchesStructElementTotalWords(self: ListBuilder, count: usize) bool {
         return self.structElementSize().matchesTotalWords(count);
+    }
+
+    pub fn matchesStructElementDataBytes(self: ListBuilder, count: usize) bool {
+        return self.structElementSize().matchesDataBytes(count);
+    }
+
+    pub fn matchesStructElementPointerBytes(self: ListBuilder, count: usize) bool {
+        return self.structElementSize().matchesPointerBytes(count);
+    }
+
+    pub fn matchesStructElementTotalBytes(self: ListBuilder, count: usize) bool {
+        return self.structElementSize().matchesTotalBytes(count);
     }
 
     pub fn slice(self: ListBuilder, start_index: usize, count: usize) Error!ListBuilder {
@@ -4717,6 +4741,18 @@ pub const ListReader = struct {
         return self.structElementSize().totalWords();
     }
 
+    pub fn structElementDataByteCount(self: ListReader) usize {
+        return self.structElementSize().dataByteCount();
+    }
+
+    pub fn structElementPointerByteCount(self: ListReader) usize {
+        return self.structElementSize().pointerByteCount();
+    }
+
+    pub fn structElementTotalByteCount(self: ListReader) usize {
+        return self.structElementSize().totalByteCount();
+    }
+
     pub fn matchesStructElementDataWords(self: ListReader, count: u16) bool {
         return self.structElementSize().matchesDataWords(count);
     }
@@ -4727,6 +4763,18 @@ pub const ListReader = struct {
 
     pub fn matchesStructElementTotalWords(self: ListReader, count: usize) bool {
         return self.structElementSize().matchesTotalWords(count);
+    }
+
+    pub fn matchesStructElementDataBytes(self: ListReader, count: usize) bool {
+        return self.structElementSize().matchesDataBytes(count);
+    }
+
+    pub fn matchesStructElementPointerBytes(self: ListReader, count: usize) bool {
+        return self.structElementSize().matchesPointerBytes(count);
+    }
+
+    pub fn matchesStructElementTotalBytes(self: ListReader, count: usize) bool {
+        return self.structElementSize().matchesTotalBytes(count);
     }
 
     pub fn slice(self: ListReader, start_index: usize, count: usize) Error!ListReader {
@@ -5658,10 +5706,17 @@ test "primitive and struct lists" {
     try testing.expectEqual(@as(u16, 1), people.structElementDataWordCount());
     try testing.expectEqual(@as(u16, 1), people.structElementPointerCount());
     try testing.expectEqual(@as(usize, 2), people.structElementTotalWords());
+    try testing.expectEqual(@as(usize, 8), people.structElementDataByteCount());
+    try testing.expectEqual(@as(usize, 8), people.structElementPointerByteCount());
+    try testing.expectEqual(@as(usize, 16), people.structElementTotalByteCount());
     try testing.expect(people.matchesStructElementDataWords(1));
     try testing.expect(people.matchesStructElementPointerCount(1));
     try testing.expect(people.matchesStructElementTotalWords(2));
+    try testing.expect(people.matchesStructElementDataBytes(8));
+    try testing.expect(people.matchesStructElementPointerBytes(8));
+    try testing.expect(people.matchesStructElementTotalBytes(16));
     try testing.expect(!people.matchesStructElementSize(.{ .data_words = 1, .pointer_count = 0 }));
+    try testing.expect(!people.matchesStructElementTotalBytes(8));
     try testing.expectEqual(@as(usize, 2), people.structElementSize().totalWords());
     const p0 = try people.getStructElement(0);
     try p0.setUInt32(0, 1, 0);
@@ -5736,10 +5791,17 @@ test "primitive and struct lists" {
     try testing.expectEqual(@as(u16, 1), read_people.structElementDataWordCount());
     try testing.expectEqual(@as(u16, 1), read_people.structElementPointerCount());
     try testing.expectEqual(@as(usize, 2), read_people.structElementTotalWords());
+    try testing.expectEqual(@as(usize, 8), read_people.structElementDataByteCount());
+    try testing.expectEqual(@as(usize, 8), read_people.structElementPointerByteCount());
+    try testing.expectEqual(@as(usize, 16), read_people.structElementTotalByteCount());
     try testing.expect(read_people.matchesStructElementDataWords(1));
     try testing.expect(read_people.matchesStructElementPointerCount(1));
     try testing.expect(read_people.matchesStructElementTotalWords(2));
+    try testing.expect(read_people.matchesStructElementDataBytes(8));
+    try testing.expect(read_people.matchesStructElementPointerBytes(8));
+    try testing.expect(read_people.matchesStructElementTotalBytes(16));
     try testing.expect(!read_people.matchesStructElementSize(.{ .data_words = 0, .pointer_count = 1 }));
+    try testing.expect(!read_people.matchesStructElementTotalBytes(8));
     const read_p1 = try read_people.getStructElement(1);
     try testing.expectEqual(@as(u32, 2), read_p1.getUInt32(0, 0));
     try testing.expectEqualSlices(u8, "bb", try read_p1.getPointerField(0).getText());
