@@ -1,6 +1,7 @@
 @0xbadc0ffee000002;
 
 using Base = import "schema_import_base.capnp";
+using import "schema_import_base.capnp";
 using import "schema_import_base.capnp".Child;
 using Base.Extra;
 

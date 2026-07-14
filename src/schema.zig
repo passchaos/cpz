@@ -2511,7 +2511,15 @@ pub const Parser = struct {
         const path = self.lookahead.lexeme;
         try self.advance();
         if (self.lookahead.tag != .dot) {
-            try self.skipRawUntilSemicolon();
+            if (self.lookahead.tag != .semicolon) {
+                try self.skipRawUntilSemicolon();
+                return;
+            }
+            try self.expect(.semicolon);
+            const name = importNameFromPath(path);
+            const entry = try decl_names.getOrPut(name);
+            if (entry.found_existing) return error.NameCollision;
+            try imports.append(self.allocator, .{ .name = name, .path = path });
             return;
         }
         try self.expect(.dot);
@@ -3990,6 +3998,12 @@ fn anonymousAliasName(ty: Type) ?[]const u8 {
     };
 }
 
+fn importNameFromPath(path: []const u8) []const u8 {
+    const slash = std.mem.lastIndexOfAny(u8, path, "/\\");
+    const base = if (slash) |index| path[index + 1 ..] else path;
+    return if (std.mem.endsWith(u8, base, ".capnp")) base[0 .. base.len - ".capnp".len] else base;
+}
+
 fn isGroupType(ty: Type) bool {
     return switch (ty) {
         .named => |name| std.mem.eql(u8, name, "group"),
@@ -4250,6 +4264,8 @@ test "schema parser rejects duplicate annotation targets" {
 test "schema parser records imported type aliases" {
     const source =
         \\using Other = import "other.capnp";
+        \\using import "whole.capnp";
+        \\using import "/path/to/common.capnp";
         \\using import "common.capnp".Shared;
         \\struct Holder {
         \\  external @0 :Other.External;
@@ -4258,13 +4274,19 @@ test "schema parser records imported type aliases" {
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
-    try std.testing.expectEqual(@as(usize, 2), file.imports.len);
+    try std.testing.expectEqual(@as(usize, 4), file.imports.len);
     try std.testing.expectEqualStrings("Other", file.imports[0].name);
     try std.testing.expectEqualStrings("other.capnp", file.imports[0].path);
     try std.testing.expect(file.imports[0].member == null);
-    try std.testing.expectEqualStrings("Shared", file.imports[1].name);
-    try std.testing.expectEqualStrings("common.capnp", file.imports[1].path);
-    try std.testing.expectEqualStrings("Shared", file.imports[1].member.?);
+    try std.testing.expectEqualStrings("whole", file.imports[1].name);
+    try std.testing.expectEqualStrings("whole.capnp", file.imports[1].path);
+    try std.testing.expect(file.imports[1].member == null);
+    try std.testing.expectEqualStrings("common", file.imports[2].name);
+    try std.testing.expectEqualStrings("/path/to/common.capnp", file.imports[2].path);
+    try std.testing.expect(file.imports[2].member == null);
+    try std.testing.expectEqualStrings("Shared", file.imports[3].name);
+    try std.testing.expectEqualStrings("common.capnp", file.imports[3].path);
+    try std.testing.expectEqualStrings("Shared", file.imports[3].member.?);
     try std.testing.expectEqualStrings("Other.External", file.structs[0].fields[0].ty.named);
     try std.testing.expectEqualStrings("Shared", file.structs[0].fields[1].ty.named);
 }
