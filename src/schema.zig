@@ -144,6 +144,9 @@ pub const ConstListItem = struct {
     owns_literal: bool = false,
     is_hex_data: bool = false,
     annotations: []const u8 = "",
+    struct_field_count: usize = 0,
+    struct_fields: []const ConstStructField = &.{},
+    owns_struct_fields: bool = false,
 
     pub fn matchesIndex(self: ConstListItem, item_index: usize) bool {
         return self.index == item_index;
@@ -163,6 +166,29 @@ pub const ConstListItem = struct {
 
     pub fn matchesHexData(self: ConstListItem, is_hex: bool) bool {
         return self.is_hex_data == is_hex;
+    }
+
+    pub fn hasStructFields(self: ConstListItem) bool {
+        return self.struct_field_count != 0;
+    }
+
+    pub fn matchesStructFieldCount(self: ConstListItem, count: usize) bool {
+        return self.struct_field_count == count;
+    }
+
+    pub fn structFieldByIndex(self: ConstListItem, field_index: usize) ?ConstStructField {
+        if (field_index >= self.struct_fields.len) return null;
+        return self.struct_fields[field_index];
+    }
+
+    pub fn structFieldByName(self: ConstListItem, field_name: []const u8) ?ConstStructField {
+        for (self.struct_fields) |field| if (std.mem.eql(u8, field.name, field_name)) return field;
+        return null;
+    }
+
+    pub fn structFieldByLiteral(self: ConstListItem, field_literal: []const u8) ?ConstStructField {
+        for (self.struct_fields) |field| if (std.mem.eql(u8, field.literal, field_literal)) return field;
+        return null;
     }
 };
 
@@ -326,6 +352,7 @@ pub const ConstMetadata = struct {
 fn deinitConstListItems(allocator: std.mem.Allocator, items: []const ConstListItem) void {
     for (items) |item| {
         if (item.owns_literal) allocator.free(item.literal);
+        if (item.owns_struct_fields) allocator.free(item.struct_fields);
     }
 }
 
@@ -2526,6 +2553,8 @@ pub const Parser = struct {
             var is_hex_data = false;
             var owns_literal = false;
             var annotations: []const u8 = "";
+            var struct_fields: ?[]ConstStructField = null;
+            errdefer if (struct_fields) |fields| self.allocator.free(fields);
             const literal = if (self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
                 try self.expect(.integer);
                 if (self.lookahead.tag != .string) return error.UnexpectedToken;
@@ -2538,6 +2567,9 @@ pub const Parser = struct {
                 const raw_item = try self.takeRawUntilConstListItemEnd();
                 const split = splitDefaultExpressionAndAnnotations(raw_item);
                 annotations = split.annotations;
+                if (std.mem.startsWith(u8, split.default_expression, "(")) {
+                    struct_fields = try parseConstStructFieldsAlloc(self.allocator, split.default_expression);
+                }
                 break :blk split.default_expression;
             } else blk: {
                 const value = (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
@@ -2547,7 +2579,17 @@ pub const Parser = struct {
             if (annotations.len == 0 and self.lookahead.tag == .dollar) {
                 annotations = try self.takeRawUntilConstListItemEnd();
             }
-            try items.append(self.allocator, .{ .index = items.items.len, .literal = literal, .owns_literal = owns_literal, .is_hex_data = is_hex_data, .annotations = annotations });
+            try items.append(self.allocator, .{
+                .index = items.items.len,
+                .literal = literal,
+                .owns_literal = owns_literal,
+                .is_hex_data = is_hex_data,
+                .annotations = annotations,
+                .struct_field_count = if (struct_fields) |fields| fields.len else 0,
+                .struct_fields = struct_fields orelse &.{},
+                .owns_struct_fields = struct_fields != null,
+            });
+            struct_fields = null;
             if (owns_literal) _ = self.takeOwnedLiteral(literal);
 
             if (self.lookahead.tag == .comma) {
@@ -6810,6 +6852,11 @@ fn appendConstListItemsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList
         if (item.annotations.len != 0) {
             try appendFmt(allocator, out, ", .annotations = {s}", .{annotations});
         }
+        if (item.struct_fields.len != 0) {
+            try appendFmt(allocator, out, ", .struct_field_count = {}", .{item.struct_fields.len});
+            try out.appendSlice(allocator, ", .struct_fields = ");
+            try appendConstStructFieldsLiteral(allocator, out, item.struct_fields);
+        }
         try out.appendSlice(allocator, " }");
     }
     try out.appendSlice(allocator, "}");
@@ -6999,8 +7046,15 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.literal": []const u8 = {s};
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.isHexData": bool = {};
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.annotations": []const u8 = {s};
-                \\
-            , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, const_name, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations });
+                \\{s}pub const @"cpz.const.{s}.listItem.{}.structFieldCount": usize = {};
+                \\{s}pub const @"cpz.const.{s}.listItem.{}.structFields": []const cpz.schema.ConstStructField =
+            , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, const_name, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations, indent, const_name, item.index, item.struct_fields.len, indent, const_name, item.index });
+            if (item.struct_fields.len != 0) {
+                try appendConstStructFieldsLiteral(allocator, out, item.struct_fields);
+            } else {
+                try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{}");
+            }
+            try out.appendSlice(allocator, ";\n");
         }
     }
     try appendFmt(allocator, out,
