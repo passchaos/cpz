@@ -156,12 +156,20 @@ pub const MessageSize = struct {
         return self.word_count;
     }
 
+    pub fn byteCount(self: MessageSize) usize {
+        return self.word_count * wire.bytes_per_word;
+    }
+
     pub fn capabilityCount(self: MessageSize) usize {
         return self.cap_count;
     }
 
     pub fn matchesWords(self: MessageSize, count: usize) bool {
         return self.word_count == count;
+    }
+
+    pub fn matchesBytes(self: MessageSize, count: usize) bool {
+        return self.byteCount() == count;
     }
 
     pub fn matchesCapabilities(self: MessageSize, count: usize) bool {
@@ -180,6 +188,26 @@ pub const MessageSize = struct {
         return self.word_count != 0;
     }
 };
+
+test "message size byte helper methods" {
+    const testing = std.testing;
+
+    const empty = MessageSize{};
+    try testing.expectEqual(@as(usize, 0), empty.byteCount());
+    try testing.expect(empty.matchesBytes(0));
+    try testing.expect(empty.isEmpty());
+
+    const size = MessageSize{ .word_count = 5, .cap_count = 2 };
+    try testing.expectEqual(@as(usize, 5), size.wordCount());
+    try testing.expectEqual(@as(usize, 40), size.byteCount());
+    try testing.expectEqual(@as(usize, 2), size.capabilityCount());
+    try testing.expect(size.matchesWords(5));
+    try testing.expect(size.matchesBytes(40));
+    try testing.expect(!size.matchesBytes(41));
+    try testing.expect(size.matchesCapabilities(2));
+    try testing.expect(size.hasWords());
+    try testing.expect(size.hasCapabilities());
+}
 
 pub const OwnedMessageReader = struct {
     flat: serialize.FlatMessage,
