@@ -8852,6 +8852,20 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).decode();
         \\    }}
         \\
+        \\    pub fn {s}MaxCapabilityCount(self: @This()) !usize {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).maxCapabilityCount();
+        \\    }}
+        \\
+        \\    pub fn {s}MatchesMaxCapabilityCount(self: @This(), count: usize) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).matchesMaxCapabilityCount(count);
+        \\    }}
+        \\
         \\    pub fn {s}Stats(self: @This()) !cpz.MessageStats {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
@@ -10239,6 +10253,14 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).decode();
         \\        }}
         \\
+        \\        pub fn elementMaxCapabilityCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).maxCapabilityCount();
+        \\        }}
+        \\
+        \\        pub fn elementMatchesMaxCapabilityCount(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesMaxCapabilityCount(count);
+        \\        }}
+        \\
         \\        pub fn elementStats(self: @This(), index: usize) !cpz.MessageStats {{
         \\            return (try self.list.getPointerElement(index)).validate();
         \\        }}
@@ -10330,6 +10352,14 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\
         \\        pub fn elementDecodedPointer(self: @This(), index: usize) !?cpz.wire.DecodedPointer {{
         \\            return (try self.list.getPointerElement(index)).decode();
+        \\        }}
+        \\
+        \\        pub fn elementMaxCapabilityCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).maxCapabilityCount();
+        \\        }}
+        \\
+        \\        pub fn elementMatchesMaxCapabilityCount(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesMaxCapabilityCount(count);
         \\        }}
         \\
         \\        pub fn elementStats(self: @This(), index: usize) !cpz.MessageStats {{
@@ -10680,6 +10710,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).decode();
+        \\        }}
+        \\
+        \\        pub fn get_{s}MaxCapabilityCount(self: Builder) !usize {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).maxCapabilityCount();
+        \\        }}
+        \\
+        \\        pub fn get_{s}MatchesMaxCapabilityCount(self: Builder, count: usize) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).matchesMaxCapabilityCount(count);
         \\        }}
         \\
         \\        pub fn get_{s}Stats(self: Builder) !cpz.MessageStats {{

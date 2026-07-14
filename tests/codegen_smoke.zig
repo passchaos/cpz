@@ -2817,6 +2817,9 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 7070), try cap_orphan_for_field.getCapabilityIndex());
     try box_builder.adopt_cap(&cap_orphan_for_field);
     try std.testing.expectEqual(@as(u32, 7070), try box_builder.get_cap());
+    try std.testing.expectEqual(@as(usize, 7071), try box_builder.get_capMaxCapabilityCount());
+    try std.testing.expect(try box_builder.get_capMatchesMaxCapabilityCount(7071));
+    try std.testing.expect(!try box_builder.get_capMatchesMaxCapabilityCount(7070));
     try std.testing.expectError(error.InvalidCapabilityPointer, box_builder.validateWithOptions(.{ .capability_count_limit = 100 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, box_builder.totalSizeWithOptions(.{ .capability_count_limit = 100 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, box_builder.get_capStatsWithOptions(.{ .capability_count_limit = 100 }));
@@ -2829,6 +2832,9 @@ test "generated builtin any and capability accessors round-trip" {
     try caps.set(0, 88);
     try caps.set(1, 99);
     try std.testing.expectEqual(cpz.wire.PointerType.other, (try caps.elementPointerKind(0)).?);
+    try std.testing.expectEqual(@as(usize, 89), try caps.elementMaxCapabilityCount(0));
+    try std.testing.expect(try caps.elementMatchesMaxCapabilityCount(1, 100));
+    try std.testing.expect(!try caps.elementMatchesMaxCapabilityCount(1, 99));
     const cap_element_raw = try caps.elementRawPointer(0);
     try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(cap_element_raw));
     try std.testing.expectEqual(@as(u32, 88), (try caps.elementDecodedPointer(0)).?.other.index);
@@ -2865,6 +2871,8 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expect(cap_stats.hasCapabilities());
     try std.testing.expectEqual(@as(?u32, 7070), cap_stats.maxCapabilityIndex());
     try std.testing.expectEqual(@as(usize, 7071), cap_stats.maxCapabilityCount());
+    try std.testing.expectEqual(@as(usize, 7071), try dynamic_box.capMaxCapabilityCount());
+    try std.testing.expect(try dynamic_box.capMatchesMaxCapabilityCount(7071));
     try std.testing.expectEqualSlices(u8, &[_]u8{ 5, 6, 7 }, try dynamic_box.blob());
     const read_caps = try dynamic_box.capList();
     try std.testing.expectEqual(@as(u32, 88), try read_caps.get(0));
@@ -2872,6 +2880,9 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.validateWithOptions(.{ .capability_count_limit = 90 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.totalSizeWithOptions(.{ .capability_count_limit = 90 }));
     try std.testing.expectEqual(cpz.wire.PointerType.other, (try read_caps.elementPointerKind(1)).?);
+    try std.testing.expectEqual(@as(usize, 100), try read_caps.elementMaxCapabilityCount(1));
+    try std.testing.expect(try read_caps.elementMatchesMaxCapabilityCount(1, 100));
+    try std.testing.expect(!try read_caps.elementMatchesMaxCapabilityCount(0, 90));
     const read_cap_element_raw = try read_caps.elementRawPointer(1);
     try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(read_cap_element_raw));
     try std.testing.expectEqual(@as(u32, 99), (try read_caps.elementDecodedPointer(1)).?.other.index);
