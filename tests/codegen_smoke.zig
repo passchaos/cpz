@@ -325,6 +325,7 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByExplicitDefault"(false).?.name);
     try std.testing.expectEqualStrings("defaultPayload", generated.Person.@"cpz.fieldByHexDefault"(true).?.name);
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByHexDefault"(false).?.name);
+    try std.testing.expectEqualStrings("nickname", generated.Person.@"cpz.fieldByDefault"("\"an\" \"on\"").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByDefault"("missing"));
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByAnnotations"("").?.name);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByAnnotations"("$schemaNote(\"person-name\")").?.name);
@@ -365,6 +366,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("[1, 2, 3]", generated.Person.@"cpz.field.scores.default");
     try std.testing.expect(generated.Person.@"cpz.field.scores.hasExplicitDefault");
     try std.testing.expect(!generated.Person.@"cpz.field.scores.defaultIsHexData");
+    try std.testing.expectEqualStrings("\"an\" \"on\"", generated.Person.@"cpz.field.nickname.default");
+    try std.testing.expect(generated.Person.@"cpz.field.nickname.hasExplicitDefault");
     try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.default");
     try std.testing.expect(!generated.Person.@"cpz.field.children.hasExplicitDefault");
     try std.testing.expectEqualStrings("", generated.Person.@"cpz.field.children.annotations");
@@ -429,6 +432,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("$schemaNote(\"global-id\")", generated.@"cpz.consts"[0].annotations);
     try std.testing.expectEqualStrings("de ad be ef", generated.@"cpz.consts"[3].literal);
     try std.testing.expect(generated.@"cpz.consts"[3].is_hex_data);
+    try std.testing.expectEqualStrings("const text", generated.@"cpz.const.globalName.literal");
     try std.testing.expectEqualStrings("[10, 20, 30]", generated.@"cpz.consts"[6].literal);
     try std.testing.expectEqualStrings("Names", generated.@"cpz.consts"[8].ty);
     try std.testing.expectEqualStrings("List(Text)", generated.@"cpz.consts"[8].resolved_ty);

@@ -21,15 +21,15 @@ using ServiceAlias = Service;
 
 const globalId :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;
-const globalName :Text = "const text";
+const globalName :Text = "const " "text";
 const globalPayload :Data = 0x"de ad be ef";
 const globalShade :Color = blue;
 const globalRatio :Float64 = +1.25e2;
 const globalScores :List(UInt32) = [10, 20, 30];
-const globalNames :TextList = ["alpha", "beta"];
+const globalNames :TextList = ["alpha", "be" "ta"];
 const globalNamesAlias :Names = ["gamma", "delta"];
 const globalShades :List(Color) = [red, blue];
-const globalDataItems :List(Data) = [0x"aa bb" $schemaNote("hex-item"), "plain"];
+const globalDataItems :List(Data) = [0x"aa bb" $schemaNote("hex-item"), "pl" "ain"];
 const globalRawPerson :Person = (id = 9, name = "raw");
 const globalEmbeddedData :Data = embed "fixtures/raw.bin";
 
@@ -46,7 +46,7 @@ struct Person $schemaNote("person") {
   children @5 :List(Person);
   friend @6 :Person;
   palette @7 :List(Color);
-  nickname @8 :Text = "anon";
+  nickname @8 :Text = "an" "on";
   blockName @20 :Text = `block
     default
     ;

@@ -50,6 +50,7 @@ pub const Field = struct {
     ordinal: u32,
     ty: Type,
     default_literal: ?[]const u8 = null,
+    owns_default_literal: bool = false,
     default_is_hex_data: bool = false,
     default_expression: []const u8 = "",
     annotations: []const u8 = "",
@@ -58,6 +59,7 @@ pub const Field = struct {
 
     pub fn deinit(self: *Field, allocator: std.mem.Allocator) void {
         self.ty.deinit(allocator);
+        if (self.owns_default_literal) if (self.default_literal) |literal| allocator.free(literal);
         if (self.owns_name) allocator.free(self.name);
         self.* = undefined;
     }
@@ -100,6 +102,7 @@ pub const ConstDecl = struct {
     name: []const u8,
     ty: Type,
     literal: []const u8,
+    owns_literal: bool = false,
     is_hex_data: bool = false,
     is_embed: bool = false,
     embed_path: []const u8 = "",
@@ -110,7 +113,11 @@ pub const ConstDecl = struct {
 
     pub fn deinit(self: *ConstDecl, allocator: std.mem.Allocator) void {
         self.ty.deinit(allocator);
-        if (self.list_items) |items| allocator.free(items);
+        if (self.owns_literal) allocator.free(self.literal);
+        if (self.list_items) |items| {
+            deinitConstListItems(allocator, items);
+            allocator.free(items);
+        }
         self.* = undefined;
     }
 };
@@ -118,6 +125,7 @@ pub const ConstDecl = struct {
 pub const ConstListItem = struct {
     index: usize = 0,
     literal: []const u8,
+    owns_literal: bool = false,
     is_hex_data: bool = false,
     annotations: []const u8 = "",
 
@@ -221,6 +229,12 @@ pub const ConstMetadata = struct {
         return null;
     }
 };
+
+fn deinitConstListItems(allocator: std.mem.Allocator, items: []const ConstListItem) void {
+    for (items) |item| {
+        if (item.owns_literal) allocator.free(item.literal);
+    }
+}
 
 pub const ImportDecl = struct {
     name: []const u8,
@@ -1219,7 +1233,7 @@ const Lexer = struct {
                         '"' => {
                             const content = self.source[content_start..self.index];
                             self.index += 1;
-                            break :blk .{ .tag = .string, .lexeme = content };
+                            break :blk .{ .tag = .string, .lexeme = content, .start = start, .end = self.index };
                         },
                         '\\' => {
                             self.index += 1;
@@ -1259,11 +1273,34 @@ pub const Parser = struct {
     parsed_annotations: ?*std.ArrayList(AnnotationDecl) = null,
     parsed_imports: ?*std.ArrayList(ImportDecl) = null,
     parsed_decl_names: ?*std.StringHashMap(void) = null,
+    literal_scratch: std.ArrayList([]u8) = .empty,
 
     pub fn init(allocator: std.mem.Allocator, source: []const u8) Error!Parser {
         var lexer: Lexer = .{ .source = source };
         const first = try lexer.next();
         return .{ .allocator = allocator, .lexer = lexer, .lookahead = first };
+    }
+
+    fn deinitLiteralScratch(self: *Parser) void {
+        for (self.literal_scratch.items) |literal| self.allocator.free(literal);
+        self.literal_scratch.deinit(self.allocator);
+    }
+
+    fn takeOwnedLiteral(self: *Parser, literal: []const u8) bool {
+        for (self.literal_scratch.items, 0..) |owned, index| {
+            if (owned.ptr == literal.ptr and owned.len == literal.len) {
+                _ = self.literal_scratch.swapRemove(index);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn ownsScratchLiteral(self: *const Parser, literal: []const u8) bool {
+        for (self.literal_scratch.items) |owned| {
+            if (owned.ptr == literal.ptr and owned.len == literal.len) return true;
+        }
+        return false;
     }
 
     pub fn parse(self: *Parser) Error!File {
@@ -1996,7 +2033,11 @@ pub const Parser = struct {
 
         var is_hex_data = false;
         var list_items: ?[]ConstListItem = null;
-        errdefer if (list_items) |items| self.allocator.free(items);
+        errdefer if (list_items) |items| {
+            deinitConstListItems(self.allocator, items);
+            self.allocator.free(items);
+        };
+        var owns_literal = false;
         const literal: []const u8 = if (block_text_literal) blk: {
             break :blk self.parseBlockTextLiteralAfterEqual() catch {
                 ty.deinit(self.allocator);
@@ -2035,6 +2076,7 @@ pub const Parser = struct {
                     try self.skipRawUntilSemicolon();
                     return;
                 };
+                owns_literal = self.ownsScratchLiteral(value);
                 break :value_blk value;
             };
         };
@@ -2055,21 +2097,27 @@ pub const Parser = struct {
             .name = name,
             .ty = ty,
             .literal = literal,
+            .owns_literal = owns_literal,
             .is_hex_data = is_hex_data,
             .annotations = const_annotations,
             .list_items = list_items,
         });
+        if (owns_literal) _ = self.takeOwnedLiteral(literal);
     }
 
     fn parseConstListItems(self: *Parser) Error![]ConstListItem {
         var items = std.ArrayList(ConstListItem).empty;
-        errdefer items.deinit(self.allocator);
+        errdefer {
+            deinitConstListItems(self.allocator, items.items);
+            items.deinit(self.allocator);
+        }
 
         try self.expect(.l_bracket);
         while (self.lookahead.tag != .r_bracket) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
 
             var is_hex_data = false;
+            var owns_literal = false;
             const literal = if (self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) blk: {
                 try self.expect(.integer);
                 if (self.lookahead.tag != .string) return error.UnexpectedToken;
@@ -2077,9 +2125,14 @@ pub const Parser = struct {
                 try self.advance();
                 is_hex_data = true;
                 break :blk value;
-            } else (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
+            } else blk: {
+                const value = (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
+                owns_literal = self.ownsScratchLiteral(value);
+                break :blk value;
+            };
             const annotations = if (self.lookahead.tag == .dollar) try self.takeRawUntilConstListItemEnd() else "";
-            try items.append(self.allocator, .{ .index = items.items.len, .literal = literal, .is_hex_data = is_hex_data, .annotations = annotations });
+            try items.append(self.allocator, .{ .index = items.items.len, .literal = literal, .owns_literal = owns_literal, .is_hex_data = is_hex_data, .annotations = annotations });
+            if (owns_literal) _ = self.takeOwnedLiteral(literal);
 
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
@@ -2426,16 +2479,13 @@ pub const Parser = struct {
                 continue;
             }
             var field = try self.parseField();
-            if (try putFieldName(&field_names, field.name)) {
-                field.deinit(self.allocator);
-                return error.NameCollision;
-            }
+            var keep_field = false;
+            errdefer if (!keep_field) field.deinit(self.allocator);
+            if (try putFieldName(&field_names, field.name)) return error.NameCollision;
             const member_entry = try member_names.getOrPut(field.name);
-            if (member_entry.found_existing) {
-                field.deinit(self.allocator);
-                return error.NameCollision;
-            }
+            if (member_entry.found_existing) return error.NameCollision;
             try fields.append(self.allocator, field);
+            keep_field = true;
         }
         try self.expect(.r_brace);
         for (unions.items) |*u| try appendUnionFields(self.allocator, &fields, &field_names, u);
@@ -2612,12 +2662,12 @@ pub const Parser = struct {
                 continue;
             }
             var field = try self.parseField();
+            var keep_field = false;
+            errdefer if (!keep_field) field.deinit(self.allocator);
             field.union_index = union_index;
-            if (try putFieldName(&union_builder.field_names, field.name)) {
-                field.deinit(self.allocator);
-                return error.NameCollision;
-            }
+            if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
             try union_builder.fields.append(self.allocator, field);
+            keep_field = true;
         }
         try self.expect(.r_brace);
         try self.assignUnionDiscriminants(union_builder.fields.items);
@@ -2682,6 +2732,7 @@ pub const Parser = struct {
         }
 
         var default_literal: ?[]const u8 = null;
+        var owns_default_literal = false;
         var default_is_hex_data = false;
         var default_expression: []const u8 = "";
         var annotations: []const u8 = "";
@@ -2709,6 +2760,7 @@ pub const Parser = struct {
                         default_is_hex_data = true;
                     } else {
                         default_literal = try self.expectDefaultLiteral();
+                        if (default_literal) |literal| owns_default_literal = self.ownsScratchLiteral(literal);
                     }
                     const default_end = self.currentTokenStart();
                     default_expression = std.mem.trim(u8, self.lexer.source[default_start..default_end], " \t\r\n");
@@ -2719,11 +2771,13 @@ pub const Parser = struct {
             annotations = try self.takeRawUntilSemicolon();
         }
 
+        if (owns_default_literal) _ = self.takeOwnedLiteral(default_literal.?);
         return .{
             .name = name,
             .ordinal = @intCast(ordinal_u64),
             .ty = ty,
             .default_literal = default_literal,
+            .owns_default_literal = owns_default_literal,
             .default_is_hex_data = default_is_hex_data,
             .default_expression = default_expression,
             .annotations = annotations,
@@ -2936,6 +2990,7 @@ pub const Parser = struct {
     }
 
     fn currentTokenStart(self: *const Parser) usize {
+        if (self.lookahead.start != 0 or self.lookahead.end != 0) return self.lookahead.start;
         return if (self.lookahead.tag == .eof) self.lexer.index else self.lexer.index - self.lookahead.lexeme.len;
     }
 
@@ -2969,14 +3024,33 @@ pub const Parser = struct {
                 if (end != first.end) return self.lexer.source[first.start..end];
                 return value;
             },
-            .integer, .string => {
+            .integer => {
                 const value = self.lookahead.lexeme;
                 try self.advance();
                 return value;
             },
+            .string => return try self.expectStringDefaultLiteral(),
             .l_paren, .l_bracket => return null,
             else => return error.UnexpectedToken,
         }
+    }
+
+    fn expectStringDefaultLiteral(self: *Parser) Error![]const u8 {
+        const first = self.lookahead.lexeme;
+        try self.expect(.string);
+        if (self.lookahead.tag != .string) return first;
+
+        var joined = std.ArrayList(u8).empty;
+        errdefer joined.deinit(self.allocator);
+        try joined.appendSlice(self.allocator, first);
+        while (self.lookahead.tag == .string) {
+            try joined.appendSlice(self.allocator, self.lookahead.lexeme);
+            try self.expect(.string);
+        }
+        const owned = try joined.toOwnedSlice(self.allocator);
+        errdefer self.allocator.free(owned);
+        try self.literal_scratch.append(self.allocator, owned);
+        return owned;
     }
 
     fn splitDefaultExpressionAndAnnotations(raw: []const u8) struct { default_expression: []const u8, annotations: []const u8 } {
@@ -3281,6 +3355,7 @@ pub const Parser = struct {
 
 pub fn parse(allocator: std.mem.Allocator, source: []const u8) Error!File {
     var parser = try Parser.init(allocator, source);
+    defer parser.deinitLiteralScratch();
     return parser.parse();
 }
 
@@ -3766,6 +3841,22 @@ test "schema parser handles structs, file ids, lists, comments" {
     try std.testing.expectEqual(Type.int32, file.structs[0].fields[2].ty.list.*);
     try std.testing.expect(file.structs[0].fields[3].ty == .named);
     try std.testing.expectEqualStrings("Person", file.structs[0].fields[3].ty.named);
+}
+
+test "schema parser concatenates adjacent string literals" {
+    var file = try parse(std.testing.allocator,
+        \\const greeting :Text = "hello, " "world";
+        \\const names :List(Text) = ["Al" "ice", "Bob"];
+        \\struct Defaults {
+        \\  text @0 :Text = "ab" "cd";
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqualStrings("hello, world", file.consts[0].literal);
+    try std.testing.expectEqualStrings("Alice", file.consts[1].list_items.?[0].literal);
+    try std.testing.expectEqualStrings("abcd", file.structs[0].fields[0].default_literal.?);
+    try std.testing.expectEqualStrings("\"ab\" \"cd\"", file.structs[0].fields[0].default_expression);
 }
 
 test "schema parser accepts binary and octal integer literals" {
