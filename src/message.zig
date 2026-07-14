@@ -2736,6 +2736,55 @@ pub const PointerBuilder = struct {
         };
     }
 
+    pub fn getStructSize(self: PointerBuilder) Error!wire.StructSize {
+        return (try self.getStruct()).size();
+    }
+
+    pub fn getStructDataWordCount(self: PointerBuilder) Error!u16 {
+        return (try self.getStructSize()).dataWordCount();
+    }
+
+    pub fn getStructPointerCount(self: PointerBuilder) Error!u16 {
+        return (try self.getStructSize()).pointerCount();
+    }
+
+    pub fn getStructTotalWords(self: PointerBuilder) Error!usize {
+        return (try self.getStructSize()).totalWords();
+    }
+
+    pub fn getStructDataByteCount(self: PointerBuilder) Error!usize {
+        return (try self.getStructSize()).dataByteCount();
+    }
+
+    pub fn getStructPointerByteCount(self: PointerBuilder) Error!usize {
+        return (try self.getStructSize()).pointerByteCount();
+    }
+
+    pub fn getStructTotalByteCount(self: PointerBuilder) Error!usize {
+        return (try self.getStructSize()).totalByteCount();
+    }
+
+    pub fn structMatchesSize(self: PointerBuilder, expected: wire.StructSize) Error!bool {
+        const actual = try self.getStructSize();
+        return actual.data_words == expected.data_words and actual.pointer_count == expected.pointer_count;
+    }
+
+    pub fn structMatchesDataWords(self: PointerBuilder, count: u16) Error!bool {
+        return (try self.getStructSize()).matchesDataWords(count);
+    }
+
+    pub fn structMatchesPointerCount(self: PointerBuilder, count: u16) Error!bool {
+        return (try self.getStructSize()).matchesPointerCount(count);
+    }
+
+    pub fn structMatchesTotalWords(self: PointerBuilder, count: usize) Error!bool {
+        return (try self.getStructSize()).matchesTotalWords(count);
+    }
+
+    pub fn structMatchesTotalBytes(self: PointerBuilder, count: usize) Error!bool {
+        return (try self.getStructSize()).matchesTotalBytes(count);
+    }
+
     pub fn getList(self: PointerBuilder, expected: ?wire.ElementSize) Error!ListBuilder {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         const list_reader = try (PointerReader{
@@ -3188,6 +3237,55 @@ pub const PointerReader = struct {
             .pointer_count = s.pointer_count,
             .nesting_left = self.nesting_left - 1,
         };
+    }
+
+    pub fn getStructSize(self: PointerReader) Error!wire.StructSize {
+        return (try self.getStruct(null)).size();
+    }
+
+    pub fn getStructDataWordCount(self: PointerReader) Error!u16 {
+        return (try self.getStructSize()).dataWordCount();
+    }
+
+    pub fn getStructPointerCount(self: PointerReader) Error!u16 {
+        return (try self.getStructSize()).pointerCount();
+    }
+
+    pub fn getStructTotalWords(self: PointerReader) Error!usize {
+        return (try self.getStructSize()).totalWords();
+    }
+
+    pub fn getStructDataByteCount(self: PointerReader) Error!usize {
+        return (try self.getStructSize()).dataByteCount();
+    }
+
+    pub fn getStructPointerByteCount(self: PointerReader) Error!usize {
+        return (try self.getStructSize()).pointerByteCount();
+    }
+
+    pub fn getStructTotalByteCount(self: PointerReader) Error!usize {
+        return (try self.getStructSize()).totalByteCount();
+    }
+
+    pub fn structMatchesSize(self: PointerReader, expected: wire.StructSize) Error!bool {
+        const actual = try self.getStructSize();
+        return actual.data_words == expected.data_words and actual.pointer_count == expected.pointer_count;
+    }
+
+    pub fn structMatchesDataWords(self: PointerReader, count: u16) Error!bool {
+        return (try self.getStructSize()).matchesDataWords(count);
+    }
+
+    pub fn structMatchesPointerCount(self: PointerReader, count: u16) Error!bool {
+        return (try self.getStructSize()).matchesPointerCount(count);
+    }
+
+    pub fn structMatchesTotalWords(self: PointerReader, count: usize) Error!bool {
+        return (try self.getStructSize()).matchesTotalWords(count);
+    }
+
+    pub fn structMatchesTotalBytes(self: PointerReader, count: usize) Error!bool {
+        return (try self.getStructSize()).matchesTotalBytes(count);
     }
 
     pub fn getList(self: PointerReader, expected: ?wire.ElementSize) Error!ListReader {
@@ -6528,6 +6626,20 @@ test "message builder deep-copies from a reader" {
 
     const root = try source.initRoot(.{ .data_words = 1, .pointer_count = 2 });
     try root.setUInt32(0, 77, 0);
+    const source_root_pointer = try source.getRootPointer();
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 2 }, try source_root_pointer.getStructSize());
+    try testing.expectEqual(@as(u16, 1), try source_root_pointer.getStructDataWordCount());
+    try testing.expectEqual(@as(u16, 2), try source_root_pointer.getStructPointerCount());
+    try testing.expectEqual(@as(usize, 3), try source_root_pointer.getStructTotalWords());
+    try testing.expectEqual(@as(usize, 8), try source_root_pointer.getStructDataByteCount());
+    try testing.expectEqual(@as(usize, 16), try source_root_pointer.getStructPointerByteCount());
+    try testing.expectEqual(@as(usize, 24), try source_root_pointer.getStructTotalByteCount());
+    try testing.expect(try source_root_pointer.structMatchesSize(.{ .data_words = 1, .pointer_count = 2 }));
+    try testing.expect(try source_root_pointer.structMatchesDataWords(1));
+    try testing.expect(try source_root_pointer.structMatchesPointerCount(2));
+    try testing.expect(try source_root_pointer.structMatchesTotalWords(3));
+    try testing.expect(try source_root_pointer.structMatchesTotalBytes(24));
+    try testing.expect(!try source_root_pointer.structMatchesSize(.{ .data_words = 2, .pointer_count = 2 }));
     const names = try (try root.getPointerField(0)).initList(.pointer, 2);
     try (try names.getPointerElement(0)).setText("left");
     try (try names.getPointerElement(1)).setText("right");
@@ -6537,6 +6649,20 @@ test "message builder deep-copies from a reader" {
     try person.setText(0, "nested");
 
     var source_reader = MessageReader.init(try source.segmentsConst(), .{});
+    const source_root_reader = try source_reader.getRootPointer();
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 2 }, try source_root_reader.getStructSize());
+    try testing.expectEqual(@as(u16, 1), try source_root_reader.getStructDataWordCount());
+    try testing.expectEqual(@as(u16, 2), try source_root_reader.getStructPointerCount());
+    try testing.expectEqual(@as(usize, 3), try source_root_reader.getStructTotalWords());
+    try testing.expectEqual(@as(usize, 8), try source_root_reader.getStructDataByteCount());
+    try testing.expectEqual(@as(usize, 16), try source_root_reader.getStructPointerByteCount());
+    try testing.expectEqual(@as(usize, 24), try source_root_reader.getStructTotalByteCount());
+    try testing.expect(try source_root_reader.structMatchesSize(.{ .data_words = 1, .pointer_count = 2 }));
+    try testing.expect(try source_root_reader.structMatchesDataWords(1));
+    try testing.expect(try source_root_reader.structMatchesPointerCount(2));
+    try testing.expect(try source_root_reader.structMatchesTotalWords(3));
+    try testing.expect(try source_root_reader.structMatchesTotalBytes(24));
+    try testing.expect(!try source_root_reader.structMatchesSize(.{ .data_words = 1, .pointer_count = 1 }));
     var copy = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2, .next_segment_min_words = 2 });
     defer copy.deinit();
     _ = try copy.copyRootFrom(&source_reader);
