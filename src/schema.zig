@@ -7228,6 +7228,54 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return Builder.fromBuilder(try self.orphan.getStruct());
         \\        }}
         \\
+        \\        pub fn structSize(self: @This()) !cpz.StructSize {{
+        \\            return self.orphan.structSize();
+        \\        }}
+        \\
+        \\        pub fn structDataWordCount(self: @This()) !u16 {{
+        \\            return self.orphan.structDataWordCount();
+        \\        }}
+        \\
+        \\        pub fn structPointerCount(self: @This()) !u16 {{
+        \\            return self.orphan.structPointerCount();
+        \\        }}
+        \\
+        \\        pub fn structTotalWords(self: @This()) !usize {{
+        \\            return self.orphan.structTotalWords();
+        \\        }}
+        \\
+        \\        pub fn structDataByteCount(self: @This()) !usize {{
+        \\            return self.orphan.structDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn structPointerByteCount(self: @This()) !usize {{
+        \\            return self.orphan.structPointerByteCount();
+        \\        }}
+        \\
+        \\        pub fn structTotalByteCount(self: @This()) !usize {{
+        \\            return self.orphan.structTotalByteCount();
+        \\        }}
+        \\
+        \\        pub fn structMatchesSize(self: @This(), expected: cpz.StructSize) bool {{
+        \\            return self.orphan.structMatchesSize(expected);
+        \\        }}
+        \\
+        \\        pub fn structMatchesDataWords(self: @This(), count: u16) bool {{
+        \\            return self.orphan.structMatchesDataWords(count);
+        \\        }}
+        \\
+        \\        pub fn structMatchesPointerCount(self: @This(), count: u16) bool {{
+        \\            return self.orphan.structMatchesPointerCount(count);
+        \\        }}
+        \\
+        \\        pub fn structMatchesTotalWords(self: @This(), count: usize) bool {{
+        \\            return self.orphan.structMatchesTotalWords(count);
+        \\        }}
+        \\
+        \\        pub fn structMatchesTotalBytes(self: @This(), count: usize) bool {{
+        \\            return self.orphan.structMatchesTotalBytes(count);
+        \\        }}
+        \\
         \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
         \\            return {s}.fromReader(try self.orphan.asReader(message_reader).getStruct(null));
         \\        }}
