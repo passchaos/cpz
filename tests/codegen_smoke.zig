@@ -13,6 +13,7 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.fileAnnotationByIndex"(0).?.raw);
     try std.testing.expectEqual(@as(?cpz.schema.FileAnnotationMetadata, null), generated.@"cpz.fileAnnotationByIndex"(99));
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.file_annotations"[0].raw);
+    try std.testing.expect(generated.@"cpz.file_annotations"[0].matchesIndex(0));
     try std.testing.expect(generated.@"cpz.file_annotations"[0].matchesRaw("$schemaNote(\"file-level\")"));
     try std.testing.expect(!generated.@"cpz.file_annotations"[0].matchesRaw("missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.fileAnnotationByRaw"("$schemaNote(\"file-level\")").?.index);
@@ -52,6 +53,7 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(?cpz.schema.DeclarationMetadata, null), generated.@"cpz.declarationByIndex"(999));
     try std.testing.expectEqual(.struct_decl, generated.@"cpz.declarations"[0].kind);
     try std.testing.expectEqualStrings("$schemaNote(\"person\")", generated.@"cpz.declarations"[0].annotations);
+    try std.testing.expect(generated.@"cpz.declarations"[0].matchesIndex(0));
     try std.testing.expect(generated.@"cpz.declarations"[0].matchesName("Person"));
     try std.testing.expect(generated.@"cpz.declarations"[0].matchesKind(.struct_decl));
     try std.testing.expect(generated.@"cpz.declarations"[12].matchesId(0xc010));
@@ -121,6 +123,7 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(?cpz.schema.AliasMetadata, null), generated.@"cpz.aliasByIndex"(99));
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].target);
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].resolved_target);
+    try std.testing.expect(generated.@"cpz.aliases"[0].matchesIndex(0));
     try std.testing.expect(generated.@"cpz.aliases"[0].matchesName("Id"));
     try std.testing.expect(generated.@"cpz.aliases"[0].matchesTarget("UInt32"));
     try std.testing.expect(generated.@"cpz.aliases"[2].matchesResolvedTarget("List(Text)"));
@@ -166,6 +169,7 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotation_decls"[1].target_count);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.annotationDecl.schemaNote.targetCount");
     try std.testing.expect(generated.@"cpz.annotationDecl.schemaNote.targets".file);
+    try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesIndex(1));
     try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesName("schemaNote"));
     try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesId(0xa110ca110c));
     try std.testing.expect(generated.@"cpz.annotation_decls"[1].matchesType("Text"));
@@ -273,6 +277,7 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("green", generated.@"cpz.enum.Color.values"[1].name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.enum.Color.values"[1].index);
     try std.testing.expectEqual(@as(u16, 1), generated.@"cpz.enum.Color.values"[1].ordinal);
+    try std.testing.expect(generated.@"cpz.enum.Color.values"[1].matchesIndex(1));
     try std.testing.expect(generated.@"cpz.enum.Color.values"[1].matchesName("green"));
     try std.testing.expect(generated.@"cpz.enum.Color.values"[1].matchesRaw(1));
     try std.testing.expect(generated.@"cpz.enum.Color.values"[2].matchesAnnotations("$labels([\"cool\", \"primary\"])"));
@@ -431,6 +436,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].list_items[1].index);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.consts"[6].listItemByIndex(1).?.index);
     try std.testing.expectEqualStrings("20", generated.@"cpz.consts"[6].listItemByLiteral("20").?.literal);
+    try std.testing.expect(generated.@"cpz.consts"[6].matchesIndex(6));
+    try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesIndex(1));
     try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesLiteral("20"));
     try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesAnnotations(""));
     try std.testing.expect(generated.@"cpz.consts"[6].list_items[1].matchesHexData(false));
@@ -2956,6 +2963,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("Resp", generated.Service.@"cpz.methods"[1].result_fields[0].resolved_ty);
     const ping_metadata = generated.Service.@"cpz.methods"[1];
     try std.testing.expect(ping_metadata.matchesName("ping"));
+    try std.testing.expect(ping_metadata.matchesIndex(1));
     try std.testing.expect(ping_metadata.matchesOrdinal(1));
     try std.testing.expect(ping_metadata.matchesSignature("[Req, Resp] (request :Req $schemaNote(\"request\"), attempts :UInt32 = 3 $schemaNote(\"attempts\")) -> (response :Resp)"));
     try std.testing.expect(ping_metadata.matchesAnnotations(""));
@@ -2975,6 +2983,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("attempts", ping_metadata.paramFieldByResolvedType("UInt32").?.name);
     try std.testing.expectEqualStrings("attempts", ping_metadata.paramFieldByDefault("3").?.name);
     try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesName("attempts"));
+    try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesIndex(1));
     try std.testing.expect(ping_metadata.paramFieldByName("request").?.matchesType("Req"));
     try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesResolvedType("UInt32"));
     try std.testing.expect(ping_metadata.paramFieldByName("attempts").?.matchesDefault("3"));
@@ -3121,6 +3130,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.superclasses"[0].index);
     try std.testing.expectEqualStrings("ServiceAlias", generated.ExtendedService.@"cpz.superclasses"[0].name);
     try std.testing.expectEqualStrings("Service", generated.ExtendedService.@"cpz.superclasses"[0].resolved_name);
+    try std.testing.expect(generated.ExtendedService.@"cpz.superclasses"[0].matchesIndex(0));
     try std.testing.expect(generated.ExtendedService.@"cpz.superclasses"[0].matchesName("ServiceAlias"));
     try std.testing.expect(generated.ExtendedService.@"cpz.superclasses"[0].matchesResolvedName("Service"));
     try std.testing.expect(!generated.ExtendedService.@"cpz.superclasses"[0].matchesName("Service"));

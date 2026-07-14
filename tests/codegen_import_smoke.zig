@@ -12,6 +12,7 @@ test "generated schemas reference imported modules" {
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.importByName"("Base").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ImportMetadata, null), generated.@"cpz.importByName"("Missing"));
     try std.testing.expectEqualStrings("schema_import_base.capnp", generated.@"cpz.imports"[0].path);
+    try std.testing.expect(generated.@"cpz.imports"[0].matchesIndex(0));
     try std.testing.expect(generated.@"cpz.imports"[0].matchesName("Base"));
     try std.testing.expect(generated.@"cpz.imports"[0].matchesPath("schema_import_base.capnp"));
     try std.testing.expect(!generated.@"cpz.imports"[0].matchesMember("Base"));

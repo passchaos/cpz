@@ -79,6 +79,10 @@ pub const AliasMetadata = struct {
     target: []const u8,
     resolved_target: []const u8 = "",
 
+    pub fn matchesIndex(self: AliasMetadata, alias_index: usize) bool {
+        return self.index == alias_index;
+    }
+
     pub fn matchesName(self: AliasMetadata, alias_name: []const u8) bool {
         return std.mem.eql(u8, self.name, alias_name);
     }
@@ -117,6 +121,10 @@ pub const ConstListItem = struct {
     is_hex_data: bool = false,
     annotations: []const u8 = "",
 
+    pub fn matchesIndex(self: ConstListItem, item_index: usize) bool {
+        return self.index == item_index;
+    }
+
     pub fn matchesLiteral(self: ConstListItem, item_literal: []const u8) bool {
         return std.mem.eql(u8, self.literal, item_literal);
     }
@@ -144,6 +152,10 @@ pub const ConstMetadata = struct {
     annotations: []const u8 = "",
     list_item_count: usize = 0,
     list_items: []const ConstListItem = &.{},
+
+    pub fn matchesIndex(self: ConstMetadata, const_index: usize) bool {
+        return self.index == const_index;
+    }
 
     pub fn matchesName(self: ConstMetadata, const_name: []const u8) bool {
         return std.mem.eql(u8, self.name, const_name);
@@ -223,6 +235,10 @@ pub const ImportMetadata = struct {
     member: []const u8 = "",
     has_member: bool = false,
 
+    pub fn matchesIndex(self: ImportMetadata, import_index: usize) bool {
+        return self.index == import_index;
+    }
+
     pub fn matchesName(self: ImportMetadata, import_name: []const u8) bool {
         return std.mem.eql(u8, self.name, import_name);
     }
@@ -299,6 +315,10 @@ pub const EnumValueMetadata = struct {
     name: []const u8,
     ordinal: u16,
     annotations: []const u8 = "",
+
+    pub fn matchesIndex(self: EnumValueMetadata, value_index: usize) bool {
+        return self.index == value_index;
+    }
 
     pub fn matchesName(self: EnumValueMetadata, value_name: []const u8) bool {
         return std.mem.eql(u8, self.name, value_name);
@@ -391,6 +411,10 @@ pub const UnionMetadata = struct {
     field_count: usize = 0,
     fields: []const FieldMetadata = &.{},
 
+    pub fn matchesIndex(self: UnionMetadata, union_index: u32) bool {
+        return self.index == union_index;
+    }
+
     pub fn fieldByName(self: UnionMetadata, name: []const u8) ?FieldMetadata {
         for (self.fields) |field| if (std.mem.eql(u8, field.name, name)) return field;
         return null;
@@ -479,6 +503,10 @@ pub const DeclarationMetadata = struct {
     parameter_count: usize = 0,
     parameters: []const []const u8 = &.{},
 
+    pub fn matchesIndex(self: DeclarationMetadata, declaration_index: usize) bool {
+        return self.index == declaration_index;
+    }
+
     pub fn matchesName(self: DeclarationMetadata, declaration_name: []const u8) bool {
         return std.mem.eql(u8, self.name, declaration_name);
     }
@@ -537,6 +565,10 @@ pub const MethodField = struct {
     default_is_hex_data: bool = false,
     has_explicit_default: bool = false,
     annotations: []const u8 = "",
+
+    pub fn matchesIndex(self: MethodField, field_index: usize) bool {
+        return self.index == field_index;
+    }
 
     pub fn matchesName(self: MethodField, field_name: []const u8) bool {
         return std.mem.eql(u8, self.name, field_name);
@@ -601,6 +633,10 @@ pub const InterfaceMethodMetadata = struct {
     parameters: []const []const u8 = &.{},
     param_fields: []const MethodField = &.{},
     result_fields: []const MethodField = &.{},
+
+    pub fn matchesIndex(self: InterfaceMethodMetadata, method_index: usize) bool {
+        return self.index == method_index;
+    }
 
     pub fn matchesName(self: InterfaceMethodMetadata, method_name: []const u8) bool {
         return std.mem.eql(u8, self.name, method_name);
@@ -774,6 +810,10 @@ pub const InterfaceSuperclassMetadata = struct {
     name: []const u8,
     resolved_name: []const u8 = "",
 
+    pub fn matchesIndex(self: InterfaceSuperclassMetadata, superclass_index: usize) bool {
+        return self.index == superclass_index;
+    }
+
     pub fn matchesName(self: InterfaceSuperclassMetadata, superclass_name: []const u8) bool {
         return std.mem.eql(u8, self.name, superclass_name);
     }
@@ -881,6 +921,10 @@ pub const AnnotationMetadata = struct {
     target_count: usize = 0,
     targets: AnnotationTargets = .{},
 
+    pub fn matchesIndex(self: AnnotationMetadata, annotation_index: usize) bool {
+        return self.index == annotation_index;
+    }
+
     pub fn hasTarget(self: AnnotationMetadata, name: []const u8) bool {
         return self.targets.hasTarget(name);
     }
@@ -913,6 +957,10 @@ pub const AnnotationMetadata = struct {
 pub const FileAnnotationMetadata = struct {
     index: usize,
     raw: []const u8,
+
+    pub fn matchesIndex(self: FileAnnotationMetadata, annotation_index: usize) bool {
+        return self.index == annotation_index;
+    }
 
     pub fn matchesRaw(self: FileAnnotationMetadata, annotation_raw: []const u8) bool {
         return std.mem.eql(u8, self.raw, annotation_raw);
