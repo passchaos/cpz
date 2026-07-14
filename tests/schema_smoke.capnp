@@ -61,8 +61,8 @@ struct Person $schemaNote("person") {
   flags @11 :BoolList;
   ratios @12 :Float32List;
   weights @13 :Float64List;
-  maybeName @14 :?Text;
-  maybeFriend @15 :?Person;
+  maybeName @14 :?Text = "maybe default";
+  maybeFriend @15 :?Person = (id = 404, name = "optional default");
   scoreGroups @16 :List(List(UInt32)) = [[10, 20], [30]];
   aliasGroups @17 :List(TextList) = [["default", "group"]];
   structGroups @18 :List(List(Person)) = [[(id = 201, name = "default group")]];

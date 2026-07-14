@@ -9247,7 +9247,14 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
         if (field.default_expression.len == 0) continue;
         const field_name = try zigIdentAlloc(allocator, field.name);
         defer allocator.free(field_name);
-        switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+        const resolved_ty = switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+            .optional => |child| blk: {
+                if (std.mem.eql(u8, std.mem.trim(u8, field.default_expression, " \t\r\n"), "null")) continue;
+                break :blk resolveTypeScoped(file, layout.decl, child.*);
+            },
+            else => |resolved| resolved,
+        };
+        switch (resolved_ty) {
             .text => {
                 const literal = field.default_literal orelse continue;
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, literal, true);
