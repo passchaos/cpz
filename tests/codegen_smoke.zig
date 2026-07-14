@@ -690,6 +690,12 @@ test "generated reader and builder accessors compile and round-trip" {
     var owned_packed_no_alloc_writer = std.Io.Writer.fixed(&owned_packed_no_alloc_buffer);
     try generated.Person.@"cpz.owned.writePackedToWriterWithTableBuffer"(&owned_root_reader, &owned_packed_no_alloc_table, &owned_packed_no_alloc_writer);
     try std.testing.expectEqualSlices(u8, owned_packed_bytes, std.Io.Writer.buffered(&owned_packed_no_alloc_writer));
+    const owned_canonical_bytes = try generated.Person.@"cpz.owned.toCanonicalSegmentBytes"(std.testing.allocator, &owned_root_reader);
+    defer std.testing.allocator.free(owned_canonical_bytes);
+    try std.testing.expect(owned_canonical_bytes.len > 0);
+    const owned_single_segment_bytes = try generated.Person.@"cpz.owned.toSingleSegmentFlatBytes"(std.testing.allocator, &owned_root_reader);
+    defer std.testing.allocator.free(owned_single_segment_bytes);
+    try std.testing.expectEqualSlices(u8, flat_root_bytes, owned_single_segment_bytes);
     var viewed_root_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, flat_root_bytes, .{});
     defer viewed_root_reader.deinit(std.testing.allocator);
     const viewed_root_message = generated.Person.@"cpz.view.asReader"(&viewed_root_reader);
@@ -742,6 +748,12 @@ test "generated reader and builder accessors compile and round-trip" {
     var view_packed_no_alloc_writer = std.Io.Writer.fixed(&view_packed_no_alloc_buffer);
     try generated.Person.@"cpz.view.writePackedToWriterWithTableBuffer"(&viewed_root_reader, &view_packed_no_alloc_table, &view_packed_no_alloc_writer);
     try std.testing.expectEqualSlices(u8, view_packed_bytes, std.Io.Writer.buffered(&view_packed_no_alloc_writer));
+    const view_canonical_bytes = try generated.Person.@"cpz.view.toCanonicalSegmentBytes"(std.testing.allocator, &viewed_root_reader);
+    defer std.testing.allocator.free(view_canonical_bytes);
+    try std.testing.expectEqualSlices(u8, owned_canonical_bytes, view_canonical_bytes);
+    const view_single_segment_bytes = try generated.Person.@"cpz.view.toSingleSegmentFlatBytes"(std.testing.allocator, &viewed_root_reader);
+    defer std.testing.allocator.free(view_single_segment_bytes);
+    try std.testing.expectEqualSlices(u8, flat_root_bytes, view_single_segment_bytes);
     const builder_segment_table = try generated.Person.@"cpz.builderRoot.segmentTable"(&builder);
     defer std.testing.allocator.free(builder_segment_table);
     try std.testing.expect(builder_segment_table.len > 0);

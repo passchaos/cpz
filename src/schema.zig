@@ -7471,6 +7471,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".writePackedToWriterWithTableBuffer(@"cpz.tableBuffer", @"cpz.writer");
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.toCanonicalSegmentBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *const cpz.OwnedMessageReader) ![]u8 {{
+        \\        return @"cpz.reader".toCanonicalSegmentBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.toSingleSegmentFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *const cpz.OwnedMessageReader) ![]u8 {{
+        \\        return @"cpz.reader".toSingleSegmentFlatBytes(@"cpz.allocator");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.sourceConsumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".sourceConsumedLen();
         \\    }}
@@ -7573,6 +7581,14 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.writePackedToWriterWithTableBuffer"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.tableBuffer": []u8, @"cpz.writer": *std.Io.Writer) !void {{
         \\        return @"cpz.view".writePackedToWriterWithTableBuffer(@"cpz.tableBuffer", @"cpz.writer");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.toCanonicalSegmentBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.view": *const cpz.MessageReaderView) ![]u8 {{
+        \\        return @"cpz.view".toCanonicalSegmentBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.toSingleSegmentFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.view": *const cpz.MessageReaderView) ![]u8 {{
+        \\        return @"cpz.view".toSingleSegmentFlatBytes(@"cpz.allocator");
         \\    }}
         \\
         \\    pub fn @"cpz.view.sourceConsumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
