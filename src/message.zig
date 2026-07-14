@@ -2654,6 +2654,58 @@ pub const PointerBuilder = struct {
         };
     }
 
+    pub fn getListLen(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).len();
+    }
+
+    pub fn listMatchesLen(self: PointerBuilder, expected: ?wire.ElementSize, count: usize) Error!bool {
+        return (try self.getList(expected)).matchesLen(count);
+    }
+
+    pub fn getListElementSize(self: PointerBuilder, expected: ?wire.ElementSize) Error!wire.ElementSize {
+        return (try self.getList(expected)).elementSize();
+    }
+
+    pub fn listMatchesElementSize(self: PointerBuilder, expected: ?wire.ElementSize, element_size: wire.ElementSize) Error!bool {
+        return (try self.getList(expected)).matchesElementSize(element_size);
+    }
+
+    pub fn getListElementBitCount(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementBitCount();
+    }
+
+    pub fn getListElementByteCount(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementByteCount();
+    }
+
+    pub fn getListElementWordCount(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementWordCount();
+    }
+
+    pub fn getListContentBitCount(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentBitCount();
+    }
+
+    pub fn getListContentByteCount(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentByteCount();
+    }
+
+    pub fn getListContentWordCount(self: PointerBuilder, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentWordCount();
+    }
+
+    pub fn listMatchesContentBytes(self: PointerBuilder, expected: ?wire.ElementSize, count: usize) Error!bool {
+        return (try self.getList(expected)).matchesContentBytes(count);
+    }
+
+    pub fn getListStructElementSize(self: PointerBuilder, expected: ?wire.ElementSize) Error!wire.StructSize {
+        return (try self.getList(expected)).structElementSize();
+    }
+
+    pub fn listMatchesStructElementSize(self: PointerBuilder, expected: ?wire.ElementSize, size: wire.StructSize) Error!bool {
+        return (try self.getList(expected)).matchesStructElementSize(size);
+    }
+
     pub fn setText(self: PointerBuilder, text: []const u8) Error!void {
         if (std.mem.indexOfScalar(u8, text, 0) != null) return error.TextContainsInteriorNul;
         if (!std.unicode.utf8ValidateSlice(text)) return error.Utf8Invalid;
@@ -3118,6 +3170,58 @@ pub const PointerReader = struct {
             .step_bits = wire.bitsPerElement(l.element_size),
             .nesting_left = self.nesting_left - 1,
         };
+    }
+
+    pub fn getListLen(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).len();
+    }
+
+    pub fn listMatchesLen(self: PointerReader, expected: ?wire.ElementSize, count: usize) Error!bool {
+        return (try self.getList(expected)).matchesLen(count);
+    }
+
+    pub fn getListElementSize(self: PointerReader, expected: ?wire.ElementSize) Error!wire.ElementSize {
+        return (try self.getList(expected)).elementSize();
+    }
+
+    pub fn listMatchesElementSize(self: PointerReader, expected: ?wire.ElementSize, element_size: wire.ElementSize) Error!bool {
+        return (try self.getList(expected)).matchesElementSize(element_size);
+    }
+
+    pub fn getListElementBitCount(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementBitCount();
+    }
+
+    pub fn getListElementByteCount(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementByteCount();
+    }
+
+    pub fn getListElementWordCount(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).elementWordCount();
+    }
+
+    pub fn getListContentBitCount(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentBitCount();
+    }
+
+    pub fn getListContentByteCount(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentByteCount();
+    }
+
+    pub fn getListContentWordCount(self: PointerReader, expected: ?wire.ElementSize) Error!usize {
+        return (try self.getList(expected)).contentWordCount();
+    }
+
+    pub fn listMatchesContentBytes(self: PointerReader, expected: ?wire.ElementSize, count: usize) Error!bool {
+        return (try self.getList(expected)).matchesContentBytes(count);
+    }
+
+    pub fn getListStructElementSize(self: PointerReader, expected: ?wire.ElementSize) Error!wire.StructSize {
+        return (try self.getList(expected)).structElementSize();
+    }
+
+    pub fn listMatchesStructElementSize(self: PointerReader, expected: ?wire.ElementSize, size: wire.StructSize) Error!bool {
+        return (try self.getList(expected)).matchesStructElementSize(size);
     }
 
     pub fn getText(self: PointerReader) Error![]const u8 {
@@ -5594,6 +5698,17 @@ test "root pointer APIs support non-struct roots" {
     try testing.expectEqual(wire.PointerType.list, (try root_ptr_builder_view.pointerType()).?);
     const builder_view_nums = try root_ptr_builder_view.getList(.two_bytes);
     try testing.expectEqual(@as(u16, 222), builder_view_nums.getUInt16(1));
+    try testing.expectEqual(@as(usize, 2), try root_ptr_builder.getListLen(.two_bytes));
+    try testing.expect(try root_ptr_builder.listMatchesLen(.two_bytes, 2));
+    try testing.expectEqual(wire.ElementSize.two_bytes, try root_ptr_builder.getListElementSize(.two_bytes));
+    try testing.expect(try root_ptr_builder.listMatchesElementSize(.two_bytes, .two_bytes));
+    try testing.expectEqual(@as(usize, 16), try root_ptr_builder.getListElementBitCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 2), try root_ptr_builder.getListElementByteCount(.two_bytes));
+    try testing.expectError(error.UnsupportedElementSize, root_ptr_builder.getListElementWordCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 32), try root_ptr_builder.getListContentBitCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 4), try root_ptr_builder.getListContentByteCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try root_ptr_builder.getListContentWordCount(.two_bytes));
+    try testing.expect(try root_ptr_builder.listMatchesContentBytes(.two_bytes, 4));
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const root_ptr = try reader.getRootPointer();
@@ -5628,6 +5743,17 @@ test "root pointer APIs support non-struct roots" {
     const read_nums = try root_ptr.getList(.two_bytes);
     try testing.expectEqual(@as(u16, 111), read_nums.getUInt16(0));
     try testing.expectEqual(@as(u16, 222), read_nums.getUInt16(1));
+    try testing.expectEqual(@as(usize, 2), try root_ptr.getListLen(.two_bytes));
+    try testing.expect(try root_ptr.listMatchesLen(.two_bytes, 2));
+    try testing.expectEqual(wire.ElementSize.two_bytes, try root_ptr.getListElementSize(.two_bytes));
+    try testing.expect(try root_ptr.listMatchesElementSize(.two_bytes, .two_bytes));
+    try testing.expectEqual(@as(usize, 16), try root_ptr.getListElementBitCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 2), try root_ptr.getListElementByteCount(.two_bytes));
+    try testing.expectError(error.UnsupportedElementSize, root_ptr.getListElementWordCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 32), try root_ptr.getListContentBitCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 4), try root_ptr.getListContentByteCount(.two_bytes));
+    try testing.expectEqual(@as(usize, 1), try root_ptr.getListContentWordCount(.two_bytes));
+    try testing.expect(try root_ptr.listMatchesContentBytes(.two_bytes, 4));
     const flat_nums = try builder.toFlatBytes();
     defer testing.allocator.free(flat_nums);
     var owned_nums = try OwnedMessageReader.initFlat(testing.allocator, flat_nums, .{});
@@ -5699,6 +5825,7 @@ test "builders can clear struct list elements" {
     defer builder.deinit();
 
     const people = try builder.initRootStructList(1, .{ .data_words = 1, .pointer_count = 1 });
+    const people_root_pointer = try builder.getRootPointer();
     try testing.expectEqual(@as(usize, 1), try builder.getRootListLen(.composite));
     try testing.expect(try builder.rootListMatchesLen(.composite, 1));
     try testing.expectEqual(wire.ElementSize.composite, try builder.getRootListElementSize(.composite));
@@ -5712,6 +5839,19 @@ test "builders can clear struct list elements" {
     try testing.expect(try builder.rootListMatchesContentBytes(.composite, 16));
     try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, try builder.getRootListStructElementSize(.composite));
     try testing.expect(try builder.rootListMatchesStructElementSize(.composite, .{ .data_words = 1, .pointer_count = 1 }));
+    try testing.expectEqual(@as(usize, 1), try people_root_pointer.getListLen(.composite));
+    try testing.expect(try people_root_pointer.listMatchesLen(.composite, 1));
+    try testing.expectEqual(wire.ElementSize.composite, try people_root_pointer.getListElementSize(.composite));
+    try testing.expect(try people_root_pointer.listMatchesElementSize(.composite, .composite));
+    try testing.expectEqual(@as(usize, 128), try people_root_pointer.getListElementBitCount(.composite));
+    try testing.expectEqual(@as(usize, 16), try people_root_pointer.getListElementByteCount(.composite));
+    try testing.expectEqual(@as(usize, 2), try people_root_pointer.getListElementWordCount(.composite));
+    try testing.expectEqual(@as(usize, 128), try people_root_pointer.getListContentBitCount(.composite));
+    try testing.expectEqual(@as(usize, 16), try people_root_pointer.getListContentByteCount(.composite));
+    try testing.expectEqual(@as(usize, 2), try people_root_pointer.getListContentWordCount(.composite));
+    try testing.expect(try people_root_pointer.listMatchesContentBytes(.composite, 16));
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, try people_root_pointer.getListStructElementSize(.composite));
+    try testing.expect(try people_root_pointer.listMatchesStructElementSize(.composite, .{ .data_words = 1, .pointer_count = 1 }));
     const person = try people.getStructElement(0);
     try person.setUInt32(0, 123, 42);
     try person.setText(0, "drop struct element");
@@ -5719,6 +5859,7 @@ test "builders can clear struct list elements" {
     try testing.expectError(error.PointerOutOfBounds, people.clearStructElement(1));
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_people_pointer = try reader.getRootPointer();
     const read_people = try reader.getRootList(.composite);
     try testing.expectEqual(@as(usize, 1), try reader.getRootListLen(.composite));
     try testing.expect(try reader.rootListMatchesLen(.composite, 1));
@@ -5733,6 +5874,19 @@ test "builders can clear struct list elements" {
     try testing.expect(try reader.rootListMatchesContentBytes(.composite, 16));
     try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, try reader.getRootListStructElementSize(.composite));
     try testing.expect(try reader.rootListMatchesStructElementSize(.composite, .{ .data_words = 1, .pointer_count = 1 }));
+    try testing.expectEqual(@as(usize, 1), try read_people_pointer.getListLen(.composite));
+    try testing.expect(try read_people_pointer.listMatchesLen(.composite, 1));
+    try testing.expectEqual(wire.ElementSize.composite, try read_people_pointer.getListElementSize(.composite));
+    try testing.expect(try read_people_pointer.listMatchesElementSize(.composite, .composite));
+    try testing.expectEqual(@as(usize, 128), try read_people_pointer.getListElementBitCount(.composite));
+    try testing.expectEqual(@as(usize, 16), try read_people_pointer.getListElementByteCount(.composite));
+    try testing.expectEqual(@as(usize, 2), try read_people_pointer.getListElementWordCount(.composite));
+    try testing.expectEqual(@as(usize, 128), try read_people_pointer.getListContentBitCount(.composite));
+    try testing.expectEqual(@as(usize, 16), try read_people_pointer.getListContentByteCount(.composite));
+    try testing.expectEqual(@as(usize, 2), try read_people_pointer.getListContentWordCount(.composite));
+    try testing.expect(try read_people_pointer.listMatchesContentBytes(.composite, 16));
+    try testing.expectEqual(wire.StructSize{ .data_words = 1, .pointer_count = 1 }, try read_people_pointer.getListStructElementSize(.composite));
+    try testing.expect(try read_people_pointer.listMatchesStructElementSize(.composite, .{ .data_words = 1, .pointer_count = 1 }));
     const read_person = try read_people.getStructElement(0);
     try testing.expectEqual(@as(u32, 42), read_person.getUInt32(0, 42));
     try testing.expect(read_person.getPointerField(0).isNull());
