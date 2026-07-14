@@ -92,12 +92,24 @@ pub const MessageStats = struct {
         return self.data_words;
     }
 
+    pub fn dataByteCount(self: MessageStats) usize {
+        return self.data_words * wire.bytes_per_word;
+    }
+
     pub fn pointerWordCount(self: MessageStats) usize {
         return self.pointer_words;
     }
 
+    pub fn pointerByteCount(self: MessageStats) usize {
+        return self.pointer_words * wire.bytes_per_word;
+    }
+
     pub fn wordCount(self: MessageStats) usize {
         return self.total_words;
+    }
+
+    pub fn byteCount(self: MessageStats) usize {
+        return self.total_words * wire.bytes_per_word;
     }
 
     pub fn capabilityCount(self: MessageStats) usize {
@@ -124,12 +136,24 @@ pub const MessageStats = struct {
         return self.data_words == count;
     }
 
+    pub fn matchesDataBytes(self: MessageStats, count: usize) bool {
+        return self.dataByteCount() == count;
+    }
+
     pub fn matchesPointerWords(self: MessageStats, count: usize) bool {
         return self.pointer_words == count;
     }
 
+    pub fn matchesPointerBytes(self: MessageStats, count: usize) bool {
+        return self.pointerByteCount() == count;
+    }
+
     pub fn matchesWords(self: MessageStats, count: usize) bool {
         return self.total_words == count;
+    }
+
+    pub fn matchesBytes(self: MessageStats, count: usize) bool {
+        return self.byteCount() == count;
     }
 
     pub fn matchesCapabilities(self: MessageStats, count: usize) bool {
@@ -147,6 +171,38 @@ pub const MessageStats = struct {
         return 0;
     }
 };
+
+test "message stats byte helper methods" {
+    const testing = std.testing;
+
+    const empty = MessageStats{};
+    try testing.expectEqual(@as(usize, 0), empty.dataByteCount());
+    try testing.expectEqual(@as(usize, 0), empty.pointerByteCount());
+    try testing.expectEqual(@as(usize, 0), empty.byteCount());
+    try testing.expect(empty.matchesBytes(0));
+    try testing.expect(empty.isEmpty());
+
+    const stats = MessageStats{
+        .pointer_slots = 4,
+        .non_null_pointers = 3,
+        .structs = 1,
+        .lists = 2,
+        .capabilities = 1,
+        .max_capability_index = 3,
+        .data_words = 5,
+        .pointer_words = 7,
+        .total_words = 12,
+    };
+    try testing.expectEqual(@as(usize, 40), stats.dataByteCount());
+    try testing.expectEqual(@as(usize, 56), stats.pointerByteCount());
+    try testing.expectEqual(@as(usize, 96), stats.byteCount());
+    try testing.expect(stats.matchesDataBytes(40));
+    try testing.expect(stats.matchesPointerBytes(56));
+    try testing.expect(stats.matchesBytes(96));
+    try testing.expect(!stats.matchesBytes(95));
+    try testing.expectEqual(@as(usize, 4), stats.maxCapabilityCount());
+    try testing.expectEqual(@as(usize, 96), stats.size().byteCount());
+}
 
 pub const MessageSize = struct {
     word_count: usize = 0,
