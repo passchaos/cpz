@@ -7635,14 +7635,49 @@ fn emitNestedConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     return emitConstWithIndent(allocator, out, file, scope, index, decl, "    ");
 }
 
+fn optionalConstZigTypeAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, child: Type) LayoutError![]u8 {
+    return switch (resolveTypeScoped(file, scope, child)) {
+        .void => allocator.dupe(u8, "?void"),
+        .bool => allocator.dupe(u8, "?bool"),
+        .int8 => allocator.dupe(u8, "?i8"),
+        .int16 => allocator.dupe(u8, "?i16"),
+        .int32 => allocator.dupe(u8, "?i32"),
+        .int64 => allocator.dupe(u8, "?i64"),
+        .uint8 => allocator.dupe(u8, "?u8"),
+        .uint16 => allocator.dupe(u8, "?u16"),
+        .uint32 => allocator.dupe(u8, "?u32"),
+        .uint64 => allocator.dupe(u8, "?u64"),
+        .float32 => allocator.dupe(u8, "?f32"),
+        .float64 => allocator.dupe(u8, "?f64"),
+        .text, .data => allocator.dupe(u8, "?[]const u8"),
+        .list => |list_child| {
+            const child_type = try optionalConstZigTypeAlloc(allocator, file, scope, list_child.*);
+            defer allocator.free(child_type);
+            return std.fmt.allocPrint(allocator, "?[]const {s}", .{child_type[1..]});
+        },
+        .named => |type_name| {
+            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            defer allocator.free(zig_type);
+            return std.fmt.allocPrint(allocator, "?{s}", .{zig_type});
+        },
+        .any_pointer => allocator.dupe(u8, "?cpz.PointerReader"),
+        .any_struct => allocator.dupe(u8, "?cpz.StructReader"),
+        .any_list => allocator.dupe(u8, "?cpz.ListReader"),
+        .capability => allocator.dupe(u8, "?u32"),
+        .optional => |nested_child| optionalConstZigTypeAlloc(allocator, file, scope, nested_child.*),
+    };
+}
+
 fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, const_name: []const u8, child: Type, decl: *const ConstDecl) LayoutError!void {
     const raw = std.mem.trim(u8, decl.literal, " \t\r\n");
     if (std.mem.eql(u8, raw, "null")) {
+        const zig_type = try optionalConstZigTypeAlloc(allocator, file, scope, child);
+        defer allocator.free(zig_type);
         try appendFmt(allocator, out,
-            \\{s}pub const {s}: ?void = null;
+            \\{s}pub const {s}: {s} = null;
             \\
             \\
-        , .{ indent, const_name });
+        , .{ indent, const_name, zig_type });
         return;
     }
 

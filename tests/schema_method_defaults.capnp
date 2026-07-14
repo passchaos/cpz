@@ -30,6 +30,7 @@ interface Defaults {
   const defaultItem :Item = (value = 99, label = "ninety-nine");
   const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
   const defaultMaybeNumbers :?List(UInt16) = [5, 6];
+  const defaultNothing :?Item = null;
 
   scalars @0 (
     v :Void = void,
