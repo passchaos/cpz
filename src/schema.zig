@@ -4320,7 +4320,7 @@ fn canonicalTypeNameAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem
         }
         if (depth == 0) try out.append(allocator, c);
     }
-    return out.toOwnedSlice(allocator);
+    return try out.toOwnedSlice(allocator);
 }
 
 fn isImportedTypeName(file: *const File, name: []const u8) bool {
@@ -7500,6 +7500,245 @@ fn nestedListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
     return flat;
 }
 
+const LayoutSpecialization = struct {
+    fields: []Field = &.{},
+    field_layouts: []FieldLayout = &.{},
+    owned_names: std.ArrayList([]const u8) = .empty,
+
+    fn deinit(self: *LayoutSpecialization, allocator: std.mem.Allocator) void {
+        for (self.fields) |*field| field.ty.deinit(allocator);
+        allocator.free(self.fields);
+        allocator.free(self.field_layouts);
+        for (self.owned_names.items) |name| allocator.free(name);
+        self.owned_names.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
+fn scalarOrNamedType(name: []const u8) Type {
+    if (std.mem.eql(u8, name, "Void")) return .void;
+    if (std.mem.eql(u8, name, "Bool")) return .bool;
+    if (std.mem.eql(u8, name, "Int8")) return .int8;
+    if (std.mem.eql(u8, name, "Int16")) return .int16;
+    if (std.mem.eql(u8, name, "Int32")) return .int32;
+    if (std.mem.eql(u8, name, "Int64")) return .int64;
+    if (std.mem.eql(u8, name, "UInt8")) return .uint8;
+    if (std.mem.eql(u8, name, "UInt16")) return .uint16;
+    if (std.mem.eql(u8, name, "UInt32")) return .uint32;
+    if (std.mem.eql(u8, name, "UInt64")) return .uint64;
+    if (std.mem.eql(u8, name, "Float32")) return .float32;
+    if (std.mem.eql(u8, name, "Float64")) return .float64;
+    if (std.mem.eql(u8, name, "Text")) return .text;
+    if (std.mem.eql(u8, name, "Data")) return .data;
+    if (std.mem.eql(u8, name, "AnyPointer")) return .any_pointer;
+    if (std.mem.eql(u8, name, "AnyStruct")) return .any_struct;
+    if (std.mem.eql(u8, name, "AnyList")) return .any_list;
+    if (std.mem.eql(u8, name, "Capability")) return .capability;
+    return .{ .named = name };
+}
+
+fn parseTypeArgAlloc(allocator: std.mem.Allocator, raw_arg: []const u8) LayoutError!Type {
+    const raw = std.mem.trim(u8, raw_arg, " \t\r\n");
+    if (std.mem.startsWith(u8, raw, "List(") and raw.len >= 6 and raw[raw.len - 1] == ')') {
+        const child = try allocator.create(Type);
+        errdefer allocator.destroy(child);
+        child.* = try parseTypeArgAlloc(allocator, raw[5 .. raw.len - 1]);
+        return .{ .list = child };
+    }
+    if (std.mem.startsWith(u8, raw, "?")) {
+        const child = try allocator.create(Type);
+        errdefer allocator.destroy(child);
+        child.* = try parseTypeArgAlloc(allocator, raw[1..]);
+        return .{ .optional = child };
+    }
+    if (std.mem.endsWith(u8, raw, "List") and raw.len > "List".len) {
+        const child = try allocator.create(Type);
+        errdefer allocator.destroy(child);
+        child.* = scalarOrNamedType(raw[0 .. raw.len - "List".len]);
+        return .{ .list = child };
+    }
+    return scalarOrNamedType(raw);
+}
+
+fn cloneTypeAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError!Type {
+    return switch (ty) {
+        .list => |child| blk: {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try cloneTypeAlloc(allocator, child.*);
+            break :blk .{ .list = cloned };
+        },
+        .optional => |child| blk: {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try cloneTypeAlloc(allocator, child.*);
+            break :blk .{ .optional = cloned };
+        },
+        else => ty,
+    };
+}
+
+fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []const u8) LayoutError!?[]Type {
+    const open = std.mem.indexOfScalar(u8, type_name, '(') orelse return null;
+    if (type_name.len == 0 or type_name[type_name.len - 1] != ')') return null;
+    const raw_args = type_name[open + 1 .. type_name.len - 1];
+    var args = std.ArrayList(Type).empty;
+    errdefer {
+        for (args.items) |*arg| arg.deinit(allocator);
+        args.deinit(allocator);
+    }
+    var start: usize = 0;
+    var depth: usize = 0;
+    for (raw_args, 0..) |c, index| {
+        switch (c) {
+            '(' => depth += 1,
+            ')' => {
+                if (depth != 0) depth -= 1;
+            },
+            ',' => if (depth == 0) {
+                try args.append(allocator, try parseTypeArgAlloc(allocator, raw_args[start..index]));
+                start = index + 1;
+            },
+            else => {},
+        }
+    }
+    if (std.mem.trim(u8, raw_args[start..], " \t\r\n").len != 0) {
+        try args.append(allocator, try parseTypeArgAlloc(allocator, raw_args[start..]));
+    }
+    return try args.toOwnedSlice(allocator);
+}
+
+fn matchingParen(raw: []const u8, open_index: usize) ?usize {
+    var depth: usize = 0;
+    for (raw[open_index..], open_index..) |c, index| {
+        if (c == '(') depth += 1;
+        if (c == ')') {
+            if (depth == 0) return null;
+            depth -= 1;
+            if (depth == 0) return index;
+        }
+    }
+    return null;
+}
+
+fn substituteGenericNameAlloc(allocator: std.mem.Allocator, raw: []const u8, parameters: []const []const u8, args: []const Type) LayoutError!?[]const u8 {
+    const open = std.mem.indexOfScalar(u8, raw, '(') orelse return null;
+    const close = matchingParen(raw, open) orelse return null;
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+    try out.appendSlice(allocator, raw[0 .. open + 1]);
+    const inner = raw[open + 1 .. close];
+    var start: usize = 0;
+    var depth: usize = 0;
+    var first = true;
+    for (inner, 0..) |c, index| {
+        switch (c) {
+            '(' => depth += 1,
+            ')' => {
+                if (depth != 0) depth -= 1;
+            },
+            ',' => if (depth == 0) {
+                if (!first) try out.appendSlice(allocator, ", ");
+                first = false;
+                const arg = std.mem.trim(u8, inner[start..index], " \t\r\n");
+                var substituted = false;
+                for (parameters, 0..) |parameter, parameter_index| {
+                    if (parameter_index < args.len and std.mem.eql(u8, arg, parameter)) {
+                        const arg_name = try schemaTypeNameAlloc(allocator, args[parameter_index]);
+                        defer allocator.free(arg_name);
+                        try out.appendSlice(allocator, arg_name);
+                        substituted = true;
+                        break;
+                    }
+                }
+                if (!substituted) {
+                    if (try substituteGenericNameAlloc(allocator, arg, parameters, args)) |nested| {
+                        defer allocator.free(nested);
+                        try out.appendSlice(allocator, nested);
+                    } else {
+                        try out.appendSlice(allocator, arg);
+                    }
+                }
+                start = index + 1;
+            },
+            else => {},
+        }
+    }
+    if (!first) try out.appendSlice(allocator, ", ");
+    const arg = std.mem.trim(u8, inner[start..], " \t\r\n");
+    var substituted = false;
+    for (parameters, 0..) |parameter, parameter_index| {
+        if (parameter_index < args.len and std.mem.eql(u8, arg, parameter)) {
+            const arg_name = try schemaTypeNameAlloc(allocator, args[parameter_index]);
+            defer allocator.free(arg_name);
+            try out.appendSlice(allocator, arg_name);
+            substituted = true;
+            break;
+        }
+    }
+    if (!substituted) {
+        if (try substituteGenericNameAlloc(allocator, arg, parameters, args)) |nested| {
+            defer allocator.free(nested);
+            try out.appendSlice(allocator, nested);
+        } else {
+            try out.appendSlice(allocator, arg);
+        }
+    }
+    try out.append(allocator, ')');
+    try out.appendSlice(allocator, raw[close + 1 ..]);
+    return try out.toOwnedSlice(allocator);
+}
+
+fn substituteGenericTypeAlloc(allocator: std.mem.Allocator, owned_names: *std.ArrayList([]const u8), ty: Type, parameters: []const []const u8, args: []const Type) LayoutError!Type {
+    switch (ty) {
+        .named => |name| {
+            for (parameters, 0..) |parameter, index| {
+                if (index < args.len and std.mem.eql(u8, name, parameter)) return cloneTypeAlloc(allocator, args[index]);
+            }
+            if (try substituteGenericNameAlloc(allocator, name, parameters, args)) |substituted_name| {
+                try owned_names.append(allocator, substituted_name);
+                return .{ .named = substituted_name };
+            }
+            return ty;
+        },
+        .list => |child| {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try substituteGenericTypeAlloc(allocator, owned_names, child.*, parameters, args);
+            return .{ .list = cloned };
+        },
+        .optional => |child| {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try substituteGenericTypeAlloc(allocator, owned_names, child.*, parameters, args);
+            return .{ .optional = cloned };
+        },
+        else => return ty,
+    }
+}
+
+fn specializeLayoutForTypeApplicationAlloc(allocator: std.mem.Allocator, type_name: []const u8, layout: *StructLayout) LayoutError!?LayoutSpecialization {
+    if (layout.decl.parameters.len == 0) return null;
+    const args = (try splitTypeApplicationArgsAlloc(allocator, type_name)) orelse return null;
+    defer {
+        for (args) |*arg| arg.deinit(allocator);
+        allocator.free(args);
+    }
+    if (args.len == 0) return null;
+    var specialization = LayoutSpecialization{};
+    errdefer specialization.deinit(allocator);
+    specialization.fields = try allocator.alloc(Field, layout.fields.len);
+    specialization.field_layouts = try allocator.alloc(FieldLayout, layout.fields.len);
+    for (layout.fields, 0..) |field_layout, index| {
+        specialization.fields[index] = field_layout.field.*;
+        specialization.fields[index].ty = try substituteGenericTypeAlloc(allocator, &specialization.owned_names, field_layout.field.ty, layout.decl.parameters, args);
+        specialization.field_layouts[index] = field_layout;
+        specialization.field_layouts[index].field = &specialization.fields[index];
+    }
+    layout.fields = specialization.field_layouts;
+    return specialization;
+}
+
 fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {
     const items = decl.list_items orelse return null;
     const child = switch (resolveTypeScoped(file, scope, decl.ty)) {
@@ -7551,6 +7790,12 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
     const struct_decl = findStructDirect(file, type_name) orelse return null;
     var layout = try planStructLayout(allocator, file, struct_decl);
     defer layout.deinit(allocator);
+    const original_layout_fields = layout.fields;
+    var specialization = try specializeLayoutForTypeApplicationAlloc(allocator, type_name, &layout) orelse LayoutSpecialization{};
+    defer {
+        layout.fields = original_layout_fields;
+        specialization.deinit(allocator);
+    }
     const fields = decl.struct_fields orelse return null;
 
     const object = try structLiteralObjectBytesAlloc(allocator, file, scope, &layout, fields, true) orelse return null;
@@ -7771,6 +8016,12 @@ fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, s
     const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
     var nested_layout = try planStructLayout(allocator, file, struct_decl);
     defer nested_layout.deinit(allocator);
+    const original_nested_layout_fields = nested_layout.fields;
+    var nested_specialization = try specializeLayoutForTypeApplicationAlloc(allocator, type_name, &nested_layout) orelse LayoutSpecialization{};
+    defer {
+        nested_layout.fields = original_nested_layout_fields;
+        nested_specialization.deinit(allocator);
+    }
     const fields = try parseStructLiteralOrImpliedFirstFieldAlloc(allocator, struct_decl, literal);
     defer allocator.free(fields);
 
@@ -7798,6 +8049,12 @@ fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, segm
     const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
     var element_layout = try planStructLayout(allocator, file, struct_decl);
     defer element_layout.deinit(allocator);
+    const original_element_layout_fields = element_layout.fields;
+    var element_specialization = try specializeLayoutForTypeApplicationAlloc(allocator, type_name, &element_layout) orelse LayoutSpecialization{};
+    defer {
+        element_layout.fields = original_element_layout_fields;
+        element_specialization.deinit(allocator);
+    }
     const element_words = @as(usize, element_layout.data_words) + @as(usize, element_layout.pointer_count);
     if (element_words == 0) return error.UnsupportedType;
     const content_words = try std.math.mul(usize, element_words, items.len);
@@ -17433,6 +17690,34 @@ test "schema struct const flats resolve group first-field shorthand" {
     const root = try reader.getRoot();
     const field_layout = findFieldLayoutByName(&layouts.structs[0], "intGroup_i").?;
     try std.testing.expectEqual(@as(u32, 123), root.getUInt32(field_layout.slot.data_byte, 0));
+}
+
+test "schema struct const flats bind generic type parameters" {
+    const source =
+        \\struct Box(T) {
+        \\  item @0 :T;
+        \\  rev @1 :Box(Text);
+        \\}
+        \\struct Payload {
+        \\  value @0 :UInt32;
+        \\}
+        \\const c :Box(Payload) = (item = (value = 7), rev = (item = "hi"));
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[0])).?;
+    defer std.testing.allocator.free(flat);
+    var segments: [1]serialize.ConstSegment = undefined;
+    const view = try serialize.readFlatMessageViewInto(&segments, flat);
+    var reader = message.MessageReader.init(view.segments, .{});
+    const root = try reader.getRoot();
+    const item = try root.getPointerField(0).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 7), item.getUInt32(0, 0));
+    const rev = try root.getPointerField(1).getStruct(null);
+    try std.testing.expectEqualSlices(u8, "hi", try rev.getPointerField(0).getText());
 }
 
 test "schema struct const flats support implied first-field struct literals" {
