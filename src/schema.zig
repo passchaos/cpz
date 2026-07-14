@@ -7816,6 +7816,12 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
         },
         .text => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, true),
         .data => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, false),
+        .list => |child| {
+            const list_start_words = try appendPointerListPointer(allocator, segment, pointer_index, data_words, object_start_words, items.len);
+            for (items, 0..) |item, index| {
+                try appendScalarListPointer(allocator, file, scope, segment, 0, 0, list_start_words + index, child.*, item);
+            }
+        },
         .named => |type_name| {
             if (findEnum(file, type_name)) |enum_decl| {
                 const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
