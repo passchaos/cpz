@@ -7189,6 +7189,40 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\
             , .{ indent, const_name, field.index, field.index, indent, const_name, field.index, const_name, field.index, indent, const_name, field.index, field_name_literal, indent, const_name, field.index, field_literal });
         }
+        try appendFmt(allocator, out,
+            \\{s}pub const {s} = struct {{
+            \\{s}    pub const fieldCount: usize = {};
+            \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.schema".@"cpz.const.{s}.structFields";
+            \\
+        , .{ indent, const_name, indent, fields.len, indent, const_name });
+        for (fields) |field| {
+            const field_name = try zigIdentAlloc(allocator, field.name);
+            defer allocator.free(field_name);
+            const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
+            defer allocator.free(field_literal);
+            try appendFmt(allocator, out,
+                \\{s}    pub const {s}: []const u8 = {s};
+                \\
+            , .{ indent, field_name, field_literal });
+        }
+        try appendFmt(allocator, out,
+            \\{s}    pub fn fieldByIndex(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
+            \\{s}        if (@"cpz.index" >= @This().fields.len) return null;
+            \\{s}        return @This().fields[@"cpz.index"];
+            \\{s}    }}
+            \\
+            \\{s}    pub fn fieldByName(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
+            \\{s}        for (@This().fields) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+            \\{s}        return null;
+            \\{s}    }}
+            \\
+            \\{s}    pub fn fieldByLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
+            \\{s}        for (@This().fields) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
+            \\{s}        return null;
+            \\{s}    }}
+            \\{s}}};
+            \\
+        , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     }
     try out.appendSlice(allocator,
         \\
