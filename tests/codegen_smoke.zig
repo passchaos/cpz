@@ -1747,7 +1747,19 @@ test "generated list root helpers work" {
     try std.testing.expectEqual(generated.Person.size.totalWords(), try generated.Person.@"cpz.builderRoot.listContentWordCount"(&struct_builder, .composite));
     try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesContentBytes"(&struct_builder, .composite, generated.Person.size.totalByteCount()));
     try std.testing.expectEqual(generated.Person.size, try generated.Person.@"cpz.builderRoot.listStructElementSize"(&struct_builder, .composite));
+    try std.testing.expectEqual(generated.Person.size.data_words, try generated.Person.@"cpz.builderRoot.listStructElementDataWordCount"(&struct_builder, .composite));
+    try std.testing.expectEqual(generated.Person.size.pointer_count, try generated.Person.@"cpz.builderRoot.listStructElementPointerCount"(&struct_builder, .composite));
+    try std.testing.expectEqual(generated.Person.size.totalWords(), try generated.Person.@"cpz.builderRoot.listStructElementTotalWords"(&struct_builder, .composite));
+    try std.testing.expectEqual(generated.Person.size.dataByteCount(), try generated.Person.@"cpz.builderRoot.listStructElementDataByteCount"(&struct_builder, .composite));
+    try std.testing.expectEqual(generated.Person.size.pointerByteCount(), try generated.Person.@"cpz.builderRoot.listStructElementPointerByteCount"(&struct_builder, .composite));
+    try std.testing.expectEqual(generated.Person.size.totalByteCount(), try generated.Person.@"cpz.builderRoot.listStructElementTotalByteCount"(&struct_builder, .composite));
     try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesStructElementSize"(&struct_builder, .composite, generated.Person.size));
+    try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesStructElementDataWords"(&struct_builder, .composite, generated.Person.size.data_words));
+    try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesStructElementPointerCount"(&struct_builder, .composite, generated.Person.size.pointer_count));
+    try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesStructElementTotalWords"(&struct_builder, .composite, generated.Person.size.totalWords()));
+    try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesStructElementDataBytes"(&struct_builder, .composite, generated.Person.size.dataByteCount()));
+    try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesStructElementPointerBytes"(&struct_builder, .composite, generated.Person.size.pointerByteCount()));
+    try std.testing.expect(try generated.Person.@"cpz.builderRoot.listMatchesStructElementTotalBytes"(&struct_builder, .composite, generated.Person.size.totalByteCount()));
     var struct_reader = cpz.MessageReader.init(try struct_builder.segmentsConst(), .{});
     const read_people = try generated.Person.@"cpz.root.list"(&struct_reader, .composite);
     const read_person = generated.Person.fromReader(try read_people.getStructElement(0));
@@ -1765,7 +1777,38 @@ test "generated list root helpers work" {
     try std.testing.expectEqual(generated.Person.size.totalWords(), try generated.Person.@"cpz.root.listContentWordCount"(&struct_reader, .composite));
     try std.testing.expect(try generated.Person.@"cpz.root.listMatchesContentBytes"(&struct_reader, .composite, generated.Person.size.totalByteCount()));
     try std.testing.expectEqual(generated.Person.size, try generated.Person.@"cpz.root.listStructElementSize"(&struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.data_words, try generated.Person.@"cpz.root.listStructElementDataWordCount"(&struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.pointer_count, try generated.Person.@"cpz.root.listStructElementPointerCount"(&struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.totalWords(), try generated.Person.@"cpz.root.listStructElementTotalWords"(&struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.dataByteCount(), try generated.Person.@"cpz.root.listStructElementDataByteCount"(&struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.pointerByteCount(), try generated.Person.@"cpz.root.listStructElementPointerByteCount"(&struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.totalByteCount(), try generated.Person.@"cpz.root.listStructElementTotalByteCount"(&struct_reader, .composite));
     try std.testing.expect(try generated.Person.@"cpz.root.listMatchesStructElementSize"(&struct_reader, .composite, generated.Person.size));
+    try std.testing.expect(try generated.Person.@"cpz.root.listMatchesStructElementDataWords"(&struct_reader, .composite, generated.Person.size.data_words));
+    try std.testing.expect(try generated.Person.@"cpz.root.listMatchesStructElementPointerCount"(&struct_reader, .composite, generated.Person.size.pointer_count));
+    try std.testing.expect(try generated.Person.@"cpz.root.listMatchesStructElementTotalWords"(&struct_reader, .composite, generated.Person.size.totalWords()));
+    try std.testing.expect(try generated.Person.@"cpz.root.listMatchesStructElementDataBytes"(&struct_reader, .composite, generated.Person.size.dataByteCount()));
+    try std.testing.expect(try generated.Person.@"cpz.root.listMatchesStructElementPointerBytes"(&struct_reader, .composite, generated.Person.size.pointerByteCount()));
+    try std.testing.expect(try generated.Person.@"cpz.root.listMatchesStructElementTotalBytes"(&struct_reader, .composite, generated.Person.size.totalByteCount()));
+
+    const struct_flat = try generated.Person.@"cpz.builderRoot.toFlatBytes"(&struct_builder);
+    defer std.testing.allocator.free(struct_flat);
+    var owned_struct_reader = try generated.Person.@"cpz.root.fromFlatBytes"(std.testing.allocator, struct_flat, .{});
+    defer owned_struct_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqual(generated.Person.size.data_words, try generated.Person.@"cpz.owned.listStructElementDataWordCount"(&owned_struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.pointer_count, try generated.Person.@"cpz.owned.listStructElementPointerCount"(&owned_struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.totalByteCount(), try generated.Person.@"cpz.owned.listStructElementTotalByteCount"(&owned_struct_reader, .composite));
+    try std.testing.expect(try generated.Person.@"cpz.owned.listMatchesStructElementDataWords"(&owned_struct_reader, .composite, generated.Person.size.data_words));
+    try std.testing.expect(try generated.Person.@"cpz.owned.listMatchesStructElementPointerBytes"(&owned_struct_reader, .composite, generated.Person.size.pointerByteCount()));
+    try std.testing.expect(try generated.Person.@"cpz.owned.listMatchesStructElementTotalBytes"(&owned_struct_reader, .composite, generated.Person.size.totalByteCount()));
+    var viewed_struct_reader = try generated.Person.@"cpz.root.viewFlatBytes"(std.testing.allocator, struct_flat, .{});
+    defer viewed_struct_reader.deinit(std.testing.allocator);
+    try std.testing.expectEqual(generated.Person.size.data_words, try generated.Person.@"cpz.view.listStructElementDataWordCount"(&viewed_struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.pointer_count, try generated.Person.@"cpz.view.listStructElementPointerCount"(&viewed_struct_reader, .composite));
+    try std.testing.expectEqual(generated.Person.size.totalByteCount(), try generated.Person.@"cpz.view.listStructElementTotalByteCount"(&viewed_struct_reader, .composite));
+    try std.testing.expect(try generated.Person.@"cpz.view.listMatchesStructElementDataWords"(&viewed_struct_reader, .composite, generated.Person.size.data_words));
+    try std.testing.expect(try generated.Person.@"cpz.view.listMatchesStructElementPointerBytes"(&viewed_struct_reader, .composite, generated.Person.size.pointerByteCount()));
+    try std.testing.expect(try generated.Person.@"cpz.view.listMatchesStructElementTotalBytes"(&viewed_struct_reader, .composite, generated.Person.size.totalByteCount()));
 }
 
 test "generated root move and copy helpers work" {
