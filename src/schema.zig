@@ -7412,17 +7412,28 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
                 else => return null,
             },
             .data_byte => |byte_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .uint8 => {
+                    const value = parseUnsignedLiteral(u8, const_field.literal) orelse return null;
+                    const default_value = parseUnsignedLiteral(u8, field.default_literal orelse "0") orelse return null;
+                    segment.items[@sizeOf(u64) + byte_offset] = value ^ default_value;
+                },
                 .uint16 => {
-                    const value = parseU16Literal(const_field.literal) orelse return null;
-                    const default_value = parseU16Literal(field.default_literal orelse "0") orelse return null;
+                    const value = parseUnsignedLiteral(u16, const_field.literal) orelse return null;
+                    const default_value = parseUnsignedLiteral(u16, field.default_literal orelse "0") orelse return null;
                     const stored: u16 = value ^ default_value;
                     std.mem.writeInt(u16, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
                 .uint32 => {
-                    const value = parseU32Literal(const_field.literal) orelse return null;
-                    const default_value = parseU32Literal(field.default_literal orelse "0") orelse return null;
-                    const stored: u32 = @as(u32, @intCast(value)) ^ default_value;
+                    const value = parseUnsignedLiteral(u32, const_field.literal) orelse return null;
+                    const default_value = parseUnsignedLiteral(u32, field.default_literal orelse "0") orelse return null;
+                    const stored: u32 = value ^ default_value;
                     std.mem.writeInt(u32, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                },
+                .uint64 => {
+                    const value = parseUnsignedLiteral(u64, const_field.literal) orelse return null;
+                    const default_value = parseUnsignedLiteral(u64, field.default_literal orelse "0") orelse return null;
+                    const stored: u64 = value ^ default_value;
+                    std.mem.writeInt(u64, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
                 .named => |field_type_name| {
                     const enum_decl = findEnum(file, field_type_name) orelse return null;
@@ -7481,19 +7492,11 @@ fn appendByteListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u
     writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
 }
 
-fn parseU16Literal(raw_literal: []const u8) ?u16 {
+fn parseUnsignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
     const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
     if (raw.len == 0 or raw[0] == '.') return null;
     const value = parseInteger(raw) catch return null;
-    if (value > std.math.maxInt(u16)) return null;
-    return @intCast(value);
-}
-
-fn parseU32Literal(raw_literal: []const u8) ?u32 {
-    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
-    if (raw.len == 0 or raw[0] == '.') return null;
-    const value = parseInteger(raw) catch return null;
-    if (value > std.math.maxInt(u32)) return null;
+    if (value > std.math.maxInt(T)) return null;
     return @intCast(value);
 }
 
@@ -15707,6 +15710,29 @@ test "schema code generator supports custom runtime import names" {
     });
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
+}
+
+test "schema struct const flat emission supports wider unsigned integers" {
+    const source =
+        \\const raw :Sample = (small = 7, big = 99);
+        \\struct Sample {
+        \\  small @0 :UInt8 = 1;
+        \\  big @1 :UInt64 = 5;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[0])).?;
+    defer std.testing.allocator.free(flat);
+    var view_segments: [1]serialize.ConstSegment = undefined;
+    const view = try serialize.readFlatMessageViewInto(&view_segments, flat);
+    var reader = message.MessageReader.init(view.segments, .{});
+    const root = try reader.getRoot();
+    try std.testing.expectEqual(@as(u8, 7), root.getUInt8(0, 1));
+    try std.testing.expectEqual(@as(u64, 99), root.getUInt64(8, 5));
 }
 
 test "schema code generator converts C-style escaped string defaults to Zig literals" {
