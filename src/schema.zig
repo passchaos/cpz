@@ -7239,6 +7239,11 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             defer allocator.free(flat_bytes);
             const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
             defer allocator.free(flat_literal);
+            const struct_name_from_const_type = try zigTypeRefAlloc(allocator, file, switch (resolveTypeScoped(file, scope, decl.ty)) {
+                .named => |name| name,
+                else => unreachable,
+            });
+            defer allocator.free(struct_name_from_const_type);
             try appendFmt(allocator, out,
                 \\{s}    pub const flatBytes: []const u8 = {s};
                 \\{s}    pub const segment0: []const u8 = flatBytes[8..];
@@ -7252,12 +7257,16 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\{s}        return message_reader.getRoot();
                 \\{s}    }}
                 \\
+                \\{s}    pub fn typedRoot(message_reader: *cpz.MessageReader) !{s} {{
+                \\{s}        return {s}.fromReader(try root(message_reader));
+                \\{s}    }}
+                \\
                 \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
                 \\{s}        var @"cpz.reader" = reader(options);
                 \\{s}        return @"cpz.reader".validate();
                 \\{s}    }}
                 \\
-            , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+            , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, struct_name_from_const_type, indent, struct_name_from_const_type, indent, indent, indent, indent, indent });
         }
         for (fields) |field| {
             const field_name = try zigIdentAlloc(allocator, field.name);

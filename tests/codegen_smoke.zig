@@ -562,6 +562,13 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 1), generated.globalRawPerson.segments.len);
     var raw_person_reader = generated.globalRawPerson.reader(.{});
     const raw_person_root = try generated.globalRawPerson.root(&raw_person_reader);
+    var raw_person_typed_reader = generated.globalRawPerson.reader(.{});
+    const raw_person_typed = try generated.globalRawPerson.typedRoot(&raw_person_typed_reader);
+    try std.testing.expectEqual(@as(u32, 9), raw_person_typed.id());
+    try std.testing.expectEqual(false, raw_person_typed.active());
+    try std.testing.expectEqual(generated.Color.red, try raw_person_typed.favorite());
+    try std.testing.expectEqualSlices(u8, "raw", try raw_person_typed.name());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xca, 0xfe }, try raw_person_typed.defaultPayload());
     try std.testing.expectEqual(generated.Person.size, raw_person_root.size());
     try std.testing.expectEqual(@as(u32, 9), raw_person_root.getUInt32(0, 42));
     try std.testing.expectEqual(false, raw_person_root.getBool(32, true));
