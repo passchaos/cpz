@@ -7999,7 +7999,7 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
 fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, fields: []const ConstStructField, segment: *std.ArrayList(u8), object_start_words: usize) LayoutError!void {
     const object_start_bytes = object_start_words * @sizeOf(u64);
     for (fields) |const_field| {
-        const field_layout = findFieldLayoutByName(layout, const_field.name) orelse return error.UnsupportedType;
+        const field_layout = findFieldLayoutByNameOrGroupFirst(layout, const_field.name) orelse return error.UnsupportedType;
         const field = field_layout.field;
         const const_literal = resolveScalarConstLiteral(file, layout.decl, const_field.literal);
         const default_literal = if (field.default_literal) |literal| resolveScalarConstLiteral(file, layout.decl, literal) else null;
@@ -8112,6 +8112,19 @@ fn structLiteralObjectBytesAlloc(allocator: std.mem.Allocator, file: *const File
 fn findFieldLayoutByName(layout: *const StructLayout, name: []const u8) ?FieldLayout {
     for (layout.fields) |field_layout| {
         if (std.mem.eql(u8, field_layout.field.name, name)) return field_layout;
+    }
+    return null;
+}
+
+fn findFieldLayoutByNameOrGroupFirst(layout: *const StructLayout, name: []const u8) ?FieldLayout {
+    if (findFieldLayoutByName(layout, name)) |field_layout| return field_layout;
+    for (layout.fields) |field_layout| {
+        if (field_layout.field.name.len > name.len + 1 and
+            std.mem.startsWith(u8, field_layout.field.name, name) and
+            field_layout.field.name[name.len] == '_')
+        {
+            return field_layout;
+        }
     }
     return null;
 }
@@ -17367,6 +17380,31 @@ test "schema struct const flat emission supports wider integers and floats" {
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
     try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
+}
+
+test "schema struct const flats resolve group first-field shorthand" {
+    const source =
+        \\struct Holder {
+        \\  intGroup :group {
+        \\    i @0 :UInt32;
+        \\    label @1 :Text = "default";
+        \\  }
+        \\}
+        \\const value :Holder = (intGroup = 123);
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[0])).?;
+    defer std.testing.allocator.free(flat);
+    var segments: [1]serialize.ConstSegment = undefined;
+    const view = try serialize.readFlatMessageViewInto(&segments, flat);
+    var reader = message.MessageReader.init(view.segments, .{});
+    const root = try reader.getRoot();
+    const field_layout = findFieldLayoutByName(&layouts.structs[0], "intGroup_i").?;
+    try std.testing.expectEqual(@as(u32, 123), root.getUInt32(field_layout.slot.data_byte, 0));
 }
 
 test "schema struct const flats support implied first-field struct literals" {
