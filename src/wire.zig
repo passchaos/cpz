@@ -451,6 +451,18 @@ pub const CapabilityPointer = struct {
         return self.index;
     }
 
+    pub fn hasIndex(self: CapabilityPointer) bool {
+        return self.index != 0;
+    }
+
+    pub fn maxCapabilityCount(self: CapabilityPointer) usize {
+        return @as(usize, self.index) + 1;
+    }
+
+    pub fn matchesMaxCapabilityCount(self: CapabilityPointer, count: usize) bool {
+        return self.maxCapabilityCount() == count;
+    }
+
     pub fn matchesIndex(self: CapabilityPointer, index: u32) bool {
         return self.index == index;
     }
@@ -945,9 +957,16 @@ test "wire signed offsets and far/capability pointers" {
     try testing.expect(decoded_cap.isNear());
     try testing.expectEqual(@as(u32, 1234), decoded_cap.asCapability().?.index);
     try testing.expectEqual(@as(u32, 1234), decoded_cap.asOther().?.index);
+    try testing.expect(decoded_cap.asCapability().?.hasIndex());
+    try testing.expectEqual(@as(usize, 1235), decoded_cap.asCapability().?.maxCapabilityCount());
+    try testing.expect(decoded_cap.asCapability().?.matchesMaxCapabilityCount(1235));
+    try testing.expect(!decoded_cap.asCapability().?.matchesMaxCapabilityCount(1234));
     try testing.expect(decoded_cap.asFar() == null);
     const cap = try decodeOther(cap_raw);
     try testing.expectEqual(@as(u32, 1234), cap.index);
     try testing.expectEqual(@as(u32, 1234), cap.capabilityIndex());
+    try testing.expect(cap.hasIndex());
+    try testing.expectEqual(@as(usize, 1235), cap.maxCapabilityCount());
     try testing.expect(cap.matchesIndex(1234));
+    try testing.expect(!cap.matchesIndex(1235));
 }
