@@ -2,7 +2,7 @@ const std = @import("std");
 const generated = @import("generated_method_defaults_schema");
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 3), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -75,4 +75,43 @@ test "generated method default flats resolve interface scoped aliases and const 
 
     var result_mode_reader = generated.Defaults.@"cpz.method.scoped.results.field.resultMode.defaultFlat".reader(.{});
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.Defaults.@"cpz.method.scoped.results.field.resultMode.defaultFlat".get(&result_mode_reader));
+}
+
+test "generated method default flats expose typed list getters" {
+    try std.testing.expectEqualStrings("lists", generated.Defaults.@"cpz.methodByName"("lists").?.name);
+    try std.testing.expectEqual(@as(usize, 6), generated.Defaults.@"cpz.method.lists.params.fieldCount");
+
+    var numbers_reader = generated.Defaults.@"cpz.method.lists.params.field.numbers.defaultFlat".reader(.{});
+    const numbers = try generated.Defaults.@"cpz.method.lists.params.field.numbers.defaultFlat".list(&numbers_reader);
+    try std.testing.expectEqual(@as(usize, 2), numbers.len());
+    try std.testing.expectEqual(@as(u16, 7), try generated.Defaults.@"cpz.method.lists.params.field.numbers.defaultFlat".get(&numbers_reader, 0));
+    try std.testing.expectEqual(@as(u16, 8), try generated.Defaults.@"cpz.method.lists.params.field.numbers.defaultFlat".get(&numbers_reader, 1));
+
+    var labels_reader = generated.Defaults.@"cpz.method.lists.params.field.labels.defaultFlat".reader(.{});
+    try std.testing.expectEqualStrings("alpha", try generated.Defaults.@"cpz.method.lists.params.field.labels.defaultFlat".get(&labels_reader, 0));
+    try std.testing.expectEqualStrings("beta", try generated.Defaults.@"cpz.method.lists.params.field.labels.defaultFlat".get(&labels_reader, 1));
+
+    var payloads_reader = generated.Defaults.@"cpz.method.lists.params.field.payloads.defaultFlat".reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0c, 0x0d }, try generated.Defaults.@"cpz.method.lists.params.field.payloads.defaultFlat".get(&payloads_reader, 0));
+    try std.testing.expectEqualStrings("raw", try generated.Defaults.@"cpz.method.lists.params.field.payloads.defaultFlat".get(&payloads_reader, 1));
+
+    var modes_reader = generated.Defaults.@"cpz.method.lists.params.field.modes.defaultFlat".reader(.{});
+    try std.testing.expectEqual(@as(u16, 0), try generated.Defaults.@"cpz.method.lists.params.field.modes.defaultFlat".getRaw(&modes_reader, 0));
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.Defaults.@"cpz.method.lists.params.field.modes.defaultFlat".get(&modes_reader, 1));
+
+    var groups_reader = generated.Defaults.@"cpz.method.lists.params.field.groups.defaultFlat".reader(.{});
+    const group0 = try generated.Defaults.@"cpz.method.lists.params.field.groups.defaultFlat".get(&groups_reader, 0, .two_bytes);
+    try std.testing.expectEqual(@as(usize, 2), group0.len());
+    try std.testing.expectEqual(@as(u16, 1), group0.getUInt16(0));
+    const group1 = try generated.Defaults.@"cpz.method.lists.params.field.groups.defaultFlat".get(&groups_reader, 1, .two_bytes);
+    try std.testing.expectEqual(@as(usize, 1), group1.len());
+    try std.testing.expectEqual(@as(u16, 3), group1.getUInt16(0));
+
+    var items_reader = generated.Defaults.@"cpz.method.lists.params.field.items.defaultFlat".reader(.{});
+    const item0 = try generated.Defaults.@"cpz.method.lists.params.field.items.defaultFlat".get(&items_reader, 0);
+    try std.testing.expectEqual(@as(u32, 10), item0.value());
+    try std.testing.expectEqualStrings("ten", try item0.label());
+    const item1 = try generated.Defaults.@"cpz.method.lists.params.field.items.defaultFlat".get(&items_reader, 1);
+    try std.testing.expectEqual(@as(u32, 20), item1.value());
+    try std.testing.expectEqualStrings("twenty", try item1.label());
 }

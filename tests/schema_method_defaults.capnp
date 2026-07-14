@@ -13,6 +13,18 @@ interface Defaults {
   const defaultLocalMode :ModeAlias = running;
   const defaultLabel :Text = "local";
   const defaultPayload :Data = 0x"0a 0b";
+  const defaultNumbers :List(UInt16) = [7, 8];
+  const defaultLabels :List(Text) = ["alpha", "beta"];
+  const defaultPayloads :List(Data) = [0x"0c 0d", "raw"];
+  const defaultModes :List(ModeAlias) = [stopped, running];
+  const defaultGroups :List(List(UInt16)) = [[1, 2], [3]];
+
+  struct Item {
+    value @0 :UInt32;
+    label @1 :Text;
+  }
+
+  const defaultItems :List(Item) = [(value = 10, label = "ten"), (value = 20, label = "twenty")];
 
   scalars @0 (
     v :Void = void,
@@ -37,4 +49,13 @@ interface Defaults {
     label :Text = defaultLabel,
     payload :Data = defaultPayload
   ) -> (resultMode :ModeAlias = defaultLocalMode);
+
+  lists @2 (
+    numbers :List(UInt16) = defaultNumbers,
+    labels :List(Text) = defaultLabels,
+    payloads :List(Data) = defaultPayloads,
+    modes :List(ModeAlias) = defaultModes,
+    groups :List(List(UInt16)) = defaultGroups,
+    items :List(Item) = defaultItems
+  ) -> ();
 }

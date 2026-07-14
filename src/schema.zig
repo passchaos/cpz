@@ -5895,6 +5895,244 @@ fn emitMethodScalarDefaultGet(allocator: std.mem.Allocator, out: *std.ArrayList(
     , .{ indent, zig_type, indent, get_method, indent });
 }
 
+fn methodListDefaultItemsAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, default_literal: []const u8) LayoutError![]ConstListItem {
+    return constListItemsFromInlineLiteralAlloc(allocator, resolveConstReferenceLiteral(file, scope, default_literal));
+}
+
+fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, child: Type, default_literal: []const u8) LayoutError![]u8 {
+    const resolved_literal = resolveConstReferenceLiteral(file, scope, default_literal);
+    switch (resolveTypeScoped(file, scope, child)) {
+        .void => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listVoidFlatBytesAlloc(allocator, file, scope, items);
+        },
+        .bool => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listBoolFlatBytesAlloc(allocator, file, scope, items);
+        },
+        .int8 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listSignedFlatBytesAlloc(i8, u8, allocator, file, scope, items, .byte);
+        },
+        .int16 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listSignedFlatBytesAlloc(i16, u16, allocator, file, scope, items, .two_bytes);
+        },
+        .int32 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listSignedFlatBytesAlloc(i32, u32, allocator, file, scope, items, .four_bytes);
+        },
+        .int64 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listSignedFlatBytesAlloc(i64, u64, allocator, file, scope, items, .eight_bytes);
+        },
+        .uint8 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listUnsignedFlatBytesAlloc(u8, allocator, file, scope, items, .byte);
+        },
+        .uint16 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listUnsignedFlatBytesAlloc(u16, allocator, file, scope, items, .two_bytes);
+        },
+        .uint32 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listUnsignedFlatBytesAlloc(u32, allocator, file, scope, items, .four_bytes);
+        },
+        .uint64 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listUnsignedFlatBytesAlloc(u64, allocator, file, scope, items, .eight_bytes);
+        },
+        .float32 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listFloatFlatBytesAlloc(f32, u32, allocator, file, scope, items, .four_bytes);
+        },
+        .float64 => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listFloatFlatBytesAlloc(f64, u64, allocator, file, scope, items, .eight_bytes);
+        },
+        .text => return listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, true),
+        .data => return listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, false),
+        .list => return listNestedFieldDefaultFlatBytesAlloc(allocator, file, scope, child, resolved_literal),
+        .named => |type_name| {
+            if (findEnum(file, type_name)) |enum_decl| {
+                const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+                defer allocator.free(items);
+                return listEnumFlatBytesAlloc(allocator, file, scope, enum_decl, items);
+            }
+            if (findStructDirect(file, type_name) != null) return listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolved_literal);
+            return error.UnsupportedType;
+        },
+        else => return error.UnsupportedType,
+    }
+}
+
+fn emitMethodListDefaultList(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, element_size_literal: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+        \\{s}        return message_reader.getRootList({s});
+        \\{s}    }}
+        \\
+    , .{ indent, indent, element_size_literal, indent });
+}
+
+fn emitMethodListDefaultScalarGet(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, zig_type: []const u8, get_method: ?[]const u8) LayoutError!void {
+    if (get_method) |method| {
+        try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
+            \\{s}        const @"cpz.list" = try @This().list(message_reader);
+            \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+            \\{s}        return @"cpz.list".{s}(index);
+            \\{s}    }}
+            \\
+        , .{ indent, zig_type, indent, indent, indent, method, indent });
+    } else {
+        try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !void {{
+            \\{s}        const @"cpz.list" = try @This().list(message_reader);
+            \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+            \\{s}        return {{}};
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent, indent, indent });
+    }
+}
+
+fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, child: Type) LayoutError!void {
+    switch (resolveTypeScoped(file, scope, child)) {
+        .void => {
+            try emitMethodListDefaultList(allocator, out, indent, ".void");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "void", null);
+        },
+        .bool => {
+            try emitMethodListDefaultList(allocator, out, indent, ".bit");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "bool", "getBool");
+        },
+        .int8 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".byte");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "i8", "getInt8");
+        },
+        .int16 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".two_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "i16", "getInt16");
+        },
+        .int32 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".four_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "i32", "getInt32");
+        },
+        .int64 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".eight_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "i64", "getInt64");
+        },
+        .uint8 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".byte");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "u8", "getUInt8");
+        },
+        .uint16 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".two_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "u16", "getUInt16");
+        },
+        .uint32 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".four_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "u32", "getUInt32");
+        },
+        .uint64 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".eight_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "u64", "getUInt64");
+        },
+        .float32 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".four_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "f32", "getFloat32");
+        },
+        .float64 => {
+            try emitMethodListDefaultList(allocator, out, indent, ".eight_bytes");
+            try emitMethodListDefaultScalarGet(allocator, out, indent, "f64", "getFloat64");
+        },
+        .text => {
+            try emitMethodListDefaultList(allocator, out, indent, ".pointer");
+            try appendFmt(allocator, out,
+                \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) ![]const u8 {{
+                \\{s}        const @"cpz.list" = try @This().list(message_reader);
+                \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+                \\{s}        return (try @"cpz.list".getPointerElement(index)).{s}();
+                \\{s}    }}
+                \\
+                \\{s}    pub fn getByteCount(message_reader: *cpz.MessageReader, index: usize) !usize {{
+                \\{s}        return (try @This().get(message_reader, index)).len;
+                \\{s}    }}
+                \\
+            , .{ indent, indent, indent, indent, "getText", indent, indent, indent, indent });
+        },
+        .data => {
+            try emitMethodListDefaultList(allocator, out, indent, ".pointer");
+            try appendFmt(allocator, out,
+                \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) ![]const u8 {{
+                \\{s}        const @"cpz.list" = try @This().list(message_reader);
+                \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+                \\{s}        return (try @"cpz.list".getPointerElement(index)).{s}();
+                \\{s}    }}
+                \\
+                \\{s}    pub fn getByteCount(message_reader: *cpz.MessageReader, index: usize) !usize {{
+                \\{s}        return (try @This().get(message_reader, index)).len;
+                \\{s}    }}
+                \\
+            , .{ indent, indent, indent, indent, "getData", indent, indent, indent, indent });
+        },
+        .list => {
+            try emitMethodListDefaultList(allocator, out, indent, ".pointer");
+            try appendFmt(allocator, out,
+                \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
+                \\{s}        const @"cpz.list" = try @This().list(message_reader);
+                \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+                \\{s}        return (try @"cpz.list".getPointerElement(index)).getList(expected);
+                \\{s}    }}
+                \\
+            , .{ indent, indent, indent, indent, indent });
+        },
+        .named => |type_name| {
+            if (findEnum(file, type_name) != null) {
+                try emitMethodListDefaultList(allocator, out, indent, ".two_bytes");
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader, index: usize) !u16 {{
+                    \\{s}        const @"cpz.list" = try @This().list(message_reader);
+                    \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
+                    \\{s}        return @"cpz.list".getUInt16(index);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
+                    \\{s}        return std.enums.fromInt({s}, try @This().getRaw(message_reader, index)) orelse error.InvalidEnumValue;
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+            } else if (findStructDirect(file, type_name) != null) {
+                try emitMethodListDefaultList(allocator, out, indent, ".composite");
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
+                    \\{s}        return {s}.fromReader(try (try @This().list(message_reader)).getStructElement(index));
+                    \\{s}    }}
+                    \\
+                , .{ indent, zig_type, indent, zig_type, indent });
+            }
+        },
+        else => {},
+    }
+}
+
 fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, method_name: []const u8, kind: []const u8, field: MethodField, indent: []const u8) LayoutError!void {
     const default_literal = field.default_literal orelse return;
     const field_name = try zigIdentAlloc(allocator, field.name);
@@ -5920,6 +6158,10 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
             const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, default_literal, false)) orelse try inlineDataBytesAlloc(allocator, default_literal);
             defer allocator.free(bytes);
             break :blk try blobFieldDefaultFlatBytesAlloc(allocator, bytes, false);
+        },
+        .list => |child| methodListDefaultFlatBytesAlloc(allocator, file, scope, child.*, default_literal) catch |err| switch (err) {
+            error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
+            else => return err,
         },
         else => return,
     };
@@ -5988,6 +6230,7 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
                 \\
             , .{ indent, indent, indent, indent, zig_type, indent, zig_type, indent });
         },
+        .list => |child| try emitMethodListDefaultGetters(allocator, out, file, scope, indent, child.*),
         else => {},
     }
     try emitFlatContainerSizeHelpers(allocator, out, indent);
