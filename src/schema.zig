@@ -6465,6 +6465,11 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.constByEmbedByteCount"(@"cpz.count": usize) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (@"cpz.const".is_embed and @"cpz.const".embed_byte_count == @"cpz.count") return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.constByStructLiteral"(@"cpz.isStruct": bool) ?cpz.schema.ConstMetadata {{
         \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (@"cpz.const".is_struct_literal == @"cpz.isStruct") return @"cpz.const";
         \\{s}    return null;
@@ -6490,7 +6495,7 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\{s}    return @This().@"cpz.consts"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     if (consts.len != 0) try out.append(allocator, '\n');
 }
 

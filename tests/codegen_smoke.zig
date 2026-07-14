@@ -533,6 +533,8 @@ test "generated simple constants compile" {
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".matchesEmbedPath("fixtures/raw.bin"));
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".hasEmbedBytes());
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".matchesEmbedByteCount(4));
+    try std.testing.expect(generated.@"cpz.consts"[12].matchesEmbedByteCount(4));
+    try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.constByEmbedByteCount"(4).?.name);
     try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.constByEmbed"(true).?.name);
     try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.constByEmbedPath"("fixtures/raw.bin").?.name);
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.emitted");
@@ -546,6 +548,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, "embedded text\n".len), generated.@"cpz.const.globalEmbeddedText.embedByteCount");
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedText.metadata".hasEmbedBytes());
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedText.metadata".matchesEmbedByteCount("embedded text\n".len));
+    try std.testing.expectEqualStrings("globalEmbeddedText", generated.@"cpz.constByEmbedByteCount"("embedded text\n".len).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByEmbedByteCount"(999));
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedText.emitted");
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
