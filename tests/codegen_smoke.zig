@@ -3269,6 +3269,16 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(5));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(6));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(7));
+    try std.testing.expectEqual(cpz.StructSize{ .data_words = 1, .pointer_count = 0 }, try any_items.elementStructSize(3));
+    try std.testing.expectEqual(@as(u16, 1), try any_items.elementStructDataWordCount(3));
+    try std.testing.expectEqual(@as(u16, 0), try any_items.elementStructPointerCount(3));
+    try std.testing.expectEqual(@as(usize, 1), try any_items.elementStructTotalWords(3));
+    try std.testing.expectEqual(@as(usize, 8), try any_items.elementStructTotalByteCount(3));
+    try std.testing.expect(try any_items.elementStructMatchesSize(3, .{ .data_words = 1, .pointer_count = 0 }));
+    try std.testing.expect(try any_items.elementStructMatchesDataWords(3, 1));
+    try std.testing.expect(try any_items.elementStructMatchesPointerCount(3, 0));
+    try std.testing.expect(try any_items.elementStructMatchesTotalWords(3, 1));
+    try std.testing.expect(try any_items.elementStructMatchesTotalBytes(3, 8));
 
     const any_struct_items = try box_builder.init_anyStructItems(1);
     const any_struct_item = try any_struct_items.init(0, .{ .data_words = 1, .pointer_count = 1 });
@@ -3289,6 +3299,16 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, "dynamic", try (try (try any_struct_items.pointerSection(0)).getPointerElement(0)).getText());
     var any_struct_items_reader = try builder.asReader(.{});
     const read_any_struct_items = (try generated.DynamicBox.fromReader(try any_struct_items_reader.getRoot()).anyStructItems());
+    try std.testing.expectEqual(cpz.StructSize{ .data_words = 1, .pointer_count = 1 }, try read_any_struct_items.elementStructSize(0));
+    try std.testing.expectEqual(@as(u16, 1), try read_any_struct_items.elementStructDataWordCount(0));
+    try std.testing.expectEqual(@as(u16, 1), try read_any_struct_items.elementStructPointerCount(0));
+    try std.testing.expectEqual(@as(usize, 2), try read_any_struct_items.elementStructTotalWords(0));
+    try std.testing.expectEqual(@as(usize, 16), try read_any_struct_items.elementStructTotalByteCount(0));
+    try std.testing.expect(try read_any_struct_items.elementStructMatchesSize(0, .{ .data_words = 1, .pointer_count = 1 }));
+    try std.testing.expect(try read_any_struct_items.elementStructMatchesDataWords(0, 1));
+    try std.testing.expect(try read_any_struct_items.elementStructMatchesPointerCount(0, 1));
+    try std.testing.expect(try read_any_struct_items.elementStructMatchesTotalWords(0, 2));
+    try std.testing.expect(try read_any_struct_items.elementStructMatchesTotalBytes(0, 16));
     try std.testing.expectEqual(@as(u8, 0xad), (try read_any_struct_items.dataSection(0))[0]);
     try std.testing.expectEqualSlices(u8, "dynamic", try (try (try read_any_struct_items.pointerSection(0)).getPointerElement(0)).getText());
 

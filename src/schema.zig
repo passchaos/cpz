@@ -11167,6 +11167,54 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getStruct(null);
         \\        }}
         \\
+        \\        pub fn elementStructSize(self: @This(), index: usize) !cpz.StructSize {{
+        \\            return (try self.list.getPointerElement(index)).getStructSize();
+        \\        }}
+        \\
+        \\        pub fn elementStructDataWordCount(self: @This(), index: usize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getStructDataWordCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructPointerCount(self: @This(), index: usize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getStructPointerCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructTotalWords(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructTotalWords();
+        \\        }}
+        \\
+        \\        pub fn elementStructDataByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructPointerByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructPointerByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructTotalByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructTotalByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesSize(self: @This(), index: usize, expected: cpz.StructSize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesSize(expected);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesDataWords(self: @This(), index: usize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesDataWords(count);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesPointerCount(self: @This(), index: usize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesPointerCount(count);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesTotalWords(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalWords(count);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesTotalBytes(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalBytes(count);
+        \\        }}
+        \\
         \\        pub fn elementAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
         \\            return (try self.list.getPointerElement(index)).getList(expected);
         \\        }}
@@ -11330,6 +11378,54 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\
         \\        pub fn elementAsStruct(self: @This(), index: usize) !cpz.StructBuilder {{
         \\            return (try self.list.getPointerElement(index)).getStruct();
+        \\        }}
+        \\
+        \\        pub fn elementStructSize(self: @This(), index: usize) !cpz.StructSize {{
+        \\            return (try self.list.getPointerElement(index)).getStructSize();
+        \\        }}
+        \\
+        \\        pub fn elementStructDataWordCount(self: @This(), index: usize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getStructDataWordCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructPointerCount(self: @This(), index: usize) !u16 {{
+        \\            return (try self.list.getPointerElement(index)).getStructPointerCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructTotalWords(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructTotalWords();
+        \\        }}
+        \\
+        \\        pub fn elementStructDataByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructPointerByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructPointerByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructTotalByteCount(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).getStructTotalByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesSize(self: @This(), index: usize, expected: cpz.StructSize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesSize(expected);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesDataWords(self: @This(), index: usize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesDataWords(count);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesPointerCount(self: @This(), index: usize, count: u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesPointerCount(count);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesTotalWords(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalWords(count);
+        \\        }}
+        \\
+        \\        pub fn elementStructMatchesTotalBytes(self: @This(), index: usize, count: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalBytes(count);
         \\        }}
         \\
         \\        pub fn elementAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListBuilder {{
