@@ -9394,6 +9394,69 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\
     , .{index});
     try appendFmt(allocator, out,
+        \\    pub fn {s}StructSize(self: @This()) !cpz.StructSize {{
+        \\        return (try self.{s}AsPointer()).getStructSize();
+        \\    }}
+        \\
+        \\    pub fn {s}StructDataWordCount(self: @This()) !u16 {{
+        \\        return (try self.{s}AsPointer()).getStructDataWordCount();
+        \\    }}
+        \\
+        \\    pub fn {s}StructPointerCount(self: @This()) !u16 {{
+        \\        return (try self.{s}AsPointer()).getStructPointerCount();
+        \\    }}
+        \\
+        \\    pub fn {s}StructTotalWords(self: @This()) !usize {{
+        \\        return (try self.{s}AsPointer()).getStructTotalWords();
+        \\    }}
+        \\
+        \\    pub fn {s}StructDataByteCount(self: @This()) !usize {{
+        \\        return (try self.{s}AsPointer()).getStructDataByteCount();
+        \\    }}
+        \\
+        \\    pub fn {s}StructPointerByteCount(self: @This()) !usize {{
+        \\        return (try self.{s}AsPointer()).getStructPointerByteCount();
+        \\    }}
+        \\
+        \\    pub fn {s}StructTotalByteCount(self: @This()) !usize {{
+        \\        return (try self.{s}AsPointer()).getStructTotalByteCount();
+        \\    }}
+        \\
+        \\    pub fn {s}StructMatchesSize(self: @This(), expected: cpz.StructSize) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesSize(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}StructMatchesDataWords(self: @This(), count: u16) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesDataWords(count);
+        \\    }}
+        \\
+        \\    pub fn {s}StructMatchesPointerCount(self: @This(), count: u16) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesPointerCount(count);
+        \\    }}
+        \\
+        \\    pub fn {s}StructMatchesTotalWords(self: @This(), count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesTotalWords(count);
+        \\    }}
+        \\
+        \\    pub fn {s}StructMatchesTotalBytes(self: @This(), count: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesTotalBytes(count);
+        \\    }}
+        \\
+    , .{
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
+    try appendFmt(allocator, out,
         \\    pub fn {s}ListLen(self: @This(), expected: ?cpz.ElementSize) !usize {{
         \\        return (try self.{s}AsPointer()).getListLen(expected);
         \\    }}
@@ -11715,6 +11778,69 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\        }}
         \\
     , .{index});
+    try appendFmt(allocator, out,
+        \\        pub fn get_{s}StructSize(self: Builder) !cpz.StructSize {{
+        \\            return (try self.get_{s}AsPointer()).getStructSize();
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructDataWordCount(self: Builder) !u16 {{
+        \\            return (try self.get_{s}AsPointer()).getStructDataWordCount();
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructPointerCount(self: Builder) !u16 {{
+        \\            return (try self.get_{s}AsPointer()).getStructPointerCount();
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructTotalWords(self: Builder) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getStructTotalWords();
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructDataByteCount(self: Builder) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getStructDataByteCount();
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructPointerByteCount(self: Builder) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getStructPointerByteCount();
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructTotalByteCount(self: Builder) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getStructTotalByteCount();
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructMatchesSize(self: Builder, expected: cpz.StructSize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesSize(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructMatchesDataWords(self: Builder, count: u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesDataWords(count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructMatchesPointerCount(self: Builder, count: u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesPointerCount(count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructMatchesTotalWords(self: Builder, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesTotalWords(count);
+        \\        }}
+        \\
+        \\        pub fn get_{s}StructMatchesTotalBytes(self: Builder, count: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesTotalBytes(count);
+        \\        }}
+        \\
+    , .{
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
     try appendFmt(allocator, out,
         \\        pub fn get_{s}ListLen(self: Builder, expected: ?cpz.ElementSize) !usize {{
         \\            return (try self.get_{s}AsPointer()).getListLen(expected);
