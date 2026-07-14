@@ -490,16 +490,44 @@ pub const OwnedMessageReader = struct {
         return self.reader.traversalLimitWords();
     }
 
+    pub fn traversalLimitBytes(self: *const OwnedMessageReader) usize {
+        return self.reader.traversalLimitBytes();
+    }
+
+    pub fn matchesTraversalLimitWords(self: *const OwnedMessageReader, count: usize) bool {
+        return self.reader.matchesTraversalLimitWords(count);
+    }
+
+    pub fn matchesTraversalLimitBytes(self: *const OwnedMessageReader, count: usize) bool {
+        return self.reader.matchesTraversalLimitBytes(count);
+    }
+
     pub fn traversalRemainingWords(self: *const OwnedMessageReader) usize {
         return self.reader.traversalRemainingWords();
+    }
+
+    pub fn traversalRemainingBytes(self: *const OwnedMessageReader) usize {
+        return self.reader.traversalRemainingBytes();
     }
 
     pub fn nestingLimit(self: *const OwnedMessageReader) u16 {
         return self.reader.nestingLimit();
     }
 
+    pub fn matchesNestingLimit(self: *const OwnedMessageReader, count: u16) bool {
+        return self.reader.matchesNestingLimit(count);
+    }
+
     pub fn capabilityCountLimit(self: *const OwnedMessageReader) ?usize {
         return self.reader.capabilityCountLimit();
+    }
+
+    pub fn hasCapabilityCountLimit(self: *const OwnedMessageReader) bool {
+        return self.reader.hasCapabilityCountLimit();
+    }
+
+    pub fn matchesCapabilityCountLimit(self: *const OwnedMessageReader, count: usize) bool {
+        return self.reader.matchesCapabilityCountLimit(count);
     }
 
     pub fn serializeSegmentTable(self: *const OwnedMessageReader, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
@@ -713,16 +741,44 @@ pub const MessageReaderView = struct {
         return self.reader.traversalLimitWords();
     }
 
+    pub fn traversalLimitBytes(self: *const MessageReaderView) usize {
+        return self.reader.traversalLimitBytes();
+    }
+
+    pub fn matchesTraversalLimitWords(self: *const MessageReaderView, count: usize) bool {
+        return self.reader.matchesTraversalLimitWords(count);
+    }
+
+    pub fn matchesTraversalLimitBytes(self: *const MessageReaderView, count: usize) bool {
+        return self.reader.matchesTraversalLimitBytes(count);
+    }
+
     pub fn traversalRemainingWords(self: *const MessageReaderView) usize {
         return self.reader.traversalRemainingWords();
+    }
+
+    pub fn traversalRemainingBytes(self: *const MessageReaderView) usize {
+        return self.reader.traversalRemainingBytes();
     }
 
     pub fn nestingLimit(self: *const MessageReaderView) u16 {
         return self.reader.nestingLimit();
     }
 
+    pub fn matchesNestingLimit(self: *const MessageReaderView, count: u16) bool {
+        return self.reader.matchesNestingLimit(count);
+    }
+
     pub fn capabilityCountLimit(self: *const MessageReaderView) ?usize {
         return self.reader.capabilityCountLimit();
+    }
+
+    pub fn hasCapabilityCountLimit(self: *const MessageReaderView) bool {
+        return self.reader.hasCapabilityCountLimit();
+    }
+
+    pub fn matchesCapabilityCountLimit(self: *const MessageReaderView, count: usize) bool {
+        return self.reader.matchesCapabilityCountLimit(count);
     }
 
     pub fn serializeSegmentTable(self: *const MessageReaderView, allocator: std.mem.Allocator) (Error || serialize.Error)![]u8 {
@@ -1631,16 +1687,44 @@ pub const MessageReader = struct {
         return self.options.traversal_limit_words;
     }
 
+    pub fn traversalLimitBytes(self: *const MessageReader) usize {
+        return self.options.traversalLimitBytes();
+    }
+
+    pub fn matchesTraversalLimitWords(self: *const MessageReader, count: usize) bool {
+        return self.options.matchesTraversalLimitWords(count);
+    }
+
+    pub fn matchesTraversalLimitBytes(self: *const MessageReader, count: usize) bool {
+        return self.options.matchesTraversalLimitBytes(count);
+    }
+
     pub fn traversalRemainingWords(self: *const MessageReader) usize {
         return self.traversal_remaining;
+    }
+
+    pub fn traversalRemainingBytes(self: *const MessageReader) usize {
+        return self.traversal_remaining * wire.bytes_per_word;
     }
 
     pub fn nestingLimit(self: *const MessageReader) u16 {
         return self.options.nesting_limit;
     }
 
+    pub fn matchesNestingLimit(self: *const MessageReader, count: u16) bool {
+        return self.options.matchesNestingLimit(count);
+    }
+
     pub fn capabilityCountLimit(self: *const MessageReader) ?usize {
         return self.options.capability_count_limit;
+    }
+
+    pub fn hasCapabilityCountLimit(self: *const MessageReader) bool {
+        return self.options.hasCapabilityCountLimit();
+    }
+
+    pub fn matchesCapabilityCountLimit(self: *const MessageReader, count: usize) bool {
+        return self.options.matchesCapabilityCountLimit(count);
     }
 
     pub fn segmentCount(self: *const MessageReader) usize {
@@ -3865,8 +3949,14 @@ test "owned message readers parse flat and packed bytes" {
     try testing.expectEqual(flat.len, try owned_flat.serializedSize());
     try testing.expectEqual(flat.len / wire.bytes_per_word, try owned_flat.serializedSizeInWords());
     try testing.expectEqual(@as(usize, 8 * 1024 * 1024), owned_flat.traversalLimitWords());
+    try testing.expectEqual(@as(usize, 64 * 1024 * 1024), owned_flat.traversalLimitBytes());
+    try testing.expect(owned_flat.matchesTraversalLimitWords(8 * 1024 * 1024));
+    try testing.expect(owned_flat.matchesTraversalLimitBytes(64 * 1024 * 1024));
     try testing.expectEqual(@as(u16, 64), owned_flat.nestingLimit());
+    try testing.expect(owned_flat.matchesNestingLimit(64));
     try testing.expectEqual(@as(?usize, null), owned_flat.capabilityCountLimit());
+    try testing.expect(!owned_flat.hasCapabilityCountLimit());
+    try testing.expect(!owned_flat.matchesCapabilityCountLimit(0));
     const owned_table = try owned_flat.serializeSegmentTable(testing.allocator);
     defer testing.allocator.free(owned_table);
     try testing.expectEqual(serialize.segmentTableWords(owned_flat.segmentCount()) * wire.bytes_per_word, owned_table.len);
