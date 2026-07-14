@@ -7129,7 +7129,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                     \\{s}    }}
                     \\
                     \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
-                    \\{s}        return {s}.fromReader(try (try list(message_reader)).getStructElement(index));
+                    \\{s}        return {s}.fromReader(try (try @This().list(message_reader)).getStructElement(index));
                     \\{s}    }}
                     \\
                 , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent });
@@ -7160,7 +7160,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                     \\{s}    }}
                     \\
                     \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
-                    \\{s}        return (try (try list(message_reader)).getPointerElement(index)).getList(expected);
+                    \\{s}        return (try (try @This().list(message_reader)).getPointerElement(index)).getList(expected);
                     \\{s}    }}
                     \\
                 , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
@@ -7329,7 +7329,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 \\{s}    }}
                 \\
                 \\{s}    pub fn typedRoot(message_reader: *cpz.MessageReader) !{s} {{
-                \\{s}        return {s}.fromReader(try root(message_reader));
+                \\{s}        return {s}.fromReader(try @This().root(message_reader));
                 \\{s}    }}
                 \\
             , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, struct_name_from_const_type, indent, struct_name_from_const_type, indent });
@@ -8000,6 +8000,9 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
             std.mem.writeInt(u16, segment.items[object_start_bytes + union_layout.discriminant_byte ..][0..@sizeOf(u16)], field.union_discriminant, .little);
         }
         switch (field_layout.slot) {
+            .void => {
+                if (!std.mem.eql(u8, const_literal, "void")) return error.UnsupportedType;
+            },
             .data_bit => |bit_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
                 .bool => {
                     const value = parseBoolLiteral(const_literal) orelse return error.UnsupportedType;
@@ -8077,7 +8080,6 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
                 else => return error.UnsupportedType,
             },
             .pointer => |pointer_index| try appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, field.ty, const_field.literal),
-            else => return error.UnsupportedType,
         }
     }
 }
@@ -8740,7 +8742,7 @@ fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayL
         if (get_method) |method| {
             try appendFmt(allocator, out,
                 \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
-                \\{s}        const @"cpz.list" = try list(message_reader);
+                \\{s}        const @"cpz.list" = try @This().list(message_reader);
                 \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
                 \\{s}        return @"cpz.list".{s}(index);
                 \\{s}    }}
@@ -8749,7 +8751,7 @@ fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayL
         } else {
             try appendFmt(allocator, out,
                 \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !void {{
-                \\{s}        const @"cpz.list" = try list(message_reader);
+                \\{s}        const @"cpz.list" = try @This().list(message_reader);
                 \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
                 \\{s}        return {{}};
                 \\{s}    }}
@@ -8791,14 +8793,14 @@ fn emitScalarConstFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayLis
     switch (resolveTypeScoped(file, scope, ty)) {
         .void => try appendFmt(allocator, out,
             \\{s}    pub fn get(message_reader: *cpz.MessageReader) !void {{
-            \\{s}        _ = try root(message_reader);
+            \\{s}        _ = try @This().root(message_reader);
             \\{s}        return {{}};
             \\{s}    }}
             \\
         , .{ indent, indent, indent, indent }),
         .bool => try appendFmt(allocator, out,
             \\{s}    pub fn get(message_reader: *cpz.MessageReader) !bool {{
-            \\{s}        return (try root(message_reader)).getBool(0, false);
+            \\{s}        return (try @This().root(message_reader)).getBool(0, false);
             \\{s}    }}
             \\
         , .{ indent, indent, indent }),
@@ -8818,7 +8820,7 @@ fn emitScalarConstFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayLis
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader) !u16 {{
-                \\{s}        return (try root(message_reader)).getUInt16(0, 0);
+                \\{s}        return (try @This().root(message_reader)).getUInt16(0, 0);
                 \\{s}    }}
                 \\
                 \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
@@ -8843,7 +8845,7 @@ fn emitScalarConstFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayLis
 fn emitScalarConstFlatGet(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, zig_type: []const u8, get_method: []const u8, default_literal: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}    pub fn get(message_reader: *cpz.MessageReader) !{s} {{
-        \\{s}        return (try root(message_reader)).{s}(0, {s});
+        \\{s}        return (try @This().root(message_reader)).{s}(0, {s});
         \\{s}    }}
         \\
     , .{ indent, zig_type, indent, get_method, default_literal, indent });
@@ -8904,11 +8906,11 @@ fn emitTextOrDataListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *
         \\{s}    }}
         \\
         \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) ![]const u8 {{
-        \\{s}        return (try (try list(message_reader)).getPointerElement(index)).{s}();
+        \\{s}        return (try (try @This().list(message_reader)).getPointerElement(index)).{s}();
         \\{s}    }}
         \\
         \\{s}    pub fn getByteCount(message_reader: *cpz.MessageReader, index: usize) !usize {{
-        \\{s}        return (try get(message_reader, index)).len;
+        \\{s}        return (try @This().get(message_reader, index)).len;
         \\{s}    }}
         \\
     , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, accessor, indent, indent, indent, indent });
@@ -8941,7 +8943,7 @@ fn emitStructListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.
         \\{s}    }}
         \\
         \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize) !{s} {{
-        \\{s}        return {s}.fromReader(try (try list(message_reader)).getStructElement(index));
+        \\{s}        return {s}.fromReader(try (try @This().list(message_reader)).getStructElement(index));
         \\{s}    }}
         \\
     , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent });
@@ -8976,7 +8978,7 @@ fn emitEnumListFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u
         \\{s}    }}
         \\
         \\{s}    pub fn getRaw(message_reader: *cpz.MessageReader, index: usize) !u16 {{
-        \\{s}        const @"cpz.list" = try list(message_reader);
+        \\{s}        const @"cpz.list" = try @This().list(message_reader);
         \\{s}        if (!@"cpz.list".hasIndex(index)) return error.PointerOutOfBounds;
         \\{s}        return @"cpz.list".getUInt16(index);
         \\{s}    }}
@@ -9558,7 +9560,7 @@ fn emitBlobFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
         \\{s}    }}
         \\
         \\{s}    pub fn getByteCount(message_reader: *cpz.MessageReader) !usize {{
-        \\{s}        return (try get(message_reader)).len;
+        \\{s}        return (try @This().get(message_reader)).len;
         \\{s}    }}
         \\
     , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, get_method, indent, indent, indent, indent });
@@ -17302,6 +17304,22 @@ test "schema code generator supports custom runtime import names" {
     try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
 }
 
+test "schema flat containers qualify helper calls to avoid list name ambiguity" {
+    const source =
+        \\struct Item {
+        \\  value @0 :UInt32;
+        \\}
+        \\const list :List(Item) = [(value = 1)];
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "try @This().list(message_reader)") != null);
+}
+
 test "schema signed integer literals accept base prefixes" {
     try std.testing.expectEqual(@as(i8, -128), parseSignedLiteral(i8, "-0x80").?);
     try std.testing.expectEqual(@as(i16, -32768), parseSignedLiteral(i16, "-0x8000").?);
@@ -17341,6 +17359,28 @@ test "schema struct const flat emission supports wider integers and floats" {
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
     try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
+}
+
+test "schema struct const flats accept void fields" {
+    const source =
+        \\struct T {
+        \\  empty @0 :Void;
+        \\  id @1 :UInt32;
+        \\}
+        \\const one :T = (empty = void, id = 7);
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[0])).?;
+    defer std.testing.allocator.free(flat);
+    var segments: [1]serialize.ConstSegment = undefined;
+    const view = try serialize.readFlatMessageViewInto(&segments, flat);
+    var reader = message.MessageReader.init(view.segments, .{});
+    const root = try reader.getRoot();
+    try std.testing.expectEqual(@as(u32, 7), root.getUInt32(0, 0));
 }
 
 test "schema struct const flats encode void capability pointers as null" {
@@ -17521,7 +17561,7 @@ test "schema code generator resolves const reference scalar defaults for flats" 
 
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const discriminantValueDefaultFlat = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "\\xFF\\xFF\\x00\\x00\\x00\\x00\\x00\\x00") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return (try root(message_reader)).getUInt16(0, 0);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return (try @This().root(message_reader)).getUInt16(0, 0);") != null);
 }
 
 test "schema code generator converts C-style escaped string defaults to Zig literals" {
