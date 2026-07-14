@@ -329,8 +329,16 @@ pub const FieldMetadata = struct {
     union_index: ?u32 = null,
     union_discriminant: u16 = 0,
 
+    pub fn matchesIndex(self: FieldMetadata, field_index: usize) bool {
+        return self.index == field_index;
+    }
+
     pub fn matchesName(self: FieldMetadata, field_name: []const u8) bool {
         return std.mem.eql(u8, self.name, field_name);
+    }
+
+    pub fn matchesOrdinal(self: FieldMetadata, field_ordinal: u32) bool {
+        return self.ordinal == field_ordinal;
     }
 
     pub fn matchesType(self: FieldMetadata, field_type: []const u8) bool {
@@ -359,6 +367,10 @@ pub const FieldMetadata = struct {
 
     pub fn matchesAnnotations(self: FieldMetadata, annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, annotations);
+    }
+
+    pub fn matchesUnionMember(self: FieldMetadata, is_member: bool) bool {
+        return self.is_union_member == is_member;
     }
 
     pub fn hasUnionIndex(self: FieldMetadata, index: u32) bool {
