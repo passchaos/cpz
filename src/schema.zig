@@ -283,8 +283,16 @@ pub const ImportMetadata = struct {
         return std.mem.eql(u8, self.name, import_name);
     }
 
+    pub fn hasPath(self: ImportMetadata) bool {
+        return self.path.len != 0;
+    }
+
     pub fn matchesPath(self: ImportMetadata, import_path: []const u8) bool {
         return std.mem.eql(u8, self.path, import_path);
+    }
+
+    pub fn hasMember(self: ImportMetadata) bool {
+        return self.has_member;
     }
 
     pub fn matchesMember(self: ImportMetadata, import_member: []const u8) bool {
