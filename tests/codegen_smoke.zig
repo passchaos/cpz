@@ -522,7 +522,11 @@ test "generated simple constants compile" {
     try std.testing.expect(generated.@"cpz.consts"[11].hasStructFields());
     try std.testing.expect(generated.@"cpz.consts"[11].matchesStructFieldCount(2));
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldCount"(2).?.name);
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldName"("id").?.name);
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("\"raw\"").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByStructFieldCount"(99));
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByStructFieldName"("missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByStructFieldLiteral"("missing"));
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalRawPerson.structFieldCount");
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalRawPerson.structFields".len);
     try std.testing.expectEqualStrings("id", generated.@"cpz.const.globalRawPerson.structFields"[0].name);
