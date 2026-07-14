@@ -7394,6 +7394,14 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
         const field_layout = findFieldLayoutByName(&layout, const_field.name) orelse return null;
         const field = field_layout.field;
         switch (field_layout.slot) {
+            .data_bit => |bit_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .bool => {
+                    const value = parseBoolLiteral(const_field.literal) orelse return null;
+                    const default_value = parseBoolLiteral(field.default_literal orelse "false") orelse return null;
+                    if (value != default_value) setBit(segment.items[@sizeOf(u64)..], bit_offset);
+                },
+                else => return null,
+            },
             .data_byte => |byte_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
                 .uint32 => {
                     const value = parseU32Literal(const_field.literal) orelse return null;
@@ -7448,6 +7456,17 @@ fn parseU32Literal(raw_literal: []const u8) ?u32 {
     const value = parseInteger(raw) catch return null;
     if (value > std.math.maxInt(u32)) return null;
     return @intCast(value);
+}
+
+fn parseBoolLiteral(raw_literal: []const u8) ?bool {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    if (std.mem.eql(u8, raw, "true")) return true;
+    if (std.mem.eql(u8, raw, "false")) return false;
+    return null;
+}
+
+fn setBit(bytes: []u8, bit_offset: usize) void {
+    bytes[bit_offset / 8] |= @as(u8, 1) << @as(u3, @intCast(bit_offset % 8));
 }
 
 fn simpleQuotedTextLiteralAlloc(allocator: std.mem.Allocator, literal: []const u8) LayoutError!?[]u8 {
