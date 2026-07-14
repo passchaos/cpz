@@ -14,6 +14,7 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(?cpz.schema.FileAnnotationMetadata, null), generated.@"cpz.fileAnnotationByIndex"(99));
     try std.testing.expectEqualStrings("$schemaNote(\"file-level\")", generated.@"cpz.file_annotations"[0].raw);
     try std.testing.expect(generated.@"cpz.file_annotations"[0].matchesIndex(0));
+    try std.testing.expect(generated.@"cpz.file_annotations"[0].hasRaw());
     try std.testing.expect(generated.@"cpz.file_annotations"[0].matchesRaw("$schemaNote(\"file-level\")"));
     try std.testing.expect(!generated.@"cpz.file_annotations"[0].matchesRaw("missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.fileAnnotationByRaw"("$schemaNote(\"file-level\")").?.index);
@@ -131,7 +132,9 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.aliases"[0].resolved_target);
     try std.testing.expect(generated.@"cpz.aliases"[0].matchesIndex(0));
     try std.testing.expect(generated.@"cpz.aliases"[0].matchesName("Id"));
+    try std.testing.expect(generated.@"cpz.aliases"[0].hasTarget());
     try std.testing.expect(generated.@"cpz.aliases"[0].matchesTarget("UInt32"));
+    try std.testing.expect(generated.@"cpz.aliases"[2].hasResolvedTarget());
     try std.testing.expect(generated.@"cpz.aliases"[2].matchesResolvedTarget("List(Text)"));
     try std.testing.expect(!generated.@"cpz.aliases"[0].matchesName("Missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.alias.Id.index");
@@ -3133,9 +3136,14 @@ test "generated anonymous union accessors activate and guard fields" {
     const union0_metadata = generated.Choice.@"cpz.unionByIndex"(0).?;
     try std.testing.expect(union0_metadata.matchesFieldCount(2));
     try std.testing.expect(union0_metadata.matchesName(""));
+    try std.testing.expect(!union0_metadata.hasName());
     try std.testing.expect(!union0_metadata.matchesName("selected"));
     try std.testing.expect(union0_metadata.matchesDiscriminantByte(0));
+    try std.testing.expect(union0_metadata.hasAnnotations());
     try std.testing.expect(union0_metadata.matchesAnnotations("$schemaNote(\"anonymous-union\")"));
+    try std.testing.expect(union0_metadata.hasData());
+    try std.testing.expect(union0_metadata.hasPointerStorage());
+    try std.testing.expect(union0_metadata.hasFields());
     try std.testing.expectEqualStrings("name", union0_metadata.fieldByName("name").?.name);
     try std.testing.expectEqualStrings("name", union0_metadata.fieldByType("Text").?.name);
     try std.testing.expectEqualStrings("id", union0_metadata.fieldByResolvedType("UInt32").?.name);
@@ -3161,6 +3169,8 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expect(!union0_metadata.matchesDataRange(32, 16));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), union0_metadata.fieldByName("missing"));
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), union0_metadata.fieldByIndex(99));
+    try std.testing.expect(generated.Choice.@"cpz.unionByIndex"(1).?.hasName());
+    try std.testing.expect(generated.Choice.@"cpz.unionByIndex"(1).?.hasOrdinal());
     try std.testing.expectEqual(@as(usize, 0), generated.Choice.@"cpz.unions"[0].discriminant_byte);
     try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bit);
     try std.testing.expectEqual(@as(usize, 32), generated.Choice.@"cpz.unions"[0].data_bits);

@@ -89,8 +89,16 @@ pub const AliasMetadata = struct {
         return std.mem.eql(u8, self.name, alias_name);
     }
 
+    pub fn hasTarget(self: AliasMetadata) bool {
+        return self.target.len != 0;
+    }
+
     pub fn matchesTarget(self: AliasMetadata, target: []const u8) bool {
         return std.mem.eql(u8, self.target, target);
+    }
+
+    pub fn hasResolvedTarget(self: AliasMetadata) bool {
+        return self.resolved_target.len != 0;
     }
 
     pub fn matchesResolvedTarget(self: AliasMetadata, target: []const u8) bool {
@@ -351,8 +359,16 @@ pub const GroupDecl = struct {
         return std.mem.eql(u8, self.name, group_name);
     }
 
+    pub fn hasOrdinal(self: GroupDecl) bool {
+        return self.ordinal != null;
+    }
+
     pub fn matchesOrdinal(self: GroupDecl, ordinal: u32) bool {
         return self.ordinal != null and self.ordinal.? == ordinal;
+    }
+
+    pub fn hasAnnotations(self: GroupDecl) bool {
+        return self.annotations.len != 0;
     }
 
     pub fn matchesAnnotations(self: GroupDecl, annotations: []const u8) bool {
@@ -518,6 +534,14 @@ pub const UnionMetadata = struct {
         return std.mem.eql(u8, self.name, name);
     }
 
+    pub fn hasName(self: UnionMetadata) bool {
+        return self.name.len != 0;
+    }
+
+    pub fn hasOrdinal(self: UnionMetadata) bool {
+        return self.ordinal != null;
+    }
+
     pub fn matchesOrdinal(self: UnionMetadata, ordinal: u32) bool {
         return self.ordinal != null and self.ordinal.? == ordinal;
     }
@@ -526,8 +550,16 @@ pub const UnionMetadata = struct {
         return self.discriminant_byte == byte_offset;
     }
 
+    pub fn hasAnnotations(self: UnionMetadata) bool {
+        return self.annotations.len != 0;
+    }
+
     pub fn matchesAnnotations(self: UnionMetadata, annotations: []const u8) bool {
         return std.mem.eql(u8, self.annotations, annotations);
+    }
+
+    pub fn hasData(self: UnionMetadata) bool {
+        return self.data_bits != 0;
     }
 
     pub fn matchesDataBit(self: UnionMetadata, bit: usize) bool {
@@ -536,6 +568,10 @@ pub const UnionMetadata = struct {
 
     pub fn matchesDataBits(self: UnionMetadata, bits: usize) bool {
         return self.data_bits == bits;
+    }
+
+    pub fn hasPointerStorage(self: UnionMetadata) bool {
+        return self.pointer != null;
     }
 
     pub fn matchesPointer(self: UnionMetadata, pointer_index: usize) bool {
@@ -599,6 +635,10 @@ pub const UnionMetadata = struct {
 
     pub fn matchesFieldCount(self: UnionMetadata, count: usize) bool {
         return self.field_count == count;
+    }
+
+    pub fn hasFields(self: UnionMetadata) bool {
+        return self.field_count != 0;
     }
 
     pub fn hasPointer(self: UnionMetadata, pointer_index: usize) bool {
@@ -1154,6 +1194,10 @@ pub const FileAnnotationMetadata = struct {
 
     pub fn matchesIndex(self: FileAnnotationMetadata, annotation_index: usize) bool {
         return self.index == annotation_index;
+    }
+
+    pub fn hasRaw(self: FileAnnotationMetadata) bool {
+        return self.raw.len != 0;
     }
 
     pub fn matchesRaw(self: FileAnnotationMetadata, annotation_raw: []const u8) bool {
