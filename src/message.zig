@@ -1052,6 +1052,18 @@ pub const Orphan = struct {
         return wire.pointerType(self.raw);
     }
 
+    pub fn segmentId(self: Orphan) u32 {
+        return self.segment_id;
+    }
+
+    pub fn pointerWordIndex(self: Orphan) usize {
+        return self.pointer_word_index;
+    }
+
+    pub fn matchesLocation(self: Orphan, segment_id: u32, word_index: usize) bool {
+        return self.segment_id == segment_id and self.pointer_word_index == word_index;
+    }
+
     pub fn matchesPointerType(self: Orphan, expected: wire.PointerType) bool {
         const kind = self.pointerType() orelse return false;
         return kind.matches(expected);
@@ -2173,6 +2185,18 @@ pub const PointerBuilder = struct {
         return wire.pointerType(raw_value);
     }
 
+    pub fn segmentId(self: PointerBuilder) u32 {
+        return self.segment_id;
+    }
+
+    pub fn pointerWordIndex(self: PointerBuilder) usize {
+        return self.word_index;
+    }
+
+    pub fn matchesLocation(self: PointerBuilder, segment_id: u32, word_index: usize) bool {
+        return self.segment_id == segment_id and self.word_index == word_index;
+    }
+
     pub fn matchesPointerType(self: PointerBuilder, expected: wire.PointerType) bool {
         const kind = self.pointerType() orelse return false;
         return kind.matches(expected);
@@ -2700,6 +2724,18 @@ pub const PointerReader = struct {
         const resolved = try self.resolve();
         if (resolved.raw == 0) return null;
         return wire.pointerType(resolved.raw);
+    }
+
+    pub fn segmentId(self: PointerReader) u32 {
+        return self.segment_id;
+    }
+
+    pub fn pointerWordIndex(self: PointerReader) usize {
+        return self.word_index;
+    }
+
+    pub fn matchesLocation(self: PointerReader, segment_id: u32, word_index: usize) bool {
+        return self.segment_id == segment_id and self.word_index == word_index;
     }
 
     pub fn matchesPointerType(self: PointerReader, expected: wire.PointerType) bool {
@@ -5591,6 +5627,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(u32, 4242), try cap_reader.getRootCapability());
 
     const text_root_pointer = try text_builder.getRootPointer();
+    try testing.expectEqual(@as(u32, 0), text_root_pointer.segmentId());
+    try testing.expectEqual(@as(usize, 0), text_root_pointer.pointerWordIndex());
+    try testing.expect(text_root_pointer.matchesLocation(0, 0));
     try testing.expect(text_root_pointer.matchesPointerType(.far));
     try testing.expect(text_root_pointer.isFarPointer());
     try testing.expect(!text_root_pointer.isNearPointer());
@@ -5600,6 +5639,9 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expect(!text_root_pointer.isCapabilityPointer());
     var text_pointer_reader_message = MessageReader.init(try text_builder.segmentsConst(), .{});
     const text_pointer_reader = try text_pointer_reader_message.getRootPointer();
+    try testing.expectEqual(@as(u32, 0), text_pointer_reader.segmentId());
+    try testing.expectEqual(@as(usize, 0), text_pointer_reader.pointerWordIndex());
+    try testing.expect(text_pointer_reader.matchesLocation(0, 0));
     try testing.expect(text_pointer_reader.matchesPointerType(.list));
     try testing.expect(text_pointer_reader.isListPointer());
     try testing.expect(text_pointer_reader.isNearPointer());
@@ -5669,6 +5711,9 @@ test "message builder can disown and adopt root pointers" {
     try builder.setRootText("root orphan");
 
     var orphan = try builder.disownRoot();
+    try testing.expectEqual(@as(u32, 0), orphan.segmentId());
+    try testing.expectEqual(@as(usize, 0), orphan.pointerWordIndex());
+    try testing.expect(orphan.matchesLocation(0, 0));
     try testing.expectEqual(wire.PointerType.list, orphan.pointerType().?);
     try testing.expect(orphan.matchesPointerType(.list));
     try testing.expect(orphan.isListPointer());
