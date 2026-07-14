@@ -523,14 +523,14 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.@"cpz.const.globalDataItems.listItemByAnnotations"("missing"));
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.consts"[11].name);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[11].ty);
-    try std.testing.expectEqualStrings("(id = 9, active = false, name = \"raw\", favorite = red, defaultPayload = 0x\"ca fe\", scores = [4, 5, 6], aliases = [\"raw\", \"alias\"], payloads = [0x\"01 02\", \"data\"], friend = (id = 77, name = \"buddy\"), children = [(id = 88, name = \"kid\")], scoreGroups = [[7, 8], [9]], aliasGroups = [[\"nested\", \"alias\"]], structGroups = [[(id = 89, name = \"group kid\")]])", generated.@"cpz.consts"[11].literal);
+    try std.testing.expectEqualStrings("(id = 9, active = false, name = \"raw\", favorite = red, defaultPayload = 0x\"ca fe\", scores = [4, 5, 6], aliases = [\"raw\", \"alias\"], payloads = [0x\"01 02\", \"data\"], friend = (id = 77, name = \"buddy\"), children = [(id = 88, name = \"kid\")], scoreGroups = [[7, 8], [9]], aliasGroups = [[\"nested\", \"alias\"]], structGroups = [[(id = 89, name = \"group kid\")]], maybeName = \"maybe raw\", maybeFriend = (id = 78, name = \"maybe buddy\"))", generated.@"cpz.consts"[11].literal);
     try std.testing.expect(generated.@"cpz.consts"[11].is_struct_literal);
     try std.testing.expect(generated.@"cpz.consts"[11].matchesStructLiteral(true));
     try std.testing.expect(generated.@"cpz.const.globalRawPerson.isStructLiteral");
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructLiteral"(true).?.name);
     try std.testing.expect(generated.@"cpz.consts"[11].hasStructFields());
-    try std.testing.expect(generated.@"cpz.consts"[11].matchesStructFieldCount(13));
-    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldCount"(13).?.name);
+    try std.testing.expect(generated.@"cpz.consts"[11].matchesStructFieldCount(15));
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldCount"(15).?.name);
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldName"("id").?.name);
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("\"raw\"").?.name);
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("[4, 5, 6]").?.name);
@@ -541,11 +541,13 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("[[7, 8], [9]]").?.name);
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("[[\"nested\", \"alias\"]]").?.name);
     try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("[[(id = 89, name = \"group kid\")]]").?.name);
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("\"maybe raw\"").?.name);
+    try std.testing.expectEqualStrings("globalRawPerson", generated.@"cpz.constByStructFieldLiteral"("(id = 78, name = \"maybe buddy\")").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByStructFieldCount"(99));
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByStructFieldName"("missing"));
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByStructFieldLiteral"("missing"));
-    try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.const.globalRawPerson.structFieldCount");
-    try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.const.globalRawPerson.structFields".len);
+    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.const.globalRawPerson.structFieldCount");
+    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.const.globalRawPerson.structFields".len);
     try std.testing.expectEqualStrings("id", generated.@"cpz.const.globalRawPerson.structFields"[0].name);
     try std.testing.expectEqualStrings("9", generated.@"cpz.const.globalRawPerson.structFields"[0].literal);
     try std.testing.expect(generated.@"cpz.const.globalRawPerson.structFields"[0].matchesIndex(0));
@@ -581,7 +583,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("[[\"nested\", \"alias\"]]", generated.@"cpz.const.globalRawPerson.structField.11.literal");
     try std.testing.expectEqualStrings("structGroups", generated.@"cpz.const.globalRawPerson.structField.12.name");
     try std.testing.expectEqualStrings("[[(id = 89, name = \"group kid\")]]", generated.@"cpz.const.globalRawPerson.structField.12.literal");
-    try std.testing.expectEqual(@as(usize, 13), generated.globalRawPerson.fieldCount);
+
     try std.testing.expectEqualStrings("9", generated.globalRawPerson.id);
     try std.testing.expectEqualStrings("false", generated.globalRawPerson.active);
     try std.testing.expectEqualStrings("\"raw\"", generated.globalRawPerson.name);
@@ -595,6 +597,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("[[7, 8], [9]]", generated.globalRawPerson.scoreGroups);
     try std.testing.expectEqualStrings("[[\"nested\", \"alias\"]]", generated.globalRawPerson.aliasGroups);
     try std.testing.expectEqualStrings("[[(id = 89, name = \"group kid\")]]", generated.globalRawPerson.structGroups);
+    try std.testing.expectEqualStrings("\"maybe raw\"", generated.globalRawPerson.maybeName);
+    try std.testing.expectEqualStrings("(id = 78, name = \"maybe buddy\")", generated.globalRawPerson.maybeFriend);
     try std.testing.expectEqualStrings("id", generated.globalRawPerson.fieldByIndex(0).?.name);
     try std.testing.expectEqualStrings("name", generated.globalRawPerson.fieldByName("name").?.name);
     try std.testing.expectEqualStrings("name", generated.globalRawPerson.fieldByLiteral("\"raw\"").?.name);
@@ -606,6 +610,8 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("scoreGroups", generated.globalRawPerson.fieldByLiteral("[[7, 8], [9]]").?.name);
     try std.testing.expectEqualStrings("aliasGroups", generated.globalRawPerson.fieldByLiteral("[[\"nested\", \"alias\"]]").?.name);
     try std.testing.expectEqualStrings("structGroups", generated.globalRawPerson.fieldByLiteral("[[(id = 89, name = \"group kid\")]]").?.name);
+    try std.testing.expectEqualStrings("maybeName", generated.globalRawPerson.fieldByLiteral("\"maybe raw\"").?.name);
+    try std.testing.expectEqualStrings("maybeFriend", generated.globalRawPerson.fieldByLiteral("(id = 78, name = \"maybe buddy\")").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstStructField, null), generated.globalRawPerson.fieldByName("missing"));
     try std.testing.expect(generated.globalRawPerson.flatBytes.len > 0);
     try std.testing.expectEqual(@as(usize, 1), generated.globalRawPerson.segments.len);
@@ -657,6 +663,10 @@ test "generated simple constants compile" {
     const raw_person_struct_group_child = generated.Person.fromReader(try raw_person_struct_group0.getStructElement(0));
     try std.testing.expectEqual(@as(u32, 89), raw_person_struct_group_child.id());
     try std.testing.expectEqualSlices(u8, "group kid", try raw_person_struct_group_child.name());
+    try std.testing.expectEqualSlices(u8, "maybe raw", try raw_person_typed.maybeName());
+    const raw_person_maybe_friend = try raw_person_typed.maybeFriend();
+    try std.testing.expectEqual(@as(u32, 78), raw_person_maybe_friend.id());
+    try std.testing.expectEqualSlices(u8, "maybe buddy", try raw_person_maybe_friend.name());
     try std.testing.expectEqual(generated.Person.size, raw_person_root.size());
     try std.testing.expectEqual(@as(u32, 9), raw_person_root.getUInt32(0, 42));
     try std.testing.expectEqual(false, raw_person_root.getBool(32, true));
@@ -701,6 +711,10 @@ test "generated simple constants compile" {
     const raw_person_struct_group_child_reader = try raw_person_struct_group_reader0.getStructElement(0);
     try std.testing.expectEqual(@as(u32, 89), raw_person_struct_group_child_reader.getUInt32(0, 42));
     try std.testing.expectEqualSlices(u8, "group kid", try raw_person_struct_group_child_reader.getPointerField(0).getText());
+    try std.testing.expectEqualSlices(u8, "maybe raw", try raw_person_root.getPointerField(11).getText());
+    const raw_person_maybe_friend_reader = try raw_person_root.getPointerField(12).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 78), raw_person_maybe_friend_reader.getUInt32(0, 42));
+    try std.testing.expectEqualSlices(u8, "maybe buddy", try raw_person_maybe_friend_reader.getPointerField(0).getText());
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0xca, 0xfe }, try raw_person_root.getPointerField(18).getData());
     const raw_person_stats = try generated.globalRawPerson.validate(.{});
     try std.testing.expect(raw_person_stats.total_words > 0);

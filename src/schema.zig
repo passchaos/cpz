@@ -7837,6 +7837,29 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
     }
 }
 
+fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, segment: *std.ArrayList(u8), pointer_index: usize, object_start_words: usize, ty: Type, literal: []const u8) LayoutError!void {
+    switch (resolveTypeScoped(file, layout.decl, ty)) {
+        .text => {
+            const text = try simpleQuotedTextLiteralAlloc(allocator, literal) orelse return error.UnsupportedType;
+            defer allocator.free(text);
+            try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
+        },
+        .data => {
+            const data = try simpleDataLiteralAlloc(allocator, literal) orelse return error.UnsupportedType;
+            defer allocator.free(data);
+            try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
+        },
+        .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, literal),
+        .named => |type_name| try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, literal),
+        .optional => |child| {
+            const raw = std.mem.trim(u8, literal, " \t\r\n");
+            if (std.mem.eql(u8, raw, "null")) return;
+            try appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, child.*, literal);
+        },
+        else => return error.UnsupportedType,
+    }
+}
+
 fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, fields: []const ConstStructField, segment: *std.ArrayList(u8), object_start_words: usize) LayoutError!void {
     const object_start_bytes = object_start_words * @sizeOf(u64);
     for (fields) |const_field| {
@@ -7919,21 +7942,7 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
                 },
                 else => return error.UnsupportedType,
             },
-            .pointer => |pointer_index| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
-                .text => {
-                    const text = try simpleQuotedTextLiteralAlloc(allocator, const_field.literal) orelse return error.UnsupportedType;
-                    defer allocator.free(text);
-                    try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
-                },
-                .data => {
-                    const data = try simpleDataLiteralAlloc(allocator, const_field.literal) orelse return error.UnsupportedType;
-                    defer allocator.free(data);
-                    try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
-                },
-                .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, const_field.literal),
-                .named => |type_name| try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, const_field.literal),
-                else => return error.UnsupportedType,
-            },
+            .pointer => |pointer_index| try appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, field.ty, const_field.literal),
             else => return error.UnsupportedType,
         }
     }
