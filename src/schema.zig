@@ -2941,6 +2941,20 @@ pub const Parser = struct {
 
     fn expectDefaultLiteral(self: *Parser) Error!?[]const u8 {
         switch (self.lookahead.tag) {
+            .dot => {
+                const start = self.currentTokenStart();
+                try self.expect(.dot);
+                const first = self.lookahead;
+                _ = try self.expectIdentifier();
+                var end = first.end;
+                while (self.lookahead.tag == .dot) {
+                    try self.expect(.dot);
+                    const part = self.lookahead;
+                    _ = try self.expectIdentifier();
+                    end = part.end;
+                }
+                return self.lexer.source[start..end];
+            },
             .identifier => {
                 const first = self.lookahead;
                 const value = self.lookahead.lexeme;
@@ -10534,7 +10548,7 @@ test "schema code generator emits Zig accessor skeletons" {
         \\struct Person {
         \\  id @0 :UInt32 = 42;
         \\  active @1 :Bool = true;
-        \\  favorite @2 :Color = Color.green;
+        \\  favorite @2 :Color = .Color.green;
         \\  name @3 :Text = "Anon";
         \\  friend @4 :Person;
         \\  scores @5 :List(UInt32);
@@ -10550,6 +10564,7 @@ test "schema code generator emits Zig accessor skeletons" {
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
 
+    try std.testing.expectEqualStrings(".Color.green", file.structs[0].fields[2].default_literal.?);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Person = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "data_words = 1") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pointer_count = 6") != null);
