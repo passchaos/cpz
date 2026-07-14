@@ -46,6 +46,31 @@ test "generated struct optional null defaults expose flats" {
     try std.testing.expect(generated.MaybeDefaults.absentDefaultFlat.matchesSerializedSize(generated.MaybeDefaults.absentDefaultFlat.flatBytes.len));
 }
 
+test "generated struct pointer null defaults expose flats" {
+    try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.text.default");
+    var text_reader = generated.NullPointerDefaults.textDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.NullPointerDefaults.textDefaultFlat.isNull(&text_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.textDefaultFlat.rawPointer(&text_reader));
+
+    try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.data.default");
+    var data_reader = generated.NullPointerDefaults.dataDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.NullPointerDefaults.dataDefaultFlat.isNull(&data_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.dataDefaultFlat.rawPointer(&data_reader));
+
+    try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.numbers.default");
+    var numbers_reader = generated.NullPointerDefaults.numbersDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.NullPointerDefaults.numbersDefaultFlat.isNull(&numbers_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.numbersDefaultFlat.rawPointer(&numbers_reader));
+
+    try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.item.default");
+    var item_reader = generated.NullPointerDefaults.itemDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.NullPointerDefaults.itemDefaultFlat.isNull(&item_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.itemDefaultFlat.rawPointer(&item_reader));
+
+    try std.testing.expect(generated.NullPointerDefaults.textDefaultFlat.matchesSegmentCount(1));
+    try std.testing.expect(generated.NullPointerDefaults.itemDefaultFlat.matchesSerializedSize(generated.NullPointerDefaults.itemDefaultFlat.flatBytes.len));
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

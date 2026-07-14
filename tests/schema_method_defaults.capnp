@@ -7,6 +7,13 @@ struct MaybeDefaults {
   absent @0 :?Text = null;
 }
 
+struct NullPointerDefaults {
+  text @0 :Text = null;
+  data @1 :Data = null;
+  numbers @2 :List(UInt16) = null;
+  item @3 :Defaults.Item = null;
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;

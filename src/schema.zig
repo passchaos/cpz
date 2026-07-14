@@ -6030,12 +6030,20 @@ fn methodDefaultIsVoidOrNull(file: *const File, scope: ?*const Struct, default_l
     return std.mem.eql(u8, raw, "null") or std.mem.eql(u8, raw, "void");
 }
 
-fn methodDefaultTypeAcceptsNullPointer(file: *const File, ty: Type) bool {
+fn typeAcceptsNullPointerDefault(file: *const File, ty: Type) bool {
     return switch (ty) {
         .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => true,
         .named => |type_name| findEnum(file, type_name) == null,
         else => false,
     };
+}
+
+fn methodDefaultTypeAcceptsNullPointer(file: *const File, ty: Type) bool {
+    return typeAcceptsNullPointerDefault(file, ty);
+}
+
+fn defaultExpressionIsNullPointer(file: *const File, scope: ?*const Struct, expression: []const u8) bool {
+    return std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, expression), " \t\r\n"), "null");
 }
 
 fn nullPointerFlatBytesAlloc(allocator: std.mem.Allocator) LayoutError![]u8 {
@@ -10994,7 +11002,7 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
         defer allocator.free(field_name);
         const resolved_ty = switch (resolveTypeScoped(file, layout.decl, field.ty)) {
             .optional => |child| blk: {
-                if (std.mem.eql(u8, std.mem.trim(u8, field.default_expression, " \t\r\n"), "null")) {
+                if (defaultExpressionIsNullPointer(file, layout.decl, field.default_expression)) {
                     const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
                     defer allocator.free(container_name);
                     try emitNullPointerFlatContainer(allocator, out, "    ", container_name);
@@ -11004,6 +11012,12 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
             },
             else => |resolved| resolved,
         };
+        if (defaultExpressionIsNullPointer(file, layout.decl, field.default_expression) and typeAcceptsNullPointerDefault(file, resolved_ty)) {
+            const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+            defer allocator.free(container_name);
+            try emitNullPointerFlatContainer(allocator, out, "    ", container_name);
+            continue;
+        }
         switch (resolved_ty) {
             .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => {
                 const literal = field.default_literal orelse continue;
