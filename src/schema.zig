@@ -115,6 +115,8 @@ pub const ConstDecl = struct {
     is_hex_data: bool = false,
     is_embed: bool = false,
     embed_path: []const u8 = "",
+    embed_bytes: ?[]const u8 = null,
+    owns_embed_bytes: bool = false,
     is_struct_literal: bool = false,
     emit_value: bool = true,
     annotations: []const u8 = "",
@@ -123,6 +125,7 @@ pub const ConstDecl = struct {
     pub fn deinit(self: *ConstDecl, allocator: std.mem.Allocator) void {
         self.ty.deinit(allocator);
         if (self.owns_literal) allocator.free(self.literal);
+        if (self.owns_embed_bytes) if (self.embed_bytes) |bytes| allocator.free(bytes);
         if (self.list_items) |items| {
             deinitConstListItems(allocator, items);
             allocator.free(items);
@@ -169,6 +172,7 @@ pub const ConstMetadata = struct {
     is_hex_data: bool = false,
     is_embed: bool = false,
     embed_path: []const u8 = "",
+    embed_byte_count: usize = 0,
     is_struct_literal: bool = false,
     emitted: bool = true,
     annotations: []const u8 = "",
@@ -221,6 +225,14 @@ pub const ConstMetadata = struct {
 
     pub fn matchesEmbedPath(self: ConstMetadata, path: []const u8) bool {
         return std.mem.eql(u8, self.embed_path, path);
+    }
+
+    pub fn matchesEmbedByteCount(self: ConstMetadata, count: usize) bool {
+        return self.embed_byte_count == count;
+    }
+
+    pub fn hasEmbedBytes(self: ConstMetadata) bool {
+        return self.is_embed and self.emitted;
     }
 
     pub fn matchesStructLiteral(self: ConstMetadata, is_struct: bool) bool {
@@ -3633,6 +3645,48 @@ pub fn parse(allocator: std.mem.Allocator, source: []const u8) Error!File {
     return parser.parse();
 }
 
+pub const EmbedError = std.Io.Dir.ReadFileAllocError || std.mem.Allocator.Error;
+
+pub fn loadEmbeddedConstValues(allocator: std.mem.Allocator, io: std.Io, file: *File, base_dir: []const u8) EmbedError!void {
+    try loadEmbeddedConstValuesInScope(allocator, io, file, null, file.consts, base_dir);
+    for (file.structs) |*decl| {
+        try loadEmbeddedConstValuesInScope(allocator, io, file, decl, decl.consts, base_dir);
+    }
+    for (file.interfaces) |*decl| {
+        var empty_fields: [0]Field = .{};
+        var alias_scope = Struct{
+            .name = decl.name,
+            .fields = empty_fields[0..],
+            .consts = decl.consts,
+            .aliases = decl.aliases,
+        };
+        try loadEmbeddedConstValuesInScope(allocator, io, file, &alias_scope, decl.consts, base_dir);
+    }
+}
+
+fn loadEmbeddedConstValuesInScope(allocator: std.mem.Allocator, io: std.Io, file: *const File, scope: ?*const Struct, consts: []ConstDecl, base_dir: []const u8) EmbedError!void {
+    for (consts) |*decl| {
+        if (!decl.is_embed or decl.embed_path.len == 0 or decl.embed_bytes != null) continue;
+        switch (resolveTypeScoped(file, scope, decl.ty)) {
+            .text, .data => {},
+            else => continue,
+        }
+        const path = try embeddedConstPathAlloc(allocator, base_dir, decl.embed_path);
+        defer allocator.free(path);
+        const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(64 * 1024 * 1024));
+        decl.embed_bytes = bytes;
+        decl.owns_embed_bytes = true;
+        decl.emit_value = true;
+    }
+}
+
+fn embeddedConstPathAlloc(allocator: std.mem.Allocator, base_dir: []const u8, embed_path: []const u8) std.mem.Allocator.Error![]u8 {
+    if (std.fs.path.isAbsolute(embed_path) or base_dir.len == 0 or std.mem.eql(u8, base_dir, ".")) {
+        return allocator.dupe(u8, embed_path);
+    }
+    return std.fs.path.join(allocator, &.{ base_dir, embed_path });
+}
+
 fn putFieldName(names: *std.StringHashMap(void), name: []const u8) std.mem.Allocator.Error!bool {
     const entry = try names.getOrPut(name);
     return entry.found_existing;
@@ -6470,6 +6524,7 @@ fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
         const embed_path_literal = try zigStringLiteralAlloc(allocator, decl.embed_path);
         defer allocator.free(embed_path_literal);
         try appendFmt(allocator, out, ", .is_embed = true, .embed_path = {s}", .{embed_path_literal});
+        if (decl.embed_bytes) |bytes| try appendFmt(allocator, out, ", .embed_byte_count = {}", .{bytes.len});
     }
     if (decl.is_struct_literal) {
         try out.appendSlice(allocator, ", .is_struct_literal = true");
@@ -6633,11 +6688,12 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.const.{s}.isEmbed": bool = {};
         \\{s}pub const @"cpz.const.{s}.embedPath": []const u8 = {s};
+        \\{s}pub const @"cpz.const.{s}.embedByteCount": usize = {};
         \\{s}pub const @"cpz.const.{s}.isStructLiteral": bool = {};
         \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
         \\{s}pub const @"cpz.const.{s}.listItemCount": usize = {};
         \\{s}pub const @"cpz.const.{s}.listItems": []const cpz.schema.ConstListItem = 
-    , .{ indent, const_name, decl.is_embed, indent, const_name, embed_path_literal, indent, const_name, decl.is_struct_literal, indent, const_name, decl.emit_value, indent, const_name, if (decl.list_items) |items| items.len else 0, indent, const_name });
+    , .{ indent, const_name, decl.is_embed, indent, const_name, embed_path_literal, indent, const_name, if (decl.embed_bytes) |bytes| bytes.len else 0, indent, const_name, decl.is_struct_literal, indent, const_name, decl.emit_value, indent, const_name, if (decl.list_items) |items| items.len else 0, indent, const_name });
     if (decl.list_items) |items| {
         try appendConstListItemsLiteral(allocator, out, items);
     } else {
@@ -6714,7 +6770,10 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         .float32 => try emitNumericConst(allocator, out, indent, const_name, "f32", floatConstLiteral(decl.literal, "f32")),
         .float64 => try emitNumericConst(allocator, out, indent, const_name, "f64", floatConstLiteral(decl.literal, "f64")),
         .text => {
-            const literal = try zigStringLiteralAlloc(allocator, decl.literal);
+            const literal = if (decl.is_embed)
+                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
+            else
+                try zigStringLiteralAlloc(allocator, decl.literal);
             defer allocator.free(literal);
             try appendFmt(allocator, out,
                 \\{s}pub const {s}: []const u8 = {s};
@@ -6723,7 +6782,10 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             , .{ indent, const_name, literal });
         },
         .data => {
-            const literal = try zigDataLiteralAlloc(allocator, decl.literal, decl.is_hex_data);
+            const literal = if (decl.is_embed)
+                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
+            else
+                try zigDataLiteralAlloc(allocator, decl.literal, decl.is_hex_data);
             defer allocator.free(literal);
             try appendFmt(allocator, out,
                 \\{s}pub const {s}: []const u8 = {s};

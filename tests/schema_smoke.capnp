@@ -32,6 +32,7 @@ const globalShades :List(Color) = [red, blue];
 const globalDataItems :List(Data) = [0x"aa bb" $schemaNote("hex-item"), "pl" "ain"];
 const globalRawPerson :Person = (id = 9, name = "raw");
 const globalEmbeddedData :Data = embed "fixtures/raw.bin";
+const globalEmbeddedText :Text = embed "fixtures/text.txt";
 
 annotation schemaNote @0xa110ca110c (file, struct, field, union) :Text;
 annotation marker(interface, method) :Void;

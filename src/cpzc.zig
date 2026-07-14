@@ -56,6 +56,8 @@ pub fn main(init: std.process.Init) !u8 {
 
     var file = try cpz.schema.parse(allocator, source);
     defer file.deinit(allocator);
+    const embed_base_dir = std.fs.path.dirname(input) orelse ".";
+    try cpz.schema.loadEmbeddedConstValues(allocator, io, &file, embed_base_dir);
     var layouts = try cpz.schema.planLayouts(allocator, &file);
     defer layouts.deinit(allocator);
     const code = try cpz.schema.generateZigWithOptions(allocator, &file, &layouts, .{

@@ -404,8 +404,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 14), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 14), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
@@ -523,21 +523,36 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.consts"[12].name);
     try std.testing.expectEqualStrings("Data", generated.@"cpz.consts"[12].ty);
     try std.testing.expectEqualStrings("embed \"fixtures/raw.bin\"", generated.@"cpz.consts"[12].literal);
-    try std.testing.expect(!generated.@"cpz.consts"[12].emitted);
+    try std.testing.expect(generated.@"cpz.consts"[12].emitted);
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.const.globalEmbeddedData.index");
     try std.testing.expectEqualStrings("embed \"fixtures/raw.bin\"", generated.@"cpz.const.globalEmbeddedData.literal");
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.isEmbed");
     try std.testing.expectEqualStrings("fixtures/raw.bin", generated.@"cpz.const.globalEmbeddedData.embedPath");
+    try std.testing.expectEqual(@as(usize, 4), generated.@"cpz.const.globalEmbeddedData.embedByteCount");
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".matchesEmbed(true));
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".matchesEmbedPath("fixtures/raw.bin"));
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".hasEmbedBytes());
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.metadata".matchesEmbedByteCount(4));
     try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.constByEmbed"(true).?.name);
     try std.testing.expectEqualStrings("globalEmbeddedData", generated.@"cpz.constByEmbedPath"("fixtures/raw.bin").?.name);
-    try std.testing.expect(!generated.@"cpz.const.globalEmbeddedData.emitted");
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedData.emitted");
     try std.testing.expectEqualStrings("", generated.@"cpz.const.globalEmbeddedData.annotations");
+    try std.testing.expectEqualStrings("globalEmbeddedText", generated.@"cpz.consts"[13].name);
+    try std.testing.expectEqualStrings("Text", generated.@"cpz.consts"[13].ty);
+    try std.testing.expectEqualStrings("embed \"fixtures/text.txt\"", generated.@"cpz.consts"[13].literal);
+    try std.testing.expect(generated.@"cpz.consts"[13].emitted);
+    try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.const.globalEmbeddedText.index");
+    try std.testing.expectEqualStrings("fixtures/text.txt", generated.@"cpz.const.globalEmbeddedText.embedPath");
+    try std.testing.expectEqual(@as(usize, "embedded text\n".len), generated.@"cpz.const.globalEmbeddedText.embedByteCount");
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedText.metadata".hasEmbedBytes());
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedText.metadata".matchesEmbedByteCount("embedded text\n".len));
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedText.emitted");
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0xde, 0xad, 0xbe, 0xef }, generated.globalPayload);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xde, 0xad, 0xbe, 0xef }, generated.globalEmbeddedData);
+    try std.testing.expectEqualSlices(u8, "embedded text\n", generated.globalEmbeddedText);
     try std.testing.expectEqual(generated.Color.blue, generated.globalShade);
     try std.testing.expectEqual(@as(f64, 125.0), generated.globalRatio);
     try std.testing.expectEqualSlices(u32, &[_]u32{ 10, 20, 30 }, generated.globalScores);
