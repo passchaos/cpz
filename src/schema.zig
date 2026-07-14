@@ -7443,6 +7443,34 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".writeToWriter(@"cpz.writer");
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.toPackedBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *const cpz.OwnedMessageReader) ![]u8 {{
+        \\        return @"cpz.reader".toPackedBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.packedSize"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *const cpz.OwnedMessageReader) !usize {{
+        \\        return @"cpz.reader".packedSize(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.packedSizeWithTableBuffer"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.tableBuffer": []u8) !usize {{
+        \\        return @"cpz.reader".packedSizeWithTableBuffer(@"cpz.tableBuffer");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.maxPackedSize"(@"cpz.reader": *const cpz.OwnedMessageReader) !usize {{
+        \\        return @"cpz.reader".maxPackedSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.toPackedBytesInto"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.tableBuffer": []u8, @"cpz.dest": []u8) !usize {{
+        \\        return @"cpz.reader".toPackedBytesInto(@"cpz.tableBuffer", @"cpz.dest");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.writePackedToWriter"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.reader".writePackedToWriter(@"cpz.allocator", @"cpz.writer");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.writePackedToWriterWithTableBuffer"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.tableBuffer": []u8, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.reader".writePackedToWriterWithTableBuffer(@"cpz.tableBuffer", @"cpz.writer");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.sourceConsumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".sourceConsumedLen();
         \\    }}
@@ -7517,6 +7545,34 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.writeToWriter"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.writer": *std.Io.Writer) !void {{
         \\        return @"cpz.view".writeToWriter(@"cpz.writer");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.toPackedBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.view": *const cpz.MessageReaderView) ![]u8 {{
+        \\        return @"cpz.view".toPackedBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.packedSize"(@"cpz.allocator": std.mem.Allocator, @"cpz.view": *const cpz.MessageReaderView) !usize {{
+        \\        return @"cpz.view".packedSize(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.packedSizeWithTableBuffer"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.tableBuffer": []u8) !usize {{
+        \\        return @"cpz.view".packedSizeWithTableBuffer(@"cpz.tableBuffer");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.maxPackedSize"(@"cpz.view": *const cpz.MessageReaderView) !usize {{
+        \\        return @"cpz.view".maxPackedSize();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.toPackedBytesInto"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.tableBuffer": []u8, @"cpz.dest": []u8) !usize {{
+        \\        return @"cpz.view".toPackedBytesInto(@"cpz.tableBuffer", @"cpz.dest");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.writePackedToWriter"(@"cpz.allocator": std.mem.Allocator, @"cpz.view": *const cpz.MessageReaderView, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.view".writePackedToWriter(@"cpz.allocator", @"cpz.writer");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.writePackedToWriterWithTableBuffer"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.tableBuffer": []u8, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.view".writePackedToWriterWithTableBuffer(@"cpz.tableBuffer", @"cpz.writer");
         \\    }}
         \\
         \\    pub fn @"cpz.view.sourceConsumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
