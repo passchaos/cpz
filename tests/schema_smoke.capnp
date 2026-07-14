@@ -33,6 +33,7 @@ const globalDataItems :List(Data) = [0x"aa bb" $schemaNote("hex-item"), "pl" "ai
 const globalRawPerson :Person = (id = 9, name = "raw");
 const globalEmbeddedData :Data = embed "fixtures/raw.bin";
 const globalEmbeddedText :Text = embed "fixtures/text.txt";
+const globalEmbeddedPerson :Person = embed "fixtures/person.bin";
 
 annotation schemaNote @0xa110ca110c (file, struct, field, union) :Text;
 annotation marker(interface, method) :Void;

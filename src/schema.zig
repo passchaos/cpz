@@ -1,4 +1,6 @@
 const std = @import("std");
+const message = @import("message.zig");
+const serialize = @import("serialize.zig");
 
 pub const Error = error{
     UnexpectedToken,
@@ -1247,7 +1249,7 @@ pub const File = struct {
     }
 };
 
-pub const LayoutError = Error || error{
+pub const LayoutError = Error || serialize.Error || error{
     UnsupportedInlineComposite,
 };
 
@@ -3645,7 +3647,7 @@ pub fn parse(allocator: std.mem.Allocator, source: []const u8) Error!File {
     return parser.parse();
 }
 
-pub const EmbedError = std.Io.Dir.ReadFileAllocError || std.mem.Allocator.Error;
+pub const EmbedError = std.Io.Dir.ReadFileAllocError || std.mem.Allocator.Error || serialize.Error || message.Error;
 
 pub fn loadEmbeddedConstValues(allocator: std.mem.Allocator, io: std.Io, file: *File, base_dir: []const u8) EmbedError!void {
     try loadEmbeddedConstValuesInScope(allocator, io, file, null, file.consts, base_dir);
@@ -3667,13 +3669,15 @@ pub fn loadEmbeddedConstValues(allocator: std.mem.Allocator, io: std.Io, file: *
 fn loadEmbeddedConstValuesInScope(allocator: std.mem.Allocator, io: std.Io, file: *const File, scope: ?*const Struct, consts: []ConstDecl, base_dir: []const u8) EmbedError!void {
     for (consts) |*decl| {
         if (!decl.is_embed or decl.embed_path.len == 0 or decl.embed_bytes != null) continue;
-        switch (resolveTypeScoped(file, scope, decl.ty)) {
-            .text, .data => {},
+        const is_struct_embed = switch (resolveTypeScoped(file, scope, decl.ty)) {
+            .text, .data => false,
+            .named => |type_name| findEnum(file, type_name) == null and findInterface(file, type_name) == null and isStructLikeName(file, type_name),
             else => continue,
-        }
+        };
         const path = try embeddedConstPathAlloc(allocator, base_dir, decl.embed_path);
         defer allocator.free(path);
         const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, allocator, .limited(64 * 1024 * 1024));
+        if (is_struct_embed) try validateEmbeddedStructBytes(allocator, bytes);
         decl.embed_bytes = bytes;
         decl.owns_embed_bytes = true;
         decl.emit_value = true;
@@ -3685,6 +3689,48 @@ fn embeddedConstPathAlloc(allocator: std.mem.Allocator, base_dir: []const u8, em
         return allocator.dupe(u8, embed_path);
     }
     return std.fs.path.join(allocator, &.{ base_dir, embed_path });
+}
+
+const EmbeddedSegmentRange = struct {
+    start: usize,
+    end: usize,
+};
+
+fn embeddedFlatSegmentRangesAlloc(allocator: std.mem.Allocator, bytes: []const u8) (std.mem.Allocator.Error || serialize.Error)![]EmbeddedSegmentRange {
+    const expected_len = try serialize.expectedSize(bytes);
+    if (bytes.len < expected_len) return error.MessageTruncated;
+    const table = try serialize.parseSegmentTable(bytes[0..expected_len]);
+    const ranges = try allocator.alloc(EmbeddedSegmentRange, table.segment_count);
+    errdefer allocator.free(ranges);
+
+    var offset = table.table_len;
+    for (ranges, 0..) |*range, index| {
+        const word_count = std.mem.readInt(u32, bytes[4 + index * 4 ..][0..4], .little);
+        const byte_count = std.math.mul(usize, word_count, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
+        range.* = .{ .start = offset, .end = offset + byte_count };
+        offset += byte_count;
+    }
+    return ranges;
+}
+
+fn validateEmbeddedStructBytes(allocator: std.mem.Allocator, bytes: []const u8) EmbedError!void {
+    const ranges = try embeddedFlatSegmentRangesAlloc(allocator, bytes);
+    defer allocator.free(ranges);
+    const segments = try allocator.alloc(serialize.ConstSegment, ranges.len);
+    defer allocator.free(segments);
+    for (ranges, 0..) |range, index| {
+        segments[index] = bytes[range.start..range.end];
+    }
+    var root_reader = message.MessageReader.init(segments, .{
+        .traversal_limit_words = std.math.maxInt(usize),
+        .nesting_limit = std.math.maxInt(u16),
+    });
+    _ = try (try root_reader.getRootPointer()).getStruct(null);
+    var validate_reader = message.MessageReader.init(segments, .{
+        .traversal_limit_words = std.math.maxInt(usize),
+        .nesting_limit = std.math.maxInt(u16),
+    });
+    _ = try validate_reader.validate();
 }
 
 fn putFieldName(names: *std.StringHashMap(void), name: []const u8) std.mem.Allocator.Error!bool {
@@ -4287,6 +4333,7 @@ test "schema parser skips common top-level using and const declarations" {
         \\using Go = import "go.capnp";
         \\const defaultName :Text = "Ada";
         \\const embeddedText :Text = embed "testdata/short.txt";
+        \\const embeddedPerson :Person = embed "testdata/binary";
         \\const rawPerson :Person = (name = "Raw");
         \\const blockText :Text =
         \\  `line one
@@ -4299,7 +4346,7 @@ test "schema parser skips common top-level using and const declarations" {
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), file.structs.len);
-    try std.testing.expectEqual(@as(usize, 4), file.consts.len);
+    try std.testing.expectEqual(@as(usize, 5), file.consts.len);
     try std.testing.expectEqualStrings("Person", file.structs[0].name);
     try std.testing.expectEqualStrings("Ada", file.structs[0].fields[0].default_literal.?);
     try std.testing.expectEqualStrings("defaultName", file.consts[0].name);
@@ -4308,10 +4355,15 @@ test "schema parser skips common top-level using and const declarations" {
     try std.testing.expect(file.consts[1].is_embed);
     try std.testing.expectEqualStrings("testdata/short.txt", file.consts[1].embed_path);
     try std.testing.expect(!file.consts[1].emit_value);
-    try std.testing.expectEqualStrings("rawPerson", file.consts[2].name);
-    try std.testing.expectEqualStrings("(name = \"Raw\")", file.consts[2].literal);
+    try std.testing.expectEqualStrings("embeddedPerson", file.consts[2].name);
+    try std.testing.expectEqualStrings("embed \"testdata/binary\"", file.consts[2].literal);
+    try std.testing.expect(file.consts[2].is_embed);
+    try std.testing.expectEqualStrings("testdata/binary", file.consts[2].embed_path);
     try std.testing.expect(!file.consts[2].emit_value);
-    try std.testing.expectEqualStrings("blockText", file.consts[3].name);
+    try std.testing.expectEqualStrings("rawPerson", file.consts[3].name);
+    try std.testing.expectEqualStrings("(name = \"Raw\")", file.consts[3].literal);
+    try std.testing.expect(!file.consts[3].emit_value);
+    try std.testing.expectEqualStrings("blockText", file.consts[4].name);
 }
 
 test "schema parser tolerates imports and annotations" {
@@ -6799,7 +6851,13 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             , .{ indent, const_name, literal });
         },
         .named => |type_name| {
-            if (decl.list_items) |items| {
+            if (decl.is_embed) {
+                if (findEnum(file, type_name) != null or findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) return;
+                const bytes = decl.embed_bytes orelse return;
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try emitEmbeddedStructConst(allocator, out, indent, const_name, zig_type, bytes);
+            } else if (decl.list_items) |items| {
                 const resolved = resolveNamedAlias(file, scope, type_name, 0) orelse return;
                 if (resolved != .list) return;
                 try emitListConst(allocator, out, file, scope, indent, const_name, resolved.list.*, items);
@@ -6820,6 +6878,149 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         },
         else => return,
     }
+}
+
+fn emitEmbeddedStructConst(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    indent: []const u8,
+    name: []const u8,
+    zig_type: []const u8,
+    bytes: []const u8,
+) LayoutError!void {
+    const literal = try zigRawStringLiteralAlloc(allocator, bytes);
+    defer allocator.free(literal);
+    const ranges = try embeddedFlatSegmentRangesAlloc(allocator, bytes);
+    defer allocator.free(ranges);
+
+    try appendFmt(allocator, out,
+        \\{s}pub const {s} = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segmentCount: usize = {};
+        \\{s}    pub const serializedSize: usize = flatBytes.len;
+        \\
+    , .{ indent, name, indent, literal, indent, ranges.len, indent });
+
+    for (ranges, 0..) |range, index| {
+        try appendFmt(allocator, out,
+            \\{s}    pub const segment{}: []const u8 = flatBytes[{}..{}];
+            \\
+        , .{ indent, index, range.start, range.end });
+    }
+
+    try appendFmt(allocator, out,
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{
+    , .{indent});
+    for (ranges, 0..) |_, index| {
+        if (index != 0) try out.appendSlice(allocator, ", ");
+        try appendFmt(allocator, out, "segment{}", .{index});
+    }
+    try out.appendSlice(allocator, "};\n");
+
+    try appendFmt(allocator, out,
+        \\{s}
+        \\{s}    pub const Reader = struct {{
+        \\{s}        reader: cpz.MessageReader,
+        \\
+        \\{s}        pub fn init(options: cpz.ReaderOptions) @This() {{
+        \\{s}            return .{{ .reader = cpz.MessageReader.init({s}.segments, options) }};
+        \\{s}        }}
+        \\
+        \\{s}        pub fn asReader(self: *@This()) *cpz.MessageReader {{
+        \\{s}            return &self.reader;
+        \\{s}        }}
+        \\
+        \\{s}        pub fn root(self: *@This()) !{s} {{
+        \\{s}            return {s}.getRoot(&self.reader);
+        \\{s}        }}
+        \\
+    , .{
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        name,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        zig_type,
+        indent,
+        zig_type,
+        indent,
+    });
+    try appendFmt(allocator, out,
+        \\{s}        pub fn validate(self: *@This()) !cpz.MessageStats {{
+        \\{s}            return self.reader.validate();
+        \\{s}        }}
+        \\
+        \\{s}        pub fn totalSize(self: *@This()) !cpz.MessageSize {{
+        \\{s}            return self.reader.totalSize();
+        \\{s}        }}
+        \\{s}    }};
+        \\
+        \\{s}    pub fn init(options: cpz.ReaderOptions) Reader {{
+        \\{s}        return Reader.init(options);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, options);
+        \\{s}    }}
+        \\
+    , .{
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+    });
+    try appendFmt(allocator, out,
+        \\{s}    pub fn root(message_reader: *cpz.MessageReader) !{s} {{
+        \\{s}        return {s}.getRoot(message_reader);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(options);
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn matchesSerializedSize(count: usize) bool {{
+        \\{s}        return serializedSize == count;
+        \\{s}    }}
+        \\
+        \\{s}    pub fn matchesSegmentCount(count: usize) bool {{
+        \\{s}        return segmentCount == count;
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{
+        indent,
+        zig_type,
+        indent,
+        zig_type,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+        indent,
+    });
 }
 
 fn emitNumericConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, zig_type: []const u8, literal: []const u8) std.mem.Allocator.Error!void {

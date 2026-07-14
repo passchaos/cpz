@@ -404,8 +404,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 14), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 14), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
@@ -551,6 +551,37 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("globalEmbeddedText", generated.@"cpz.constByEmbedByteCount"("embedded text\n".len).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByEmbedByteCount"(999));
     try std.testing.expect(generated.@"cpz.const.globalEmbeddedText.emitted");
+    try std.testing.expectEqualStrings("globalEmbeddedPerson", generated.@"cpz.consts"[14].name);
+    try std.testing.expectEqualStrings("Person", generated.@"cpz.consts"[14].ty);
+    try std.testing.expectEqualStrings("embed \"fixtures/person.bin\"", generated.@"cpz.consts"[14].literal);
+    try std.testing.expect(generated.@"cpz.consts"[14].emitted);
+    try std.testing.expectEqual(@as(usize, 14), generated.@"cpz.const.globalEmbeddedPerson.index");
+    try std.testing.expectEqualStrings("fixtures/person.bin", generated.@"cpz.const.globalEmbeddedPerson.embedPath");
+    try std.testing.expectEqual(@as(usize, 192), generated.@"cpz.const.globalEmbeddedPerson.embedByteCount");
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedPerson.metadata".hasEmbedBytes());
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedPerson.metadata".matchesEmbedByteCount(192));
+    try std.testing.expectEqualStrings("globalEmbeddedPerson", generated.@"cpz.constByEmbedByteCount"(192).?.name);
+    try std.testing.expect(generated.@"cpz.const.globalEmbeddedPerson.emitted");
+    try std.testing.expectEqual(@as(usize, 1), generated.globalEmbeddedPerson.segmentCount);
+    try std.testing.expectEqual(@as(usize, 192), generated.globalEmbeddedPerson.serializedSize);
+    try std.testing.expect(generated.globalEmbeddedPerson.matchesSerializedSize(192));
+    try std.testing.expect(generated.globalEmbeddedPerson.matchesSegmentCount(1));
+    try std.testing.expectEqual(@as(usize, 192), generated.globalEmbeddedPerson.flatBytes.len);
+    try std.testing.expectEqual(@as(usize, 184), generated.globalEmbeddedPerson.segment0.len);
+    try std.testing.expectEqualSlices(u8, generated.globalEmbeddedPerson.segment0, generated.globalEmbeddedPerson.segments[0]);
+    var embedded_reader = generated.globalEmbeddedPerson.init(.{});
+    const embedded_person = try embedded_reader.root();
+    try std.testing.expectEqual(generated.Person.size, embedded_person.actualSize());
+    try std.testing.expectEqual(@as(u32, 5150), embedded_person.id());
+    try std.testing.expectEqual(true, embedded_person.active());
+    try std.testing.expect(embedded_person.has_name());
+    try std.testing.expectEqualSlices(u8, "embedded person", try embedded_person.name());
+    try std.testing.expectEqual(@as(usize, "embedded person".len), try embedded_person.nameByteCount());
+    var embedded_reader_direct = generated.globalEmbeddedPerson.reader(.{});
+    const embedded_person_direct = try generated.globalEmbeddedPerson.root(&embedded_reader_direct);
+    try std.testing.expectEqual(@as(u32, 5150), embedded_person_direct.id());
+    const embedded_stats = try generated.globalEmbeddedPerson.validate(.{});
+    try std.testing.expect(embedded_stats.total_words > 0);
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);
