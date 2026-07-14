@@ -10601,6 +10601,26 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.orphan.getListContentWordCount({s});
         \\        }}
         \\
+        \\        pub fn matchesElementBits(self: @This(), count: usize) bool {{
+        \\            return self.orphan.listMatchesElementBits({s}, count);
+        \\        }}
+        \\
+        \\        pub fn matchesElementBytes(self: @This(), count: usize) bool {{
+        \\            return self.orphan.listMatchesElementBytes({s}, count);
+        \\        }}
+        \\
+        \\        pub fn matchesElementWords(self: @This(), count: usize) bool {{
+        \\            return self.orphan.listMatchesElementWords({s}, count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentBits(self: @This(), count: usize) bool {{
+        \\            return self.orphan.listMatchesContentBits({s}, count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentWords(self: @This(), count: usize) bool {{
+        \\            return self.orphan.listMatchesContentWords({s}, count);
+        \\        }}
+        \\
         \\        pub fn matchesContentBytes(self: @This(), count: usize) bool {{
         \\            return self.orphan.listMatchesContentBytes({s}, count);
         \\        }}
@@ -10696,6 +10716,11 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         list_orphan_new,
         owner_name,
         field_name,
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
+        try listElementSizeLiteral(file, scope, child),
         try listElementSizeLiteral(file, scope, child),
         try listElementSizeLiteral(file, scope, child),
         try listElementSizeLiteral(file, scope, child),

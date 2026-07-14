@@ -2520,12 +2520,17 @@ test "generated builders can use typed list field orphans" {
     try std.testing.expectEqual(cpz.ElementSize.four_bytes, try scores_orphan.elementSize());
     try std.testing.expect(scores_orphan.matchesElementSize(.four_bytes));
     try std.testing.expectEqual(@as(usize, 32), try scores_orphan.elementBitCount());
+    try std.testing.expect(scores_orphan.matchesElementBits(32));
     try std.testing.expectEqual(@as(usize, 4), try scores_orphan.elementByteCount());
+    try std.testing.expect(scores_orphan.matchesElementBytes(4));
     try std.testing.expectError(error.UnsupportedElementSize, scores_orphan.elementWordCount());
+    try std.testing.expect(!scores_orphan.matchesElementWords(1));
     try std.testing.expectEqual(@as(usize, 64), try scores_orphan.contentBitCount());
+    try std.testing.expect(scores_orphan.matchesContentBits(64));
     try std.testing.expectEqual(@as(usize, 8), try scores_orphan.contentByteCount());
     try std.testing.expectEqual(@as(usize, 1), try scores_orphan.contentWordCount());
     try std.testing.expect(scores_orphan.matchesContentBytes(8));
+    try std.testing.expect(scores_orphan.matchesContentWords(1));
     try person_builder.adopt_scores_typed(&scores_orphan);
     try std.testing.expect(scores_orphan.isNull());
 
