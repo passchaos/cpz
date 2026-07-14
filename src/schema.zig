@@ -7458,6 +7458,18 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
                     const stored: u64 = value ^ default_value;
                     std.mem.writeInt(u64, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u64)], stored, .little);
                 },
+                .float32 => {
+                    const value = parseFloatLiteral(f32, const_field.literal) orelse return null;
+                    const default_value = parseFloatLiteral(f32, field.default_literal orelse "0") orelse return null;
+                    const stored: u32 = @as(u32, @bitCast(value)) ^ @as(u32, @bitCast(default_value));
+                    std.mem.writeInt(u32, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                },
+                .float64 => {
+                    const value = parseFloatLiteral(f64, const_field.literal) orelse return null;
+                    const default_value = parseFloatLiteral(f64, field.default_literal orelse "0") orelse return null;
+                    const stored: u64 = @as(u64, @bitCast(value)) ^ @as(u64, @bitCast(default_value));
+                    std.mem.writeInt(u64, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u64)], stored, .little);
+                },
                 .named => |field_type_name| {
                     const enum_decl = findEnum(file, field_type_name) orelse return null;
                     const value = enumLiteralOrdinal(enum_decl, const_field.literal) orelse return null;
@@ -7527,6 +7539,15 @@ fn parseUnsignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
     const value = parseInteger(raw) catch return null;
     if (value > std.math.maxInt(T)) return null;
     return @intCast(value);
+}
+
+fn parseFloatLiteral(comptime T: type, raw_literal: []const u8) ?T {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    const unsigned = if (std.mem.startsWith(u8, raw, "+")) raw[1..] else raw;
+    if (std.mem.eql(u8, unsigned, "inf")) return std.math.inf(T);
+    if (std.mem.eql(u8, unsigned, "-inf")) return -std.math.inf(T);
+    if (std.mem.eql(u8, unsigned, "nan")) return std.math.nan(T);
+    return std.fmt.parseFloat(T, unsigned) catch null;
 }
 
 fn enumLiteralOrdinal(decl: *const EnumDecl, raw_literal: []const u8) ?u16 {
@@ -15741,15 +15762,17 @@ test "schema code generator supports custom runtime import names" {
     try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
 }
 
-test "schema struct const flat emission supports wider integers" {
+test "schema struct const flat emission supports wider integers and floats" {
     const source =
-        \\const raw :Sample = (small = 7, tiny = -8, middle = -1234, word = -99, big = 99);
+        \\const raw :Sample = (small = 7, tiny = -8, middle = -1234, ratio = 2.5, word = -99, big = 99, huge = -12.25);
         \\struct Sample {
         \\  small @0 :UInt8 = 1;
         \\  tiny @1 :Int8 = -1;
         \\  middle @2 :Int16 = 5;
-        \\  word @3 :Int64 = -5;
-        \\  big @4 :UInt64 = 5;
+        \\  ratio @3 :Float32 = 1.5;
+        \\  word @4 :Int64 = -5;
+        \\  big @5 :UInt64 = 5;
+        \\  huge @6 :Float64 = 4.25;
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
@@ -15766,8 +15789,10 @@ test "schema struct const flat emission supports wider integers" {
     try std.testing.expectEqual(@as(u8, 7), root.getUInt8(0, 1));
     try std.testing.expectEqual(@as(i8, -8), root.getInt8(1, -1));
     try std.testing.expectEqual(@as(i16, -1234), root.getInt16(2, 5));
+    try std.testing.expectEqual(@as(f32, 2.5), root.getFloat32(4, 1.5));
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
+    try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
 }
 
 test "schema code generator converts C-style escaped string defaults to Zig literals" {
