@@ -1,6 +1,27 @@
 const std = @import("std");
 const generated = @import("generated_method_defaults_schema");
 
+test "generated optional constants expose values and flats" {
+    try std.testing.expectEqualStrings("maybe local", generated.Defaults.defaultMaybeLabel.?);
+    var label_reader = generated.Defaults.defaultMaybeLabelFlat.reader(.{});
+    try std.testing.expectEqualStrings("maybe local", try generated.Defaults.defaultMaybeLabelFlat.get(&label_reader));
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0e, 0x0f }, generated.Defaults.defaultMaybePayload.?);
+    var payload_reader = generated.Defaults.defaultMaybePayloadFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0e, 0x0f }, try generated.Defaults.defaultMaybePayloadFlat.get(&payload_reader));
+
+    try std.testing.expectEqualSlices(u16, &[_]u16{ 5, 6 }, generated.Defaults.defaultMaybeNumbers);
+    var numbers_reader = generated.Defaults.defaultMaybeNumbersFlat.reader(.{});
+    try std.testing.expectEqual(@as(u16, 5), try generated.Defaults.defaultMaybeNumbersFlat.get(&numbers_reader, 0));
+    try std.testing.expectEqual(@as(u16, 6), try generated.Defaults.defaultMaybeNumbersFlat.get(&numbers_reader, 1));
+
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeItem.fieldCount);
+    var item_reader = generated.Defaults.defaultMaybeItem.reader(.{});
+    const item = try generated.Defaults.defaultMaybeItem.typedRoot(&item_reader);
+    try std.testing.expectEqual(@as(u32, 77), item.value());
+    try std.testing.expectEqualStrings("seventy-seven", try item.label());
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 5), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

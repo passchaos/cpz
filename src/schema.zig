@@ -7635,6 +7635,129 @@ fn emitNestedConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     return emitConstWithIndent(allocator, out, file, scope, index, decl, "    ");
 }
 
+fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, const_name: []const u8, child: Type, decl: *const ConstDecl) LayoutError!void {
+    const raw = std.mem.trim(u8, decl.literal, " \t\r\n");
+    if (std.mem.eql(u8, raw, "null")) {
+        try appendFmt(allocator, out,
+            \\{s}pub const {s}: ?void = null;
+            \\
+            \\
+        , .{ indent, const_name });
+        return;
+    }
+
+    switch (resolveTypeScoped(file, scope, child)) {
+        .text => {
+            const literal = if (decl.is_embed)
+                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
+            else
+                try zigStringLiteralAlloc(allocator, decl.literal);
+            defer allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\{s}pub const {s}: ?[]const u8 = {s};
+                \\
+                \\
+            , .{ indent, const_name, literal });
+            if (decl.is_embed) {
+                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, true);
+            } else {
+                const bytes = try decodedStringBytesAlloc(allocator, decl.literal);
+                defer allocator.free(bytes);
+                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, true);
+            }
+        },
+        .data => {
+            const literal = if (decl.is_embed)
+                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
+            else
+                try zigDataLiteralAlloc(allocator, decl.literal, decl.is_hex_data);
+            defer allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\{s}pub const {s}: ?[]const u8 = {s};
+                \\
+                \\
+            , .{ indent, const_name, literal });
+            if (decl.is_embed) {
+                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, false);
+            } else {
+                const bytes = if (decl.is_hex_data)
+                    try hexBytesAlloc(allocator, decl.literal)
+                else
+                    try decodedStringBytesAlloc(allocator, decl.literal);
+                defer allocator.free(bytes);
+                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, false);
+            }
+        },
+        .list => |list_child| {
+            const items = decl.list_items orelse return;
+            try emitListConst(allocator, out, file, scope, indent, const_name, list_child.*, items);
+        },
+        .named => |type_name| {
+            if (decl.is_embed) {
+                if (findEnum(file, type_name) != null or findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) return;
+                const bytes = decl.embed_bytes orelse return;
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try emitEmbeddedStructConst(allocator, out, indent, const_name, zig_type, bytes);
+            } else if (decl.struct_fields) |fields| {
+                try appendFmt(allocator, out,
+                    \\{s}pub const {s} = struct {{
+                    \\{s}    pub const fieldCount: usize = {};
+                    \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.schema".@"cpz.const.{s}.structFields";
+                    \\
+                , .{ indent, const_name, indent, fields.len, indent, const_name });
+                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, decl.literal)) orelse return;
+                defer allocator.free(flat);
+                const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+                defer allocator.free(flat_literal);
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\{s}    pub const flatBytes: []const u8 = {s};
+                    \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                    \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                    \\
+                    \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+                    \\{s}        return cpz.MessageReader.init(@This().segments, options);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn root(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+                    \\{s}        return message_reader.getRoot();
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn typedRoot(message_reader: *cpz.MessageReader) !{s} {{
+                    \\{s}        return {s}.fromReader(try @This().root(message_reader));
+                    \\{s}    }}
+                    \\
+                , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, zig_type, indent, zig_type, indent });
+                try emitFlatContainerSizeHelpers(allocator, out, indent);
+                try appendFmt(allocator, out,
+                    \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+                    \\{s}        var @"cpz.reader" = reader(options);
+                    \\{s}        return @"cpz.reader".validate();
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent, indent });
+                for (fields) |field| {
+                    const field_name = try zigIdentAlloc(allocator, field.name);
+                    defer allocator.free(field_name);
+                    const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
+                    defer allocator.free(field_literal);
+                    try appendFmt(allocator, out,
+                        \\{s}    pub const {s}: []const u8 = {s};
+                        \\
+                    , .{ indent, field_name, field_literal });
+                }
+                try appendFmt(allocator, out,
+                    \\{s}}};
+                    \\
+                , .{indent});
+            }
+        },
+        else => return,
+    }
+}
+
 fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, index: usize, decl: *const ConstDecl, indent: []const u8) LayoutError!void {
     const const_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(const_name);
@@ -7940,10 +8063,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             defer allocator.free(flat_bytes);
             const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
             defer allocator.free(flat_literal);
-            const struct_name_from_const_type = try zigTypeRefAlloc(allocator, file, switch (resolveTypeScoped(file, scope, decl.ty)) {
-                .named => |name| name,
-                else => unreachable,
-            });
+            const struct_name_from_const_type = try zigTypeRefAlloc(allocator, file, structLiteralTypeName(file, scope, decl.ty) orelse unreachable);
             defer allocator.free(struct_name_from_const_type);
             try appendFmt(allocator, out,
                 \\{s}    pub const flatBytes: []const u8 = {s};
@@ -8102,6 +8222,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             const items = decl.list_items orelse return;
             try emitListConst(allocator, out, file, scope, indent, const_name, child.*, items);
         },
+        .optional => |child| try emitOptionalConstValue(allocator, out, file, scope, indent, const_name, child.*, decl),
         else => return,
     }
 }
@@ -8411,12 +8532,20 @@ fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
     return flat;
 }
 
+fn structLiteralTypeName(file: *const File, scope: ?*const Struct, ty: Type) ?[]const u8 {
+    return switch (resolveTypeScoped(file, scope, ty)) {
+        .named => |name| name,
+        .optional => |child| switch (resolveTypeScoped(file, scope, child.*)) {
+            .named => |name| name,
+            else => null,
+        },
+        else => null,
+    };
+}
+
 fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {
     if (!decl.is_struct_literal) return null;
-    const type_name = switch (resolveTypeScoped(file, scope, decl.ty)) {
-        .named => |name| name,
-        else => return null,
-    };
+    const type_name = structLiteralTypeName(file, scope, decl.ty) orelse return null;
     const struct_decl = findStructDirect(file, type_name) orelse return null;
     var layout = try planStructLayout(allocator, file, struct_decl);
     defer layout.deinit(allocator);
