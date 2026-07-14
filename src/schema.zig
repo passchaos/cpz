@@ -9870,6 +9870,30 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
     });
 
     try appendFmt(allocator, out,
+        \\    pub fn {s}ListIsEmpty(self: @This(), expected: ?cpz.ElementSize) !bool {{
+        \\        return (try self.{s}AsPointer()).listIsEmpty(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListHasIndex(self: @This(), expected: ?cpz.ElementSize, index: usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listHasIndex(expected, index);
+        \\    }}
+        \\
+        \\    pub fn {s}ListFirstIndex(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListFirstIndex(expected);
+        \\    }}
+        \\
+        \\    pub fn {s}ListLastIndex(self: @This(), expected: ?cpz.ElementSize) !usize {{
+        \\        return (try self.{s}AsPointer()).getListLastIndex(expected);
+        \\    }}
+        \\
+    , .{
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
+
+    try appendFmt(allocator, out,
         \\    pub fn {s}ListMatchesElementBits(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
         \\        return (try self.{s}AsPointer()).listMatchesElementBits(expected, count);
         \\    }}
@@ -12694,6 +12718,30 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         field_name, field_name,
         field_name, field_name,
         field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+        field_name, field_name,
+    });
+
+    try appendFmt(allocator, out,
+        \\        pub fn get_{s}ListIsEmpty(self: Builder, expected: ?cpz.ElementSize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listIsEmpty(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListHasIndex(self: Builder, expected: ?cpz.ElementSize, index: usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listHasIndex(expected, index);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListFirstIndex(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListFirstIndex(expected);
+        \\        }}
+        \\
+        \\        pub fn get_{s}ListLastIndex(self: Builder, expected: ?cpz.ElementSize) !usize {{
+        \\            return (try self.get_{s}AsPointer()).getListLastIndex(expected);
+        \\        }}
+        \\
+    , .{
         field_name, field_name,
         field_name, field_name,
         field_name, field_name,

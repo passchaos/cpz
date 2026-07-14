@@ -1110,6 +1110,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expect(try aliases.elementListMatchesContentWords(0, .byte, 1));
     try std.testing.expectEqual(@as(usize, 4), try person_builder.get_nameListLen(.byte));
     try std.testing.expect(try person_builder.get_nameListMatchesLen(.byte, 4));
+    try std.testing.expect(!try person_builder.get_nameListIsEmpty(.byte));
+    try std.testing.expect(try person_builder.get_nameListHasIndex(.byte, 3));
+    try std.testing.expect(!try person_builder.get_nameListHasIndex(.byte, 4));
+    try std.testing.expectEqual(@as(usize, 0), try person_builder.get_nameListFirstIndex(.byte));
+    try std.testing.expectEqual(@as(usize, 3), try person_builder.get_nameListLastIndex(.byte));
     try std.testing.expectEqual(cpz.ElementSize.byte, try person_builder.get_nameListElementSize(.byte));
     try std.testing.expect(try person_builder.get_nameListMatchesElementSize(.byte, .byte));
     try std.testing.expectEqual(@as(usize, 8), try person_builder.get_nameListElementBitCount(.byte));
@@ -1370,6 +1375,11 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqual(cpz.ElementSize.byte, read_name_decoded.element_size);
     try std.testing.expectEqual(@as(usize, 4), try person.nameListLen(.byte));
     try std.testing.expect(try person.nameListMatchesLen(.byte, 4));
+    try std.testing.expect(!try person.nameListIsEmpty(.byte));
+    try std.testing.expect(try person.nameListHasIndex(.byte, 3));
+    try std.testing.expect(!try person.nameListHasIndex(.byte, 4));
+    try std.testing.expectEqual(@as(usize, 0), try person.nameListFirstIndex(.byte));
+    try std.testing.expectEqual(@as(usize, 3), try person.nameListLastIndex(.byte));
     try std.testing.expectEqual(cpz.ElementSize.byte, try person.nameListElementSize(.byte));
     try std.testing.expect(try person.nameListMatchesElementSize(.byte, .byte));
     try std.testing.expectEqual(@as(usize, 8), try person.nameListElementBitCount(.byte));
