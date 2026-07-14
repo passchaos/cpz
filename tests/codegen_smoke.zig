@@ -2701,6 +2701,7 @@ test "generated anonymous union accessors activate and guard fields" {
     try choice_builder.set_name("Ada");
     try std.testing.expectEqual(generated.Choice.Union0.name, (try choice_builder.union0()).?);
     try std.testing.expectEqual(@as(u16, 0), try choice_builder.union0Discriminant());
+    try std.testing.expectEqualStrings("name", (try choice_builder.union0Field()).?.name);
     try std.testing.expect(try choice_builder.union0Is(.name));
     try std.testing.expect(!try choice_builder.union0Is(.id));
     try std.testing.expect(try choice_builder.union0MatchesDiscriminant(0));
@@ -2712,6 +2713,7 @@ test "generated anonymous union accessors activate and guard fields" {
     try choice_builder.set_id(99);
     try std.testing.expectEqual(generated.Choice.Union0.id, (try choice_builder.union0()).?);
     try std.testing.expectEqual(@as(u16, 1), try choice_builder.union0Discriminant());
+    try std.testing.expectEqualStrings("id", (try choice_builder.union0Field()).?.name);
     try std.testing.expect(try choice_builder.union0Is(.id));
     try std.testing.expect(!try choice_builder.union0Is(.name));
     try std.testing.expect(try choice_builder.union0MatchesDiscriminant(1));
@@ -2722,6 +2724,7 @@ test "generated anonymous union accessors activate and guard fields" {
     try choice_builder.set_selected_text("named union");
     try std.testing.expectEqual(generated.Choice.Union1.selected_text, (try choice_builder.union1()).?);
     try std.testing.expectEqual(@as(u16, 0), try choice_builder.union1Discriminant());
+    try std.testing.expectEqualStrings("selected_text", (try choice_builder.union1Field()).?.name);
     try std.testing.expect(try choice_builder.union1Is(.selected_text));
     try std.testing.expect(!try choice_builder.union1Is(.selected_code));
     try std.testing.expect(try choice_builder.union1MatchesDiscriminant(0));
@@ -2731,6 +2734,7 @@ test "generated anonymous union accessors activate and guard fields" {
     try choice_builder.set_selected_code(777);
     try std.testing.expectEqual(generated.Choice.Union1.selected_code, (try choice_builder.union1()).?);
     try std.testing.expectEqual(@as(u16, 1), try choice_builder.union1Discriminant());
+    try std.testing.expectEqualStrings("selected_code", (try choice_builder.union1Field()).?.name);
     try std.testing.expect(try choice_builder.union1Is(.selected_code));
     try std.testing.expect(!try choice_builder.union1Is(.selected_text));
     try std.testing.expect(try choice_builder.union1MatchesDiscriminant(1));
@@ -2742,12 +2746,14 @@ test "generated anonymous union accessors activate and guard fields" {
     const choice = generated.Choice.fromReader(try reader.getRoot());
     try std.testing.expectEqual(generated.Choice.Union0.id, choice.union0().?);
     try std.testing.expectEqual(@as(u16, 1), choice.union0Discriminant());
+    try std.testing.expectEqualStrings("id", choice.union0Field().?.name);
     try std.testing.expect(choice.union0Is(.id));
     try std.testing.expect(!choice.union0Is(.name));
     try std.testing.expect(choice.union0MatchesDiscriminant(1));
     try std.testing.expect(!choice.union0MatchesDiscriminant(0));
     try std.testing.expectEqual(generated.Choice.Union1.selected_code, choice.union1().?);
     try std.testing.expectEqual(@as(u16, 1), choice.union1Discriminant());
+    try std.testing.expectEqualStrings("selected_code", choice.union1Field().?.name);
     try std.testing.expect(choice.union1Is(.selected_code));
     try std.testing.expect(!choice.union1Is(.selected_text));
     try std.testing.expect(choice.union1MatchesDiscriminant(1));
@@ -3310,6 +3316,8 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqual(generated.ScopedAliasBox.Union0.aliasId, (try box_builder.which()).?);
     try std.testing.expectEqual(@as(u16, 0), try box_builder.whichDiscriminant());
     try std.testing.expectEqual(@as(u16, 0), try box_builder.union0Discriminant());
+    try std.testing.expectEqualStrings("aliasId", (try box_builder.whichField()).?.name);
+    try std.testing.expectEqualStrings("aliasId", (try box_builder.union0Field()).?.name);
     try std.testing.expect(try box_builder.whichIs(.aliasId));
     try std.testing.expect(!try box_builder.whichIs(.aliasName));
     try std.testing.expect(try box_builder.whichMatchesDiscriminant(0));
@@ -3322,6 +3330,8 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqual(generated.ScopedAliasBox.Union0.aliasName, (try box_builder.which()).?);
     try std.testing.expectEqual(@as(u16, 1), try box_builder.whichDiscriminant());
     try std.testing.expectEqual(@as(u16, 1), try box_builder.union0Discriminant());
+    try std.testing.expectEqualStrings("aliasName", (try box_builder.whichField()).?.name);
+    try std.testing.expectEqualStrings("aliasName", (try box_builder.union0Field()).?.name);
     try std.testing.expect(try box_builder.whichIs(.aliasName));
     try std.testing.expect(!try box_builder.whichIs(.aliasId));
     try std.testing.expect(try box_builder.whichMatchesDiscriminant(1));
@@ -3343,6 +3353,8 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqual(generated.ScopedAliasBox.Union0.aliasName, box.which().?);
     try std.testing.expectEqual(@as(u16, 1), box.whichDiscriminant());
     try std.testing.expectEqual(@as(u16, 1), box.union0Discriminant());
+    try std.testing.expectEqualStrings("aliasName", box.whichField().?.name);
+    try std.testing.expectEqualStrings("aliasName", box.union0Field().?.name);
     try std.testing.expect(box.whichIs(.aliasName));
     try std.testing.expect(!box.whichIs(.aliasId));
     try std.testing.expect(box.whichMatchesDiscriminant(1));

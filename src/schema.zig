@@ -8624,8 +8624,12 @@ fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
             \\        return self.union{}Discriminant() == discriminant;
             \\    }}
             \\
+            \\    pub fn union{}Field(self: @This()) ?cpz.schema.FieldMetadata {{
+            \\        return @This().@"cpz.union.{}.fieldByDiscriminant"(self.union{}Discriminant());
+            \\    }}
             \\
-        , .{ union_index, union_layout.discriminant_byte, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index });
+            \\
+        , .{ union_index, union_layout.discriminant_byte, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index, union_index });
     }
     if (layout.unions.len == 1) {
         try appendFmt(allocator, out,
@@ -8643,6 +8647,10 @@ fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
             \\
             \\    pub fn whichMatchesDiscriminant(self: @This(), discriminant: u16) bool {{
             \\        return self.union0MatchesDiscriminant(discriminant);
+            \\    }}
+            \\
+            \\    pub fn whichField(self: @This()) ?cpz.schema.FieldMetadata {{
+            \\        return self.union0Field();
             \\    }}
             \\
             \\
@@ -8669,7 +8677,11 @@ fn emitBuilderUnionHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\            return (try self.union{}Discriminant()) == discriminant;
             \\        }}
             \\
-        , .{ union_index, union_layout.discriminant_byte, union_index, owner_name, union_index, owner_name, union_index, union_index, union_index, owner_name, union_index, union_index, union_index, union_index });
+            \\        pub fn union{}Field(self: Builder) !?cpz.schema.FieldMetadata {{
+            \\            return {s}.@"cpz.union.{}.fieldByDiscriminant"(try self.union{}Discriminant());
+            \\        }}
+            \\
+        , .{ union_index, union_layout.discriminant_byte, union_index, owner_name, union_index, owner_name, union_index, union_index, union_index, owner_name, union_index, union_index, union_index, union_index, union_index, owner_name, union_index, union_index });
         try appendFmt(allocator, out,
             \\        fn activateUnion{}(self: Builder, discriminant: u16) !void {{
         , .{union_index});
@@ -8709,6 +8721,10 @@ fn emitBuilderUnionHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\
             \\        pub fn whichMatchesDiscriminant(self: Builder, discriminant: u16) !bool {{
             \\            return self.union0MatchesDiscriminant(discriminant);
+            \\        }}
+            \\
+            \\        pub fn whichField(self: Builder) !?cpz.schema.FieldMetadata {{
+            \\            return self.union0Field();
             \\        }}
             \\
             \\
