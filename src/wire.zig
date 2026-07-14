@@ -23,6 +23,34 @@ pub const PointerType = enum(u2) {
     list = 1,
     far = 2,
     other = 3,
+
+    pub fn isStruct(self: PointerType) bool {
+        return self == .struct_ptr;
+    }
+
+    pub fn isList(self: PointerType) bool {
+        return self == .list;
+    }
+
+    pub fn isFar(self: PointerType) bool {
+        return self == .far;
+    }
+
+    pub fn isOther(self: PointerType) bool {
+        return self == .other;
+    }
+
+    pub fn isCapability(self: PointerType) bool {
+        return self == .other;
+    }
+
+    pub fn isNear(self: PointerType) bool {
+        return self == .struct_ptr or self == .list or self == .other;
+    }
+
+    pub fn matches(self: PointerType, expected: PointerType) bool {
+        return self == expected;
+    }
 };
 
 pub const ElementSize = enum(u3) {
@@ -742,6 +770,13 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(Word, 0x0002_0003_0000_0008), struct_raw);
     const decoded_struct = try decode(struct_raw);
     try testing.expectEqual(PointerType.struct_ptr, decoded_struct.kind());
+    try testing.expect(PointerType.struct_ptr.isStruct());
+    try testing.expect(PointerType.struct_ptr.isNear());
+    try testing.expect(PointerType.struct_ptr.matches(.struct_ptr));
+    try testing.expect(!PointerType.struct_ptr.isList());
+    try testing.expect(!PointerType.struct_ptr.isFar());
+    try testing.expect(!PointerType.struct_ptr.isOther());
+    try testing.expect(!PointerType.struct_ptr.isCapability());
     try testing.expect(decoded_struct.matchesKind(.struct_ptr));
     try testing.expect(decoded_struct.isStruct());
     try testing.expect(!decoded_struct.isList());
@@ -788,6 +823,9 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expectEqual(@as(Word, 0x0000_01aa_0000_0019), text_raw);
     const decoded_list = try decode(text_raw);
     try testing.expectEqual(PointerType.list, decoded_list.kind());
+    try testing.expect(PointerType.list.isList());
+    try testing.expect(PointerType.list.isNear());
+    try testing.expect(!PointerType.list.isStruct());
     try testing.expect(decoded_list.isList());
     try testing.expectEqual(ElementSize.byte, decoded_list.asList().?.element_size);
     try testing.expect(decoded_list.asStruct() == null);
@@ -854,6 +892,9 @@ test "wire signed offsets and far/capability pointers" {
     const far_raw = try encodeFar(true, 17, 9);
     const decoded_far = try decode(far_raw);
     try testing.expectEqual(PointerType.far, decoded_far.kind());
+    try testing.expect(PointerType.far.isFar());
+    try testing.expect(!PointerType.far.isNear());
+    try testing.expect(!PointerType.far.isCapability());
     try testing.expect(decoded_far.isFar());
     try testing.expectEqual(@as(u32, 9), decoded_far.asFar().?.segment_id);
     try testing.expect(decoded_far.asCapability() == null);
@@ -881,6 +922,10 @@ test "wire signed offsets and far/capability pointers" {
     const cap_raw = encodeCapability(1234);
     const decoded_cap = try decode(cap_raw);
     try testing.expectEqual(PointerType.other, decoded_cap.kind());
+    try testing.expect(PointerType.other.isOther());
+    try testing.expect(PointerType.other.isCapability());
+    try testing.expect(PointerType.other.isNear());
+    try testing.expect(!PointerType.other.isFar());
     try testing.expect(decoded_cap.isCapability());
     try testing.expectEqual(@as(u32, 1234), decoded_cap.asCapability().?.index);
     try testing.expectEqual(@as(u32, 1234), decoded_cap.asOther().?.index);
