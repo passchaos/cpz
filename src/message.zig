@@ -2017,6 +2017,31 @@ pub const PointerBuilder = struct {
         return wire.pointerType(raw_value);
     }
 
+    pub fn matchesPointerType(self: PointerBuilder, expected: wire.PointerType) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.matches(expected);
+    }
+
+    pub fn isStructPointer(self: PointerBuilder) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isStruct();
+    }
+
+    pub fn isListPointer(self: PointerBuilder) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isList();
+    }
+
+    pub fn isFarPointer(self: PointerBuilder) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isFar();
+    }
+
+    pub fn isCapabilityPointer(self: PointerBuilder) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isCapability();
+    }
+
     /// Create a read-only view using a caller-owned MessageReader over the
     /// same message segments. The caller must keep `message_reader` alive for
     /// the returned PointerReader.
@@ -2495,6 +2520,31 @@ pub const PointerReader = struct {
         const resolved = try self.resolve();
         if (resolved.raw == 0) return null;
         return wire.pointerType(resolved.raw);
+    }
+
+    pub fn matchesPointerType(self: PointerReader, expected: wire.PointerType) bool {
+        const kind = self.pointerType() catch return false;
+        return kind != null and kind.?.matches(expected);
+    }
+
+    pub fn isStructPointer(self: PointerReader) bool {
+        const kind = self.pointerType() catch return false;
+        return kind != null and kind.?.isStruct();
+    }
+
+    pub fn isListPointer(self: PointerReader) bool {
+        const kind = self.pointerType() catch return false;
+        return kind != null and kind.?.isList();
+    }
+
+    pub fn isFarPointer(self: PointerReader) bool {
+        const kind = self.pointerType() catch return false;
+        return kind != null and kind.?.isFar();
+    }
+
+    pub fn isCapabilityPointer(self: PointerReader) bool {
+        const kind = self.pointerType() catch return false;
+        return kind != null and kind.?.isCapability();
     }
 
     pub fn decode(self: PointerReader) Error!?wire.DecodedPointer {
@@ -5267,6 +5317,29 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(u32, 4242), try cap_builder.getRootCapability());
     var cap_reader = MessageReader.init(try cap_builder.segmentsConst(), .{});
     try testing.expectEqual(@as(u32, 4242), try cap_reader.getRootCapability());
+
+    const text_root_pointer = try text_builder.getRootPointer();
+    try testing.expect(text_root_pointer.matchesPointerType(.far));
+    try testing.expect(text_root_pointer.isFarPointer());
+    try testing.expect(!text_root_pointer.isListPointer());
+    try testing.expect(!text_root_pointer.isStructPointer());
+    try testing.expect(!text_root_pointer.isCapabilityPointer());
+    var text_pointer_reader_message = MessageReader.init(try text_builder.segmentsConst(), .{});
+    const text_pointer_reader = try text_pointer_reader_message.getRootPointer();
+    try testing.expect(text_pointer_reader.matchesPointerType(.list));
+    try testing.expect(text_pointer_reader.isListPointer());
+    try testing.expect(!text_pointer_reader.isStructPointer());
+    try testing.expect(!text_pointer_reader.isFarPointer());
+    try testing.expect(!text_pointer_reader.isCapabilityPointer());
+
+    const cap_root_pointer = try cap_builder.getRootPointer();
+    try testing.expect(cap_root_pointer.matchesPointerType(.other));
+    try testing.expect(cap_root_pointer.isCapabilityPointer());
+    try testing.expect(!cap_root_pointer.isListPointer());
+    const cap_pointer_reader = try cap_reader.getRootPointer();
+    try testing.expect(cap_pointer_reader.matchesPointerType(.other));
+    try testing.expect(cap_pointer_reader.isCapabilityPointer());
+    try testing.expect(!cap_pointer_reader.isListPointer());
 }
 
 test "message builder can disown and adopt root pointers" {
