@@ -301,6 +301,50 @@ pub fn unpackInto(dest: []u8, packed_bytes: []const u8) Error!usize {
     return out_i;
 }
 
+/// Decode a packed Cap'n Proto byte slice directly to an Io writer without
+/// allocating the complete unpacked output.
+pub fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8) (Error || std.Io.Writer.Error)!void {
+    var i: usize = 0;
+    while (i < packed_bytes.len) {
+        const tag = packed_bytes[i];
+        i += 1;
+
+        var word = [_]u8{0} ** wire.bytes_per_word;
+        inline for (0..wire.bytes_per_word) |j| {
+            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                if (i >= packed_bytes.len) return error.PackedInputTruncated;
+                word[j] = packed_bytes[i];
+                i += 1;
+            }
+        }
+        try writer.writeAll(&word);
+
+        if (tag == 0x00) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const additional_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
+            i += 1;
+            try writeZeroesToWriter(writer, additional_bytes);
+        } else if (tag == 0xff) {
+            if (i >= packed_bytes.len) return error.PackedInputTruncated;
+            const raw_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
+            i += 1;
+            if (packed_bytes.len - i < raw_bytes) return error.PackedInputTruncated;
+            try writer.writeAll(packed_bytes[i .. i + raw_bytes]);
+            i += raw_bytes;
+        }
+    }
+}
+
+fn writeZeroesToWriter(writer: *std.Io.Writer, byte_count: usize) std.Io.Writer.Error!void {
+    const zeroes = [_]u8{0} ** 4096;
+    var remaining = byte_count;
+    while (remaining != 0) {
+        const chunk = @min(remaining, zeroes.len);
+        try writer.writeAll(zeroes[0..chunk]);
+        remaining -= chunk;
+    }
+}
+
 fn writePackedSlice(dest: []u8, out_i: *usize, bytes: []const u8) Error!void {
     if (dest.len - out_i.* < bytes.len) return error.PackedOutputTooSmall;
     @memcpy(dest[out_i.* .. out_i.* + bytes.len], bytes);
@@ -413,4 +457,25 @@ test "packToWriter matches allocating encoder" {
     var writer = std.Io.Writer.fixed(&buffer);
     try packToWriter(&writer, &unpacked);
     try testing.expectEqualSlices(u8, expected, std.Io.Writer.buffered(&writer));
+}
+
+test "unpackToWriter matches allocating decoder" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const unpacked = ([_]u8{0x8a} ** 4096) ++ ([_]u8{0} ** 64) ++ [_]u8{
+        0x08, 0x00, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+    };
+    const packed_bytes = try pack(allocator, &unpacked);
+    defer allocator.free(packed_bytes);
+
+    const expected = try unpack(allocator, packed_bytes);
+    defer allocator.free(expected);
+    var buffer: [8192]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    try unpackToWriter(&writer, packed_bytes);
+    try testing.expectEqualSlices(u8, expected, std.Io.Writer.buffered(&writer));
+
+    var truncated_writer = std.Io.Writer.fixed(&buffer);
+    try testing.expectError(error.PackedInputTruncated, unpackToWriter(&truncated_writer, packed_bytes[0 .. packed_bytes.len - 1]));
 }
