@@ -1670,6 +1670,19 @@ pub const Orphan = struct {
         return self.asReader(&reader).getText();
     }
 
+    pub fn getTextDefault(self: Orphan, default_value: []const u8) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).getTextDefault(default_value);
+    }
+
+    pub fn getTextDefaultByteCount(self: Orphan, default_value: []const u8) Error!usize {
+        return (try self.getTextDefault(default_value)).len;
+    }
+
+    pub fn textDefaultMatchesBytes(self: Orphan, default_value: []const u8, count: usize) bool {
+        return (self.getTextDefaultByteCount(default_value) catch return false) == count;
+    }
+
     pub fn getTextByteCount(self: Orphan) Error!usize {
         return (try self.getText()).len;
     }
@@ -1681,6 +1694,19 @@ pub const Orphan = struct {
     pub fn getData(self: Orphan) Error![]const u8 {
         var reader = MessageReader.init(try self.message.segmentsConst(), .{});
         return self.asReader(&reader).getData();
+    }
+
+    pub fn getDataDefault(self: Orphan, default_value: []const u8) Error![]const u8 {
+        var reader = MessageReader.init(try self.message.segmentsConst(), .{});
+        return self.asReader(&reader).getDataDefault(default_value);
+    }
+
+    pub fn getDataDefaultByteCount(self: Orphan, default_value: []const u8) Error!usize {
+        return (try self.getDataDefault(default_value)).len;
+    }
+
+    pub fn dataDefaultMatchesBytes(self: Orphan, default_value: []const u8, count: usize) bool {
+        return (self.getDataDefaultByteCount(default_value) catch return false) == count;
     }
 
     pub fn getDataByteCount(self: Orphan) Error!usize {
@@ -7368,6 +7394,10 @@ test "pointer list elements can disown and adopt within a message" {
     var orphan = try list.disownPointerElement(0);
     try testing.expect((try list.getPointerElement(0)).isNull());
     try testing.expectEqualSlices(u8, "first", try orphan.getText());
+    try testing.expectEqualSlices(u8, "first", try orphan.getTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "first".len), try orphan.getTextDefaultByteCount("ignored"));
+    try testing.expect(orphan.textDefaultMatchesBytes("ignored", "first".len));
+    try testing.expect(!orphan.textDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expectEqual(@as(usize, "first".len), try orphan.getTextByteCount());
     try testing.expect(orphan.textMatchesBytes("first".len));
     try testing.expect(!orphan.textMatchesBytes("first".len + 1));
@@ -7481,6 +7511,10 @@ test "message builder allocates scalar orphans" {
     defer text_builder.deinit();
     var text_orphan = try text_builder.newOrphanText("allocated text");
     try testing.expectEqualSlices(u8, "allocated text", try text_orphan.getText());
+    try testing.expectEqualSlices(u8, "allocated text", try text_orphan.getTextDefault("ignored"));
+    try testing.expectEqual(@as(usize, "allocated text".len), try text_orphan.getTextDefaultByteCount("ignored"));
+    try testing.expect(text_orphan.textDefaultMatchesBytes("ignored", "allocated text".len));
+    try testing.expect(!text_orphan.textDefaultMatchesBytes("ignored", "ignored".len));
     try testing.expectEqual(@as(usize, "allocated text".len), try text_orphan.getTextByteCount());
     try testing.expect(text_orphan.textMatchesBytes("allocated text".len));
     try testing.expect(!text_orphan.textMatchesBytes("allocated text".len + 1));
@@ -7492,6 +7526,10 @@ test "message builder allocates scalar orphans" {
     defer data_builder.deinit();
     var data_orphan = try data_builder.newOrphanData(&[_]u8{ 1, 3, 3, 7 });
     try testing.expectEqualSlices(u8, &[_]u8{ 1, 3, 3, 7 }, try data_orphan.getData());
+    try testing.expectEqualSlices(u8, &[_]u8{ 1, 3, 3, 7 }, try data_orphan.getDataDefault(&[_]u8{ 9, 9 }));
+    try testing.expectEqual(@as(usize, 4), try data_orphan.getDataDefaultByteCount(&[_]u8{ 9, 9 }));
+    try testing.expect(data_orphan.dataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 4));
+    try testing.expect(!data_orphan.dataDefaultMatchesBytes(&[_]u8{ 9, 9 }, 2));
     try testing.expectEqual(@as(usize, 4), try data_orphan.getDataByteCount());
     try testing.expect(data_orphan.dataMatchesBytes(4));
     try testing.expect(!data_orphan.dataMatchesBytes(5));
