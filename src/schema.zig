@@ -9369,6 +9369,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.len();
         \\        }}
         \\
+        \\        pub fn matchesLen(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesLen(count);
+        \\        }}
+        \\
         \\        pub fn isEmpty(self: @This()) bool {{
         \\            return self.list.isEmpty();
         \\        }}
@@ -9413,8 +9417,88 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.elementSize();
         \\        }}
         \\
+        \\        pub fn matchesElementSize(self: @This(), expected: cpz.ElementSize) bool {{
+        \\            return self.list.matchesElementSize(expected);
+        \\        }}
+        \\
+        \\        pub fn elementBitCount(self: @This()) usize {{
+        \\            return self.list.elementBitCount();
+        \\        }}
+        \\
+        \\        pub fn elementByteCount(self: @This()) !usize {{
+        \\            return self.list.elementByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementWordCount(self: @This()) !usize {{
+        \\            return self.list.elementWordCount();
+        \\        }}
+        \\
+        \\        pub fn contentBitCount(self: @This()) !usize {{
+        \\            return self.list.contentBitCount();
+        \\        }}
+        \\
+        \\        pub fn contentByteCount(self: @This()) !usize {{
+        \\            return self.list.contentByteCount();
+        \\        }}
+        \\
+        \\        pub fn contentWordCount(self: @This()) !usize {{
+        \\            return self.list.contentWordCount();
+        \\        }}
+        \\
+        \\        pub fn matchesElementBits(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesElementBits(count);
+        \\        }}
+        \\
+        \\        pub fn matchesElementBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesElementBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesElementWords(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesElementWords(count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentBits(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesContentBits(count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesContentBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentWords(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesContentWords(count);
+        \\        }}
+        \\
         \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
         \\            return self.list.structElementSize();
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementSize(self: @This(), expected: cpz.StructSize) bool {{
+        \\            return self.list.matchesStructElementSize(expected);
+        \\        }}
+        \\
+        \\        pub fn structElementDataWordCount(self: @This()) u16 {{
+        \\            return self.list.structElementDataWordCount();
+        \\        }}
+        \\
+        \\        pub fn structElementPointerCount(self: @This()) u16 {{
+        \\            return self.list.structElementPointerCount();
+        \\        }}
+        \\
+        \\        pub fn structElementTotalWords(self: @This()) usize {{
+        \\            return self.list.structElementTotalWords();
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementDataWords(self: @This(), count: u16) bool {{
+        \\            return self.list.matchesStructElementDataWords(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementPointerCount(self: @This(), count: u16) bool {{
+        \\            return self.list.matchesStructElementPointerCount(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementTotalWords(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementTotalWords(count);
         \\        }}
         \\
         \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_List {{
@@ -9741,6 +9825,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.len();
         \\        }}
         \\
+        \\        pub fn matchesLen(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesLen(count);
+        \\        }}
+        \\
         \\        pub fn isEmpty(self: @This()) bool {{
         \\            return self.list.isEmpty();
         \\        }}
@@ -9789,8 +9877,88 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.elementSize();
         \\        }}
         \\
+        \\        pub fn matchesElementSize(self: @This(), expected: cpz.ElementSize) bool {{
+        \\            return self.list.matchesElementSize(expected);
+        \\        }}
+        \\
+        \\        pub fn elementBitCount(self: @This()) usize {{
+        \\            return self.list.elementBitCount();
+        \\        }}
+        \\
+        \\        pub fn elementByteCount(self: @This()) !usize {{
+        \\            return self.list.elementByteCount();
+        \\        }}
+        \\
+        \\        pub fn elementWordCount(self: @This()) !usize {{
+        \\            return self.list.elementWordCount();
+        \\        }}
+        \\
+        \\        pub fn contentBitCount(self: @This()) !usize {{
+        \\            return self.list.contentBitCount();
+        \\        }}
+        \\
+        \\        pub fn contentByteCount(self: @This()) !usize {{
+        \\            return self.list.contentByteCount();
+        \\        }}
+        \\
+        \\        pub fn contentWordCount(self: @This()) !usize {{
+        \\            return self.list.contentWordCount();
+        \\        }}
+        \\
+        \\        pub fn matchesElementBits(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesElementBits(count);
+        \\        }}
+        \\
+        \\        pub fn matchesElementBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesElementBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesElementWords(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesElementWords(count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentBits(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesContentBits(count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentBytes(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesContentBytes(count);
+        \\        }}
+        \\
+        \\        pub fn matchesContentWords(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesContentWords(count);
+        \\        }}
+        \\
         \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
         \\            return self.list.structElementSize();
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementSize(self: @This(), expected: cpz.StructSize) bool {{
+        \\            return self.list.matchesStructElementSize(expected);
+        \\        }}
+        \\
+        \\        pub fn structElementDataWordCount(self: @This()) u16 {{
+        \\            return self.list.structElementDataWordCount();
+        \\        }}
+        \\
+        \\        pub fn structElementPointerCount(self: @This()) u16 {{
+        \\            return self.list.structElementPointerCount();
+        \\        }}
+        \\
+        \\        pub fn structElementTotalWords(self: @This()) usize {{
+        \\            return self.list.structElementTotalWords();
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementDataWords(self: @This(), count: u16) bool {{
+        \\            return self.list.matchesStructElementDataWords(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementPointerCount(self: @This(), count: u16) bool {{
+        \\            return self.list.matchesStructElementPointerCount(count);
+        \\        }}
+        \\
+        \\        pub fn matchesStructElementTotalWords(self: @This(), count: usize) bool {{
+        \\            return self.list.matchesStructElementTotalWords(count);
         \\        }}
         \\
         \\        pub fn orphanage(self: @This()) cpz.Orphanage {{
