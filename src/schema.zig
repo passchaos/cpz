@@ -6387,8 +6387,18 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\        return null;
             \\    }}
             \\
+            \\    pub fn @"cpz.union.{}.fieldByDefault"(@"cpz.default": []const u8) ?cpz.schema.FieldMetadata {{
+            \\        for (@This().@"cpz.union.{}.fields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".default, @"cpz.default")) return @"cpz.field";
+            \\        return null;
+            \\    }}
+            \\
             \\    pub fn @"cpz.union.{}.fieldByExplicitDefault"(@"cpz.hasDefault": bool) ?cpz.schema.FieldMetadata {{
             \\        for (@This().@"cpz.union.{}.fields") |@"cpz.field"| if (@"cpz.field".has_explicit_default == @"cpz.hasDefault") return @"cpz.field";
+            \\        return null;
+            \\    }}
+            \\
+            \\    pub fn @"cpz.union.{}.fieldByHexDefault"(@"cpz.isHex": bool) ?cpz.schema.FieldMetadata {{
+            \\        for (@This().@"cpz.union.{}.fields") |@"cpz.field"| if (@"cpz.field".default_is_hex_data == @"cpz.isHex") return @"cpz.field";
             \\        return null;
             \\    }}
             \\
@@ -6413,7 +6423,7 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
             \\    }}
             \\
             \\
-        , .{ index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index });
+        , .{ index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index, index });
     }
     try out.appendSlice(allocator, "    pub const @\"cpz.unions\": []const cpz.schema.UnionMetadata = &[_]cpz.schema.UnionMetadata{");
     for (layout.unions, 0..) |union_layout, index| {

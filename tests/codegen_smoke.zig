@@ -2192,8 +2192,12 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldBySlot"("pointer", 1).?.name);
     try std.testing.expectEqualStrings("id", generated.Choice.@"cpz.union.0.fieldBySlot"("data_byte", 4).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldBySlot"("missing", 0));
+    try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByDefault"("").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByDefault"("missing"));
     try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByExplicitDefault"(false).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByExplicitDefault"(true));
+    try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByHexDefault"(false).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByHexDefault"(true));
     try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByAnnotations"("").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Choice.@"cpz.union.0.fieldByAnnotations"("missing"));
     try std.testing.expectEqualStrings("name", generated.Choice.@"cpz.union.0.fieldByDiscriminant"(0).?.name);
