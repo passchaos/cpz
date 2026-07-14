@@ -7403,11 +7403,24 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
                 else => return null,
             },
             .data_byte => |byte_offset| switch (resolveTypeScoped(file, layout.decl, field.ty)) {
+                .uint16 => {
+                    const value = parseU16Literal(const_field.literal) orelse return null;
+                    const default_value = parseU16Literal(field.default_literal orelse "0") orelse return null;
+                    const stored: u16 = value ^ default_value;
+                    std.mem.writeInt(u16, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u16)], stored, .little);
+                },
                 .uint32 => {
                     const value = parseU32Literal(const_field.literal) orelse return null;
                     const default_value = parseU32Literal(field.default_literal orelse "0") orelse return null;
                     const stored: u32 = @as(u32, @intCast(value)) ^ default_value;
                     std.mem.writeInt(u32, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u32)], stored, .little);
+                },
+                .named => |field_type_name| {
+                    const enum_decl = findEnum(file, field_type_name) orelse return null;
+                    const value = enumLiteralOrdinal(enum_decl, const_field.literal) orelse return null;
+                    const default_value = enumLiteralOrdinal(enum_decl, field.default_literal orelse "") orelse 0;
+                    const stored: u16 = value ^ default_value;
+                    std.mem.writeInt(u16, segment.items[@sizeOf(u64) + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
                 else => return null,
             },
@@ -7450,12 +7463,29 @@ fn findFieldLayoutByName(layout: *const StructLayout, name: []const u8) ?FieldLa
     return null;
 }
 
+fn parseU16Literal(raw_literal: []const u8) ?u16 {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    if (raw.len == 0 or raw[0] == '.') return null;
+    const value = parseInteger(raw) catch return null;
+    if (value > std.math.maxInt(u16)) return null;
+    return @intCast(value);
+}
+
 fn parseU32Literal(raw_literal: []const u8) ?u32 {
     const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
     if (raw.len == 0 or raw[0] == '.') return null;
     const value = parseInteger(raw) catch return null;
     if (value > std.math.maxInt(u32)) return null;
     return @intCast(value);
+}
+
+fn enumLiteralOrdinal(decl: *const EnumDecl, raw_literal: []const u8) ?u16 {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    const unqualified = if (std.mem.startsWith(u8, raw, ".")) raw[1..] else raw;
+    const literal = if (lastTopLevelDot(unqualified)) |dot| unqualified[dot + 1 ..] else unqualified;
+    if (literal.len == 0) return null;
+    for (decl.values) |value| if (std.mem.eql(u8, value.name, literal)) return value.ordinal;
+    return null;
 }
 
 fn parseBoolLiteral(raw_literal: []const u8) ?bool {
