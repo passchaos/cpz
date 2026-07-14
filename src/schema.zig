@@ -7697,6 +7697,36 @@ fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, s
     try writeStructLiteralFieldsIntoSegment(allocator, file, &nested_layout, fields, segment, target_word_index);
 }
 
+fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, type_name: []const u8, literal: []const u8) LayoutError!void {
+    const items = parseInlineConstListElementsAlloc(allocator, literal) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+        else => return err,
+    };
+    defer allocator.free(items);
+    const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
+    var element_layout = try planStructLayout(allocator, file, struct_decl);
+    defer element_layout.deinit(allocator);
+    const element_words = @as(usize, element_layout.data_words) + @as(usize, element_layout.pointer_count);
+    if (element_words == 0) return error.UnsupportedType;
+    const content_words = try std.math.mul(usize, element_words, items.len);
+
+    const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
+    const target_word_index = segment.items.len / @sizeOf(u64);
+    try segment.appendNTimes(allocator, 0, (1 + content_words) * @sizeOf(u64));
+    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
+    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeList(offset, .composite, content_words));
+    writeWordBytes(segment.items[target_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = element_layout.data_words, .pointer_count = element_layout.pointer_count }));
+
+    for (items, 0..) |item, index| {
+        const fields = parseConstStructFieldsAlloc(allocator, item) catch |err| switch (err) {
+            error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+            else => return err,
+        };
+        defer allocator.free(fields);
+        try writeStructLiteralFieldsIntoSegment(allocator, file, &element_layout, fields, segment, target_word_index + 1 + index * element_words);
+    }
+}
+
 fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, child_ty: Type, literal: []const u8) LayoutError!void {
     const items = parseInlineConstListElementsAlloc(allocator, literal) catch |err| switch (err) {
         error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
@@ -7787,11 +7817,14 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
         .text => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, true),
         .data => try appendPointerListOfByteLists(allocator, segment, pointer_index, data_words, object_start_words, items, false),
         .named => |type_name| {
-            const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
-            for (items, 0..) |item, index| {
-                const value = enumLiteralOrdinal(enum_decl, item) orelse return error.UnsupportedType;
-                std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
+            if (findEnum(file, type_name)) |enum_decl| {
+                const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
+                for (items, 0..) |item, index| {
+                    const value = enumLiteralOrdinal(enum_decl, item) orelse return error.UnsupportedType;
+                    std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
+                }
+            } else {
+                try appendStructListPointer(allocator, file, segment, pointer_index, data_words, object_start_words, type_name, literal);
             }
         },
         else => return error.UnsupportedType,
