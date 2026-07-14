@@ -536,8 +536,8 @@ test "generated declaration and field annotation metadata compiles" {
 }
 
 test "generated simple constants compile" {
-    try std.testing.expectEqual(@as(usize, 18), generated.@"cpz.constCount");
-    try std.testing.expectEqual(@as(usize, 18), generated.@"cpz.consts".len);
+    try std.testing.expectEqual(@as(usize, 19), generated.@"cpz.constCount");
+    try std.testing.expectEqual(@as(usize, 19), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
     try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
@@ -1044,6 +1044,25 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(u32, 456), choice_root.getUInt32(16, 0));
     const choice_stats = try generated.globalChoice.validate(.{});
     try std.testing.expect(choice_stats.total_words > 0);
+    try std.testing.expectEqualStrings("globalScoreGroups", generated.@"cpz.consts"[18].name);
+    try std.testing.expectEqualStrings("List(List(UInt32))", generated.@"cpz.consts"[18].ty);
+    try std.testing.expectEqualStrings("[[11, 12], [13]]", generated.@"cpz.consts"[18].literal);
+    try std.testing.expect(!generated.@"cpz.consts"[18].emitted);
+    try std.testing.expectEqual(@as(usize, 18), generated.@"cpz.const.globalScoreGroups.index");
+    try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalScoreGroups.listItemCount");
+    try std.testing.expectEqualStrings("[11, 12]", generated.@"cpz.const.globalScoreGroups.listItem.0.literal");
+    try std.testing.expectEqualStrings("[13]", generated.@"cpz.const.globalScoreGroups.listItem.1.literal");
+    try std.testing.expect(generated.globalScoreGroups.flatBytes.len > 0);
+    var global_score_groups_reader = generated.globalScoreGroups.reader(.{});
+    const global_score_groups = try generated.globalScoreGroups.list(&global_score_groups_reader);
+    try std.testing.expectEqual(@as(usize, 2), global_score_groups.len());
+    const global_score_group0 = try generated.globalScoreGroups.get(&global_score_groups_reader, 0, .four_bytes);
+    try std.testing.expectEqual(@as(u32, 11), global_score_group0.getUInt32(0));
+    try std.testing.expectEqual(@as(u32, 12), global_score_group0.getUInt32(1));
+    const global_score_group1 = try generated.globalScoreGroups.get(&global_score_groups_reader, 1, .four_bytes);
+    try std.testing.expectEqual(@as(u32, 13), global_score_group1.getUInt32(0));
+    const global_score_groups_stats = try generated.globalScoreGroups.validate(.{});
+    try std.testing.expect(global_score_groups_stats.total_words > 0);
     try std.testing.expectEqual(@as(u32, 12345), generated.globalId);
     try std.testing.expectEqual(true, generated.globalActive);
     try std.testing.expectEqualSlices(u8, "const text", generated.globalName);

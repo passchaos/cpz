@@ -7139,6 +7139,34 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                     \\
                 , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent, indent, indent, indent, indent });
             }
+            if (try nestedListLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
+                defer allocator.free(flat_bytes);
+                const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
+                defer allocator.free(flat_literal);
+                try appendFmt(allocator, out,
+                    \\{s}    pub const flatBytes: []const u8 = {s};
+                    \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                    \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                    \\
+                    \\{s}    pub fn reader(options: cpz.ReaderOptions) cpz.MessageReader {{
+                    \\{s}        return cpz.MessageReader.init(@This().segments, options);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+                    \\{s}        return message_reader.getRootList(.pointer);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader, index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
+                    \\{s}        return (try (try list(message_reader)).getPointerElement(index)).getList(expected);
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
+                    \\{s}        var @"cpz.reader" = reader(options);
+                    \\{s}        return @"cpz.reader".validate();
+                    \\{s}    }}
+                    \\
+                , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+            }
             for (items) |item| {
                 const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
                 defer allocator.free(item_literal);
@@ -7417,6 +7445,30 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         },
         else => return,
     }
+}
+
+fn nestedListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {
+    _ = decl.list_items orelse return null;
+    const child = switch (resolveTypeScoped(file, scope, decl.ty)) {
+        .list => |list_child| list_child.*,
+        else => return null,
+    };
+    if (resolveTypeScoped(file, scope, child) != .list) return null;
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, @sizeOf(u64));
+    appendScalarListPointer(allocator, file, scope, &segment, 0, 0, 0, child, decl.literal) catch |err| switch (err) {
+        error.UnsupportedType => return null,
+        else => return err,
+    };
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
 }
 
 fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {

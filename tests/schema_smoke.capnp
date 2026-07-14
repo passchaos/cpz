@@ -37,6 +37,7 @@ const globalEmbeddedPerson :Person = embed "fixtures/person.bin";
 const globalPeople :List(Person) = [(id = 1, name = "one"), (id = 2, name = "two")];
 const globalNullPerson :Person = (id = 10, maybeName = null, maybeFriend = null);
 const globalChoice :Choice = (id = 123, selected_code = 456);
+const globalScoreGroups :List(List(UInt32)) = [[11, 12], [13]];
 
 annotation schemaNote @0xa110ca110c (file, struct, field, union) :Text;
 annotation marker(interface, method) :Void;
