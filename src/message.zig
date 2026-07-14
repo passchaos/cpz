@@ -470,6 +470,34 @@ pub const OwnedMessageReader = struct {
         return self.reader.getRootPointerKind();
     }
 
+    pub fn matchesRootPointerType(self: *OwnedMessageReader, expected: wire.PointerType) Error!bool {
+        return self.reader.matchesRootPointerType(expected);
+    }
+
+    pub fn isRootStructPointer(self: *OwnedMessageReader) Error!bool {
+        return self.reader.isRootStructPointer();
+    }
+
+    pub fn isRootListPointer(self: *OwnedMessageReader) Error!bool {
+        return self.reader.isRootListPointer();
+    }
+
+    pub fn isRootFarPointer(self: *OwnedMessageReader) Error!bool {
+        return self.reader.isRootFarPointer();
+    }
+
+    pub fn isRootOtherPointer(self: *OwnedMessageReader) Error!bool {
+        return self.reader.isRootOtherPointer();
+    }
+
+    pub fn isRootCapabilityPointer(self: *OwnedMessageReader) Error!bool {
+        return self.reader.isRootCapabilityPointer();
+    }
+
+    pub fn isRootNearPointer(self: *OwnedMessageReader) Error!bool {
+        return self.reader.isRootNearPointer();
+    }
+
     pub fn getRootRawPointer(self: *OwnedMessageReader) Error!wire.Word {
         return self.reader.getRootRawPointer();
     }
@@ -735,6 +763,34 @@ pub const MessageReaderView = struct {
 
     pub fn getRootPointerKind(self: *MessageReaderView) Error!?wire.PointerType {
         return self.reader.getRootPointerKind();
+    }
+
+    pub fn matchesRootPointerType(self: *MessageReaderView, expected: wire.PointerType) Error!bool {
+        return self.reader.matchesRootPointerType(expected);
+    }
+
+    pub fn isRootStructPointer(self: *MessageReaderView) Error!bool {
+        return self.reader.isRootStructPointer();
+    }
+
+    pub fn isRootListPointer(self: *MessageReaderView) Error!bool {
+        return self.reader.isRootListPointer();
+    }
+
+    pub fn isRootFarPointer(self: *MessageReaderView) Error!bool {
+        return self.reader.isRootFarPointer();
+    }
+
+    pub fn isRootOtherPointer(self: *MessageReaderView) Error!bool {
+        return self.reader.isRootOtherPointer();
+    }
+
+    pub fn isRootCapabilityPointer(self: *MessageReaderView) Error!bool {
+        return self.reader.isRootCapabilityPointer();
+    }
+
+    pub fn isRootNearPointer(self: *MessageReaderView) Error!bool {
+        return self.reader.isRootNearPointer();
     }
 
     pub fn getRootRawPointer(self: *MessageReaderView) Error!wire.Word {
@@ -1432,6 +1488,34 @@ pub const MessageBuilder = struct {
         return (try self.getRootPointer()).pointerType();
     }
 
+    pub fn matchesRootPointerType(self: *MessageBuilder, expected: wire.PointerType) Error!bool {
+        return (try self.getRootPointer()).matchesPointerType(expected);
+    }
+
+    pub fn isRootStructPointer(self: *MessageBuilder) Error!bool {
+        return (try self.getRootPointer()).isStructPointer();
+    }
+
+    pub fn isRootListPointer(self: *MessageBuilder) Error!bool {
+        return (try self.getRootPointer()).isListPointer();
+    }
+
+    pub fn isRootFarPointer(self: *MessageBuilder) Error!bool {
+        return (try self.getRootPointer()).isFarPointer();
+    }
+
+    pub fn isRootOtherPointer(self: *MessageBuilder) Error!bool {
+        return (try self.getRootPointer()).isOtherPointer();
+    }
+
+    pub fn isRootCapabilityPointer(self: *MessageBuilder) Error!bool {
+        return (try self.getRootPointer()).isCapabilityPointer();
+    }
+
+    pub fn isRootNearPointer(self: *MessageBuilder) Error!bool {
+        return (try self.getRootPointer()).isNearPointer();
+    }
+
     pub fn getRootRawPointer(self: *MessageBuilder) Error!wire.Word {
         return (try self.getRootPointer()).raw();
     }
@@ -1726,6 +1810,34 @@ pub const MessageReader = struct {
 
     pub fn getRootPointerKind(self: *MessageReader) Error!?wire.PointerType {
         return (try self.getRootPointer()).pointerType();
+    }
+
+    pub fn matchesRootPointerType(self: *MessageReader, expected: wire.PointerType) Error!bool {
+        return (try self.getRootPointer()).matchesPointerType(expected);
+    }
+
+    pub fn isRootStructPointer(self: *MessageReader) Error!bool {
+        return (try self.getRootPointer()).isStructPointer();
+    }
+
+    pub fn isRootListPointer(self: *MessageReader) Error!bool {
+        return (try self.getRootPointer()).isListPointer();
+    }
+
+    pub fn isRootFarPointer(self: *MessageReader) Error!bool {
+        return (try self.getRootPointer()).isFarPointer();
+    }
+
+    pub fn isRootOtherPointer(self: *MessageReader) Error!bool {
+        return (try self.getRootPointer()).isOtherPointer();
+    }
+
+    pub fn isRootCapabilityPointer(self: *MessageReader) Error!bool {
+        return (try self.getRootPointer()).isCapabilityPointer();
+    }
+
+    pub fn isRootNearPointer(self: *MessageReader) Error!bool {
+        return (try self.getRootPointer()).isNearPointer();
     }
 
     pub fn getRootRawPointer(self: *MessageReader) Error!wire.Word {
@@ -5368,6 +5480,39 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expect(cap_pointer_reader.isOtherPointer());
     try testing.expect(cap_pointer_reader.isNearPointer());
     try testing.expect(!cap_pointer_reader.isListPointer());
+
+    try testing.expect(try text_builder.matchesRootPointerType(.far));
+    try testing.expect(try text_builder.isRootFarPointer());
+    try testing.expect(!try text_builder.isRootNearPointer());
+    try testing.expect(!try text_builder.isRootOtherPointer());
+    try testing.expect(try text_reader.matchesRootPointerType(.list));
+    try testing.expect(try text_reader.isRootListPointer());
+    try testing.expect(try text_reader.isRootNearPointer());
+    try testing.expect(!try text_reader.isRootCapabilityPointer());
+
+    const text_flat = try text_builder.toFlatBytes();
+    defer testing.allocator.free(text_flat);
+    var owned_text = try OwnedMessageReader.initFlat(testing.allocator, text_flat, .{});
+    defer owned_text.deinit(testing.allocator);
+    try testing.expect(try owned_text.matchesRootPointerType(.list));
+    try testing.expect(try owned_text.isRootListPointer());
+    try testing.expect(try owned_text.isRootNearPointer());
+    try testing.expect(!try owned_text.isRootOtherPointer());
+    var viewed_text = try MessageReaderView.initFlat(testing.allocator, text_flat, .{});
+    defer viewed_text.deinit(testing.allocator);
+    try testing.expect(try viewed_text.matchesRootPointerType(.list));
+    try testing.expect(try viewed_text.isRootListPointer());
+    try testing.expect(try viewed_text.isRootNearPointer());
+    try testing.expect(!try viewed_text.isRootCapabilityPointer());
+
+    try testing.expect(try cap_builder.matchesRootPointerType(.other));
+    try testing.expect(try cap_builder.isRootCapabilityPointer());
+    try testing.expect(try cap_builder.isRootOtherPointer());
+    try testing.expect(try cap_builder.isRootNearPointer());
+    try testing.expect(try cap_reader.matchesRootPointerType(.other));
+    try testing.expect(try cap_reader.isRootCapabilityPointer());
+    try testing.expect(try cap_reader.isRootOtherPointer());
+    try testing.expect(try cap_reader.isRootNearPointer());
 }
 
 test "message builder can disown and adopt root pointers" {
