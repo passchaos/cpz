@@ -7427,6 +7427,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return @"cpz.reader".serializedSizeInWords();
         \\    }}
         \\
+        \\    pub fn @"cpz.owned.segmentTable"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *const cpz.OwnedMessageReader) ![]u8 {{
+        \\        return @"cpz.reader".serializeSegmentTable(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.toFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.reader": *const cpz.OwnedMessageReader) ![]u8 {{
+        \\        return @"cpz.reader".toFlatBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.toFlatBytesInto"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.dest": []u8) !usize {{
+        \\        return @"cpz.reader".toFlatBytesInto(@"cpz.dest");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.owned.writeToWriter"(@"cpz.reader": *const cpz.OwnedMessageReader, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.reader".writeToWriter(@"cpz.writer");
+        \\    }}
+        \\
         \\    pub fn @"cpz.owned.sourceConsumedLen"(@"cpz.reader": *const cpz.OwnedMessageReader) usize {{
         \\        return @"cpz.reader".sourceConsumedLen();
         \\    }}
@@ -7485,6 +7501,22 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\
         \\    pub fn @"cpz.view.serializedSizeInWords"(@"cpz.view": *const cpz.MessageReaderView) !usize {{
         \\        return @"cpz.view".serializedSizeInWords();
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.segmentTable"(@"cpz.allocator": std.mem.Allocator, @"cpz.view": *const cpz.MessageReaderView) ![]u8 {{
+        \\        return @"cpz.view".serializeSegmentTable(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.toFlatBytes"(@"cpz.allocator": std.mem.Allocator, @"cpz.view": *const cpz.MessageReaderView) ![]u8 {{
+        \\        return @"cpz.view".toFlatBytes(@"cpz.allocator");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.toFlatBytesInto"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.dest": []u8) !usize {{
+        \\        return @"cpz.view".toFlatBytesInto(@"cpz.dest");
+        \\    }}
+        \\
+        \\    pub fn @"cpz.view.writeToWriter"(@"cpz.view": *const cpz.MessageReaderView, @"cpz.writer": *std.Io.Writer) !void {{
+        \\        return @"cpz.view".writeToWriter(@"cpz.writer");
         \\    }}
         \\
         \\    pub fn @"cpz.view.sourceConsumedLen"(@"cpz.view": *const cpz.MessageReaderView) usize {{
