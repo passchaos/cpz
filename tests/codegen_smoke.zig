@@ -903,6 +903,13 @@ test "generated reader and builder accessors compile and round-trip" {
     const name_pointer_view = try person_builder.get_nameAsReader(&name_view_reader);
     try std.testing.expectEqualSlices(u8, "Ada", try name_pointer_view.getText());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person_builder.get_namePointerKind()).?);
+    try std.testing.expect(try person_builder.get_nameMatchesPointerKind(.list));
+    try std.testing.expect(!try person_builder.get_namePointerIsStruct());
+    try std.testing.expect(try person_builder.get_namePointerIsList());
+    try std.testing.expect(!try person_builder.get_namePointerIsFar());
+    try std.testing.expect(!try person_builder.get_namePointerIsOther());
+    try std.testing.expect(!try person_builder.get_namePointerIsCapability());
+    try std.testing.expect(try person_builder.get_namePointerIsNear());
     const name_raw_pointer = try person_builder.get_nameRawPointer();
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(name_raw_pointer));
     const name_decoded = (try person_builder.get_nameDecodedPointer()).?.list;
@@ -1187,6 +1194,13 @@ test "generated reader and builder accessors compile and round-trip" {
     const read_name_pointer = try person.nameAsPointer();
     try std.testing.expectEqualSlices(u8, "Ada", try read_name_pointer.getText());
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try person.namePointerKind()).?);
+    try std.testing.expect(try person.nameMatchesPointerKind(.list));
+    try std.testing.expect(!try person.namePointerIsStruct());
+    try std.testing.expect(try person.namePointerIsList());
+    try std.testing.expect(!try person.namePointerIsFar());
+    try std.testing.expect(!try person.namePointerIsOther());
+    try std.testing.expect(!try person.namePointerIsCapability());
+    try std.testing.expect(try person.namePointerIsNear());
     const read_name_raw_pointer = try person.nameRawPointer();
     try std.testing.expectEqual(cpz.wire.PointerType.list, cpz.wire.pointerType(read_name_raw_pointer));
     const read_name_decoded = (try person.nameDecodedPointer()).?.list;

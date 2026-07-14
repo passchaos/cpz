@@ -8753,6 +8753,55 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).pointerType();
         \\    }}
         \\
+        \\    pub fn {s}MatchesPointerKind(self: @This(), @"cpz.kind": cpz.wire.PointerType) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).matchesPointerType(@"cpz.kind");
+        \\    }}
+        \\
+        \\    pub fn {s}PointerIsStruct(self: @This()) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).isStructPointer();
+        \\    }}
+        \\
+        \\    pub fn {s}PointerIsList(self: @This()) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).isListPointer();
+        \\    }}
+        \\
+        \\    pub fn {s}PointerIsFar(self: @This()) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).isFarPointer();
+        \\    }}
+        \\
+        \\    pub fn {s}PointerIsOther(self: @This()) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).isOtherPointer();
+        \\    }}
+        \\
+        \\    pub fn {s}PointerIsCapability(self: @This()) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).isCapabilityPointer();
+        \\    }}
+        \\
+        \\    pub fn {s}PointerIsNear(self: @This()) !bool {{
+    , .{ index, field_name });
+    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\        return self.reader.getPointerField({}).isNearPointer();
+        \\    }}
+        \\
         \\    pub fn {s}RawPointer(self: @This()) !cpz.Word {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
@@ -10476,6 +10525,55 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
         \\            return (try self.builder.getPointerField({})).pointerType();
+        \\        }}
+        \\
+        \\        pub fn get_{s}MatchesPointerKind(self: Builder, @"cpz.kind": cpz.wire.PointerType) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).matchesPointerType(@"cpz.kind");
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerIsStruct(self: Builder) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).isStructPointer();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerIsList(self: Builder) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).isListPointer();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerIsFar(self: Builder) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).isFarPointer();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerIsOther(self: Builder) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).isOtherPointer();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerIsCapability(self: Builder) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).isCapabilityPointer();
+        \\        }}
+        \\
+        \\        pub fn get_{s}PointerIsNear(self: Builder) !bool {{
+    , .{ index, field_name });
+    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+    try appendFmt(allocator, out,
+        \\            return (try self.builder.getPointerField({})).isNearPointer();
         \\        }}
         \\
         \\        pub fn get_{s}RawPointer(self: Builder) !cpz.Word {{
