@@ -390,6 +390,10 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expect(generated.Person.@"cpz.field.scores.hasExplicitDefault");
     try std.testing.expect(!generated.Person.@"cpz.field.scores.defaultIsHexData");
     try std.testing.expect(generated.Person.scoresDefaultFlat.flatBytes.len > 0);
+    try std.testing.expectEqual(generated.Person.scoresDefaultFlat.flatBytes.len, generated.Person.scoresDefaultFlat.serializedSize);
+    try std.testing.expectEqual(@as(usize, 1), generated.Person.scoresDefaultFlat.segmentCount);
+    try std.testing.expect(generated.Person.scoresDefaultFlat.matchesSerializedSize(generated.Person.scoresDefaultFlat.flatBytes.len));
+    try std.testing.expect(generated.Person.scoresDefaultFlat.matchesSegmentCount(1));
     var field_scores_default_reader = generated.Person.scoresDefaultFlat.reader(.{});
     const field_scores_default = try generated.Person.scoresDefaultFlat.list(&field_scores_default_reader);
     try std.testing.expectEqual(@as(usize, 3), field_scores_default.len());

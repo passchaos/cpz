@@ -8407,6 +8407,22 @@ fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, enum_decl: *const EnumDe
     return flat;
 }
 
+fn emitFlatContainerSizeHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}    pub const serializedSize: usize = flatBytes.len;
+        \\{s}    pub const segmentCount: usize = 1;
+        \\
+        \\{s}    pub fn matchesSerializedSize(count: usize) bool {{
+        \\{s}        return serializedSize == count;
+        \\{s}    }}
+        \\
+        \\{s}    pub fn matchesSegmentCount(count: usize) bool {{
+        \\{s}        return segmentCount == count;
+        \\{s}    }}
+        \\
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent });
+}
+
 fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8, element_size_literal: []const u8, get_type: ?[]const u8, get_method: ?[]const u8) LayoutError!void {
     const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
     defer allocator.free(flat_literal);
@@ -8446,6 +8462,7 @@ fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayL
             , .{ indent, indent, indent, indent, indent });
         }
     }
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
     try appendFmt(allocator, out,
         \\{s}    pub fn validate(options: cpz.ReaderOptions) !cpz.MessageStats {{
         \\{s}        var @"cpz.reader" = reader(options);
