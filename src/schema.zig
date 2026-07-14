@@ -7919,23 +7919,52 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
 }
 
 fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, segment: *std.ArrayList(u8), pointer_index: usize, object_start_words: usize, ty: Type, literal: []const u8) LayoutError!void {
+    const const_ref = findConstReference(file, layout.decl, literal);
+    const resolved_literal = resolveConstReferenceLiteral(file, layout.decl, literal);
     switch (resolveTypeScoped(file, layout.decl, ty)) {
         .text => {
-            const text = try simpleQuotedTextLiteralAlloc(allocator, literal) orelse return error.UnsupportedType;
+            if (const_ref) |decl| {
+                if (resolveTypeScoped(file, layout.decl, decl.ty) == .text) {
+                    if (decl.is_embed) {
+                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, decl.embed_bytes orelse return error.UnsupportedType, true, object_start_words);
+                    } else {
+                        const text = try decodedStringBytesAlloc(allocator, decl.literal);
+                        defer allocator.free(text);
+                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
+                    }
+                    return;
+                }
+            }
+            const text = try simpleQuotedTextLiteralAlloc(allocator, resolved_literal) orelse return error.UnsupportedType;
             defer allocator.free(text);
             try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
         },
         .data => {
-            const data = try simpleDataLiteralAlloc(allocator, literal) orelse return error.UnsupportedType;
+            if (const_ref) |decl| {
+                if (resolveTypeScoped(file, layout.decl, decl.ty) == .data) {
+                    if (decl.is_embed) {
+                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, decl.embed_bytes orelse return error.UnsupportedType, false, object_start_words);
+                    } else {
+                        const data = if (decl.is_hex_data)
+                            try hexBytesAlloc(allocator, decl.literal)
+                        else
+                            try decodedStringBytesAlloc(allocator, decl.literal);
+                        defer allocator.free(data);
+                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
+                    }
+                    return;
+                }
+            }
+            const data = try simpleDataLiteralAlloc(allocator, resolved_literal) orelse return error.UnsupportedType;
             defer allocator.free(data);
             try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
         },
-        .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, literal),
-        .named => |type_name| try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, literal),
+        .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, resolved_literal),
+        .named => |type_name| try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, resolved_literal),
         .optional => |child| {
-            const raw = std.mem.trim(u8, literal, " \t\r\n");
+            const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
             if (std.mem.eql(u8, raw, "null")) return;
-            try appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, child.*, literal);
+            try appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, child.*, resolved_literal);
         },
         else => return error.UnsupportedType,
     }
@@ -8519,6 +8548,27 @@ fn resolveScalarConstLiteral(file: *const File, scope: ?*const Struct, literal: 
         if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
     }
     return literal;
+}
+
+fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const u8) ?*const ConstDecl {
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    const name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
+    const owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else null;
+    if (scope) |decl| {
+        if (owner == null or typeNameEqualsCanonical(owner.?, decl.name)) {
+            for (decl.consts) |*const_decl| {
+                if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
+            }
+        }
+    }
+    for (file.consts) |*const_decl| {
+        if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
+    }
+    return null;
+}
+
+fn resolveConstReferenceLiteral(file: *const File, scope: ?*const Struct, literal: []const u8) []const u8 {
+    return if (findConstReference(file, scope, literal)) |decl| decl.literal else literal;
 }
 
 fn resolveScalarConstListItem(file: *const File, scope: ?*const Struct, item: ConstListItem) ConstListItem {
@@ -17267,6 +17317,8 @@ test "schema struct const flats resolve scalar const field references" {
     const source =
         \\const globalId :UInt32 = 12345;
         \\const chosen :Color = blue;
+        \\const label :Text = "sample";
+        \\const scoreDefaults :List(UInt32) = [.globalId, 2];
         \\enum Color {
         \\  red @0;
         \\  blue @1;
@@ -17275,17 +17327,18 @@ test "schema struct const flats resolve scalar const field references" {
         \\  id @0 :UInt32;
         \\  shade @1 :Color;
         \\  scores @2 :List(UInt32);
+        \\  label @3 :Text;
         \\  const defaultId :UInt32 = 99;
         \\}
-        \\const sample :Sample = (id = .globalId, shade = chosen, scores = [.globalId, 2]);
-        \\const nested :Sample = (id = Sample.defaultId, shade = blue, scores = [Sample.defaultId]);
+        \\const sample :Sample = (id = .globalId, shade = chosen, scores = scoreDefaults, label = label);
+        \\const nested :Sample = (id = Sample.defaultId, shade = blue, scores = [Sample.defaultId], label = "nested");
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
 
-    const sample_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[2])).?;
+    const sample_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[4])).?;
     defer std.testing.allocator.free(sample_flat);
     var sample_segments: [1]serialize.ConstSegment = undefined;
     const sample_view = try serialize.readFlatMessageViewInto(&sample_segments, sample_flat);
@@ -17296,8 +17349,9 @@ test "schema struct const flats resolve scalar const field references" {
     const sample_scores = try sample_root.getPointerField(0).getList(.four_bytes);
     try std.testing.expectEqual(@as(u32, 12345), sample_scores.getUInt32(0));
     try std.testing.expectEqual(@as(u32, 2), sample_scores.getUInt32(1));
+    try std.testing.expectEqualSlices(u8, "sample", try sample_root.getPointerField(1).getText());
 
-    const nested_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[3])).?;
+    const nested_flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[5])).?;
     defer std.testing.allocator.free(nested_flat);
     var nested_segments: [1]serialize.ConstSegment = undefined;
     const nested_view = try serialize.readFlatMessageViewInto(&nested_segments, nested_flat);
@@ -17307,6 +17361,7 @@ test "schema struct const flats resolve scalar const field references" {
     try std.testing.expectEqual(@as(u16, 1), nested_root.getUInt16(4, 0));
     const nested_scores = try nested_root.getPointerField(0).getList(.four_bytes);
     try std.testing.expectEqual(@as(u32, 99), nested_scores.getUInt32(0));
+    try std.testing.expectEqualSlices(u8, "nested", try nested_root.getPointerField(1).getText());
 }
 
 test "schema code generator resolves const reference scalar defaults for flats" {
