@@ -7094,6 +7094,45 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\
     , .{ indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
     if (decl.list_items) |items| {
+        if (!decl.emit_value) {
+            try appendFmt(allocator, out,
+                \\{s}pub const {s} = struct {{
+                \\{s}    pub const itemCount: usize = {};
+                \\{s}    pub const items: []const cpz.schema.ConstListItem = @"cpz.schema".@"cpz.const.{s}.listItems";
+                \\
+            , .{ indent, const_name, indent, items.len, indent, const_name });
+            for (items) |item| {
+                const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
+                defer allocator.free(item_literal);
+                try appendFmt(allocator, out,
+                    \\{s}    pub const item{}: []const u8 = {s};
+                    \\
+                , .{ indent, item.index, item_literal });
+            }
+            try appendFmt(allocator, out,
+                \\{s}    pub fn itemByIndex(@"cpz.index": usize) ?cpz.schema.ConstListItem {{
+                \\{s}        if (@"cpz.index" >= @This().items.len) return null;
+                \\{s}        return @This().items[@"cpz.index"];
+                \\{s}    }}
+                \\
+                \\{s}    pub fn itemByLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+                \\{s}        for (@This().items) |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".literal, @"cpz.literal")) return @"cpz.item";
+                \\{s}        return null;
+                \\{s}    }}
+                \\
+                \\{s}    pub fn itemByStructFieldName(@"cpz.name": []const u8) ?cpz.schema.ConstListItem {{
+                \\{s}        for (@This().items) |@"cpz.item"| if (@"cpz.item".structFieldByName(@"cpz.name") != null) return @"cpz.item";
+                \\{s}        return null;
+                \\{s}    }}
+                \\
+                \\{s}    pub fn itemByStructFieldLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+                \\{s}        for (@This().items) |@"cpz.item"| if (@"cpz.item".structFieldByLiteral(@"cpz.literal") != null) return @"cpz.item";
+                \\{s}        return null;
+                \\{s}    }}
+                \\{s}}};
+                \\
+            , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+        }
         for (items) |item| {
             const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
             defer allocator.free(item_literal);

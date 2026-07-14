@@ -641,6 +641,14 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("globalPeople", generated.@"cpz.constByListItemStructFieldName"("id").?.name);
     try std.testing.expectEqualStrings("globalPeople", generated.@"cpz.constByListItemStructFieldLiteral"("\"two\"").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByListItemStructFieldName"("missing"));
+    try std.testing.expectEqual(@as(usize, 2), generated.globalPeople.itemCount);
+    try std.testing.expectEqualStrings("(id = 1, name = \"one\")", generated.globalPeople.item0);
+    try std.testing.expectEqualStrings("(id = 2, name = \"two\")", generated.globalPeople.item1);
+    try std.testing.expectEqualStrings("(id = 2, name = \"two\")", generated.globalPeople.itemByIndex(1).?.literal);
+    try std.testing.expectEqualStrings("(id = 1, name = \"one\")", generated.globalPeople.itemByLiteral("(id = 1, name = \"one\")").?.literal);
+    try std.testing.expectEqualStrings("(id = 1, name = \"one\")", generated.globalPeople.itemByStructFieldName("id").?.literal);
+    try std.testing.expectEqualStrings("(id = 2, name = \"two\")", generated.globalPeople.itemByStructFieldLiteral("\"two\"").?.literal);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstListItem, null), generated.globalPeople.itemByStructFieldName("missing"));
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalPeople.listItem.0.structFieldCount");
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.const.globalPeople.listItem.0.structFields".len);
     try std.testing.expectEqualStrings("id", generated.@"cpz.const.globalPeople.listItem.0.structFields"[0].name);
