@@ -415,6 +415,10 @@ pub const UnionMetadata = struct {
         return self.index == union_index;
     }
 
+    pub fn matchesDiscriminantByte(self: UnionMetadata, byte_offset: usize) bool {
+        return self.discriminant_byte == byte_offset;
+    }
+
     pub fn fieldByName(self: UnionMetadata, name: []const u8) ?FieldMetadata {
         for (self.fields) |field| if (std.mem.eql(u8, field.name, name)) return field;
         return null;

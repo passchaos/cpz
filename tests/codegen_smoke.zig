@@ -2235,6 +2235,7 @@ test "generated anonymous union accessors activate and guard fields" {
     try std.testing.expectEqual(@as(?cpz.schema.UnionMetadata, null), generated.Choice.@"cpz.unionByIndex"(99));
     const union0_metadata = generated.Choice.@"cpz.unionByIndex"(0).?;
     try std.testing.expect(union0_metadata.matchesFieldCount(2));
+    try std.testing.expect(union0_metadata.matchesDiscriminantByte(0));
     try std.testing.expectEqualStrings("name", union0_metadata.fieldByName("name").?.name);
     try std.testing.expectEqualStrings("name", union0_metadata.fieldByType("Text").?.name);
     try std.testing.expectEqualStrings("id", union0_metadata.fieldByResolvedType("UInt32").?.name);
