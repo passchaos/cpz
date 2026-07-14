@@ -18,7 +18,71 @@ pub const ReaderOptions = struct {
     traversal_limit_words: usize = 8 * 1024 * 1024, // 64 MiB like C++ default.
     nesting_limit: u16 = 64,
     capability_count_limit: ?usize = null,
+
+    pub fn traversalLimitWords(self: ReaderOptions) usize {
+        return self.traversal_limit_words;
+    }
+
+    pub fn traversalLimitBytes(self: ReaderOptions) usize {
+        return self.traversal_limit_words * wire.bytes_per_word;
+    }
+
+    pub fn nestingLimit(self: ReaderOptions) u16 {
+        return self.nesting_limit;
+    }
+
+    pub fn capabilityCountLimit(self: ReaderOptions) ?usize {
+        return self.capability_count_limit;
+    }
+
+    pub fn hasCapabilityCountLimit(self: ReaderOptions) bool {
+        return self.capability_count_limit != null;
+    }
+
+    pub fn matchesTraversalLimitWords(self: ReaderOptions, count: usize) bool {
+        return self.traversal_limit_words == count;
+    }
+
+    pub fn matchesTraversalLimitBytes(self: ReaderOptions, count: usize) bool {
+        return self.traversalLimitBytes() == count;
+    }
+
+    pub fn matchesNestingLimit(self: ReaderOptions, count: u16) bool {
+        return self.nesting_limit == count;
+    }
+
+    pub fn matchesCapabilityCountLimit(self: ReaderOptions, count: usize) bool {
+        return self.capability_count_limit != null and self.capability_count_limit.? == count;
+    }
 };
+
+test "reader options helper methods" {
+    const testing = std.testing;
+
+    const defaults = ReaderOptions{};
+    try testing.expectEqual(@as(usize, 8 * 1024 * 1024), defaults.traversalLimitWords());
+    try testing.expectEqual(@as(usize, 64 * 1024 * 1024), defaults.traversalLimitBytes());
+    try testing.expectEqual(@as(u16, 64), defaults.nestingLimit());
+    try testing.expectEqual(@as(?usize, null), defaults.capabilityCountLimit());
+    try testing.expect(!defaults.hasCapabilityCountLimit());
+    try testing.expect(defaults.matchesTraversalLimitWords(8 * 1024 * 1024));
+    try testing.expect(defaults.matchesTraversalLimitBytes(64 * 1024 * 1024));
+    try testing.expect(defaults.matchesNestingLimit(64));
+    try testing.expect(!defaults.matchesCapabilityCountLimit(0));
+
+    const custom = ReaderOptions{
+        .traversal_limit_words = 10,
+        .nesting_limit = 3,
+        .capability_count_limit = 7,
+    };
+    try testing.expectEqual(@as(usize, 80), custom.traversalLimitBytes());
+    try testing.expect(custom.hasCapabilityCountLimit());
+    try testing.expect(custom.matchesTraversalLimitWords(10));
+    try testing.expect(custom.matchesTraversalLimitBytes(80));
+    try testing.expect(custom.matchesNestingLimit(3));
+    try testing.expect(custom.matchesCapabilityCountLimit(7));
+    try testing.expect(!custom.matchesCapabilityCountLimit(8));
+}
 
 pub const MessageStats = struct {
     /// Pointer slots inspected, including null slots and the root pointer.
