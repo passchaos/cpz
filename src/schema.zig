@@ -1566,33 +1566,7 @@ pub const Parser = struct {
             } else {
                 if (saw_wildcard) return error.UnexpectedToken;
                 const target = try self.expectIdentifier();
-                if (std.mem.eql(u8, target, "file")) {
-                    targets.file = true;
-                } else if (std.mem.eql(u8, target, "const")) {
-                    targets.const_decl = true;
-                } else if (std.mem.eql(u8, target, "enum")) {
-                    targets.enum_decl = true;
-                } else if (std.mem.eql(u8, target, "enumerant")) {
-                    targets.enumerant = true;
-                } else if (std.mem.eql(u8, target, "struct")) {
-                    targets.struct_decl = true;
-                } else if (std.mem.eql(u8, target, "field")) {
-                    targets.field = true;
-                } else if (std.mem.eql(u8, target, "union")) {
-                    targets.union_decl = true;
-                } else if (std.mem.eql(u8, target, "group")) {
-                    targets.group = true;
-                } else if (std.mem.eql(u8, target, "interface")) {
-                    targets.interface_decl = true;
-                } else if (std.mem.eql(u8, target, "method")) {
-                    targets.method = true;
-                } else if (std.mem.eql(u8, target, "param")) {
-                    targets.param = true;
-                } else if (std.mem.eql(u8, target, "annotation")) {
-                    targets.annotation_decl = true;
-                } else {
-                    return error.UnexpectedToken;
-                }
+                if (!setAnnotationTarget(&targets, target)) return error.UnexpectedToken;
                 saw_target = true;
             }
 
@@ -1604,6 +1578,28 @@ pub const Parser = struct {
         }
         try self.expect(.r_paren);
         return targets;
+    }
+
+    fn setAnnotationTarget(targets: *AnnotationTargets, target: []const u8) bool {
+        if (std.mem.eql(u8, target, "file")) return setAnnotationTargetFlag(&targets.file);
+        if (std.mem.eql(u8, target, "const")) return setAnnotationTargetFlag(&targets.const_decl);
+        if (std.mem.eql(u8, target, "enum")) return setAnnotationTargetFlag(&targets.enum_decl);
+        if (std.mem.eql(u8, target, "enumerant")) return setAnnotationTargetFlag(&targets.enumerant);
+        if (std.mem.eql(u8, target, "struct")) return setAnnotationTargetFlag(&targets.struct_decl);
+        if (std.mem.eql(u8, target, "field")) return setAnnotationTargetFlag(&targets.field);
+        if (std.mem.eql(u8, target, "union")) return setAnnotationTargetFlag(&targets.union_decl);
+        if (std.mem.eql(u8, target, "group")) return setAnnotationTargetFlag(&targets.group);
+        if (std.mem.eql(u8, target, "interface")) return setAnnotationTargetFlag(&targets.interface_decl);
+        if (std.mem.eql(u8, target, "method")) return setAnnotationTargetFlag(&targets.method);
+        if (std.mem.eql(u8, target, "param")) return setAnnotationTargetFlag(&targets.param);
+        if (std.mem.eql(u8, target, "annotation")) return setAnnotationTargetFlag(&targets.annotation_decl);
+        return false;
+    }
+
+    fn setAnnotationTargetFlag(flag: *bool) bool {
+        if (flag.*) return false;
+        flag.* = true;
+        return true;
     }
 
     fn parseInterfaceExtendsOrEmpty(self: *Parser) Error![]Type {
@@ -4168,6 +4164,11 @@ test "schema parser accepts wildcard annotation targets" {
 test "schema parser rejects wildcard annotation target mixed with explicit targets" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(*, field) :Void;"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(field, *) :Void;"));
+}
+
+test "schema parser rejects duplicate annotation targets" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(field, field) :Void;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(struct, field, struct) :Void;"));
 }
 
 test "schema parser records imported type aliases" {
