@@ -9952,6 +9952,22 @@ fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, sco
         try decodedStringBytesAlloc(allocator, decl.literal);
 }
 
+fn fieldBlobDefaultBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: *const Field, comptime is_text: bool) LayoutError!?[]u8 {
+    const literal = field.default_literal orelse return null;
+    if (try referencedBlobBytesAlloc(allocator, file, scope, literal, is_text)) |bytes| return bytes;
+    if (is_text) return try decodedStringBytesAlloc(allocator, literal);
+    return if (field.default_is_hex_data)
+        try hexBytesAlloc(allocator, literal)
+    else
+        try decodedStringBytesAlloc(allocator, literal);
+}
+
+fn fieldBlobDefaultLiteralAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: *const Field, comptime is_text: bool) LayoutError!?[]u8 {
+    const bytes = try fieldBlobDefaultBytesAlloc(allocator, file, scope, field, is_text) orelse return null;
+    defer allocator.free(bytes);
+    return try zigRawStringLiteralAlloc(allocator, bytes);
+}
+
 fn resolveScalarConstListItem(file: *const File, scope: ?*const Struct, item: ConstListItem) ConstListItem {
     var resolved = item;
     resolved.literal = resolveScalarConstLiteral(file, scope, item.literal);
@@ -11024,15 +11040,12 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
                 try emitScalarFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, resolved_ty, literal);
             },
             .text => {
-                const literal = field.default_literal orelse continue;
-                try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, literal, true);
+                const bytes = try fieldBlobDefaultBytesAlloc(allocator, file, layout.decl, field, true) orelse continue;
+                defer allocator.free(bytes);
+                try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, true);
             },
             .data => {
-                const literal = field.default_literal orelse continue;
-                const bytes = if (field.default_is_hex_data)
-                    try hexBytesAlloc(allocator, literal)
-                else
-                    try decodedStringBytesAlloc(allocator, literal);
+                const bytes = try fieldBlobDefaultBytesAlloc(allocator, file, layout.decl, field, false) orelse continue;
                 defer allocator.free(bytes);
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, false);
             },
@@ -14148,7 +14161,7 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
-            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, true);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) ![]const u8 {{
@@ -14179,7 +14192,7 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
             , .{ field_name, field_name, field_name, field_name });
         },
         .data => {
-            const default_literal = if (field.default_literal) |literal| try zigDataLiteralAlloc(allocator, literal, field.default_is_hex_data) else null;
+            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, false);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) ![]const u8 {{
@@ -17183,7 +17196,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
-            const default_literal = if (field.default_literal) |literal| try zigStringLiteralAlloc(allocator, literal) else null;
+            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, true);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) ![]const u8 {{
@@ -17227,7 +17240,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             , .{ index, field_name });
         },
         .data => {
-            const default_literal = if (field.default_literal) |literal| try zigDataLiteralAlloc(allocator, literal, field.default_is_hex_data) else null;
+            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, false);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) ![]const u8 {{

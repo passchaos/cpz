@@ -71,6 +71,36 @@ test "generated struct pointer null defaults expose flats" {
     try std.testing.expect(generated.NullPointerDefaults.itemDefaultFlat.matchesSerializedSize(generated.NullPointerDefaults.itemDefaultFlat.flatBytes.len));
 }
 
+test "generated struct text and data defaults resolve const references" {
+    var empty_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_builder.deinit();
+    _ = try generated.ConstRefDefaults.initRootTyped(&empty_builder);
+    var empty_reader = cpz.MessageReader.init(try empty_builder.segmentsConst(), .{});
+    const empty_root = try generated.ConstRefDefaults.getRoot(&empty_reader);
+    try std.testing.expectEqualStrings("referenced text", try empty_root.text());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try empty_root.data());
+    try std.testing.expectEqualStrings("local text", try empty_root.localTextField());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x56, 0x78 }, try empty_root.localDataField());
+
+    var empty_builder_reader = cpz.MessageReader.init(try empty_builder.segmentsConst(), .{});
+    const empty_root_builder = try generated.ConstRefDefaults.getRootTyped(&empty_builder);
+    try std.testing.expectEqualStrings("referenced text", try empty_root_builder.get_text());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try empty_root_builder.get_data());
+    try std.testing.expectEqualStrings("local text", try empty_root_builder.get_localTextField());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x56, 0x78 }, try empty_root_builder.get_localDataField());
+    const empty_root_as_reader = empty_root_builder.asReader(&empty_builder_reader);
+    try std.testing.expectEqualStrings("local text", try empty_root_as_reader.localTextField());
+
+    var text_default_reader = generated.ConstRefDefaults.textDefaultFlat.reader(.{});
+    try std.testing.expectEqualStrings("referenced text", try generated.ConstRefDefaults.textDefaultFlat.get(&text_default_reader));
+    var data_default_reader = generated.ConstRefDefaults.dataDefaultFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.ConstRefDefaults.dataDefaultFlat.get(&data_default_reader));
+    var local_text_default_reader = generated.ConstRefDefaults.localTextFieldDefaultFlat.reader(.{});
+    try std.testing.expectEqualStrings("local text", try generated.ConstRefDefaults.localTextFieldDefaultFlat.get(&local_text_default_reader));
+    var local_data_default_reader = generated.ConstRefDefaults.localDataFieldDefaultFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x56, 0x78 }, try generated.ConstRefDefaults.localDataFieldDefaultFlat.get(&local_data_default_reader));
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

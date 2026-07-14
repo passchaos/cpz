@@ -3,6 +3,9 @@ enum Mode {
   on @1;
 }
 
+const referencedText :Text = "referenced text";
+const referencedData :Data = 0x"12 34";
+
 struct MaybeDefaults {
   absent @0 :?Text = null;
 }
@@ -12,6 +15,16 @@ struct NullPointerDefaults {
   data @1 :Data = null;
   numbers @2 :List(UInt16) = null;
   item @3 :Defaults.Item = null;
+}
+
+struct ConstRefDefaults {
+  const localText :Text = "local text";
+  const localData :Data = 0x"56 78";
+
+  text @0 :Text = referencedText;
+  data @1 :Data = referencedData;
+  localTextField @2 :Text = localText;
+  localDataField @3 :Data = localData;
 }
 
 interface Defaults {
