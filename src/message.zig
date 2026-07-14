@@ -2042,6 +2042,16 @@ pub const PointerBuilder = struct {
         return kind.isCapability();
     }
 
+    pub fn isOtherPointer(self: PointerBuilder) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isOther();
+    }
+
+    pub fn isNearPointer(self: PointerBuilder) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isNear();
+    }
+
     /// Create a read-only view using a caller-owned MessageReader over the
     /// same message segments. The caller must keep `message_reader` alive for
     /// the returned PointerReader.
@@ -2545,6 +2555,16 @@ pub const PointerReader = struct {
     pub fn isCapabilityPointer(self: PointerReader) bool {
         const kind = self.pointerType() catch return false;
         return kind != null and kind.?.isCapability();
+    }
+
+    pub fn isOtherPointer(self: PointerReader) bool {
+        const kind = self.pointerType() catch return false;
+        return kind != null and kind.?.isOther();
+    }
+
+    pub fn isNearPointer(self: PointerReader) bool {
+        const kind = self.pointerType() catch return false;
+        return kind != null and kind.?.isNear();
     }
 
     pub fn decode(self: PointerReader) Error!?wire.DecodedPointer {
@@ -5321,6 +5341,8 @@ test "message builder and reader expose scalar root pointer helpers" {
     const text_root_pointer = try text_builder.getRootPointer();
     try testing.expect(text_root_pointer.matchesPointerType(.far));
     try testing.expect(text_root_pointer.isFarPointer());
+    try testing.expect(!text_root_pointer.isNearPointer());
+    try testing.expect(!text_root_pointer.isOtherPointer());
     try testing.expect(!text_root_pointer.isListPointer());
     try testing.expect(!text_root_pointer.isStructPointer());
     try testing.expect(!text_root_pointer.isCapabilityPointer());
@@ -5328,6 +5350,8 @@ test "message builder and reader expose scalar root pointer helpers" {
     const text_pointer_reader = try text_pointer_reader_message.getRootPointer();
     try testing.expect(text_pointer_reader.matchesPointerType(.list));
     try testing.expect(text_pointer_reader.isListPointer());
+    try testing.expect(text_pointer_reader.isNearPointer());
+    try testing.expect(!text_pointer_reader.isOtherPointer());
     try testing.expect(!text_pointer_reader.isStructPointer());
     try testing.expect(!text_pointer_reader.isFarPointer());
     try testing.expect(!text_pointer_reader.isCapabilityPointer());
@@ -5335,10 +5359,14 @@ test "message builder and reader expose scalar root pointer helpers" {
     const cap_root_pointer = try cap_builder.getRootPointer();
     try testing.expect(cap_root_pointer.matchesPointerType(.other));
     try testing.expect(cap_root_pointer.isCapabilityPointer());
+    try testing.expect(cap_root_pointer.isOtherPointer());
+    try testing.expect(cap_root_pointer.isNearPointer());
     try testing.expect(!cap_root_pointer.isListPointer());
     const cap_pointer_reader = try cap_reader.getRootPointer();
     try testing.expect(cap_pointer_reader.matchesPointerType(.other));
     try testing.expect(cap_pointer_reader.isCapabilityPointer());
+    try testing.expect(cap_pointer_reader.isOtherPointer());
+    try testing.expect(cap_pointer_reader.isNearPointer());
     try testing.expect(!cap_pointer_reader.isListPointer());
 }
 
