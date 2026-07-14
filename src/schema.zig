@@ -7168,6 +7168,18 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.pointerType();
         \\        }}
         \\
+        \\        pub fn segmentId(self: @This()) u32 {{
+        \\            return self.orphan.segmentId();
+        \\        }}
+        \\
+        \\        pub fn pointerWordIndex(self: @This()) usize {{
+        \\            return self.orphan.pointerWordIndex();
+        \\        }}
+        \\
+        \\        pub fn matchesLocation(self: @This(), segment_id: u32, word_index: usize) bool {{
+        \\            return self.orphan.matchesLocation(segment_id, word_index);
+        \\        }}
+        \\
         \\        pub fn matchesPointerType(self: @This(), expected: cpz.wire.PointerType) bool {{
         \\            return self.orphan.matchesPointerType(expected);
         \\        }}
