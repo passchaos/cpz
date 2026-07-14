@@ -499,6 +499,15 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItem.1.metadata".literal);
     try std.testing.expectEqualStrings("20", generated.@"cpz.const.globalScores.listItem.1.literal");
     try std.testing.expect(!generated.@"cpz.const.globalScores.listItem.1.isHexData");
+    try std.testing.expect(generated.globalScoresFlat.flatBytes.len > 0);
+    var scores_flat_reader = generated.globalScoresFlat.reader(.{});
+    const scores_flat = try generated.globalScoresFlat.list(&scores_flat_reader);
+    try std.testing.expectEqual(@as(usize, 3), scores_flat.len());
+    try std.testing.expectEqual(@as(u32, 10), scores_flat.getUInt32(0));
+    try std.testing.expectEqual(@as(u32, 20), scores_flat.getUInt32(1));
+    try std.testing.expectEqual(@as(u32, 30), scores_flat.getUInt32(2));
+    const scores_flat_stats = try generated.globalScoresFlat.validate(.{});
+    try std.testing.expect(scores_flat_stats.total_words > 0);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].list_item_count);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.listItemCount");
     try std.testing.expectEqualStrings("globalDataItems", generated.@"cpz.consts"[10].name);
