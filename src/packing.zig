@@ -222,6 +222,79 @@ pub fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8) (Error |
     if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
 }
 
+/// Encode whole words from an Io reader and stream packed bytes directly to a
+/// writer. The input stream must end on a word boundary. This preserves the
+/// same zero-run/raw-run encoding heuristic as pack() without requiring the
+/// caller to materialize the whole unpacked byte sequence.
+pub fn packReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
+    var current: [wire.bytes_per_word]u8 = undefined;
+    var has_current = try readUnpackedReaderWord(reader, &current);
+
+    while (has_current) {
+        var tag: u8 = 0;
+        var payload: [wire.bytes_per_word]u8 = undefined;
+        var payload_len: usize = 0;
+        inline for (0..wire.bytes_per_word) |j| {
+            const b = current[j];
+            if (b != 0) {
+                tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                payload[payload_len] = b;
+                payload_len += 1;
+            }
+        }
+        try writer.writeAll(&[_]u8{tag});
+        try writer.writeAll(payload[0..payload_len]);
+        has_current = false;
+
+        if (tag == 0x00) {
+            var run_words: usize = 0;
+            while (run_words < 255) {
+                var next: [wire.bytes_per_word]u8 = undefined;
+                if (!try readUnpackedReaderWord(reader, &next)) break;
+                if (!isZeroWord(&next)) {
+                    current = next;
+                    has_current = true;
+                    break;
+                }
+                run_words += 1;
+            }
+            try writer.writeAll(&[_]u8{@intCast(run_words)});
+            if (!has_current and run_words == 255) has_current = try readUnpackedReaderWord(reader, &current);
+        } else if (tag == 0xff) {
+            var raw_words: [255 * wire.bytes_per_word]u8 = undefined;
+            var run_words: usize = 0;
+            while (run_words < 255) {
+                var next: [wire.bytes_per_word]u8 = undefined;
+                if (!try readUnpackedReaderWord(reader, &next)) break;
+                if (!shouldCopyRaw(&next)) {
+                    current = next;
+                    has_current = true;
+                    break;
+                }
+                @memcpy(raw_words[run_words * wire.bytes_per_word ..][0..wire.bytes_per_word], &next);
+                run_words += 1;
+            }
+            try writer.writeAll(&[_]u8{@intCast(run_words)});
+            try writer.writeAll(raw_words[0 .. run_words * wire.bytes_per_word]);
+            if (!has_current and run_words == 255) has_current = try readUnpackedReaderWord(reader, &current);
+        } else {
+            has_current = try readUnpackedReaderWord(reader, &current);
+        }
+    }
+}
+
+fn readUnpackedReaderWord(reader: *std.Io.Reader, word: *[wire.bytes_per_word]u8) (Error || std.Io.Reader.Error)!bool {
+    word[0] = reader.takeByte() catch |err| switch (err) {
+        error.EndOfStream => return false,
+        else => |e| return e,
+    };
+    reader.readSliceAll(word[1..]) catch |err| switch (err) {
+        error.EndOfStream => return error.UnpackedInputNotWordAligned,
+        else => |e| return e,
+    };
+    return true;
+}
+
 /// Decode a packed Cap'n Proto stream into a newly-allocated word-aligned byte
 /// sequence. The returned slice length is always a multiple of 8.
 pub fn unpack(allocator: std.mem.Allocator, packed_bytes: []const u8) Error![]u8 {
@@ -505,6 +578,27 @@ test "packToWriter matches allocating encoder" {
     var writer = std.Io.Writer.fixed(&buffer);
     try packToWriter(&writer, &unpacked);
     try testing.expectEqualSlices(u8, expected, std.Io.Writer.buffered(&writer));
+}
+
+test "packReaderToWriter matches allocating encoder" {
+    const testing = std.testing;
+    const allocator = testing.allocator;
+
+    const unpacked = ([_]u8{0x8a} ** 4096) ++ ([_]u8{0} ** 64) ++ [_]u8{
+        0x08, 0x00, 0x00, 0x00, 0x03, 0x00, 0x02, 0x00,
+    };
+    const expected = try pack(allocator, &unpacked);
+    defer allocator.free(expected);
+
+    var reader = std.Io.Reader.fixed(&unpacked);
+    var buffer: [8192]u8 = undefined;
+    var writer = std.Io.Writer.fixed(&buffer);
+    try packReaderToWriter(&reader, &writer);
+    try testing.expectEqualSlices(u8, expected, std.Io.Writer.buffered(&writer));
+
+    var unaligned_reader = std.Io.Reader.fixed(unpacked[0 .. unpacked.len - 1]);
+    var unaligned_writer = std.Io.Writer.fixed(&buffer);
+    try testing.expectError(error.UnpackedInputNotWordAligned, packReaderToWriter(&unaligned_reader, &unaligned_writer));
 }
 
 test "unpackToWriter matches allocating decoder" {
