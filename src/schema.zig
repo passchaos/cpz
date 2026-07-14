@@ -8554,11 +8554,22 @@ fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const
     const raw = std.mem.trim(u8, literal, " \t\r\n");
     const name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
     const owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else null;
-    if (scope) |decl| {
-        if (owner == null or typeNameEqualsCanonical(owner.?, decl.name)) {
+    if (owner) |owner_name| {
+        if (scope) |decl| {
+            if (typeNameEqualsCanonical(owner_name, decl.name)) {
+                for (decl.consts) |*const_decl| {
+                    if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
+                }
+            }
+        }
+        if (findStructDirect(file, owner_name)) |decl| {
             for (decl.consts) |*const_decl| {
                 if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
             }
+        }
+    } else if (scope) |decl| {
+        for (decl.consts) |*const_decl| {
+            if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
         }
     }
     for (file.consts) |*const_decl| {
