@@ -996,6 +996,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try aliases.set(1, "Lovelace");
     try std.testing.expectEqual(false, try aliases.elementIsNull(0));
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try aliases.elementPointerKind(0)).?);
+    try std.testing.expectEqual(@as(u32, 0), try aliases.elementPointerSegmentId(0));
+    try std.testing.expect((try aliases.elementPointerWordIndex(0)) > 0);
+    try std.testing.expect(try aliases.elementPointerMatchesLocation(0, try aliases.elementPointerSegmentId(0), try aliases.elementPointerWordIndex(0)));
     try std.testing.expect(try aliases.elementMatchesPointerKind(0, .list));
     try std.testing.expect(!try aliases.elementPointerIsStruct(0));
     try std.testing.expect(try aliases.elementPointerIsList(0));
@@ -1283,6 +1286,9 @@ test "generated reader and builder accessors compile and round-trip" {
     try std.testing.expectEqualSlices(u8, "Lovelace", try read_aliases.get(1));
     try std.testing.expectEqual(false, try read_aliases.elementIsNull(1));
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try read_aliases.elementPointerKind(1)).?);
+    try std.testing.expectEqual(@as(u32, 0), try read_aliases.elementPointerSegmentId(1));
+    try std.testing.expect((try read_aliases.elementPointerWordIndex(1)) > 0);
+    try std.testing.expect(try read_aliases.elementPointerMatchesLocation(1, try read_aliases.elementPointerSegmentId(1), try read_aliases.elementPointerWordIndex(1)));
     try std.testing.expect(try read_aliases.elementMatchesPointerKind(1, .list));
     try std.testing.expect(!try read_aliases.elementPointerIsStruct(1));
     try std.testing.expect(try read_aliases.elementPointerIsList(1));

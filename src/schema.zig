@@ -10298,6 +10298,18 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).pointerType();
         \\        }}
         \\
+        \\        pub fn elementPointerSegmentId(self: @This(), index: usize) !u32 {{
+        \\            return (try self.list.getPointerElement(index)).segmentId();
+        \\        }}
+        \\
+        \\        pub fn elementPointerWordIndex(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).pointerWordIndex();
+        \\        }}
+        \\
+        \\        pub fn elementPointerMatchesLocation(self: @This(), index: usize, segment_id: u32, word_index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesLocation(segment_id, word_index);
+        \\        }}
+        \\
         \\        pub fn elementMatchesPointerKind(self: @This(), index: usize, @"cpz.kind": cpz.wire.PointerType) !bool {{
         \\            return (try self.list.getPointerElement(index)).matchesPointerType(@"cpz.kind");
         \\        }}
@@ -10397,6 +10409,18 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\
         \\        pub fn elementPointerKind(self: @This(), index: usize) !?cpz.wire.PointerType {{
         \\            return (try self.list.getPointerElement(index)).pointerType();
+        \\        }}
+        \\
+        \\        pub fn elementPointerSegmentId(self: @This(), index: usize) !u32 {{
+        \\            return (try self.list.getPointerElement(index)).segmentId();
+        \\        }}
+        \\
+        \\        pub fn elementPointerWordIndex(self: @This(), index: usize) !usize {{
+        \\            return (try self.list.getPointerElement(index)).pointerWordIndex();
+        \\        }}
+        \\
+        \\        pub fn elementPointerMatchesLocation(self: @This(), index: usize, segment_id: u32, word_index: usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesLocation(segment_id, word_index);
         \\        }}
         \\
         \\        pub fn elementMatchesPointerKind(self: @This(), index: usize, @"cpz.kind": cpz.wire.PointerType) !bool {{
