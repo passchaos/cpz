@@ -1052,6 +1052,41 @@ pub const Orphan = struct {
         return wire.pointerType(self.raw);
     }
 
+    pub fn matchesPointerType(self: Orphan, expected: wire.PointerType) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.matches(expected);
+    }
+
+    pub fn isStructPointer(self: Orphan) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isStruct();
+    }
+
+    pub fn isListPointer(self: Orphan) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isList();
+    }
+
+    pub fn isFarPointer(self: Orphan) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isFar();
+    }
+
+    pub fn isOtherPointer(self: Orphan) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isOther();
+    }
+
+    pub fn isCapabilityPointer(self: Orphan) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isCapability();
+    }
+
+    pub fn isNearPointer(self: Orphan) bool {
+        const kind = self.pointerType() orelse return false;
+        return kind.isNear();
+    }
+
     pub fn decode(self: Orphan, message_reader: *MessageReader) Error!?wire.DecodedPointer {
         return self.asReader(message_reader).decode();
     }
@@ -5595,6 +5630,13 @@ test "message builder can disown and adopt root pointers" {
 
     var orphan = try builder.disownRoot();
     try testing.expectEqual(wire.PointerType.list, orphan.pointerType().?);
+    try testing.expect(orphan.matchesPointerType(.list));
+    try testing.expect(orphan.isListPointer());
+    try testing.expect(orphan.isNearPointer());
+    try testing.expect(!orphan.isStructPointer());
+    try testing.expect(!orphan.isFarPointer());
+    try testing.expect(!orphan.isOtherPointer());
+    try testing.expect(!orphan.isCapabilityPointer());
     try testing.expect((try builder.getRootPointer()).isNull());
     const orphan_bytes = (try orphan.getList(.byte)).bytes();
     try testing.expectEqualSlices(u8, "root orphan", orphan_bytes[0.."root orphan".len]);
@@ -5626,6 +5668,11 @@ test "orphan scalar accessors read moved pointers" {
     defer cap_builder.deinit();
     try cap_builder.setRootCapability(5150);
     var cap_orphan = try cap_builder.disownRoot();
+    try testing.expect(cap_orphan.matchesPointerType(.other));
+    try testing.expect(cap_orphan.isOtherPointer());
+    try testing.expect(cap_orphan.isCapabilityPointer());
+    try testing.expect(cap_orphan.isNearPointer());
+    try testing.expect(!cap_orphan.isListPointer());
     try testing.expectEqual(@as(u32, 5150), try cap_orphan.getCapabilityIndex());
 }
 
