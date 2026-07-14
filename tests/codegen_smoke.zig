@@ -385,6 +385,9 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 13), generated.@"cpz.consts".len);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.consts"[0].index);
+    try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.consts"[0].id);
+    try std.testing.expectEqualStrings("globalId", generated.@"cpz.constById"(0xc0571d01).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constById"(0xdead));
     try std.testing.expectEqualStrings("globalPayload", generated.@"cpz.constByName"("globalPayload").?.name);
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.constByName"("globalPayload").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.@"cpz.constByName"("missing"));
@@ -411,6 +414,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("12345", generated.@"cpz.consts"[0].literal);
     try std.testing.expect(generated.@"cpz.consts"[0].matchesName("globalId"));
+    try std.testing.expect(generated.@"cpz.consts"[0].matchesId(0xc0571d01));
     try std.testing.expect(generated.@"cpz.consts"[0].matchesType("UInt32"));
     try std.testing.expect(generated.@"cpz.consts"[8].matchesResolvedType("List(Text)"));
     try std.testing.expect(generated.@"cpz.consts"[0].matchesLiteral("12345"));
@@ -422,6 +426,8 @@ test "generated simple constants compile" {
     try std.testing.expect(!generated.@"cpz.consts"[0].matchesName("missing"));
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.const.globalId.index");
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.const.globalId.metadata".name);
+    try std.testing.expectEqual(@as(?u64, 0xc0571d01), generated.@"cpz.const.globalId.id");
+    try std.testing.expect(generated.@"cpz.const.globalId.metadata".matchesId(0xc0571d01));
     try std.testing.expectEqualStrings("12345", generated.@"cpz.const.globalId.metadata".literal);
     try std.testing.expectEqualStrings("globalId", generated.@"cpz.const.globalId.name");
     try std.testing.expectEqualStrings("UInt32", generated.@"cpz.const.globalId.type");
@@ -517,6 +523,7 @@ test "generated simple constants compile" {
     try std.testing.expectEqual(@as(usize, 4), generated.Person.@"cpz.consts".len);
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.consts"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.consts"[0].index);
+    try std.testing.expectEqual(@as(?u64, 0xc0571d02), generated.Person.@"cpz.consts"[0].id);
     try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByName"("defaultColor").?.name);
     try std.testing.expectEqual(@as(usize, 2), generated.Person.@"cpz.constByName"("defaultColor").?.index);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByName"("missing"));
@@ -529,12 +536,15 @@ test "generated simple constants compile" {
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constByListItemCount"(0).?.name);
     try std.testing.expectEqualStrings("defaultScores", generated.Person.@"cpz.constByListItemCount"(3).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByListItemCount"(99));
+    try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.constById"(0xc0571d02).?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constById"(0xdead));
     try std.testing.expectEqualStrings("defaultColor", generated.Person.@"cpz.constByIndex"(2).?.name);
     try std.testing.expectEqual(@as(?cpz.schema.ConstMetadata, null), generated.Person.@"cpz.constByIndex"(99));
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.consts"[0].ty);
     try std.testing.expectEqualStrings("99", generated.Person.@"cpz.consts"[0].literal);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.const.defaultAge.index");
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.const.defaultAge.metadata".name);
+    try std.testing.expectEqual(@as(?u64, 0xc0571d02), generated.Person.@"cpz.const.defaultAge.id");
     try std.testing.expectEqualStrings("defaultAge", generated.Person.@"cpz.const.defaultAge.name");
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.const.defaultAge.type");
     try std.testing.expectEqualStrings("UInt16", generated.Person.@"cpz.const.defaultAge.resolvedType");

@@ -19,7 +19,7 @@ using CapAlias = Capability;
 using GenericPersonAlias = GenericBox(Person);
 using ServiceAlias = Service;
 
-const globalId :UInt32 = 12345 $schemaNote("global-id");
+const globalId @0xc0571d01 :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;
 const globalName :Text = "const " "text";
 const globalPayload :Data = 0x"de ad be ef";
@@ -63,7 +63,7 @@ struct Person $schemaNote("person") {
   structGroups @18 :List(List(Person));
   marks @19 :VoidList;
 
-  const defaultAge :UInt16 = 99;
+  const defaultAge @0xc0571d02 :UInt16 = 99;
   const defaultAlias :Text = "nested const";
   const defaultColor :Color = red;
   const defaultScores :List(UInt16) = [7, 8, 9];

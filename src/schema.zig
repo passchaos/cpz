@@ -100,6 +100,7 @@ pub const AliasMetadata = struct {
 
 pub const ConstDecl = struct {
     name: []const u8,
+    id: ?u64 = null,
     ty: Type,
     literal: []const u8,
     owns_literal: bool = false,
@@ -149,6 +150,7 @@ pub const ConstListItem = struct {
 pub const ConstMetadata = struct {
     index: usize = 0,
     name: []const u8,
+    id: ?u64 = null,
     ty: []const u8,
     resolved_ty: []const u8 = "",
     literal: []const u8 = "",
@@ -167,6 +169,10 @@ pub const ConstMetadata = struct {
 
     pub fn matchesName(self: ConstMetadata, const_name: []const u8) bool {
         return std.mem.eql(u8, self.name, const_name);
+    }
+
+    pub fn matchesId(self: ConstMetadata, const_id: u64) bool {
+        return self.id != null and self.id.? == const_id;
     }
 
     pub fn matchesType(self: ConstMetadata, const_type: []const u8) bool {
@@ -2018,6 +2024,7 @@ pub const Parser = struct {
             return;
         }
         const name = try self.expectIdentifier();
+        const decl_id = try self.parseOptionalDeclarationId();
         if (self.lookahead.tag != .colon) {
             try self.skipRawUntilSemicolon();
             return;
@@ -2050,6 +2057,7 @@ pub const Parser = struct {
             }
             try consts.append(self.allocator, .{
                 .name = name,
+                .id = decl_id,
                 .ty = ty,
                 .literal = split.default_expression,
                 .is_embed = is_embed,
@@ -2125,6 +2133,7 @@ pub const Parser = struct {
         }
         try consts.append(self.allocator, .{
             .name = name,
+            .id = decl_id,
             .ty = ty,
             .literal = literal,
             .owns_literal = owns_literal,
@@ -6092,6 +6101,13 @@ fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         \\
     , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     try appendFmt(allocator, out,
+        \\{s}pub fn @"cpz.constById"(@"cpz.id": u64) ?cpz.schema.ConstMetadata {{
+        \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (@"cpz.const".id != null and @"cpz.const".id.? == @"cpz.id") return @"cpz.const";
+        \\{s}    return null;
+        \\{s}}}
+        \\
+    , .{ indent, indent, indent, indent });
+    try appendFmt(allocator, out,
         \\{s}pub fn @"cpz.constByEmbed"(@"cpz.isEmbed": bool) ?cpz.schema.ConstMetadata {{
         \\{s}    for (@This().@"cpz.consts") |@"cpz.const"| if (@"cpz.const".is_embed == @"cpz.isEmbed") return @"cpz.const";
         \\{s}    return null;
@@ -6146,7 +6162,11 @@ fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
     defer allocator.free(value_literal);
     const annotations_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
     defer allocator.free(annotations_literal);
-    try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}", .{ index, name_literal, type_literal, resolved_type_literal });
+    try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}", .{ index, name_literal });
+    if (decl.id) |id| {
+        try appendFmt(allocator, out, ", .id = 0x{x}", .{id});
+    }
+    try appendFmt(allocator, out, ", .ty = {s}, .resolved_ty = {s}", .{ type_literal, resolved_type_literal });
     if (decl.literal.len != 0) {
         try appendFmt(allocator, out, ", .literal = {s}", .{value_literal});
     }
@@ -6308,6 +6328,15 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}pub const @"cpz.const.{s}.literal": []const u8 = {s};
         \\{s}pub const @"cpz.const.{s}.isHexData": bool = {};
     , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, index, indent, const_name, type_literal, indent, const_name, resolved_type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data });
+    if (decl.id) |id| {
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.const.{s}.id": ?u64 = 0x{x};
+        , .{ indent, const_name, id });
+    } else {
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.const.{s}.id": ?u64 = null;
+        , .{ indent, const_name });
+    }
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.const.{s}.isEmbed": bool = {};
         \\{s}pub const @"cpz.const.{s}.embedPath": []const u8 = {s};
