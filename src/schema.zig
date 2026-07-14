@@ -955,6 +955,7 @@ pub const AnnotationDecl = struct {
     name: []const u8,
     owns_name: bool = false,
     id: ?u64 = null,
+    annotations: []const u8 = "",
     ty: Type,
     targets: AnnotationTargets,
 
@@ -971,6 +972,7 @@ pub const AnnotationMetadata = struct {
     id: ?u64 = null,
     ty: []const u8,
     resolved_ty: []const u8 = "",
+    annotations: []const u8 = "",
     target_count: usize = 0,
     targets: AnnotationTargets = .{},
 
@@ -1004,6 +1006,10 @@ pub const AnnotationMetadata = struct {
 
     pub fn matchesResolvedType(self: AnnotationMetadata, annotation_type: []const u8) bool {
         return std.mem.eql(u8, self.resolved_ty, annotation_type);
+    }
+
+    pub fn matchesAnnotations(self: AnnotationMetadata, annotations: []const u8) bool {
+        return std.mem.eql(u8, self.annotations, annotations);
     }
 };
 
@@ -1487,8 +1493,8 @@ pub const Parser = struct {
         try self.expect(.colon);
         var ty = try self.parseType();
         errdefer ty.deinit(self.allocator);
-        try self.skipUntilSemicolon();
-        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .ty = ty, .targets = targets };
+        const annotations = try self.takeRawUntilSemicolon();
+        return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .annotations = annotations, .ty = ty, .targets = targets };
     }
 
     fn parseAnnotationTargets(self: *Parser) Error!AnnotationTargets {
@@ -5910,6 +5916,11 @@ fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.annotationByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.AnnotationMetadata {{
+        \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (std.mem.eql(u8, @"cpz.annotation".annotations, @"cpz.annotationFilter")) return @"cpz.annotation";
+        \\{s}    return null;
+        \\{s}}}
+        \\
         \\{s}pub fn @"cpz.annotationByTarget"(@"cpz.target": []const u8) ?cpz.schema.AnnotationMetadata {{
         \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (cpz.schema.annotationTargetsHas(@"cpz.annotation".targets, @"cpz.target")) return @"cpz.annotation";
         \\{s}    return null;
@@ -5925,7 +5936,7 @@ fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList
         \\{s}    return @This().@"cpz.annotation_decls"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
 }
 
 fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, index: usize, decl: *const AnnotationDecl, indent: []const u8) LayoutError!void {
@@ -5942,6 +5953,8 @@ fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.Array
     defer allocator.free(resolved_type_name);
     const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
     defer allocator.free(resolved_type_literal);
+    const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    defer allocator.free(annotation_literal);
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.annotationDecl.{s}.index": usize = {};
         \\{s}pub const @"cpz.annotationDecl.{s}.name": []const u8 = {s};
@@ -5956,9 +5969,10 @@ fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.Array
         \\{s}pub const @"cpz.annotationDecl.{s}.metadata": cpz.schema.AnnotationMetadata = @This().@"cpz.annotation_decls"[{}];
         \\{s}pub const @"cpz.annotationDecl.{s}.type": []const u8 = {s};
         \\{s}pub const @"cpz.annotationDecl.{s}.resolvedType": []const u8 = {s};
+        \\{s}pub const @"cpz.annotationDecl.{s}.annotations": []const u8 = {s};
         \\{s}pub const @"cpz.annotationDecl.{s}.targetCount": usize = {};
         \\{s}pub const @"cpz.annotationDecl.{s}.targets": cpz.schema.AnnotationTargets = 
-    , .{ indent, annotation_name, index, indent, annotation_name, type_literal, indent, annotation_name, resolved_type_literal, indent, annotation_name, annotationTargetCount(decl.targets), indent, annotation_name });
+    , .{ indent, annotation_name, index, indent, annotation_name, type_literal, indent, annotation_name, resolved_type_literal, indent, annotation_name, annotation_literal, indent, annotation_name, annotationTargetCount(decl.targets), indent, annotation_name });
     try appendAnnotationTargetsLiteral(allocator, out, decl.targets);
     try out.appendSlice(allocator, ";\n\n");
 }
@@ -5975,9 +5989,15 @@ fn appendAnnotationMetadataLiteral(allocator: std.mem.Allocator, out: *std.Array
     defer allocator.free(resolved_type_name);
     const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
     defer allocator.free(resolved_type_literal);
+    const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    defer allocator.free(annotation_literal);
     try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, ", .{ index, name_literal });
     if (decl.id) |id| try appendFmt(allocator, out, ".id = 0x{x}, ", .{id});
-    try appendFmt(allocator, out, ".ty = {s}, .resolved_ty = {s}, .target_count = {}, .targets = ", .{ type_literal, resolved_type_literal, annotationTargetCount(decl.targets) });
+    try appendFmt(allocator, out, ".ty = {s}, .resolved_ty = {s}", .{ type_literal, resolved_type_literal });
+    if (decl.annotations.len != 0) {
+        try appendFmt(allocator, out, ", .annotations = {s}", .{annotation_literal});
+    }
+    try appendFmt(allocator, out, ", .target_count = {}, .targets = ", .{annotationTargetCount(decl.targets)});
     try appendAnnotationTargetsLiteral(allocator, out, decl.targets);
     try out.appendSlice(allocator, " }");
 }

@@ -2,7 +2,7 @@
 
 $schemaNote("file-level");
 
-annotation enumNote(enum) :Text;
+annotation enumNote(enum) :Text $schemaNote("annotation-decl");
 
 enum Color @0xc010 $enumNote("palette") {
   red @0;

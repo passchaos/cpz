@@ -155,8 +155,11 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.annotation_decls"[0].index);
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotation_decls"[0].ty);
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotation_decls"[0].resolved_ty);
+    try std.testing.expectEqualStrings("$schemaNote(\"annotation-decl\")", generated.@"cpz.annotation_decls"[0].annotations);
+    try std.testing.expect(generated.@"cpz.annotation_decls"[0].matchesAnnotations("$schemaNote(\"annotation-decl\")"));
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotation_decls"[0].target_count);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationDecl.enumNote.targetCount");
+    try std.testing.expectEqualStrings("$schemaNote(\"annotation-decl\")", generated.@"cpz.annotationDecl.enumNote.annotations");
     try std.testing.expect(generated.@"cpz.annotation_decls"[0].targets.enum_decl);
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotation_decls"[1].name);
     try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationDecl.schemaNote.index");
@@ -190,6 +193,8 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationById"(0xdead));
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotationByType"("Text").?.name);
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotationByResolvedType"("Text").?.name);
+    try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotationByAnnotations"("$schemaNote(\"annotation-decl\")").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationByAnnotations"("missing"));
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotationByTarget"("enum").?.name);
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.annotationByTarget"("file").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.AnnotationMetadata, null), generated.@"cpz.annotationByTarget"("missing"));
