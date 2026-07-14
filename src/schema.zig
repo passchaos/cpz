@@ -7960,7 +7960,19 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
             try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
         },
         .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, resolved_literal),
-        .named => |type_name| try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, resolved_literal),
+        .capability => {
+            const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
+            if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
+            return error.UnsupportedType;
+        },
+        .named => |type_name| {
+            if (findInterface(file, type_name) != null) {
+                const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
+                if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
+                return error.UnsupportedType;
+            }
+            try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, resolved_literal);
+        },
         .optional => |child| {
             const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
             if (std.mem.eql(u8, raw, "null")) return;
@@ -17302,6 +17314,32 @@ test "schema struct const flat emission supports wider integers and floats" {
     try std.testing.expectEqual(@as(i64, -99), root.getInt64(8, -5));
     try std.testing.expectEqual(@as(u64, 99), root.getUInt64(16, 5));
     try std.testing.expectEqual(@as(f64, -12.25), root.getFloat64(24, 4.25));
+}
+
+test "schema struct const flats encode void capability pointers as null" {
+    const source =
+        \\interface Service {
+        \\  call @0 () -> ();
+        \\}
+        \\struct Holder {
+        \\  cap @0 :Capability;
+        \\  svc @1 :Service;
+        \\}
+        \\const holder :Holder = (cap = void, svc = void);
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const flat = (try structLiteralFlatBytesAlloc(std.testing.allocator, &file, null, &file.consts[0])).?;
+    defer std.testing.allocator.free(flat);
+    var segments: [1]serialize.ConstSegment = undefined;
+    const view = try serialize.readFlatMessageViewInto(&segments, flat);
+    var reader = message.MessageReader.init(view.segments, .{});
+    const root = try reader.getRoot();
+    try std.testing.expect(root.getPointerField(0).isNull());
+    try std.testing.expect(root.getPointerField(1).isNull());
 }
 
 test "schema text and data list flats resolve const item references" {
