@@ -119,9 +119,17 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqual(@as(u32, 456), try empty_root_builder.get_localAmountField());
     try std.testing.expectApproxEqAbs(@as(f64, -2.5), try empty_root_builder.get_localRatioField(), 0.0);
     try std.testing.expectEqual(generated.Mode.off, try empty_root_builder.get_localModeField());
+    try std.testing.expect(!try empty_root_builder.has_item());
+    const materialized_item_builder = try empty_root_builder.get_item();
+    try std.testing.expectEqual(@as(u32, 88), try materialized_item_builder.get_value());
+    try std.testing.expectEqualStrings("referenced item", try materialized_item_builder.get_label());
+    try std.testing.expect(try empty_root_builder.has_item());
     const empty_root_as_reader = empty_root_builder.asReader(&empty_builder_reader);
     try std.testing.expectEqualStrings("local text", try empty_root_as_reader.localTextField());
     try std.testing.expectEqual(@as(u32, 456), empty_root_as_reader.localAmountField());
+    const materialized_item_reader = try empty_root_as_reader.item();
+    try std.testing.expectEqual(@as(u32, 88), materialized_item_reader.value());
+    try std.testing.expectEqualStrings("referenced item", try materialized_item_reader.label());
 
     var text_default_reader = generated.ConstRefDefaults.textDefaultFlat.reader(.{});
     try std.testing.expectEqualStrings("referenced text", try generated.ConstRefDefaults.textDefaultFlat.get(&text_default_reader));

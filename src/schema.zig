@@ -11388,6 +11388,15 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
     }
 }
 
+fn structFieldDefaultFlatIsEmitted(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, field: *const Field, type_name: []const u8) LayoutError!bool {
+    if (field.default_expression.len == 0) return false;
+    if (defaultExpressionIsNullPointer(file, layout.decl, field.default_expression)) return false;
+    if (findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) return false;
+    const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, layout.decl, field.default_expression))) orelse return false;
+    defer allocator.free(flat);
+    return true;
+}
+
 fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize } {
     return switch (slot) {
         .void => .{ .name = "void", .offset = 0 },
@@ -18124,16 +18133,32 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
+            const has_default_flat = try structFieldDefaultFlatIsEmitted(allocator, file, layout, field, type_name);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !{s}.Builder {{
             , .{ field_name, zig_type });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-            try appendFmt(allocator, out,
-                \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).getStruct());
-                \\        }}
-                \\
-                \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
-            , .{ zig_type, index, field_name, zig_type });
+            if (has_default_flat) {
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) {{
+                    \\                var @"cpz.defaultReader" = {s}.{s}DefaultFlat.reader(.{{}});
+                    \\                const @"cpz.defaultValue" = try {s}.{s}DefaultFlat.typedRoot(&@"cpz.defaultReader");
+                    \\                try @"cpz.pointer".copyStructFrom(@"cpz.defaultValue".reader);
+                    \\            }}
+                    \\            return {s}.Builder.fromBuilder(try @"cpz.pointer".getStruct());
+                    \\        }}
+                    \\
+                    \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
+                , .{ index, owner_name, field_name, owner_name, field_name, zig_type, field_name, zig_type });
+            } else {
+                try appendFmt(allocator, out,
+                    \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).getStruct());
+                    \\        }}
+                    \\
+                    \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
+                , .{ zig_type, index, field_name, zig_type });
+            }
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
