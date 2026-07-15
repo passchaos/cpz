@@ -9599,6 +9599,10 @@ fn emitEmbeddedStructConst(
         \\{s}            return {s}.getRoot(&self.reader);
         \\{s}        }}
         \\
+        \\{s}        pub fn typedRoot(self: *@This()) !{s} {{
+        \\{s}            return self.root();
+        \\{s}        }}
+        \\
     , .{
         indent,
         indent,
@@ -9614,6 +9618,10 @@ fn emitEmbeddedStructConst(
         zig_type,
         indent,
         zig_type,
+        indent,
+        indent,
+        zig_type,
+        indent,
         indent,
     });
     try appendFmt(allocator, out,

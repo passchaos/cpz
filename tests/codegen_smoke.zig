@@ -437,6 +437,10 @@ test "generated declaration and field annotation metadata compiles" {
     const field_friend_typed_default = try generated.Person.friendDefaultFlat.typedRoot(&field_friend_typed_default_reader);
     try std.testing.expectEqual(@as(u32, 303), field_friend_typed_default.id());
     try std.testing.expectEqualSlices(u8, "default friend", try field_friend_typed_default.name());
+    var field_friend_default_wrapped = generated.Person.friendDefaultFlat.init(.{});
+    const field_friend_default_wrapped_root = try field_friend_default_wrapped.typedRoot();
+    try std.testing.expectEqual(@as(u32, 303), field_friend_default_wrapped_root.id());
+    try std.testing.expectEqualSlices(u8, "default friend", try field_friend_default_wrapped_root.name());
     try std.testing.expect((try generated.Person.friendDefaultFlat.validate(.{})).total_words > 0);
     try std.testing.expectEqualStrings("[red, blue]", generated.Person.@"cpz.field.palette.default");
     try std.testing.expect(generated.Person.@"cpz.field.palette.hasExplicitDefault");
