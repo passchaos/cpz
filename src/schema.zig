@@ -11397,6 +11397,16 @@ fn structFieldDefaultFlatIsEmitted(allocator: std.mem.Allocator, file: *const Fi
     return true;
 }
 
+fn listFieldDefaultFlatIsEmitted(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, field: *const Field, child: Type) LayoutError!bool {
+    if (field.default_expression.len == 0) return false;
+    const flat = methodListDefaultFlatBytesAlloc(allocator, file, layout.decl, child, field.default_expression) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return false,
+        else => return err,
+    };
+    defer allocator.free(flat);
+    return true;
+}
+
 fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize } {
     return switch (slot) {
         .void => .{ .name = "void", .offset = 0 },
@@ -17611,15 +17621,30 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             , .{ index, field_name });
         },
         .list => |child| {
+            const has_default_flat = try listFieldDefaultFlatIsEmitted(allocator, file, layout, field, child.*);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !{s}_{s}_BuilderList {{
             , .{ field_name, owner_name, field_name });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-            try appendFmt(allocator, out,
-                \\            return .{{ .list = try (try self.builder.getPointerField({})).getList({s}) }};
-                \\        }}
-                \\
-            , .{ index, try listElementSizeLiteral(file, layout.decl, child.*) });
+            if (has_default_flat) {
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) {{
+                    \\                var @"cpz.defaultReader" = {s}.{s}DefaultFlat.reader(.{{}});
+                    \\                const @"cpz.defaultList" = try {s}.{s}DefaultFlat.list(&@"cpz.defaultReader");
+                    \\                try @"cpz.pointer".copyListFrom(@"cpz.defaultList");
+                    \\            }}
+                    \\            return .{{ .list = try @"cpz.pointer".getList({s}) }};
+                    \\        }}
+                    \\
+                , .{ index, owner_name, field_name, owner_name, field_name, try listElementSizeLiteral(file, layout.decl, child.*) });
+            } else {
+                try appendFmt(allocator, out,
+                    \\            return .{{ .list = try (try self.builder.getPointerField({})).getList({s}) }};
+                    \\        }}
+                    \\
+                , .{ index, try listElementSizeLiteral(file, layout.decl, child.*) });
+            }
 
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}_from(self: Builder, new_value: {s}_{s}_List) !void {{
