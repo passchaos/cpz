@@ -10,6 +10,8 @@ const referencedAmount :UInt32 = 123;
 const referencedRatio :Float64 = +1.25e2;
 const referencedMode :Mode = on;
 const referencedNumbers :List(UInt16) = [7, 8];
+const referencedCaps :List(Capability) = [void, null];
+const referencedCallbacks :List(TopCallback) = [void];
 
 interface TopCallback {
   ping @0 () -> ();
@@ -55,6 +57,8 @@ struct ConstRefDefaults {
   any @15 :AnyPointer = referencedItem;
   anyStruct @16 :AnyStruct = referencedItem;
   anyList @17 :AnyList = referencedNumbers;
+  capList @18 :List(Capability) = referencedCaps;
+  callbackList @19 :List(TopCallback) = referencedCallbacks;
 }
 
 struct CountFieldDefaults {
@@ -155,6 +159,9 @@ interface Defaults {
     done @0 () -> ();
   }
 
+  const defaultCaps :List(Capability) = [void, null];
+  const defaultCallbacks :List(Callback) = [void];
+
   const defaultItems :List(Item) = [(value = 10, label = "ten"), (value = 20, label = "twenty")];
   const defaultItem :Item = (value = 99, label = "ninety-nine");
   const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
@@ -215,6 +222,11 @@ interface Defaults {
   ) -> ();
 
   capabilityDefaults @6 (callback :Callback = void) -> ();
+
+  capabilityLists @7 (
+    caps :List(Capability) = defaultCaps,
+    callbacks :List(Callback) = defaultCallbacks
+  ) -> ();
 }
 
 const referencedItem :Defaults.Item = (value = 88, label = "referenced item");

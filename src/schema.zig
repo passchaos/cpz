@@ -5979,6 +5979,11 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
             defer allocator.free(items);
             return listFloatFlatBytesAlloc(f64, u64, allocator, file, scope, items, .eight_bytes);
         },
+        .capability => {
+            const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+            defer allocator.free(items);
+            return listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+        },
         .text => return listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, true),
         .data => return listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, false),
         .list => return listNestedFieldDefaultFlatBytesAlloc(allocator, file, scope, child, resolved_literal),
@@ -5987,6 +5992,11 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
                 const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
                 defer allocator.free(items);
                 return listEnumFlatBytesAlloc(allocator, file, scope, enum_decl, items);
+            }
+            if (findInterface(file, type_name) != null) {
+                const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+                defer allocator.free(items);
+                return listCapabilityFlatBytesAlloc(allocator, file, scope, items);
             }
             if (findStructDirect(file, type_name) != null) return listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolved_literal);
             return error.UnsupportedType;
@@ -6098,6 +6108,39 @@ fn emitMethodListDefaultScalarGet(allocator: std.mem.Allocator, out: *std.ArrayL
     }
 }
 
+fn emitMethodListDefaultCapabilityGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    try emitMethodListDefaultList(allocator, out, indent, ".pointer");
+    try appendFmt(allocator, out,
+        \\{s}    pub fn pointer(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}        const @"cpz.list" = try @This().list(message_reader);
+        \\{s}        if (!@"cpz.list".hasIndex(@"cpz.index")) return error.PointerOutOfBounds;
+        \\{s}        return @"cpz.list".getPointerElement(@"cpz.index");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn elementIsNull(message_reader: *cpz.MessageReader, @"cpz.index": usize) !bool {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).isNull();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn elementPointerKind(message_reader: *cpz.MessageReader, @"cpz.index": usize) !?cpz.wire.PointerType {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).pointerType();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn rawPointer(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.Word {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).raw();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize) !u32 {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).getCapabilityIndex();
+        \\{s}    }}
+        \\
+    , .{
+        indent, indent, indent, indent, indent,
+        indent, indent, indent, indent, indent,
+        indent, indent, indent, indent, indent,
+        indent, indent,
+    });
+}
+
 fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, child: Type) LayoutError!void {
     switch (resolveTypeScoped(file, scope, child)) {
         .void => {
@@ -6148,6 +6191,7 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
             try emitMethodListDefaultList(allocator, out, indent, ".eight_bytes");
             try emitMethodListDefaultScalarGet(allocator, out, indent, "f64", "getFloat64");
         },
+        .capability => try emitMethodListDefaultCapabilityGetters(allocator, out, indent),
         .text => {
             try emitMethodListDefaultList(allocator, out, indent, ".pointer");
             try appendFmt(allocator, out,
@@ -6216,6 +6260,8 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
                     \\{s}    }}
                     \\
                 , .{ indent, zig_type, indent, zig_type, indent });
+            } else if (findInterface(file, type_name) != null) {
+                try emitMethodListDefaultCapabilityGetters(allocator, out, indent);
             }
         },
         else => {},
@@ -6327,6 +6373,34 @@ fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.Ar
             \\{s}        }}
             \\
         , .{ indent, indent, container_literal, indent }),
+        .capability => try appendFmt(allocator, out,
+            \\{s}        pub fn pointer(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+            \\{s}            return @{s}.pointer(&self.reader, @"cpz.index");
+            \\{s}        }}
+            \\
+            \\{s}        pub fn elementIsNull(self: *@This(), @"cpz.index": usize) !bool {{
+            \\{s}            return @{s}.elementIsNull(&self.reader, @"cpz.index");
+            \\{s}        }}
+            \\
+            \\{s}        pub fn elementPointerKind(self: *@This(), @"cpz.index": usize) !?cpz.wire.PointerType {{
+            \\{s}            return @{s}.elementPointerKind(&self.reader, @"cpz.index");
+            \\{s}        }}
+            \\
+            \\{s}        pub fn rawPointer(self: *@This(), @"cpz.index": usize) !cpz.Word {{
+            \\{s}            return @{s}.rawPointer(&self.reader, @"cpz.index");
+            \\{s}        }}
+            \\
+            \\{s}        pub fn get(self: *@This(), @"cpz.index": usize) !u32 {{
+            \\{s}            return @{s}.get(&self.reader, @"cpz.index");
+            \\{s}        }}
+            \\
+        , .{
+            indent, indent, container_literal, indent,
+            indent, indent, container_literal, indent,
+            indent, indent, container_literal, indent,
+            indent, indent, container_literal, indent,
+            indent, indent, container_literal, indent,
+        }),
         .named => |type_name| {
             if (findEnum(file, type_name) != null) {
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
@@ -6350,6 +6424,35 @@ fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.Ar
                     \\{s}        }}
                     \\
                 , .{ indent, zig_type, indent, container_literal, indent });
+            } else if (findInterface(file, type_name) != null) {
+                try appendFmt(allocator, out,
+                    \\{s}        pub fn pointer(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+                    \\{s}            return @{s}.pointer(&self.reader, @"cpz.index");
+                    \\{s}        }}
+                    \\
+                    \\{s}        pub fn elementIsNull(self: *@This(), @"cpz.index": usize) !bool {{
+                    \\{s}            return @{s}.elementIsNull(&self.reader, @"cpz.index");
+                    \\{s}        }}
+                    \\
+                    \\{s}        pub fn elementPointerKind(self: *@This(), @"cpz.index": usize) !?cpz.wire.PointerType {{
+                    \\{s}            return @{s}.elementPointerKind(&self.reader, @"cpz.index");
+                    \\{s}        }}
+                    \\
+                    \\{s}        pub fn rawPointer(self: *@This(), @"cpz.index": usize) !cpz.Word {{
+                    \\{s}            return @{s}.rawPointer(&self.reader, @"cpz.index");
+                    \\{s}        }}
+                    \\
+                    \\{s}        pub fn get(self: *@This(), @"cpz.index": usize) !u32 {{
+                    \\{s}            return @{s}.get(&self.reader, @"cpz.index");
+                    \\{s}        }}
+                    \\
+                , .{
+                    indent, indent, container_literal, indent,
+                    indent, indent, container_literal, indent,
+                    indent, indent, container_literal, indent,
+                    indent, indent, container_literal, indent,
+                    indent, indent, container_literal, indent,
+                });
             }
         },
         else => {},
@@ -9796,6 +9899,24 @@ fn listBoolFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope
     return flat;
 }
 
+fn listCapabilityFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem) LayoutError![]u8 {
+    const data_words = try wire.wordsForList(.pointer, items.len);
+    const segment_words = 1 + data_words;
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    errdefer allocator.free(flat);
+    @memset(flat, 0);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    writeWordBytes(flat[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
+    for (items) |item| {
+        const resolved_item = resolveScalarConstListItem(file, scope, item);
+        const raw = std.mem.trim(u8, resolved_item.literal, " \t\r\n");
+        if (item.index >= items.len or (!std.mem.eql(u8, raw, "void") and !std.mem.eql(u8, raw, "null"))) return error.InvalidToken;
+    }
+    return flat;
+}
+
 fn listVoidFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem) LayoutError![]u8 {
     const segment_words: usize = 1;
     const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
@@ -10128,6 +10249,63 @@ fn emitFlatListContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayL
             , .{ indent, indent, indent, indent, indent });
         }
     }
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, indent, indent, indent, indent });
+}
+
+fn emitCapabilityListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8) LayoutError!void {
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+        \\{s}        return message_reader.getRootList(.pointer);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn pointer(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}        const @"cpz.list" = try @This().list(message_reader);
+        \\{s}        if (!@"cpz.list".hasIndex(@"cpz.index")) return error.PointerOutOfBounds;
+        \\{s}        return @"cpz.list".getPointerElement(@"cpz.index");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn elementIsNull(message_reader: *cpz.MessageReader, @"cpz.index": usize) !bool {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).isNull();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn elementPointerKind(message_reader: *cpz.MessageReader, @"cpz.index": usize) !?cpz.wire.PointerType {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).pointerType();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn rawPointer(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.Word {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).raw();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize) !u32 {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).getCapabilityIndex();
+        \\{s}    }}
+        \\
+    , .{
+        indent, name,   indent, flat_literal, indent, indent,
+        indent, indent, indent, indent,       indent, indent,
+        indent, indent, indent, indent,       indent, indent,
+        indent, indent, indent, indent,       indent, indent,
+        indent, indent, indent, indent,       indent,
+    });
     try emitFlatContainerSizeHelpers(allocator, out, indent);
     try appendFmt(allocator, out,
         \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
@@ -11088,6 +11266,11 @@ fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
             defer allocator.free(flat);
             try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, false);
         },
+        .capability => {
+            const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+            defer allocator.free(flat);
+            try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, container_name, flat);
+        },
         .list => {
             const flat = try listNestedFieldDefaultFlatBytesAlloc(allocator, file, scope, child, default_expression);
             defer allocator.free(flat);
@@ -11104,6 +11287,10 @@ fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
                 try emitStructListFlatContainerFromBytes(allocator, out, indent, container_name, zig_type, flat);
+            } else if (findInterface(file, type_name) != null) {
+                const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+                defer allocator.free(flat);
+                try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, container_name, flat);
             }
         },
         else => return,

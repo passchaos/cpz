@@ -166,6 +166,17 @@ test "generated struct field defaults resolve const references" {
     const any_list_default = try generated.ConstRefDefaults.anyListDefaultFlat.get(&any_list_default_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 7), any_list_default.getUInt16(0));
     try std.testing.expectEqual(@as(u16, 8), any_list_default.getUInt16(1));
+    var cap_list_default_reader = generated.ConstRefDefaults.capListDefaultFlat.reader(.{});
+    const cap_list_default = try generated.ConstRefDefaults.capListDefaultFlat.list(&cap_list_default_reader);
+    try std.testing.expectEqual(@as(usize, 2), cap_list_default.len());
+    try std.testing.expect(try generated.ConstRefDefaults.capListDefaultFlat.elementIsNull(&cap_list_default_reader, 0));
+    try std.testing.expect(try generated.ConstRefDefaults.capListDefaultFlat.elementIsNull(&cap_list_default_reader, 1));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.ConstRefDefaults.capListDefaultFlat.rawPointer(&cap_list_default_reader, 0));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.ConstRefDefaults.capListDefaultFlat.elementPointerKind(&cap_list_default_reader, 1));
+    var callback_list_default_reader = generated.ConstRefDefaults.callbackListDefaultFlat.reader(.{});
+    const callback_list_default = try generated.ConstRefDefaults.callbackListDefaultFlat.list(&callback_list_default_reader);
+    try std.testing.expectEqual(@as(usize, 1), callback_list_default.len());
+    try std.testing.expect(try generated.ConstRefDefaults.callbackListDefaultFlat.elementIsNull(&callback_list_default_reader, 0));
 }
 
 test "generated helpers avoid count field shadowing" {
@@ -402,7 +413,7 @@ test "generated member field names are sanitized" {
 }
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 8), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -626,4 +637,26 @@ test "generated method default flats expose named capability null defaults" {
 
     var callback_wrapped = generated.Defaults.@"cpz.method.capabilityDefaults.params.field.callback.defaultFlat".init(.{});
     try std.testing.expect(try callback_wrapped.isNull());
+}
+
+test "generated method default flats expose capability list defaults" {
+    try std.testing.expectEqualStrings("capabilityLists", generated.Defaults.@"cpz.methodByName"("capabilityLists").?.name);
+
+    var caps_reader = generated.Defaults.@"cpz.method.capabilityLists.params.field.caps.defaultFlat".reader(.{});
+    const caps = try generated.Defaults.@"cpz.method.capabilityLists.params.field.caps.defaultFlat".list(&caps_reader);
+    try std.testing.expectEqual(@as(usize, 2), caps.len());
+    try std.testing.expect(try generated.Defaults.@"cpz.method.capabilityLists.params.field.caps.defaultFlat".elementIsNull(&caps_reader, 0));
+    try std.testing.expect(try generated.Defaults.@"cpz.method.capabilityLists.params.field.caps.defaultFlat".elementIsNull(&caps_reader, 1));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.@"cpz.method.capabilityLists.params.field.caps.defaultFlat".rawPointer(&caps_reader, 0));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.@"cpz.method.capabilityLists.params.field.caps.defaultFlat".elementPointerKind(&caps_reader, 1));
+    var caps_wrapped = generated.Defaults.@"cpz.method.capabilityLists.params.field.caps.defaultFlat".init(.{});
+    try std.testing.expect(try caps_wrapped.elementIsNull(0));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try caps_wrapped.rawPointer(1));
+
+    var callbacks_reader = generated.Defaults.@"cpz.method.capabilityLists.params.field.callbacks.defaultFlat".reader(.{});
+    const callbacks = try generated.Defaults.@"cpz.method.capabilityLists.params.field.callbacks.defaultFlat".list(&callbacks_reader);
+    try std.testing.expectEqual(@as(usize, 1), callbacks.len());
+    try std.testing.expect(try generated.Defaults.@"cpz.method.capabilityLists.params.field.callbacks.defaultFlat".elementIsNull(&callbacks_reader, 0));
+    var callbacks_wrapped = generated.Defaults.@"cpz.method.capabilityLists.params.field.callbacks.defaultFlat".init(.{});
+    try std.testing.expect(try callbacks_wrapped.elementIsNull(0));
 }
