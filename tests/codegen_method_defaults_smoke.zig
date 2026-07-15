@@ -248,6 +248,22 @@ test "generated helpers avoid builder field shadowing" {
     try std.testing.expectEqualStrings("build", try copied.get(0));
 }
 
+test "generated helpers avoid options field shadowing" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer builder.deinit();
+    const root_builder = try generated.OptionsFieldDefaults.initRootTyped(&builder);
+    try root_builder.set_options("options");
+    _ = try root_builder.init_item();
+
+    try std.testing.expect((try root_builder.validateWithOptions(.{})).hasStructs());
+    try std.testing.expect((try root_builder.get_itemStatsWithOptions(.{})).hasStructs());
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.OptionsFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqualStrings("options", try root.options());
+    try std.testing.expect((try root.validateWithOptions(.{})).hasStructs());
+    try std.testing.expect((try root.itemStatsWithOptions(.{})).hasStructs());
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

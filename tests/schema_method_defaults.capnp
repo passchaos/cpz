@@ -73,6 +73,11 @@ struct BuilderFieldDefaults {
   items @1 :List(Text) = ["build"];
 }
 
+struct OptionsFieldDefaults {
+  options @0 :Text = "options";
+  item @1 :NullPointerDefaults;
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
