@@ -351,6 +351,25 @@ test "generated orphan field name is sanitized" {
     try std.testing.expectEqualStrings("orphan", try root.orphan_());
 }
 
+test "generated member field names are sanitized" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    const root_builder = try generated.GeneratedMemberFieldDefaults.initRootTyped(&builder);
+    try root_builder.set_validate_("validate");
+    try root_builder.set_totalSize_("total");
+    try root_builder.set_Orphan_("orphan-type");
+    try root_builder.set_Builder_("builder-type");
+    try root_builder.set_fromReader_("from-reader");
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.GeneratedMemberFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqualStrings("validate", try root.validate_());
+    try std.testing.expectEqualStrings("total", try root.totalSize_());
+    try std.testing.expectEqualStrings("orphan-type", try root.Orphan_());
+    try std.testing.expectEqualStrings("builder-type", try root.Builder_());
+    try std.testing.expectEqualStrings("from-reader", try root.fromReader_());
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

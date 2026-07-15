@@ -106,6 +106,14 @@ struct OrphanFieldDefaults {
   orphan @0 :Text = "orphan";
 }
 
+struct GeneratedMemberFieldDefaults {
+  validate @0 :Text = "validate";
+  totalSize @1 :Text = "total";
+  Orphan @2 :Text = "orphan-type";
+  Builder @3 :Text = "builder-type";
+  fromReader @4 :Text = "from-reader";
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
