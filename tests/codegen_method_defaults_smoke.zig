@@ -309,6 +309,19 @@ test "generated reader field name is sanitized" {
     try std.testing.expectEqualStrings("reader", try root.reader_());
 }
 
+test "generated size field name is sanitized" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    const root_builder = try generated.SizeFieldDefaults.initRootTyped(&builder);
+    try std.testing.expectEqual(@as(u32, 64), try root_builder.get_size_());
+    try root_builder.set_size_(128);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.SizeFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqual(@as(u32, 128), root.size_());
+    try std.testing.expectEqual(@as(u16, 1), generated.SizeFieldDefaults.size.data_words);
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

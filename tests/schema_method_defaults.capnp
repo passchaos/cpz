@@ -93,6 +93,10 @@ struct ReaderFieldDefaults {
   reader @0 :Text = "reader";
 }
 
+struct SizeFieldDefaults {
+  size @0 :UInt32 = 64;
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
