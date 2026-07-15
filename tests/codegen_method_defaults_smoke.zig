@@ -337,6 +337,17 @@ test "generated new_value field name is sanitized" {
     try std.testing.expectEqualStrings("value", try read_items.get(0));
 }
 
+test "generated orphan field name is sanitized" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    const root_builder = try generated.OrphanFieldDefaults.initRootTyped(&builder);
+    try root_builder.set_orphan_("orphan");
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.OrphanFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqualStrings("orphan", try root.orphan_());
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

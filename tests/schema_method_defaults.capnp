@@ -102,6 +102,10 @@ struct NewValueFieldDefaults {
   items @1 :List(Text) = ["value"];
 }
 
+struct OrphanFieldDefaults {
+  orphan @0 :Text = "orphan";
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
