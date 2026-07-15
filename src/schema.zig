@@ -11407,6 +11407,20 @@ fn listFieldDefaultFlatIsEmitted(allocator: std.mem.Allocator, file: *const File
     return true;
 }
 
+fn anyPointerFieldDefaultFlatIsEmitted(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, field: *const Field, comptime want: enum { any, struct_ptr, list }) LayoutError!bool {
+    if (field.default_expression.len == 0) return false;
+    const flat = switch (want) {
+        .any => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, layout.decl, field.default_expression, .any),
+        .struct_ptr => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, layout.decl, field.default_expression, .struct_ptr),
+        .list => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, layout.decl, field.default_expression, .list),
+    } catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return false,
+        else => return err,
+    };
+    defer allocator.free(flat);
+    return true;
+}
+
 fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize } {
     return switch (slot) {
         .void => .{ .name = "void", .offset = 0 },
@@ -17718,28 +17732,45 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             }
         },
         .any_pointer => {
+            const has_default_flat = try anyPointerFieldDefaultFlatIsEmitted(allocator, file, layout, field, .any);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !cpz.PointerBuilder {{
             , .{field_name});
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            if (has_default_flat) {
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) {{
+                    \\                var @"cpz.defaultReader" = {s}.{s}DefaultFlat.reader(.{{}});
+                    \\                const @"cpz.defaultPointer" = try {s}.{s}DefaultFlat.pointer(&@"cpz.defaultReader");
+                    \\                try @"cpz.pointer".copyFrom(@"cpz.defaultPointer");
+                    \\            }}
+                    \\            return @"cpz.pointer";
+                    \\        }}
+                    \\
+                , .{ index, owner_name, field_name, owner_name, field_name });
+            } else {
+                try appendFmt(allocator, out,
+                    \\            return self.builder.getPointerField({});
+                    \\        }}
+                    \\
+                , .{index});
+            }
             try appendFmt(allocator, out,
-                \\            return self.builder.getPointerField({});
-                \\        }}
-                \\
                 \\        pub fn get_{s}PointerType(self: Builder) !?cpz.wire.PointerType {{
-                \\            return (try self.builder.getPointerField({})).pointerType();
+                \\            return (try self.get_{s}()).pointerType();
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsStruct(self: Builder) !cpz.StructBuilder {{
-                \\            return (try self.builder.getPointerField({})).getStruct();
+                \\            return (try self.get_{s}()).getStruct();
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsList(self: Builder, @"cpz.expected": ?cpz.ElementSize) !cpz.ListBuilder {{
-                \\            return (try self.builder.getPointerField({})).getList(@"cpz.expected");
+                \\            return (try self.get_{s}()).getList(@"cpz.expected");
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsText(self: Builder) ![]const u8 {{
-                \\            return (try self.builder.getPointerField({})).getText();
+                \\            return (try self.get_{s}()).getText();
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsTextByteCount(self: Builder) !usize {{
@@ -17751,7 +17782,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsData(self: Builder) ![]const u8 {{
-                \\            return (try self.builder.getPointerField({})).getData();
+                \\            return (try self.get_{s}()).getData();
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsDataByteCount(self: Builder) !usize {{
@@ -17763,32 +17794,21 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsCapability(self: Builder) !u32 {{
-                \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
+                \\            return (try self.get_{s}()).getCapabilityIndex();
                 \\        }}
                 \\
                 \\        pub fn set_{s}(self: Builder, new_value: cpz.PointerReader) !void {{
             , .{
-                index,
-                field_name,
-                index,
-                field_name,
-                index,
-                field_name,
-                index,
-                field_name,
-                index,
-                field_name,
-                field_name,
-                field_name,
-                field_name,
-                field_name,
-                index,
-                field_name,
-                field_name,
-                field_name,
-                field_name,
-                field_name,
-                index,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
                 field_name,
             });
             try emitBuilderUnionActivation(allocator, out, field);
@@ -17902,16 +17922,32 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             , .{ index, field_name, field_name, field_name, field_name, field_name, field_name, field_name, field_name, field_name, field_name });
         },
         .any_struct => {
+            const has_default_flat = try anyPointerFieldDefaultFlatIsEmitted(allocator, file, layout, field, .struct_ptr);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !cpz.StructBuilder {{
             , .{field_name});
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-            try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).getStruct();
-                \\        }}
-                \\
-                \\        pub fn init_{s}(self: Builder, struct_size: cpz.StructSize) !cpz.StructBuilder {{
-            , .{ index, field_name });
+            if (has_default_flat) {
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) {{
+                    \\                var @"cpz.defaultReader" = {s}.{s}DefaultFlat.reader(.{{}});
+                    \\                const @"cpz.defaultStruct" = try {s}.{s}DefaultFlat.get(&@"cpz.defaultReader");
+                    \\                try @"cpz.pointer".copyStructFrom(@"cpz.defaultStruct");
+                    \\            }}
+                    \\            return @"cpz.pointer".getStruct();
+                    \\        }}
+                    \\
+                    \\        pub fn init_{s}(self: Builder, struct_size: cpz.StructSize) !cpz.StructBuilder {{
+                , .{ index, owner_name, field_name, owner_name, field_name, field_name });
+            } else {
+                try appendFmt(allocator, out,
+                    \\            return (try self.builder.getPointerField({})).getStruct();
+                    \\        }}
+                    \\
+                    \\        pub fn init_{s}(self: Builder, struct_size: cpz.StructSize) !cpz.StructBuilder {{
+                , .{ index, field_name });
+            }
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).initStruct(struct_size);
@@ -17949,14 +17985,14 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             , .{ index, field_name });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
-                \\            return (try (try self.builder.getPointerField({})).getStruct()).pointerSectionAsList();
+                \\            return (try self.get_{s}()).pointerSectionAsList();
                 \\        }}
                 \\
                 \\        pub fn get_{s}DataSection(self: Builder) ![]u8 {{
-            , .{ index, field_name });
+            , .{ field_name, field_name });
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
-                \\            return (try (try self.builder.getPointerField({})).getStruct()).dataSectionBytes();
+                \\            return (try self.get_{s}()).dataSectionBytes();
                 \\        }}
                 \\
                 \\        pub fn new_{s}_structOrphan(self: Builder, struct_size: cpz.StructSize) !cpz.Orphan {{
@@ -17979,19 +18015,39 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.orphanage().newCopyStructCanonicalFromBuilder(new_value);
                 \\        }}
                 \\
-            , .{ index, field_name, field_name, field_name, field_name, field_name });
+            , .{
+                field_name, field_name,
+                field_name, field_name,
+                field_name, field_name,
+            });
         },
         .any_list => {
+            const has_default_flat = try anyPointerFieldDefaultFlatIsEmitted(allocator, file, layout, field, .list);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !cpz.ListBuilder {{
             , .{field_name});
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-            try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).getList(null);
-                \\        }}
-                \\
-                \\        pub fn init_{s}(self: Builder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
-            , .{ index, field_name });
+            if (has_default_flat) {
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) {{
+                    \\                var @"cpz.defaultReader" = {s}.{s}DefaultFlat.reader(.{{}});
+                    \\                const @"cpz.defaultList" = try {s}.{s}DefaultFlat.get(&@"cpz.defaultReader", null);
+                    \\                try @"cpz.pointer".copyListFrom(@"cpz.defaultList");
+                    \\            }}
+                    \\            return @"cpz.pointer".getList(null);
+                    \\        }}
+                    \\
+                    \\        pub fn init_{s}(self: Builder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+                , .{ index, owner_name, field_name, owner_name, field_name, field_name });
+            } else {
+                try appendFmt(allocator, out,
+                    \\            return (try self.builder.getPointerField({})).getList(null);
+                    \\        }}
+                    \\
+                    \\        pub fn init_{s}(self: Builder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+                , .{ index, field_name });
+            }
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).initList(@"cpz.elementSize", @"cpz.count");
