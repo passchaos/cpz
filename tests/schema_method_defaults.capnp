@@ -53,6 +53,11 @@ struct ExpectedFieldDefaults {
   items @1 :List(UInt16) = [1, 2];
 }
 
+struct IndexFieldDefaults {
+  index @0 :UInt32 = 9;
+  items @1 :List(Text) = ["zero", "one"];
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;

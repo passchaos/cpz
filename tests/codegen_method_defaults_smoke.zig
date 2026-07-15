@@ -169,6 +169,24 @@ test "generated helpers avoid expected field shadowing" {
     try std.testing.expect(try root.itemsListMatchesElementSize(.two_bytes, .two_bytes));
 }
 
+test "generated helpers avoid index field shadowing" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer builder.deinit();
+    const builder_root = try generated.IndexFieldDefaults.initRootTyped(&builder);
+    const items = try builder_root.init_items(2);
+    try items.set(0, "zero");
+    try items.set(1, "one");
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.IndexFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqual(@as(u32, 9), root.index());
+    const read_items = try root.items();
+    try std.testing.expect(read_items.hasIndex(1));
+    try std.testing.expectEqualStrings("zero", try read_items.get(0));
+    try std.testing.expectEqualStrings("one", try read_items.get(1));
+    try std.testing.expect(try read_items.matchesBytes(0, "zero".len));
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
