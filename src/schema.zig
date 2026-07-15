@@ -14574,8 +14574,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.matchesStructElementTotalBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn slice(self: @This(), start: usize, @"cpz.count": usize) !{s}_{s}_List {{
-        \\            return .{{ .list = try self.list.slice(start, @"cpz.count") }};
+        \\        pub fn slice(self: @This(), @"cpz.start": usize, @"cpz.count": usize) !{s}_{s}_List {{
+        \\            return .{{ .list = try self.list.slice(@"cpz.start", @"cpz.count") }};
         \\        }}
         \\
     , .{ owner_name, field_name, owner_name, field_name });
@@ -15260,8 +15260,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.orphanage();
         \\        }}
         \\
-        \\        pub fn slice(self: @This(), start: usize, @"cpz.count": usize) !{s}_{s}_BuilderList {{
-        \\            return .{{ .list = try self.list.slice(start, @"cpz.count") }};
+        \\        pub fn slice(self: @This(), @"cpz.start": usize, @"cpz.count": usize) !{s}_{s}_BuilderList {{
+        \\            return .{{ .list = try self.list.slice(@"cpz.start", @"cpz.count") }};
         \\        }}
         \\
         \\        pub fn copyFrom(self: @This(), @"cpz.index": usize, @"cpz.source": {s}_{s}_List, @"cpz.source_index": usize) !void {{
@@ -15296,8 +15296,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.copyElementsFromCanonicalBuilder(@"cpz.index", @"cpz.source".list, @"cpz.source_index", @"cpz.count");
         \\        }}
         \\
-        \\        pub fn clearRange(self: @This(), start: usize, @"cpz.count": usize) !void {{
-        \\            return self.list.clearElements(start, @"cpz.count");
+        \\        pub fn clearRange(self: @This(), @"cpz.start": usize, @"cpz.count": usize) !void {{
+        \\            return self.list.clearElements(@"cpz.start", @"cpz.count");
         \\        }}
         \\
     , .{ owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
@@ -18376,7 +18376,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromBuilder(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\", @\"cpz.count\");") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonical(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\", @\"cpz.count\");") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonicalBuilder(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\", @\"cpz.count\");") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(start, @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(@\"cpz.start\", @\"cpz.count\");") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_fromBuilder(self: Builder, new_value: Person_scores_BuilderList) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value.list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_canonicalFrom(self: Builder, new_value: Person_scores_List) !void") != null);

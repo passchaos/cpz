@@ -63,6 +63,11 @@ struct SourceFieldDefaults {
   items @1 :List(Text) = ["alpha", "beta"];
 }
 
+struct StartFieldDefaults {
+  start @0 :Text = "start";
+  items @1 :List(UInt16) = [1, 2, 3];
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
