@@ -10968,6 +10968,74 @@ fn emitBlobFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.Arr
     try emitBlobFlatContainer(allocator, out, indent, container_name, bytes, is_text);
 }
 
+fn emitAnyPointerFieldDefaultFlatContainerFromBytes(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    indent: []const u8,
+    name: []const u8,
+    flat: []const u8,
+    comptime kind: enum { any, struct_ptr, list },
+) LayoutError!void {
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn pointer(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+        \\{s}        return message_reader.getRootPointer();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn pointerKind(message_reader: *cpz.MessageReader) !?cpz.wire.PointerType {{
+        \\{s}        return (try @This().pointer(message_reader)).pointerType();
+        \\{s}    }}
+        \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    switch (kind) {
+        .any => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+            \\{s}        return @This().pointer(message_reader);
+            \\{s}    }}
+            \\
+            \\{s}    pub fn asStruct(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+            \\{s}        return (try @This().pointer(message_reader)).getStruct(null);
+            \\{s}    }}
+            \\
+            \\{s}    pub fn asList(message_reader: *cpz.MessageReader, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+            \\{s}        return (try @This().pointer(message_reader)).getList(@"cpz.expected");
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent }),
+        .struct_ptr => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+            \\{s}        return (try @This().pointer(message_reader)).getStruct(null);
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+        .list => try appendFmt(allocator, out,
+            \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+            \\{s}        return (try @This().pointer(message_reader)).getList(@"cpz.expected");
+            \\{s}    }}
+            \\
+        , .{ indent, indent, indent }),
+    }
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, indent, indent, indent, indent });
+}
+
 fn emitScalarFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, ty: Type, literal: []const u8) LayoutError!void {
     const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
     defer allocator.free(container_name);
@@ -11070,6 +11138,36 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, false);
             },
             .list => |list_child| try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, list_child.*, resolveConstReferenceLiteral(file, layout.decl, field.default_expression)),
+            .any_pointer => {
+                const flat = methodAnyPointerDefaultFlatBytesAlloc(allocator, file, layout.decl, field.default_expression, .any) catch |err| switch (err) {
+                    error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => continue,
+                    else => return err,
+                };
+                defer allocator.free(flat);
+                const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+                defer allocator.free(container_name);
+                try emitAnyPointerFieldDefaultFlatContainerFromBytes(allocator, out, "    ", container_name, flat, .any);
+            },
+            .any_struct => {
+                const flat = methodAnyPointerDefaultFlatBytesAlloc(allocator, file, layout.decl, field.default_expression, .struct_ptr) catch |err| switch (err) {
+                    error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => continue,
+                    else => return err,
+                };
+                defer allocator.free(flat);
+                const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+                defer allocator.free(container_name);
+                try emitAnyPointerFieldDefaultFlatContainerFromBytes(allocator, out, "    ", container_name, flat, .struct_ptr);
+            },
+            .any_list => {
+                const flat = methodAnyPointerDefaultFlatBytesAlloc(allocator, file, layout.decl, field.default_expression, .list) catch |err| switch (err) {
+                    error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => continue,
+                    else => return err,
+                };
+                defer allocator.free(flat);
+                const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+                defer allocator.free(container_name);
+                try emitAnyPointerFieldDefaultFlatContainerFromBytes(allocator, out, "    ", container_name, flat, .list);
+            },
             .named => |type_name| {
                 if (findEnum(file, type_name) != null) {
                     const literal = field.default_literal orelse continue;

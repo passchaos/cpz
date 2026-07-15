@@ -145,6 +145,15 @@ test "generated struct field defaults resolve const references" {
     const item_default = try generated.ConstRefDefaults.itemDefaultFlat.typedRoot(&item_default_reader);
     try std.testing.expectEqual(@as(u32, 88), item_default.value());
     try std.testing.expectEqualStrings("referenced item", try item_default.label());
+    var any_default_reader = generated.ConstRefDefaults.anyDefaultFlat.reader(.{});
+    try std.testing.expectEqual(cpz.wire.PointerType.struct_ptr, (try generated.ConstRefDefaults.anyDefaultFlat.pointerKind(&any_default_reader)).?);
+    var any_struct_default_reader = generated.ConstRefDefaults.anyStructDefaultFlat.reader(.{});
+    const any_struct_default = try generated.ConstRefDefaults.anyStructDefaultFlat.get(&any_struct_default_reader);
+    try std.testing.expectEqual(@as(u32, 88), any_struct_default.getUInt32(0, 0));
+    var any_list_default_reader = generated.ConstRefDefaults.anyListDefaultFlat.reader(.{});
+    const any_list_default = try generated.ConstRefDefaults.anyListDefaultFlat.get(&any_list_default_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 7), any_list_default.getUInt16(0));
+    try std.testing.expectEqual(@as(u16, 8), any_list_default.getUInt16(1));
 }
 
 test "generated helpers avoid count field shadowing" {

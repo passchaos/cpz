@@ -46,6 +46,9 @@ struct ConstRefDefaults {
   numbers @12 :List(UInt16) = referencedNumbers;
   localNumbersField @13 :List(UInt16) = localNumbers;
   item @14 :Defaults.Item = referencedItem;
+  any @15 :AnyPointer = referencedItem;
+  anyStruct @16 :AnyStruct = referencedItem;
+  anyList @17 :AnyList = referencedNumbers;
 }
 
 struct CountFieldDefaults {
