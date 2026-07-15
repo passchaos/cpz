@@ -18133,7 +18133,7 @@ fn isZigKeyword(name: []const u8) bool {
         "i2",        "i3",        "i4",          "i5",             "i6",             "i7",           "i8",
         "i16",       "i32",       "i64",         "i128",           "u0",             "u1",           "u2",
         "u3",        "u4",        "u5",          "u6",             "u7",             "u8",           "u16",
-        "u32",       "u64",       "u128",        "reader",         "size",
+        "u32",       "u64",       "u128",        "reader",         "size",           "new_value",
     };
     for (keywords) |keyword| {
         if (std.mem.eql(u8, name, keyword)) return true;

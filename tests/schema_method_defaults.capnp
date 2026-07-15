@@ -97,6 +97,11 @@ struct SizeFieldDefaults {
   size @0 :UInt32 = 64;
 }
 
+struct NewValueFieldDefaults {
+  new_value @0 :Text = "new";
+  items @1 :List(Text) = ["value"];
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
