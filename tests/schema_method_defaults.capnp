@@ -58,6 +58,11 @@ struct IndexFieldDefaults {
   items @1 :List(Text) = ["zero", "one"];
 }
 
+struct SourceFieldDefaults {
+  source @0 :Text = "source";
+  items @1 :List(Text) = ["alpha", "beta"];
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;

@@ -187,6 +187,28 @@ test "generated helpers avoid index field shadowing" {
     try std.testing.expect(try read_items.matchesBytes(0, "zero".len));
 }
 
+test "generated helpers avoid source field shadowing" {
+    var source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer source_builder.deinit();
+    const source_root = try generated.SourceFieldDefaults.initRootTyped(&source_builder);
+    const source_items = try source_root.init_items(2);
+    try source_items.set(0, "alpha");
+    try source_items.set(1, "beta");
+
+    var source_reader = cpz.MessageReader.init(try source_builder.segmentsConst(), .{});
+    const source_value = try generated.SourceFieldDefaults.getRoot(&source_reader);
+    const source_list = try source_value.items();
+
+    var target_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer target_builder.deinit();
+    const target_root = try generated.SourceFieldDefaults.initRootTyped(&target_builder);
+    const target_items = try target_root.init_items(2);
+    try target_items.copyFrom(0, source_list, 0);
+    try target_items.copyRangeFrom(1, source_list, 1, 1);
+    try std.testing.expectEqualStrings("alpha", try target_items.get(0));
+    try std.testing.expectEqualStrings("beta", try target_items.get(1));
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

@@ -15264,36 +15264,36 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return .{{ .list = try self.list.slice(start, @"cpz.count") }};
         \\        }}
         \\
-        \\        pub fn copyFrom(self: @This(), @"cpz.index": usize, source: {s}_{s}_List, source_index: usize) !void {{
-        \\            return self.list.copyElementFrom(@"cpz.index", source.list, source_index);
+        \\        pub fn copyFrom(self: @This(), @"cpz.index": usize, @"cpz.source": {s}_{s}_List, @"cpz.source_index": usize) !void {{
+        \\            return self.list.copyElementFrom(@"cpz.index", @"cpz.source".list, @"cpz.source_index");
         \\        }}
         \\
-        \\        pub fn copyCanonicalFrom(self: @This(), @"cpz.index": usize, source: {s}_{s}_List, source_index: usize) !void {{
-        \\            return self.list.copyElementFromCanonical(@"cpz.index", source.list, source_index);
+        \\        pub fn copyCanonicalFrom(self: @This(), @"cpz.index": usize, @"cpz.source": {s}_{s}_List, @"cpz.source_index": usize) !void {{
+        \\            return self.list.copyElementFromCanonical(@"cpz.index", @"cpz.source".list, @"cpz.source_index");
         \\        }}
         \\
-        \\        pub fn copyFromBuilder(self: @This(), @"cpz.index": usize, source: @This(), source_index: usize) !void {{
-        \\            return self.list.copyElementFromBuilder(@"cpz.index", source.list, source_index);
+        \\        pub fn copyFromBuilder(self: @This(), @"cpz.index": usize, @"cpz.source": @This(), @"cpz.source_index": usize) !void {{
+        \\            return self.list.copyElementFromBuilder(@"cpz.index", @"cpz.source".list, @"cpz.source_index");
         \\        }}
         \\
-        \\        pub fn copyCanonicalFromBuilder(self: @This(), @"cpz.index": usize, source: @This(), source_index: usize) !void {{
-        \\            return self.list.copyElementFromCanonicalBuilder(@"cpz.index", source.list, source_index);
+        \\        pub fn copyCanonicalFromBuilder(self: @This(), @"cpz.index": usize, @"cpz.source": @This(), @"cpz.source_index": usize) !void {{
+        \\            return self.list.copyElementFromCanonicalBuilder(@"cpz.index", @"cpz.source".list, @"cpz.source_index");
         \\        }}
         \\
-        \\        pub fn copyRangeFrom(self: @This(), @"cpz.index": usize, source: {s}_{s}_List, source_index: usize, @"cpz.count": usize) !void {{
-        \\            return self.list.copyElementsFrom(@"cpz.index", source.list, source_index, @"cpz.count");
+        \\        pub fn copyRangeFrom(self: @This(), @"cpz.index": usize, @"cpz.source": {s}_{s}_List, @"cpz.source_index": usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFrom(@"cpz.index", @"cpz.source".list, @"cpz.source_index", @"cpz.count");
         \\        }}
         \\
-        \\        pub fn copyCanonicalRangeFrom(self: @This(), @"cpz.index": usize, source: {s}_{s}_List, source_index: usize, @"cpz.count": usize) !void {{
-        \\            return self.list.copyElementsFromCanonical(@"cpz.index", source.list, source_index, @"cpz.count");
+        \\        pub fn copyCanonicalRangeFrom(self: @This(), @"cpz.index": usize, @"cpz.source": {s}_{s}_List, @"cpz.source_index": usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFromCanonical(@"cpz.index", @"cpz.source".list, @"cpz.source_index", @"cpz.count");
         \\        }}
         \\
-        \\        pub fn copyRangeFromBuilder(self: @This(), @"cpz.index": usize, source: @This(), source_index: usize, @"cpz.count": usize) !void {{
-        \\            return self.list.copyElementsFromBuilder(@"cpz.index", source.list, source_index, @"cpz.count");
+        \\        pub fn copyRangeFromBuilder(self: @This(), @"cpz.index": usize, @"cpz.source": @This(), @"cpz.source_index": usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFromBuilder(@"cpz.index", @"cpz.source".list, @"cpz.source_index", @"cpz.count");
         \\        }}
         \\
-        \\        pub fn copyCanonicalRangeFromBuilder(self: @This(), @"cpz.index": usize, source: @This(), source_index: usize, @"cpz.count": usize) !void {{
-        \\            return self.list.copyElementsFromCanonicalBuilder(@"cpz.index", source.list, source_index, @"cpz.count");
+        \\        pub fn copyCanonicalRangeFromBuilder(self: @This(), @"cpz.index": usize, @"cpz.source": @This(), @"cpz.source_index": usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFromCanonicalBuilder(@"cpz.index", @"cpz.source".list, @"cpz.source_index", @"cpz.count");
         \\        }}
         \\
         \\        pub fn clearRange(self: @This(), start: usize, @"cpz.count": usize) !void {{
@@ -18368,14 +18368,14 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_scores_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.getUInt32(@\"cpz.index\");") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt32(@\"cpz.index\", new_value);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFrom(@\"cpz.index\", source.list, source_index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromBuilder(@\"cpz.index\", source.list, source_index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromCanonical(@\"cpz.index\", source.list, source_index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromCanonicalBuilder(@\"cpz.index\", source.list, source_index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFrom(@\"cpz.index\", source.list, source_index, @\"cpz.count\");") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromBuilder(@\"cpz.index\", source.list, source_index, @\"cpz.count\");") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonical(@\"cpz.index\", source.list, source_index, @\"cpz.count\");") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonicalBuilder(@\"cpz.index\", source.list, source_index, @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFrom(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromBuilder(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromCanonical(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromCanonicalBuilder(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFrom(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\", @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromBuilder(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\", @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonical(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\", @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonicalBuilder(@\"cpz.index\", @\"cpz.source\".list, @\"cpz.source_index\", @\"cpz.count\");") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(start, @\"cpz.count\");") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_fromBuilder(self: Builder, new_value: Person_scores_BuilderList) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value.list)") != null);
