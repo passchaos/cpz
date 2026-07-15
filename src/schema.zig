@@ -14687,6 +14687,15 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return self.reader.getPointerField({}).getCapabilityIndex();
                 \\    }}
                 \\
+                \\    pub fn {s}OrNull(self: @This()) !?u32 {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                \\        if (@"cpz.pointer".isNull()) return null;
+                \\        return try @"cpz.pointer".getCapabilityIndex();
+                \\    }}
+                \\
             , .{index});
         },
         .list => |child| {
@@ -14707,6 +14716,15 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
             try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\        return self.reader.getPointerField({}).getCapabilityIndex();
+                \\    }}
+                \\
+                \\    pub fn {s}OrNull(self: @This()) !?u32 {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                \\        if (@"cpz.pointer".isNull()) return null;
+                \\        return try @"cpz.pointer".getCapabilityIndex();
                 \\    }}
                 \\
             , .{index});
@@ -18123,6 +18141,15 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
                 \\        }}
                 \\
+                \\        pub fn get_{s}OrNull(self: Builder) !?u32 {{
+            , .{ index, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getCapabilityIndex();
+                \\        }}
+                \\
                 \\        pub fn set_{s}(self: Builder, new_value: u32) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
@@ -18143,6 +18170,15 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
             try appendFmt(allocator, out,
                 \\            return (try self.builder.getPointerField({})).getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn get_{s}OrNull(self: Builder) !?u32 {{
+            , .{ index, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getCapabilityIndex();
                 \\        }}
                 \\
                 \\        pub fn set_{s}(self: Builder, new_value: u32) !void {{

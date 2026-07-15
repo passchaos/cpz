@@ -84,6 +84,20 @@ test "generated struct pointer null defaults expose flats" {
 
     try std.testing.expect(generated.NullPointerDefaults.textDefaultFlat.matchesSegmentCount(1));
     try std.testing.expect(generated.NullPointerDefaults.callbackDefaultFlat.matchesSerializedSize(generated.NullPointerDefaults.callbackDefaultFlat.flatBytes.len));
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    const root_builder = try generated.NullPointerDefaults.initRootTyped(&builder);
+    try std.testing.expectEqual(@as(?u32, null), try root_builder.get_capOrNull());
+    try std.testing.expectEqual(@as(?u32, null), try root_builder.get_callbackOrNull());
+    var root_reader_message = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root_reader = try generated.NullPointerDefaults.getRoot(&root_reader_message);
+    try std.testing.expectEqual(@as(?u32, null), try root_reader.capOrNull());
+    try std.testing.expectEqual(@as(?u32, null), try root_reader.callbackOrNull());
+    try root_builder.set_cap(1234);
+    try root_builder.set_callback(5678);
+    try std.testing.expectEqual(@as(?u32, 1234), try root_builder.get_capOrNull());
+    try std.testing.expectEqual(@as(?u32, 5678), try root_builder.get_callbackOrNull());
 }
 
 test "generated struct field defaults resolve const references" {
