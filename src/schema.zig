@@ -6038,12 +6038,24 @@ fn typeAcceptsNullPointerDefault(file: *const File, ty: Type) bool {
     };
 }
 
+fn typeAcceptsVoidPointerDefault(file: *const File, ty: Type) bool {
+    return switch (ty) {
+        .any_pointer, .any_struct, .any_list, .capability => true,
+        .named => |type_name| findInterface(file, type_name) != null,
+        else => false,
+    };
+}
+
 fn methodDefaultTypeAcceptsNullPointer(file: *const File, ty: Type) bool {
     return typeAcceptsNullPointerDefault(file, ty);
 }
 
 fn defaultExpressionIsNullPointer(file: *const File, scope: ?*const Struct, expression: []const u8) bool {
     return std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, expression), " \t\r\n"), "null");
+}
+
+fn defaultExpressionIsVoidPointer(file: *const File, scope: ?*const Struct, expression: []const u8, ty: Type) bool {
+    return std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, expression), " \t\r\n"), "void") and typeAcceptsVoidPointerDefault(file, ty);
 }
 
 fn nullPointerFlatBytesAlloc(allocator: std.mem.Allocator) LayoutError![]u8 {
@@ -11106,17 +11118,18 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
         defer allocator.free(field_name);
         const resolved_ty = switch (resolveTypeScoped(file, layout.decl, field.ty)) {
             .optional => |child| blk: {
-                if (defaultExpressionIsNullPointer(file, layout.decl, field.default_expression)) {
+                const child_ty = resolveTypeScoped(file, layout.decl, child.*);
+                if (defaultExpressionIsNullPointer(file, layout.decl, field.default_expression) or defaultExpressionIsVoidPointer(file, layout.decl, field.default_expression, child_ty)) {
                     const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
                     defer allocator.free(container_name);
                     try emitNullPointerFlatContainer(allocator, out, "    ", container_name);
                     continue;
                 }
-                break :blk resolveTypeScoped(file, layout.decl, child.*);
+                break :blk child_ty;
             },
             else => |resolved| resolved,
         };
-        if (defaultExpressionIsNullPointer(file, layout.decl, field.default_expression) and typeAcceptsNullPointerDefault(file, resolved_ty)) {
+        if ((defaultExpressionIsNullPointer(file, layout.decl, field.default_expression) and typeAcceptsNullPointerDefault(file, resolved_ty)) or defaultExpressionIsVoidPointer(file, layout.decl, field.default_expression, resolved_ty)) {
             const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
             defer allocator.free(container_name);
             try emitNullPointerFlatContainer(allocator, out, "    ", container_name);

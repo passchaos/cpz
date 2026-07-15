@@ -70,8 +70,20 @@ test "generated struct pointer null defaults expose flats" {
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.itemDefaultFlat.rawPointer(&item_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.NullPointerDefaults.itemDefaultFlat.pointerKind(&item_reader));
 
+    try std.testing.expectEqualStrings("void", generated.NullPointerDefaults.@"cpz.field.cap.default");
+    var cap_reader = generated.NullPointerDefaults.capDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.NullPointerDefaults.capDefaultFlat.isNull(&cap_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.capDefaultFlat.rawPointer(&cap_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.NullPointerDefaults.capDefaultFlat.pointerKind(&cap_reader));
+
+    try std.testing.expectEqualStrings("void", generated.NullPointerDefaults.@"cpz.field.callback.default");
+    var callback_reader = generated.NullPointerDefaults.callbackDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.NullPointerDefaults.callbackDefaultFlat.isNull(&callback_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.callbackDefaultFlat.rawPointer(&callback_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.NullPointerDefaults.callbackDefaultFlat.pointerKind(&callback_reader));
+
     try std.testing.expect(generated.NullPointerDefaults.textDefaultFlat.matchesSegmentCount(1));
-    try std.testing.expect(generated.NullPointerDefaults.itemDefaultFlat.matchesSerializedSize(generated.NullPointerDefaults.itemDefaultFlat.flatBytes.len));
+    try std.testing.expect(generated.NullPointerDefaults.callbackDefaultFlat.matchesSerializedSize(generated.NullPointerDefaults.callbackDefaultFlat.flatBytes.len));
 }
 
 test "generated struct field defaults resolve const references" {

@@ -11,6 +11,10 @@ const referencedRatio :Float64 = +1.25e2;
 const referencedMode :Mode = on;
 const referencedNumbers :List(UInt16) = [7, 8];
 
+interface TopCallback {
+  ping @0 () -> ();
+}
+
 struct MaybeDefaults {
   absent @0 :?Text = null;
 }
@@ -20,6 +24,8 @@ struct NullPointerDefaults {
   data @1 :Data = null;
   numbers @2 :List(UInt16) = null;
   item @3 :Defaults.Item = null;
+  cap @4 :Capability = void;
+  callback @5 :TopCallback = void;
 }
 
 struct ConstRefDefaults {
