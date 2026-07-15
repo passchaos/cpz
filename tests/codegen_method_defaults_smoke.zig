@@ -98,6 +98,14 @@ test "generated struct pointer null defaults expose flats" {
     try root_builder.set_callback(5678);
     try std.testing.expectEqual(@as(?u32, 1234), try root_builder.get_capOrNull());
     try std.testing.expectEqual(@as(?u32, 5678), try root_builder.get_callbackOrNull());
+    try root_builder.set_capOrNull(null);
+    try root_builder.set_callbackOrNull(null);
+    try std.testing.expectEqual(@as(?u32, null), try root_builder.get_capOrNull());
+    try std.testing.expectEqual(@as(?u32, null), try root_builder.get_callbackOrNull());
+    try root_builder.set_capOrNull(4321);
+    try root_builder.set_callbackOrNull(8765);
+    try std.testing.expectEqual(@as(?u32, 4321), try root_builder.get_capOrNull());
+    try std.testing.expectEqual(@as(?u32, 8765), try root_builder.get_callbackOrNull());
 }
 
 test "generated struct field defaults resolve const references" {

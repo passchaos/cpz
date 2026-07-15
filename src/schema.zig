@@ -18157,6 +18157,14 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            (try self.builder.getPointerField({})).setCapability(new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}OrNull(self: Builder, new_value: ?u32) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set_{s}(@"cpz.value");
+            , .{ index, field_name, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return self.builder.clearPointer({});
+                \\        }}
+                \\
                 \\        pub fn new_{s}_orphan(self: Builder, new_value: u32) !cpz.Orphan {{
                 \\            return self.orphanage().newCapability(new_value);
                 \\        }}
@@ -18186,6 +18194,14 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            (try self.builder.getPointerField({})).setCapability(new_value);
+                \\        }}
+                \\
+                \\        pub fn set_{s}OrNull(self: Builder, new_value: ?u32) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set_{s}(@"cpz.value");
+            , .{ index, field_name, field_name });
+            try emitBuilderUnionActivation(allocator, out, field);
+            try appendFmt(allocator, out,
+                \\            return self.builder.clearPointer({});
                 \\        }}
                 \\
                 \\        pub fn new_{s}_orphan(self: Builder, new_value: u32) !cpz.Orphan {{
