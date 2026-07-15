@@ -42,6 +42,7 @@ test "generated struct optional null defaults expose flats" {
     var absent_reader = generated.MaybeDefaults.absentDefaultFlat.reader(.{});
     try std.testing.expect(try generated.MaybeDefaults.absentDefaultFlat.isNull(&absent_reader));
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.absentDefaultFlat.rawPointer(&absent_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.MaybeDefaults.absentDefaultFlat.pointerKind(&absent_reader));
     try std.testing.expect(generated.MaybeDefaults.absentDefaultFlat.matchesSegmentCount(1));
     try std.testing.expect(generated.MaybeDefaults.absentDefaultFlat.matchesSerializedSize(generated.MaybeDefaults.absentDefaultFlat.flatBytes.len));
 }
@@ -51,6 +52,7 @@ test "generated struct pointer null defaults expose flats" {
     var text_reader = generated.NullPointerDefaults.textDefaultFlat.reader(.{});
     try std.testing.expect(try generated.NullPointerDefaults.textDefaultFlat.isNull(&text_reader));
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.textDefaultFlat.rawPointer(&text_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.NullPointerDefaults.textDefaultFlat.pointerKind(&text_reader));
 
     try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.data.default");
     var data_reader = generated.NullPointerDefaults.dataDefaultFlat.reader(.{});
@@ -66,6 +68,7 @@ test "generated struct pointer null defaults expose flats" {
     var item_reader = generated.NullPointerDefaults.itemDefaultFlat.reader(.{});
     try std.testing.expect(try generated.NullPointerDefaults.itemDefaultFlat.isNull(&item_reader));
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.NullPointerDefaults.itemDefaultFlat.rawPointer(&item_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.NullPointerDefaults.itemDefaultFlat.pointerKind(&item_reader));
 
     try std.testing.expect(generated.NullPointerDefaults.textDefaultFlat.matchesSegmentCount(1));
     try std.testing.expect(generated.NullPointerDefaults.itemDefaultFlat.matchesSerializedSize(generated.NullPointerDefaults.itemDefaultFlat.flatBytes.len));

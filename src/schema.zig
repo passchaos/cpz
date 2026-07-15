@@ -7982,7 +7982,11 @@ fn emitNullPointerFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}        return (try @This().pointer(message_reader)).raw();
         \\{s}    }}
         \\
-    , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+        \\{s}    pub fn pointerKind(message_reader: *cpz.MessageReader) !?cpz.wire.PointerType {{
+        \\{s}        return (try @This().pointer(message_reader)).pointerType();
+        \\{s}    }}
+        \\
+    , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     try emitFlatContainerSizeHelpers(allocator, out, indent);
     try appendFmt(allocator, out,
         \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
