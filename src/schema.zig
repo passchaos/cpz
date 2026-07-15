@@ -9654,6 +9654,10 @@ fn emitEmbeddedStructConst(
         \\{s}        return {s}.getRoot(message_reader);
         \\{s}    }}
         \\
+        \\{s}    pub fn typedRoot(message_reader: *cpz.MessageReader) !{s} {{
+        \\{s}        return @This().root(message_reader);
+        \\{s}    }}
+        \\
         \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
         \\{s}        var @"cpz.reader" = reader(@"cpz.options");
         \\{s}        return @"cpz.reader".validate();
@@ -9673,6 +9677,10 @@ fn emitEmbeddedStructConst(
         zig_type,
         indent,
         zig_type,
+        indent,
+        indent,
+        zig_type,
+        indent,
         indent,
         indent,
         indent,
