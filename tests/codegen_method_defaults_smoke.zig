@@ -134,6 +134,22 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqual(generated.Mode.off, try generated.ConstRefDefaults.localModeFieldDefaultFlat.get(&local_mode_default_reader));
 }
 
+test "generated helpers avoid count field shadowing" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    _ = try generated.CountFieldDefaults.initRootTyped(&builder);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.CountFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqual(@as(u32, 7), root.count());
+    try std.testing.expectEqualStrings("counted", try root.label());
+    try std.testing.expect(generated.CountFieldDefaults.labelDefaultFlat.matchesSegmentCount(1));
+    try std.testing.expect(generated.CountFieldDefaults.labelDefaultFlat.matchesSerializedSize(generated.CountFieldDefaults.labelDefaultFlat.flatBytes.len));
+    try std.testing.expectEqual(@as(usize, "counted".len), try root.labelByteCount());
+    try std.testing.expect(try root.labelMatchesBytes("counted".len));
+    try std.testing.expect(!try root.labelMatchesMaxCapabilityCount(0));
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

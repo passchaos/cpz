@@ -43,6 +43,11 @@ struct ConstRefDefaults {
   localModeField @11 :Mode = localMode;
 }
 
+struct CountFieldDefaults {
+  count @0 :UInt32 = 7;
+  label @1 :Text = "counted";
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;

@@ -4874,7 +4874,7 @@ test "schema parser tolerates list and struct field defaults" {
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Defaults = struct") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_nums(self: Builder, count: usize)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_nums(self: Builder, @\"cpz.count\": usize)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_child(self: Builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getDataDefault(\"bar\")") != null);
 }
@@ -9655,12 +9655,12 @@ fn emitEmbeddedStructConst(
         \\{s}        return @"cpz.reader".validate();
         \\{s}    }}
         \\
-        \\{s}    pub fn matchesSerializedSize(count: usize) bool {{
-        \\{s}        return serializedSize == count;
+        \\{s}    pub fn matchesSerializedSize(@"cpz.count": usize) bool {{
+        \\{s}        return serializedSize == @"cpz.count";
         \\{s}    }}
         \\
-        \\{s}    pub fn matchesSegmentCount(count: usize) bool {{
-        \\{s}        return segmentCount == count;
+        \\{s}    pub fn matchesSegmentCount(@"cpz.count": usize) bool {{
+        \\{s}        return segmentCount == @"cpz.count";
         \\{s}    }}
         \\{s}}};
         \\
@@ -10042,12 +10042,12 @@ fn emitFlatContainerSizeHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}    pub const serializedSize: usize = flatBytes.len;
         \\{s}    pub const segmentCount: usize = 1;
         \\
-        \\{s}    pub fn matchesSerializedSize(count: usize) bool {{
-        \\{s}        return serializedSize == count;
+        \\{s}    pub fn matchesSerializedSize(@"cpz.count": usize) bool {{
+        \\{s}        return serializedSize == @"cpz.count";
         \\{s}    }}
         \\
-        \\{s}    pub fn matchesSegmentCount(count: usize) bool {{
-        \\{s}        return segmentCount == count;
+        \\{s}    pub fn matchesSegmentCount(@"cpz.count": usize) bool {{
+        \\{s}        return segmentCount == @"cpz.count";
         \\{s}    }}
         \\
         \\{s}    pub fn totalSize(options: cpz.ReaderOptions) !cpz.MessageSize {{
@@ -11257,8 +11257,8 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.maxCapabilityCount();
         \\        }}
         \\
-        \\        pub fn matchesMaxCapabilityCount(self: @This(), count: usize) bool {{
-        \\            return self.orphan.matchesMaxCapabilityCount(count);
+        \\        pub fn matchesMaxCapabilityCount(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.matchesMaxCapabilityCount(@"cpz.count");
         \\        }}
         \\
         \\        pub fn decode(self: @This(), message_reader: *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
@@ -11305,20 +11305,20 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.structMatchesSize(expected);
         \\        }}
         \\
-        \\        pub fn structMatchesDataWords(self: @This(), count: u16) bool {{
-        \\            return self.orphan.structMatchesDataWords(count);
+        \\        pub fn structMatchesDataWords(self: @This(), @"cpz.count": u16) bool {{
+        \\            return self.orphan.structMatchesDataWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn structMatchesPointerCount(self: @This(), count: u16) bool {{
-        \\            return self.orphan.structMatchesPointerCount(count);
+        \\        pub fn structMatchesPointerCount(self: @This(), @"cpz.count": u16) bool {{
+        \\            return self.orphan.structMatchesPointerCount(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn structMatchesTotalWords(self: @This(), count: usize) bool {{
-        \\            return self.orphan.structMatchesTotalWords(count);
+        \\        pub fn structMatchesTotalWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.structMatchesTotalWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn structMatchesTotalBytes(self: @This(), count: usize) bool {{
-        \\            return self.orphan.structMatchesTotalBytes(count);
+        \\        pub fn structMatchesTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.structMatchesTotalBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
@@ -13285,28 +13285,28 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\        return actual.data_words == expected.data_words and actual.pointer_count == expected.pointer_count;
         \\    }}
         \\
-        \\    pub fn matchesActualDataWords(self: @This(), count: u16) bool {{
-        \\        return self.actualSize().matchesDataWords(count);
+        \\    pub fn matchesActualDataWords(self: @This(), @"cpz.count": u16) bool {{
+        \\        return self.actualSize().matchesDataWords(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn matchesActualPointerCount(self: @This(), count: u16) bool {{
-        \\        return self.actualSize().matchesPointerCount(count);
+        \\    pub fn matchesActualPointerCount(self: @This(), @"cpz.count": u16) bool {{
+        \\        return self.actualSize().matchesPointerCount(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn matchesActualTotalWords(self: @This(), count: usize) bool {{
-        \\        return self.actualSize().matchesTotalWords(count);
+        \\    pub fn matchesActualTotalWords(self: @This(), @"cpz.count": usize) bool {{
+        \\        return self.actualSize().matchesTotalWords(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn matchesActualDataBytes(self: @This(), count: usize) bool {{
-        \\        return self.actualSize().matchesDataBytes(count);
+        \\    pub fn matchesActualDataBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\        return self.actualSize().matchesDataBytes(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn matchesActualPointerBytes(self: @This(), count: usize) bool {{
-        \\        return self.actualSize().matchesPointerBytes(count);
+        \\    pub fn matchesActualPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\        return self.actualSize().matchesPointerBytes(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn matchesActualTotalBytes(self: @This(), count: usize) bool {{
-        \\        return self.actualSize().matchesTotalBytes(count);
+        \\    pub fn matchesActualTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\        return self.actualSize().matchesTotalBytes(@"cpz.count");
         \\    }}
         \\
         \\    pub fn dataSection(self: @This()) []const u8 {{
@@ -13396,28 +13396,28 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return actual.data_words == expected.data_words and actual.pointer_count == expected.pointer_count;
         \\        }}
         \\
-        \\        pub fn matchesActualDataWords(self: Builder, count: u16) bool {{
-        \\            return self.actualSize().matchesDataWords(count);
+        \\        pub fn matchesActualDataWords(self: Builder, @"cpz.count": u16) bool {{
+        \\            return self.actualSize().matchesDataWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesActualPointerCount(self: Builder, count: u16) bool {{
-        \\            return self.actualSize().matchesPointerCount(count);
+        \\        pub fn matchesActualPointerCount(self: Builder, @"cpz.count": u16) bool {{
+        \\            return self.actualSize().matchesPointerCount(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesActualTotalWords(self: Builder, count: usize) bool {{
-        \\            return self.actualSize().matchesTotalWords(count);
+        \\        pub fn matchesActualTotalWords(self: Builder, @"cpz.count": usize) bool {{
+        \\            return self.actualSize().matchesTotalWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesActualDataBytes(self: Builder, count: usize) bool {{
-        \\            return self.actualSize().matchesDataBytes(count);
+        \\        pub fn matchesActualDataBytes(self: Builder, @"cpz.count": usize) bool {{
+        \\            return self.actualSize().matchesDataBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesActualPointerBytes(self: Builder, count: usize) bool {{
-        \\            return self.actualSize().matchesPointerBytes(count);
+        \\        pub fn matchesActualPointerBytes(self: Builder, @"cpz.count": usize) bool {{
+        \\            return self.actualSize().matchesPointerBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesActualTotalBytes(self: Builder, count: usize) bool {{
-        \\            return self.actualSize().matchesTotalBytes(count);
+        \\        pub fn matchesActualTotalBytes(self: Builder, @"cpz.count": usize) bool {{
+        \\            return self.actualSize().matchesTotalBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn dataSection(self: Builder) []u8 {{
@@ -13874,11 +13874,11 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).maxCapabilityCount();
         \\    }}
         \\
-        \\    pub fn {s}MatchesMaxCapabilityCount(self: @This(), count: usize) !bool {{
+        \\    pub fn {s}MatchesMaxCapabilityCount(self: @This(), @"cpz.count": usize) !bool {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).matchesMaxCapabilityCount(count);
+        \\        return self.reader.getPointerField({}).matchesMaxCapabilityCount(@"cpz.count");
         \\    }}
         \\
         \\    pub fn {s}Stats(self: @This()) !cpz.MessageStats {{
@@ -13943,20 +13943,20 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return (try self.{s}AsPointer()).structMatchesSize(expected);
         \\    }}
         \\
-        \\    pub fn {s}StructMatchesDataWords(self: @This(), count: u16) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesDataWords(count);
+        \\    pub fn {s}StructMatchesDataWords(self: @This(), @"cpz.count": u16) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesDataWords(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}StructMatchesPointerCount(self: @This(), count: u16) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesPointerCount(count);
+        \\    pub fn {s}StructMatchesPointerCount(self: @This(), @"cpz.count": u16) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesPointerCount(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}StructMatchesTotalWords(self: @This(), count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesTotalWords(count);
+        \\    pub fn {s}StructMatchesTotalWords(self: @This(), @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesTotalWords(@"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}StructMatchesTotalBytes(self: @This(), count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesTotalBytes(count);
+        \\    pub fn {s}StructMatchesTotalBytes(self: @This(), @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).structMatchesTotalBytes(@"cpz.count");
         \\    }}
         \\
     , .{
@@ -13978,8 +13978,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return (try self.{s}AsPointer()).getListLen(expected);
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesLen(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesLen(expected, count);
+        \\    pub fn {s}ListMatchesLen(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesLen(expected, @"cpz.count");
         \\    }}
         \\
         \\    pub fn {s}ListElementSize(self: @This(), expected: ?cpz.ElementSize) !cpz.ElementSize {{
@@ -14014,8 +14014,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return (try self.{s}AsPointer()).getListContentWordCount(expected);
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesContentBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesContentBytes(expected, count);
+        \\    pub fn {s}ListMatchesContentBytes(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesContentBytes(expected, @"cpz.count");
         \\    }}
         \\
         \\    pub fn {s}ListStructElementSize(self: @This(), expected: ?cpz.ElementSize) !cpz.StructSize {{
@@ -14067,24 +14067,24 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
     });
 
     try appendFmt(allocator, out,
-        \\    pub fn {s}ListMatchesElementBits(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementBits(expected, count);
+        \\    pub fn {s}ListMatchesElementBits(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementBits(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesElementBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementBytes(expected, count);
+        \\    pub fn {s}ListMatchesElementBytes(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementBytes(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesElementWords(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementWords(expected, count);
+        \\    pub fn {s}ListMatchesElementWords(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementWords(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesContentBits(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesContentBits(expected, count);
+        \\    pub fn {s}ListMatchesContentBits(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesContentBits(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesContentWords(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesContentWords(expected, count);
+        \\    pub fn {s}ListMatchesContentWords(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesContentWords(expected, @"cpz.count");
         \\    }}
         \\
     , .{
@@ -14120,28 +14120,28 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return (try self.{s}AsPointer()).getListStructElementTotalByteCount(expected);
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesStructElementDataWords(self: @This(), expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataWords(expected, count);
+        \\    pub fn {s}ListMatchesStructElementDataWords(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataWords(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesStructElementPointerCount(self: @This(), expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerCount(expected, count);
+        \\    pub fn {s}ListMatchesStructElementPointerCount(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerCount(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesStructElementTotalWords(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalWords(expected, count);
+        \\    pub fn {s}ListMatchesStructElementTotalWords(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalWords(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesStructElementDataBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataBytes(expected, count);
+        \\    pub fn {s}ListMatchesStructElementDataBytes(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataBytes(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesStructElementPointerBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerBytes(expected, count);
+        \\    pub fn {s}ListMatchesStructElementPointerBytes(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerBytes(expected, @"cpz.count");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesStructElementTotalBytes(self: @This(), expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalBytes(expected, count);
+        \\    pub fn {s}ListMatchesStructElementTotalBytes(self: @This(), expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalBytes(expected, @"cpz.count");
         \\    }}
         \\
     , .{
@@ -14185,8 +14185,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return (try self.{s}()).len;
                 \\    }}
                 \\
-                \\    pub fn {s}MatchesBytes(self: @This(), count: usize) !bool {{
-                \\        return (try self.{s}ByteCount()) == count;
+                \\    pub fn {s}MatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
+                \\        return (try self.{s}ByteCount()) == @"cpz.count";
                 \\    }}
                 \\
             , .{ field_name, field_name, field_name, field_name });
@@ -14216,8 +14216,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return (try self.{s}()).len;
                 \\    }}
                 \\
-                \\    pub fn {s}MatchesBytes(self: @This(), count: usize) !bool {{
-                \\        return (try self.{s}ByteCount()) == count;
+                \\    pub fn {s}MatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
+                \\        return (try self.{s}ByteCount()) == @"cpz.count";
                 \\    }}
                 \\
             , .{ field_name, field_name, field_name, field_name });
@@ -14263,8 +14263,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return (try self.{s}()).getTextByteCount();
                 \\    }}
                 \\
-                \\    pub fn {s}AsTextMatchesBytes(self: @This(), count: usize) !bool {{
-                \\        return (try self.{s}()).textMatchesBytes(count);
+                \\    pub fn {s}AsTextMatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
+                \\        return (try self.{s}()).textMatchesBytes(@"cpz.count");
                 \\    }}
                 \\
                 \\    pub fn {s}AsData(self: @This()) ![]const u8 {{
@@ -14278,8 +14278,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return (try self.{s}()).getDataByteCount();
                 \\    }}
                 \\
-                \\    pub fn {s}AsDataMatchesBytes(self: @This(), count: usize) !bool {{
-                \\        return (try self.{s}()).dataMatchesBytes(count);
+                \\    pub fn {s}AsDataMatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
+                \\        return (try self.{s}()).dataMatchesBytes(@"cpz.count");
                 \\    }}
                 \\
                 \\    pub fn {s}AsCapability(self: @This()) !u32 {{
@@ -14418,8 +14418,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.len();
         \\        }}
         \\
-        \\        pub fn matchesLen(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesLen(count);
+        \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesLen(@"cpz.count");
         \\        }}
         \\
         \\        pub fn isEmpty(self: @This()) bool {{
@@ -14494,28 +14494,28 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.contentWordCount();
         \\        }}
         \\
-        \\        pub fn matchesElementBits(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesElementBits(count);
+        \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesElementBits(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesElementBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesElementBytes(count);
+        \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesElementBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesElementWords(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesElementWords(count);
+        \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesElementWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentBits(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesContentBits(count);
+        \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesContentBits(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesContentBytes(count);
+        \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesContentBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentWords(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesContentWords(count);
+        \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesContentWords(@"cpz.count");
         \\        }}
         \\
         \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
@@ -14550,32 +14550,32 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.structElementTotalByteCount();
         \\        }}
         \\
-        \\        pub fn matchesStructElementDataWords(self: @This(), count: u16) bool {{
-        \\            return self.list.matchesStructElementDataWords(count);
+        \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
+        \\            return self.list.matchesStructElementDataWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementPointerCount(self: @This(), count: u16) bool {{
-        \\            return self.list.matchesStructElementPointerCount(count);
+        \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
+        \\            return self.list.matchesStructElementPointerCount(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementTotalWords(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementTotalWords(count);
+        \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementTotalWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementDataBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementDataBytes(count);
+        \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementDataBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementPointerBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementPointerBytes(count);
+        \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementPointerBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementTotalBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementTotalBytes(count);
+        \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementTotalBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_List {{
-        \\            return .{{ .list = try self.list.slice(start, count) }};
+        \\        pub fn slice(self: @This(), start: usize, @"cpz.count": usize) !{s}_{s}_List {{
+        \\            return .{{ .list = try self.list.slice(start, @"cpz.count") }};
         \\        }}
         \\
     , .{ owner_name, field_name, owner_name, field_name });
@@ -14617,8 +14617,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).len;
             \\        }}
             \\
-            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.getByteCount(index)) == count;
+            \\        pub fn matchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.getByteCount(index)) == @"cpz.count";
             \\        }}
             \\
         , .{}),
@@ -14631,8 +14631,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).len;
             \\        }}
             \\
-            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.getByteCount(index)) == count;
+            \\        pub fn matchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.getByteCount(index)) == @"cpz.count";
             \\        }}
             \\
         , .{}),
@@ -14657,8 +14657,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).getTextByteCount();
             \\        }}
             \\
-            \\        pub fn getAsTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.get(index)).textMatchesBytes(count);
+            \\        pub fn getAsTextMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get(index)).textMatchesBytes(@"cpz.count");
             \\        }}
             \\
             \\        pub fn getAsData(self: @This(), index: usize) ![]const u8 {{
@@ -14669,8 +14669,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).getDataByteCount();
             \\        }}
             \\
-            \\        pub fn getAsDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.get(index)).dataMatchesBytes(count);
+            \\        pub fn getAsDataMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get(index)).dataMatchesBytes(@"cpz.count");
             \\        }}
             \\
             \\        pub fn getAsCapability(self: @This(), index: usize) !u32 {{
@@ -14767,12 +14767,12 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
         defer allocator.free(zig_type);
         break :blk try std.fmt.allocPrint(allocator,
-            \\        pub fn newOrphan(builder: *cpz.MessageBuilder, count: usize) !@This() {{
-            \\            return fromOrphan(try builder.newOrphanStructList(count, {s}.size));
+            \\        pub fn newOrphan(builder: *cpz.MessageBuilder, @"cpz.count": usize) !@This() {{
+            \\            return fromOrphan(try builder.newOrphanStructList(@"cpz.count", {s}.size));
             \\        }}
             \\
-            \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, count: usize) !@This() {{
-            \\            return fromOrphan(try orphanage.newStructList(count, {s}.size));
+            \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, @"cpz.count": usize) !@This() {{
+            \\            return fromOrphan(try orphanage.newStructList(@"cpz.count", {s}.size));
             \\        }}
             \\
             \\        pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
@@ -14809,12 +14809,12 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{ zig_type, zig_type, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
     } else try std.fmt.allocPrint(allocator,
-        \\        pub fn newOrphan(builder: *cpz.MessageBuilder, count: usize) !@This() {{
-        \\            return fromOrphan(try builder.newOrphanList({s}, count));
+        \\        pub fn newOrphan(builder: *cpz.MessageBuilder, @"cpz.count": usize) !@This() {{
+        \\            return fromOrphan(try builder.newOrphanList({s}, @"cpz.count"));
         \\        }}
         \\
-        \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, count: usize) !@This() {{
-        \\            return fromOrphan(try orphanage.newList({s}, count));
+        \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, @"cpz.count": usize) !@This() {{
+        \\            return fromOrphan(try orphanage.newList({s}, @"cpz.count"));
         \\        }}
         \\
         \\        pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
@@ -14894,8 +14894,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.orphan.getListLen({s});
         \\        }}
         \\
-        \\        pub fn matchesLen(self: @This(), count: usize) bool {{
-        \\            return self.orphan.listMatchesLen({s}, count);
+        \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.listMatchesLen({s}, @"cpz.count");
         \\        }}
         \\
         \\        pub fn isEmpty(self: @This()) bool {{
@@ -14946,28 +14946,28 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.orphan.getListContentWordCount({s});
         \\        }}
         \\
-        \\        pub fn matchesElementBits(self: @This(), count: usize) bool {{
-        \\            return self.orphan.listMatchesElementBits({s}, count);
+        \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.listMatchesElementBits({s}, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesElementBytes(self: @This(), count: usize) bool {{
-        \\            return self.orphan.listMatchesElementBytes({s}, count);
+        \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.listMatchesElementBytes({s}, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesElementWords(self: @This(), count: usize) bool {{
-        \\            return self.orphan.listMatchesElementWords({s}, count);
+        \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.listMatchesElementWords({s}, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentBits(self: @This(), count: usize) bool {{
-        \\            return self.orphan.listMatchesContentBits({s}, count);
+        \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.listMatchesContentBits({s}, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentWords(self: @This(), count: usize) bool {{
-        \\            return self.orphan.listMatchesContentWords({s}, count);
+        \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.listMatchesContentWords({s}, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentBytes(self: @This(), count: usize) bool {{
-        \\            return self.orphan.listMatchesContentBytes({s}, count);
+        \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.orphan.listMatchesContentBytes({s}, @"cpz.count");
         \\        }}
         \\
         \\        pub fn structElementSize(self: @This()) !cpz.StructSize {{
@@ -15002,28 +15002,28 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.orphan.listMatchesStructElementSize({s}, @"cpz.size");
         \\        }}
         \\
-        \\        pub fn matchesStructElementDataWords(self: @This(), count: u16) bool {{
-        \\            return (self.structElementDataWordCount() catch return false) == count;
+        \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
+        \\            return (self.structElementDataWordCount() catch return false) == @"cpz.count";
         \\        }}
         \\
-        \\        pub fn matchesStructElementPointerCount(self: @This(), count: u16) bool {{
-        \\            return (self.structElementPointerCount() catch return false) == count;
+        \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
+        \\            return (self.structElementPointerCount() catch return false) == @"cpz.count";
         \\        }}
         \\
-        \\        pub fn matchesStructElementTotalWords(self: @This(), count: usize) bool {{
-        \\            return (self.structElementTotalWords() catch return false) == count;
+        \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return (self.structElementTotalWords() catch return false) == @"cpz.count";
         \\        }}
         \\
-        \\        pub fn matchesStructElementDataBytes(self: @This(), count: usize) bool {{
-        \\            return (self.structElementDataByteCount() catch return false) == count;
+        \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return (self.structElementDataByteCount() catch return false) == @"cpz.count";
         \\        }}
         \\
-        \\        pub fn matchesStructElementPointerBytes(self: @This(), count: usize) bool {{
-        \\            return (self.structElementPointerByteCount() catch return false) == count;
+        \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return (self.structElementPointerByteCount() catch return false) == @"cpz.count";
         \\        }}
         \\
-        \\        pub fn matchesStructElementTotalBytes(self: @This(), count: usize) bool {{
-        \\            return (self.structElementTotalByteCount() catch return false) == count;
+        \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return (self.structElementTotalByteCount() catch return false) == @"cpz.count";
         \\        }}
         \\
         \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s}_{s}_List {{
@@ -15096,8 +15096,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.len();
         \\        }}
         \\
-        \\        pub fn matchesLen(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesLen(count);
+        \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesLen(@"cpz.count");
         \\        }}
         \\
         \\        pub fn isEmpty(self: @This()) bool {{
@@ -15176,28 +15176,28 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.contentWordCount();
         \\        }}
         \\
-        \\        pub fn matchesElementBits(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesElementBits(count);
+        \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesElementBits(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesElementBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesElementBytes(count);
+        \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesElementBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesElementWords(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesElementWords(count);
+        \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesElementWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentBits(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesContentBits(count);
+        \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesContentBits(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesContentBytes(count);
+        \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesContentBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesContentWords(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesContentWords(count);
+        \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesContentWords(@"cpz.count");
         \\        }}
         \\
         \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
@@ -15232,36 +15232,36 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.structElementTotalByteCount();
         \\        }}
         \\
-        \\        pub fn matchesStructElementDataWords(self: @This(), count: u16) bool {{
-        \\            return self.list.matchesStructElementDataWords(count);
+        \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
+        \\            return self.list.matchesStructElementDataWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementPointerCount(self: @This(), count: u16) bool {{
-        \\            return self.list.matchesStructElementPointerCount(count);
+        \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
+        \\            return self.list.matchesStructElementPointerCount(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementTotalWords(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementTotalWords(count);
+        \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementTotalWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementDataBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementDataBytes(count);
+        \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementDataBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementPointerBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementPointerBytes(count);
+        \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementPointerBytes(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn matchesStructElementTotalBytes(self: @This(), count: usize) bool {{
-        \\            return self.list.matchesStructElementTotalBytes(count);
+        \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+        \\            return self.list.matchesStructElementTotalBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn orphanage(self: @This()) cpz.Orphanage {{
         \\            return self.list.orphanage();
         \\        }}
         \\
-        \\        pub fn slice(self: @This(), start: usize, count: usize) !{s}_{s}_BuilderList {{
-        \\            return .{{ .list = try self.list.slice(start, count) }};
+        \\        pub fn slice(self: @This(), start: usize, @"cpz.count": usize) !{s}_{s}_BuilderList {{
+        \\            return .{{ .list = try self.list.slice(start, @"cpz.count") }};
         \\        }}
         \\
         \\        pub fn copyFrom(self: @This(), index: usize, source: {s}_{s}_List, source_index: usize) !void {{
@@ -15280,24 +15280,24 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.list.copyElementFromCanonicalBuilder(index, source.list, source_index);
         \\        }}
         \\
-        \\        pub fn copyRangeFrom(self: @This(), index: usize, source: {s}_{s}_List, source_index: usize, count: usize) !void {{
-        \\            return self.list.copyElementsFrom(index, source.list, source_index, count);
+        \\        pub fn copyRangeFrom(self: @This(), index: usize, source: {s}_{s}_List, source_index: usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFrom(index, source.list, source_index, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn copyCanonicalRangeFrom(self: @This(), index: usize, source: {s}_{s}_List, source_index: usize, count: usize) !void {{
-        \\            return self.list.copyElementsFromCanonical(index, source.list, source_index, count);
+        \\        pub fn copyCanonicalRangeFrom(self: @This(), index: usize, source: {s}_{s}_List, source_index: usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFromCanonical(index, source.list, source_index, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn copyRangeFromBuilder(self: @This(), index: usize, source: @This(), source_index: usize, count: usize) !void {{
-        \\            return self.list.copyElementsFromBuilder(index, source.list, source_index, count);
+        \\        pub fn copyRangeFromBuilder(self: @This(), index: usize, source: @This(), source_index: usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFromBuilder(index, source.list, source_index, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn copyCanonicalRangeFromBuilder(self: @This(), index: usize, source: @This(), source_index: usize, count: usize) !void {{
-        \\            return self.list.copyElementsFromCanonicalBuilder(index, source.list, source_index, count);
+        \\        pub fn copyCanonicalRangeFromBuilder(self: @This(), index: usize, source: @This(), source_index: usize, @"cpz.count": usize) !void {{
+        \\            return self.list.copyElementsFromCanonicalBuilder(index, source.list, source_index, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn clearRange(self: @This(), start: usize, count: usize) !void {{
-        \\            return self.list.clearElements(start, count);
+        \\        pub fn clearRange(self: @This(), start: usize, @"cpz.count": usize) !void {{
+        \\            return self.list.clearElements(start, @"cpz.count");
         \\        }}
         \\
     , .{ owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
@@ -15355,8 +15355,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).len;
             \\        }}
             \\
-            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.getByteCount(index)) == count;
+            \\        pub fn matchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.getByteCount(index)) == @"cpz.count";
             \\        }}
             \\
             \\        pub fn set(self: @This(), index: usize, new_value: []const u8) !void {{
@@ -15389,8 +15389,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).len;
             \\        }}
             \\
-            \\        pub fn matchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.getByteCount(index)) == count;
+            \\        pub fn matchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.getByteCount(index)) == @"cpz.count";
             \\        }}
             \\
             \\        pub fn set(self: @This(), index: usize, new_value: []const u8) !void {{
@@ -15435,8 +15435,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).getTextByteCount();
             \\        }}
             \\
-            \\        pub fn getAsTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.get(index)).textMatchesBytes(count);
+            \\        pub fn getAsTextMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get(index)).textMatchesBytes(@"cpz.count");
             \\        }}
             \\
             \\        pub fn getAsData(self: @This(), index: usize) ![]const u8 {{
@@ -15447,8 +15447,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.get(index)).getDataByteCount();
             \\        }}
             \\
-            \\        pub fn getAsDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-            \\            return (try self.get(index)).dataMatchesBytes(count);
+            \\        pub fn getAsDataMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get(index)).dataMatchesBytes(@"cpz.count");
             \\        }}
             \\
             \\        pub fn getAsCapability(self: @This(), index: usize) !u32 {{
@@ -15463,12 +15463,12 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(index)).initStruct(struct_size);
             \\        }}
             \\
-            \\        pub fn initList(self: @This(), index: usize, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(index)).initList(element_size, count);
+            \\        pub fn initList(self: @This(), index: usize, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initList(element_size, @"cpz.count");
             \\        }}
             \\
-            \\        pub fn initStructList(self: @This(), index: usize, count: usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(index)).initStructList(count, struct_size);
+            \\        pub fn initStructList(self: @This(), index: usize, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initStructList(@"cpz.count", struct_size);
             \\        }}
             \\
             \\        pub fn setText(self: @This(), index: usize, new_value: []const u8) !void {{
@@ -15487,12 +15487,12 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newStruct(struct_size);
             \\        }}
             \\
-            \\        pub fn newListOrphan(self: @This(), element_size: cpz.ElementSize, count: usize) !cpz.Orphan {{
-            \\            return self.orphanage().newList(element_size, count);
+            \\        pub fn newListOrphan(self: @This(), element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+            \\            return self.orphanage().newList(element_size, @"cpz.count");
             \\        }}
             \\
-            \\        pub fn newStructListOrphan(self: @This(), count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
-            \\            return self.orphanage().newStructList(count, struct_size);
+            \\        pub fn newStructListOrphan(self: @This(), @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{
+            \\            return self.orphanage().newStructList(@"cpz.count", struct_size);
             \\        }}
             \\
             \\        pub fn newTextOrphan(self: @This(), new_value: []const u8) !cpz.Orphan {{
@@ -15603,24 +15603,24 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try (try self.list.getPointerElement(index)).getList(null)).structElementSize();
             \\        }}
             \\
-            \\        pub fn init(self: @This(), index: usize, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(index)).initList(element_size, count);
+            \\        pub fn init(self: @This(), index: usize, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initList(element_size, @"cpz.count");
             \\        }}
             \\
-            \\        pub fn initStructList(self: @This(), index: usize, count: usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(index)).initStructList(count, struct_size);
+            \\        pub fn initStructList(self: @This(), index: usize, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(index)).initStructList(@"cpz.count", struct_size);
             \\        }}
             \\
             \\        pub fn set(self: @This(), index: usize, new_value: cpz.PointerReader) !void {{
             \\            return (try self.list.getPointerElement(index)).copyFrom(new_value);
             \\        }}
             \\
-            \\        pub fn newOrphan(self: @This(), element_size: cpz.ElementSize, count: usize) !cpz.Orphan {{
-            \\            return self.orphanage().newList(element_size, count);
+            \\        pub fn newOrphan(self: @This(), element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+            \\            return self.orphanage().newList(element_size, @"cpz.count");
             \\        }}
             \\
-            \\        pub fn newStructListOrphan(self: @This(), count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
-            \\            return self.orphanage().newStructList(count, struct_size);
+            \\        pub fn newStructListOrphan(self: @This(), @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{
+            \\            return self.orphanage().newStructList(@"cpz.count", struct_size);
             \\        }}
             \\
             \\        pub fn newCopyOrphan(self: @This(), new_value: cpz.ListReader) !cpz.Orphan {{
@@ -15684,8 +15684,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return (try self.list.getPointerElement(index)).getList(null);
                 \\        }}
                 \\
-                \\        pub fn init(self: @This(), index: usize, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
-                \\            return (try self.list.getPointerElement(index)).initList(element_size, count);
+                \\        pub fn init(self: @This(), index: usize, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+                \\            return (try self.list.getPointerElement(index)).initList(element_size, @"cpz.count");
                 \\        }}
                 \\
             , .{});
@@ -15693,8 +15693,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
                 try appendFmt(allocator, out,
-                    \\        pub fn initStructList(self: @This(), index: usize, count: usize) !cpz.ListBuilder {{
-                    \\            return (try self.list.getPointerElement(index)).initStructList(count, {s}.size);
+                    \\        pub fn initStructList(self: @This(), index: usize, @"cpz.count": usize) !cpz.ListBuilder {{
+                    \\            return (try self.list.getPointerElement(index)).initStructList(@"cpz.count", {s}.size);
                     \\        }}
                     \\
                 , .{zig_type});
@@ -16014,8 +16014,8 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).maxCapabilityCount();
         \\        }}
         \\
-        \\        pub fn elementMatchesMaxCapabilityCount(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).matchesMaxCapabilityCount(count);
+        \\        pub fn elementMatchesMaxCapabilityCount(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesMaxCapabilityCount(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementStats(self: @This(), index: usize) !cpz.MessageStats {{
@@ -16070,20 +16070,20 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).structMatchesSize(expected);
         \\        }}
         \\
-        \\        pub fn elementStructMatchesDataWords(self: @This(), index: usize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesDataWords(count);
+        \\        pub fn elementStructMatchesDataWords(self: @This(), index: usize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesDataWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementStructMatchesPointerCount(self: @This(), index: usize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesPointerCount(count);
+        \\        pub fn elementStructMatchesPointerCount(self: @This(), index: usize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesPointerCount(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementStructMatchesTotalWords(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesTotalWords(count);
+        \\        pub fn elementStructMatchesTotalWords(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementStructMatchesTotalBytes(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesTotalBytes(count);
+        \\        pub fn elementStructMatchesTotalBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListReader {{
@@ -16094,8 +16094,8 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getListLen(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesLen(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesLen(expected, count);
+        \\        pub fn elementListMatchesLen(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesLen(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListIsEmpty(self: @This(), index: usize, expected: ?cpz.ElementSize) !bool {{
@@ -16126,32 +16126,32 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getListElementBitCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementBits(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesElementBits(expected, count);
+        \\        pub fn elementListMatchesElementBits(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesElementBits(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListElementByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
         \\            return (try self.list.getPointerElement(index)).getListElementByteCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesElementBytes(expected, count);
+        \\        pub fn elementListMatchesElementBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesElementBytes(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListElementWordCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
         \\            return (try self.list.getPointerElement(index)).getListElementWordCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesElementWords(expected, count);
+        \\        pub fn elementListMatchesElementWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesElementWords(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListContentBitCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
         \\            return (try self.list.getPointerElement(index)).getListContentBitCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesContentBits(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesContentBits(expected, count);
+        \\        pub fn elementListMatchesContentBits(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesContentBits(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListContentByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
@@ -16162,12 +16162,12 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getListContentWordCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesContentBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesContentBytes(expected, count);
+        \\        pub fn elementListMatchesContentBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesContentBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesContentWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesContentWords(expected, count);
+        \\        pub fn elementListMatchesContentWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesContentWords(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListStructElementSize(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.StructSize {{
@@ -16202,28 +16202,28 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).listMatchesStructElementSize(expected, @"cpz.size");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementDataWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataWords(expected, count);
+        \\        pub fn elementListMatchesStructElementDataWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataWords(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerCount(expected, count);
+        \\        pub fn elementListMatchesStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerCount(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalWords(expected, count);
+        \\        pub fn elementListMatchesStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalWords(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementDataBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataBytes(expected, count);
+        \\        pub fn elementListMatchesStructElementDataBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementPointerBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerBytes(expected, count);
+        \\        pub fn elementListMatchesStructElementPointerBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementTotalBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalBytes(expected, count);
+        \\        pub fn elementListMatchesStructElementTotalBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalBytes(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsText(self: @This(), index: usize) ![]const u8 {{
@@ -16234,8 +16234,8 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getTextByteCount();
         \\        }}
         \\
-        \\        pub fn elementTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).textMatchesBytes(count);
+        \\        pub fn elementTextMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).textMatchesBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsData(self: @This(), index: usize) ![]const u8 {{
@@ -16246,8 +16246,8 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(index)).getDataByteCount();
         \\        }}
         \\
-        \\        pub fn elementDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).dataMatchesBytes(count);
+        \\        pub fn elementDataMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).dataMatchesBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsCapability(self: @This(), index: usize) !u32 {{
@@ -16327,8 +16327,8 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).maxCapabilityCount();
         \\        }}
         \\
-        \\        pub fn elementMatchesMaxCapabilityCount(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).matchesMaxCapabilityCount(count);
+        \\        pub fn elementMatchesMaxCapabilityCount(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).matchesMaxCapabilityCount(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementStats(self: @This(), index: usize) !cpz.MessageStats {{
@@ -16383,20 +16383,20 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).structMatchesSize(expected);
         \\        }}
         \\
-        \\        pub fn elementStructMatchesDataWords(self: @This(), index: usize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesDataWords(count);
+        \\        pub fn elementStructMatchesDataWords(self: @This(), index: usize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesDataWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementStructMatchesPointerCount(self: @This(), index: usize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesPointerCount(count);
+        \\        pub fn elementStructMatchesPointerCount(self: @This(), index: usize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesPointerCount(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementStructMatchesTotalWords(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesTotalWords(count);
+        \\        pub fn elementStructMatchesTotalWords(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementStructMatchesTotalBytes(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).structMatchesTotalBytes(count);
+        \\        pub fn elementStructMatchesTotalBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).structMatchesTotalBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsList(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.ListBuilder {{
@@ -16407,8 +16407,8 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).getListLen(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesLen(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesLen(expected, count);
+        \\        pub fn elementListMatchesLen(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesLen(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListIsEmpty(self: @This(), index: usize, expected: ?cpz.ElementSize) !bool {{
@@ -16439,32 +16439,32 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).getListElementBitCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementBits(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesElementBits(expected, count);
+        \\        pub fn elementListMatchesElementBits(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesElementBits(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListElementByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
         \\            return (try self.list.getPointerElement(index)).getListElementByteCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesElementBytes(expected, count);
+        \\        pub fn elementListMatchesElementBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesElementBytes(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListElementWordCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
         \\            return (try self.list.getPointerElement(index)).getListElementWordCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesElementWords(expected, count);
+        \\        pub fn elementListMatchesElementWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesElementWords(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListContentBitCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
         \\            return (try self.list.getPointerElement(index)).getListContentBitCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesContentBits(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesContentBits(expected, count);
+        \\        pub fn elementListMatchesContentBits(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesContentBits(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListContentByteCount(self: @This(), index: usize, expected: ?cpz.ElementSize) !usize {{
@@ -16475,12 +16475,12 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).getListContentWordCount(expected);
         \\        }}
         \\
-        \\        pub fn elementListMatchesContentBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesContentBytes(expected, count);
+        \\        pub fn elementListMatchesContentBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesContentBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesContentWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesContentWords(expected, count);
+        \\        pub fn elementListMatchesContentWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesContentWords(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementListStructElementSize(self: @This(), index: usize, expected: ?cpz.ElementSize) !cpz.StructSize {{
@@ -16515,28 +16515,28 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).listMatchesStructElementSize(expected, @"cpz.size");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementDataWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataWords(expected, count);
+        \\        pub fn elementListMatchesStructElementDataWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataWords(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerCount(expected, count);
+        \\        pub fn elementListMatchesStructElementPointerCount(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerCount(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalWords(expected, count);
+        \\        pub fn elementListMatchesStructElementTotalWords(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalWords(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementDataBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataBytes(expected, count);
+        \\        pub fn elementListMatchesStructElementDataBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementDataBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementPointerBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerBytes(expected, count);
+        \\        pub fn elementListMatchesStructElementPointerBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementPointerBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn elementListMatchesStructElementTotalBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalBytes(expected, count);
+        \\        pub fn elementListMatchesStructElementTotalBytes(self: @This(), index: usize, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).listMatchesStructElementTotalBytes(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsText(self: @This(), index: usize) ![]const u8 {{
@@ -16547,8 +16547,8 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).getTextByteCount();
         \\        }}
         \\
-        \\        pub fn elementTextMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).textMatchesBytes(count);
+        \\        pub fn elementTextMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).textMatchesBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsData(self: @This(), index: usize) ![]const u8 {{
@@ -16559,8 +16559,8 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(index)).getDataByteCount();
         \\        }}
         \\
-        \\        pub fn elementDataMatchesBytes(self: @This(), index: usize, count: usize) !bool {{
-        \\            return (try self.list.getPointerElement(index)).dataMatchesBytes(count);
+        \\        pub fn elementDataMatchesBytes(self: @This(), index: usize, @"cpz.count": usize) !bool {{
+        \\            return (try self.list.getPointerElement(index)).dataMatchesBytes(@"cpz.count");
         \\        }}
         \\
         \\        pub fn elementAsCapability(self: @This(), index: usize) !u32 {{
@@ -16909,11 +16909,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.builder.getPointerField({})).maxCapabilityCount();
         \\        }}
         \\
-        \\        pub fn get_{s}MatchesMaxCapabilityCount(self: Builder, count: usize) !bool {{
+        \\        pub fn get_{s}MatchesMaxCapabilityCount(self: Builder, @"cpz.count": usize) !bool {{
     , .{ index, field_name });
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).matchesMaxCapabilityCount(count);
+        \\            return (try self.builder.getPointerField({})).matchesMaxCapabilityCount(@"cpz.count");
         \\        }}
         \\
         \\        pub fn get_{s}Stats(self: Builder) !cpz.MessageStats {{
@@ -16978,20 +16978,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.get_{s}AsPointer()).structMatchesSize(expected);
         \\        }}
         \\
-        \\        pub fn get_{s}StructMatchesDataWords(self: Builder, count: u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesDataWords(count);
+        \\        pub fn get_{s}StructMatchesDataWords(self: Builder, @"cpz.count": u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesDataWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}StructMatchesPointerCount(self: Builder, count: u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesPointerCount(count);
+        \\        pub fn get_{s}StructMatchesPointerCount(self: Builder, @"cpz.count": u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesPointerCount(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}StructMatchesTotalWords(self: Builder, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesTotalWords(count);
+        \\        pub fn get_{s}StructMatchesTotalWords(self: Builder, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesTotalWords(@"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}StructMatchesTotalBytes(self: Builder, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesTotalBytes(count);
+        \\        pub fn get_{s}StructMatchesTotalBytes(self: Builder, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).structMatchesTotalBytes(@"cpz.count");
         \\        }}
         \\
     , .{
@@ -17013,8 +17013,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.get_{s}AsPointer()).getListLen(expected);
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesLen(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesLen(expected, count);
+        \\        pub fn get_{s}ListMatchesLen(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesLen(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn get_{s}ListElementSize(self: Builder, expected: ?cpz.ElementSize) !cpz.ElementSize {{
@@ -17049,8 +17049,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.get_{s}AsPointer()).getListContentWordCount(expected);
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesContentBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesContentBytes(expected, count);
+        \\        pub fn get_{s}ListMatchesContentBytes(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesContentBytes(expected, @"cpz.count");
         \\        }}
         \\
         \\        pub fn get_{s}ListStructElementSize(self: Builder, expected: ?cpz.ElementSize) !cpz.StructSize {{
@@ -17102,24 +17102,24 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
     });
 
     try appendFmt(allocator, out,
-        \\        pub fn get_{s}ListMatchesElementBits(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementBits(expected, count);
+        \\        pub fn get_{s}ListMatchesElementBits(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementBits(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesElementBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementBytes(expected, count);
+        \\        pub fn get_{s}ListMatchesElementBytes(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesElementWords(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementWords(expected, count);
+        \\        pub fn get_{s}ListMatchesElementWords(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementWords(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesContentBits(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesContentBits(expected, count);
+        \\        pub fn get_{s}ListMatchesContentBits(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesContentBits(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesContentWords(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesContentWords(expected, count);
+        \\        pub fn get_{s}ListMatchesContentWords(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesContentWords(expected, @"cpz.count");
         \\        }}
         \\
     , .{
@@ -17155,28 +17155,28 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.get_{s}AsPointer()).getListStructElementTotalByteCount(expected);
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesStructElementDataWords(self: Builder, expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataWords(expected, count);
+        \\        pub fn get_{s}ListMatchesStructElementDataWords(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataWords(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesStructElementPointerCount(self: Builder, expected: ?cpz.ElementSize, count: u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerCount(expected, count);
+        \\        pub fn get_{s}ListMatchesStructElementPointerCount(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerCount(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesStructElementTotalWords(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalWords(expected, count);
+        \\        pub fn get_{s}ListMatchesStructElementTotalWords(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalWords(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesStructElementDataBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataBytes(expected, count);
+        \\        pub fn get_{s}ListMatchesStructElementDataBytes(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesStructElementPointerBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerBytes(expected, count);
+        \\        pub fn get_{s}ListMatchesStructElementPointerBytes(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerBytes(expected, @"cpz.count");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesStructElementTotalBytes(self: Builder, expected: ?cpz.ElementSize, count: usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalBytes(expected, count);
+        \\        pub fn get_{s}ListMatchesStructElementTotalBytes(self: Builder, expected: ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalBytes(expected, @"cpz.count");
         \\        }}
         \\
     , .{
@@ -17220,8 +17220,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.get_{s}()).len;
                 \\        }}
                 \\
-                \\        pub fn get_{s}MatchesBytes(self: Builder, count: usize) !bool {{
-                \\            return (try self.get_{s}ByteCount()) == count;
+                \\        pub fn get_{s}MatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
+                \\            return (try self.get_{s}ByteCount()) == @"cpz.count";
                 \\        }}
                 \\
             , .{ field_name, field_name, field_name, field_name });
@@ -17264,8 +17264,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.get_{s}()).len;
                 \\        }}
                 \\
-                \\        pub fn get_{s}MatchesBytes(self: Builder, count: usize) !bool {{
-                \\            return (try self.get_{s}ByteCount()) == count;
+                \\        pub fn get_{s}MatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
+                \\            return (try self.get_{s}ByteCount()) == @"cpz.count";
                 \\        }}
                 \\
             , .{ field_name, field_name, field_name, field_name });
@@ -17345,21 +17345,21 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
                 try appendFmt(allocator, out,
-                    \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
+                    \\        pub fn init_{s}(self: Builder, @"cpz.count": usize) !{s}_{s}_BuilderList {{
                 , .{ field_name, owner_name, field_name });
                 try emitBuilderUnionActivation(allocator, out, field);
                 try appendFmt(allocator, out,
-                    \\            return .{{ .list = try (try self.builder.getPointerField({})).initStructList(count, {s}.size) }};
+                    \\            return .{{ .list = try (try self.builder.getPointerField({})).initStructList(@"cpz.count", {s}.size) }};
                     \\        }}
                     \\
                 , .{ index, zig_type });
             } else {
                 try appendFmt(allocator, out,
-                    \\        pub fn init_{s}(self: Builder, count: usize) !{s}_{s}_BuilderList {{
+                    \\        pub fn init_{s}(self: Builder, @"cpz.count": usize) !{s}_{s}_BuilderList {{
                 , .{ field_name, owner_name, field_name });
                 try emitBuilderUnionActivation(allocator, out, field);
                 try appendFmt(allocator, out,
-                    \\            return .{{ .list = try (try self.builder.getPointerField({})).initList({s}, count) }};
+                    \\            return .{{ .list = try (try self.builder.getPointerField({})).initList({s}, @"cpz.count") }};
                     \\        }}
                     \\
                 , .{ index, try listElementSizeLiteral(file, layout.decl, child.*) });
@@ -17394,8 +17394,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.get_{s}()).getTextByteCount();
                 \\        }}
                 \\
-                \\        pub fn get_{s}AsTextMatchesBytes(self: Builder, count: usize) !bool {{
-                \\            return (try self.get_{s}()).textMatchesBytes(count);
+                \\        pub fn get_{s}AsTextMatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
+                \\            return (try self.get_{s}()).textMatchesBytes(@"cpz.count");
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsData(self: Builder) ![]const u8 {{
@@ -17406,8 +17406,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.get_{s}()).getDataByteCount();
                 \\        }}
                 \\
-                \\        pub fn get_{s}AsDataMatchesBytes(self: Builder, count: usize) !bool {{
-                \\            return (try self.get_{s}()).dataMatchesBytes(count);
+                \\        pub fn get_{s}AsDataMatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
+                \\            return (try self.get_{s}()).dataMatchesBytes(@"cpz.count");
                 \\        }}
                 \\
                 \\        pub fn get_{s}AsCapability(self: Builder) !u32 {{
@@ -17493,30 +17493,30 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initStruct(struct_size);
                 \\        }}
                 \\
-                \\        pub fn init_{s}_list(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
+                \\        pub fn init_{s}_list(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).initList(element_size, count);
+                \\            return (try self.builder.getPointerField({})).initList(element_size, @"cpz.count");
                 \\        }}
                 \\
-                \\        pub fn init_{s}_structList(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
+                \\        pub fn init_{s}_structList(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).initStructList(count, struct_size);
+                \\            return (try self.builder.getPointerField({})).initStructList(@"cpz.count", struct_size);
                 \\        }}
                 \\
                 \\        pub fn new_{s}_structOrphan(self: Builder, struct_size: cpz.StructSize) !cpz.Orphan {{
                 \\            return self.orphanage().newStruct(struct_size);
                 \\        }}
                 \\
-                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.Orphan {{
-                \\            return self.orphanage().newList(element_size, count);
+                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+                \\            return self.orphanage().newList(element_size, @"cpz.count");
                 \\        }}
                 \\
-                \\        pub fn new_{s}_structListOrphan(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
-                \\            return self.orphanage().newStructList(count, struct_size);
+                \\        pub fn new_{s}_structListOrphan(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{
+                \\            return self.orphanage().newStructList(@"cpz.count", struct_size);
                 \\        }}
                 \\
                 \\        pub fn new_{s}_textOrphan(self: Builder, new_value: []const u8) !cpz.Orphan {{
@@ -17638,26 +17638,26 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).getList(null);
                 \\        }}
                 \\
-                \\        pub fn init_{s}(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.ListBuilder {{
+                \\        pub fn init_{s}(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).initList(element_size, count);
+                \\            return (try self.builder.getPointerField({})).initList(element_size, @"cpz.count");
                 \\        }}
                 \\
-                \\        pub fn init_{s}_structList(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
+                \\        pub fn init_{s}_structList(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).initStructList(count, struct_size);
+                \\            return (try self.builder.getPointerField({})).initStructList(@"cpz.count", struct_size);
                 \\        }}
                 \\
-                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, count: usize) !cpz.Orphan {{
-                \\            return self.orphanage().newList(element_size, count);
+                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+                \\            return self.orphanage().newList(element_size, @"cpz.count");
                 \\        }}
                 \\
-                \\        pub fn new_{s}_structListOrphan(self: Builder, count: usize, struct_size: cpz.StructSize) !cpz.Orphan {{
-                \\            return self.orphanage().newStructList(count, struct_size);
+                \\        pub fn new_{s}_structListOrphan(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{
+                \\            return self.orphanage().newStructList(@"cpz.count", struct_size);
                 \\        }}
                 \\
                 \\        pub fn new_{s}_copyOrphan(self: Builder, new_value: cpz.ListReader) !cpz.Orphan {{
@@ -18372,11 +18372,11 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromBuilder(index, source.list, source_index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromCanonical(index, source.list, source_index);") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementFromCanonicalBuilder(index, source.list, source_index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFrom(index, source.list, source_index, count);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromBuilder(index, source.list, source_index, count);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonical(index, source.list, source_index, count);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonicalBuilder(index, source.list, source_index, count);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(start, count);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFrom(index, source.list, source_index, @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromBuilder(index, source.list, source_index, @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonical(index, source.list, source_index, @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.copyElementsFromCanonicalBuilder(index, source.list, source_index, @\"cpz.count\");") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElements(start, @\"cpz.count\");") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_fromBuilder(self: Builder, new_value: Person_scores_BuilderList) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromBuilder(new_value.list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_canonicalFrom(self: Builder, new_value: Person_scores_List) !void") != null);
@@ -18405,7 +18405,7 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_palette_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.setUInt16(index, @intFromEnum(new_value));") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return self.list.clearElement(index);") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @\"cpz.schema\".Person.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(@\"cpz.count\", @\"cpz.schema\".Person.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const Builder = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get_id(self: Builder) !u32") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_id(self: Builder, new_value: u32) !void") != null);
@@ -18582,7 +18582,7 @@ test "schema code generator emits external import type references" {
     try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"Other\").External.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"Shared\").Shared.size)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @import(\"Other\").External.fromReader(try self.list.getStructElement(index));") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @import(\"Other\").External.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(@\"cpz.count\", @import(\"Other\").External.size)") != null);
 }
 
 test "schema code generator records inline import type references" {
@@ -18606,7 +18606,7 @@ test "schema code generator records inline import type references" {
 
     try std.testing.expect(std.mem.indexOf(u8, code, "@import(\"External\").External.fromReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "initStruct(@import(\"External\").External.size)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(count, @import(\"External\").External.size)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "initStructList(@\"cpz.count\", @import(\"External\").External.size)") != null);
 }
 
 test "schema code generator lowers generic type parameters to pointer accessors" {
