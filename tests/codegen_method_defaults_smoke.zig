@@ -135,6 +135,16 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectApproxEqAbs(@as(f64, -2.5), try generated.ConstRefDefaults.localRatioFieldDefaultFlat.get(&local_ratio_default_reader), 0.0);
     var local_mode_default_reader = generated.ConstRefDefaults.localModeFieldDefaultFlat.reader(.{});
     try std.testing.expectEqual(generated.Mode.off, try generated.ConstRefDefaults.localModeFieldDefaultFlat.get(&local_mode_default_reader));
+    var numbers_default_reader = generated.ConstRefDefaults.numbersDefaultFlat.reader(.{});
+    try std.testing.expectEqual(@as(u16, 7), try generated.ConstRefDefaults.numbersDefaultFlat.get(&numbers_default_reader, 0));
+    try std.testing.expectEqual(@as(u16, 8), try generated.ConstRefDefaults.numbersDefaultFlat.get(&numbers_default_reader, 1));
+    var local_numbers_default_reader = generated.ConstRefDefaults.localNumbersFieldDefaultFlat.reader(.{});
+    try std.testing.expectEqual(@as(u16, 9), try generated.ConstRefDefaults.localNumbersFieldDefaultFlat.get(&local_numbers_default_reader, 0));
+    try std.testing.expectEqual(@as(u16, 10), try generated.ConstRefDefaults.localNumbersFieldDefaultFlat.get(&local_numbers_default_reader, 1));
+    var item_default_reader = generated.ConstRefDefaults.itemDefaultFlat.reader(.{});
+    const item_default = try generated.ConstRefDefaults.itemDefaultFlat.typedRoot(&item_default_reader);
+    try std.testing.expectEqual(@as(u32, 88), item_default.value());
+    try std.testing.expectEqualStrings("referenced item", try item_default.label());
 }
 
 test "generated helpers avoid count field shadowing" {

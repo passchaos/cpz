@@ -9,6 +9,7 @@ const referencedFlag :Bool = true;
 const referencedAmount :UInt32 = 123;
 const referencedRatio :Float64 = +1.25e2;
 const referencedMode :Mode = on;
+const referencedNumbers :List(UInt16) = [7, 8];
 
 struct MaybeDefaults {
   absent @0 :?Text = null;
@@ -28,6 +29,7 @@ struct ConstRefDefaults {
   const localAmount :UInt32 = 456;
   const localRatio :Float64 = -2.5;
   const localMode :Mode = off;
+  const localNumbers :List(UInt16) = [9, 10];
 
   text @0 :Text = referencedText;
   data @1 :Data = referencedData;
@@ -41,6 +43,9 @@ struct ConstRefDefaults {
   localAmountField @9 :UInt32 = localAmount;
   localRatioField @10 :Float64 = localRatio;
   localModeField @11 :Mode = localMode;
+  numbers @12 :List(UInt16) = referencedNumbers;
+  localNumbersField @13 :List(UInt16) = localNumbers;
+  item @14 :Defaults.Item = referencedItem;
 }
 
 struct CountFieldDefaults {
@@ -202,3 +207,5 @@ interface Defaults {
 
   capabilityDefaults @6 (callback :Callback = void) -> ();
 }
+
+const referencedItem :Defaults.Item = (value = 88, label = "referenced item");

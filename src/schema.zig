@@ -11069,7 +11069,7 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
                 defer allocator.free(bytes);
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, false);
             },
-            .list => |list_child| try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, list_child.*, field.default_expression),
+            .list => |list_child| try emitListFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, list_child.*, resolveConstReferenceLiteral(file, layout.decl, field.default_expression)),
             .named => |type_name| {
                 if (findEnum(file, type_name) != null) {
                     const literal = field.default_literal orelse continue;
@@ -11077,7 +11077,7 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
                     continue;
                 }
                 if (findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) continue;
-                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, field.default_expression)) orelse continue;
+                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, layout.decl, field.default_expression))) orelse continue;
                 defer allocator.free(flat);
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
