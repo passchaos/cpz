@@ -14767,28 +14767,28 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
         defer allocator.free(zig_type);
         break :blk try std.fmt.allocPrint(allocator,
-            \\        pub fn newOrphan(builder: *cpz.MessageBuilder, @"cpz.count": usize) !@This() {{
-            \\            return fromOrphan(try builder.newOrphanStructList(@"cpz.count", {s}.size));
+            \\        pub fn newOrphan(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize) !@This() {{
+            \\            return fromOrphan(try @"cpz.builder".newOrphanStructList(@"cpz.count", {s}.size));
             \\        }}
             \\
             \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, @"cpz.count": usize) !@This() {{
             \\            return fromOrphan(try orphanage.newStructList(@"cpz.count", {s}.size));
             \\        }}
             \\
-            \\        pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
-            \\            return fromOrphan(try builder.newOrphanCopyList(@"cpz.value".list));
+            \\        pub fn newOrphanCopy(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
+            \\            return fromOrphan(try @"cpz.builder".newOrphanCopyList(@"cpz.value".list));
             \\        }}
             \\
-            \\        pub fn newOrphanCopyCanonical(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
-            \\            return fromOrphan(try builder.newOrphanCopyListCanonical(@"cpz.value".list));
+            \\        pub fn newOrphanCopyCanonical(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
+            \\            return fromOrphan(try @"cpz.builder".newOrphanCopyListCanonical(@"cpz.value".list));
             \\        }}
             \\
-            \\        pub fn newOrphanCopyFromBuilder(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
-            \\            return fromOrphan(try builder.newOrphanCopyListFromBuilder(@"cpz.value".list));
+            \\        pub fn newOrphanCopyFromBuilder(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+            \\            return fromOrphan(try @"cpz.builder".newOrphanCopyListFromBuilder(@"cpz.value".list));
             \\        }}
             \\
-            \\        pub fn newOrphanCopyCanonicalFromBuilder(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
-            \\            return fromOrphan(try builder.newOrphanCopyListCanonicalFromBuilder(@"cpz.value".list));
+            \\        pub fn newOrphanCopyCanonicalFromBuilder(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+            \\            return fromOrphan(try @"cpz.builder".newOrphanCopyListCanonicalFromBuilder(@"cpz.value".list));
             \\        }}
             \\
             \\        pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_List) !@This() {{
@@ -14809,28 +14809,28 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\
         , .{ zig_type, zig_type, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
     } else try std.fmt.allocPrint(allocator,
-        \\        pub fn newOrphan(builder: *cpz.MessageBuilder, @"cpz.count": usize) !@This() {{
-        \\            return fromOrphan(try builder.newOrphanList({s}, @"cpz.count"));
+        \\        pub fn newOrphan(@"cpz.builder": *cpz.MessageBuilder, @"cpz.count": usize) !@This() {{
+        \\            return fromOrphan(try @"cpz.builder".newOrphanList({s}, @"cpz.count"));
         \\        }}
         \\
         \\        pub fn newOrphanIn(orphanage: cpz.Orphanage, @"cpz.count": usize) !@This() {{
         \\            return fromOrphan(try orphanage.newList({s}, @"cpz.count"));
         \\        }}
         \\
-        \\        pub fn newOrphanCopy(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
-        \\            return fromOrphan(try builder.newOrphanCopyList(@"cpz.value".list));
+        \\        pub fn newOrphanCopy(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
+        \\            return fromOrphan(try @"cpz.builder".newOrphanCopyList(@"cpz.value".list));
         \\        }}
         \\
-        \\        pub fn newOrphanCopyCanonical(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
-        \\            return fromOrphan(try builder.newOrphanCopyListCanonical(@"cpz.value".list));
+        \\        pub fn newOrphanCopyCanonical(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_List) !@This() {{
+        \\            return fromOrphan(try @"cpz.builder".newOrphanCopyListCanonical(@"cpz.value".list));
         \\        }}
         \\
-        \\        pub fn newOrphanCopyFromBuilder(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
-        \\            return fromOrphan(try builder.newOrphanCopyListFromBuilder(@"cpz.value".list));
+        \\        pub fn newOrphanCopyFromBuilder(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+        \\            return fromOrphan(try @"cpz.builder".newOrphanCopyListFromBuilder(@"cpz.value".list));
         \\        }}
         \\
-        \\        pub fn newOrphanCopyCanonicalFromBuilder(builder: *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
-        \\            return fromOrphan(try builder.newOrphanCopyListCanonicalFromBuilder(@"cpz.value".list));
+        \\        pub fn newOrphanCopyCanonicalFromBuilder(@"cpz.builder": *cpz.MessageBuilder, @"cpz.value": {s}_{s}_BuilderList) !@This() {{
+        \\            return fromOrphan(try @"cpz.builder".newOrphanCopyListCanonicalFromBuilder(@"cpz.value".list));
         \\        }}
         \\
         \\        pub fn newOrphanCopyIn(orphanage: cpz.Orphanage, @"cpz.value": {s}_{s}_List) !@This() {{
@@ -18383,11 +18383,11 @@ test "schema code generator emits Zig accessor skeletons" {
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromCanonical(new_value.list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_scores_canonicalFromBuilder(self: Builder, new_value: Person_scores_BuilderList) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyListFromCanonicalBuilder(new_value.list)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyFromBuilder(builder: *cpz.MessageBuilder, @\"cpz.value\": Person_scores_BuilderList) !@This()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyFromBuilder(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Person_scores_BuilderList) !@This()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListFromBuilder(@\"cpz.value\".list)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonical(builder: *cpz.MessageBuilder, @\"cpz.value\": Person_scores_List) !@This()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonical(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Person_scores_List) !@This()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListCanonical(@\"cpz.value\".list)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonicalFromBuilder(builder: *cpz.MessageBuilder, @\"cpz.value\": Person_scores_BuilderList) !@This()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonicalFromBuilder(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Person_scores_BuilderList) !@This()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListCanonicalFromBuilder(@\"cpz.value\".list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "Person_children_BuilderList") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return @\"cpz.schema\".Person.Builder.fromBuilder(try self.list.getStructElement(@\"cpz.index\"));") != null);
@@ -18544,9 +18544,9 @@ test "schema code generator emits generic pointer builder copy helpers" {
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonical(new_value)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn new_value_copyOrphanCanonicalFromBuilder(self: Builder, new_value: cpz.PointerBuilder) !cpz.Orphan") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newCopyPointerCanonicalFromBuilder(new_value)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonical(builder: *cpz.MessageBuilder, @\"cpz.value\": Box_items_List) !@This()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonical(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Box_items_List) !@This()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListCanonical(@\"cpz.value\".list)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonicalFromBuilder(builder: *cpz.MessageBuilder, @\"cpz.value\": Box_items_BuilderList) !@This()") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn newOrphanCopyCanonicalFromBuilder(@\"cpz.builder\": *cpz.MessageBuilder, @\"cpz.value\": Box_items_BuilderList) !@This()") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "newOrphanCopyListCanonicalFromBuilder(@\"cpz.value\".list)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn setFromBuilder(self: @This(), @\"cpz.index\": usize, new_value: cpz.PointerBuilder) !void") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "copyFromBuilder(new_value)") != null);

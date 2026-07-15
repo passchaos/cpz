@@ -68,6 +68,11 @@ struct StartFieldDefaults {
   items @1 :List(UInt16) = [1, 2, 3];
 }
 
+struct BuilderFieldDefaults {
+  builder @0 :Text = "builder";
+  items @1 :List(Text) = ["build"];
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
