@@ -14512,7 +14512,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
-            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, true);
+            const is_null_default = defaultExpressionIsNullPointer(file, layout.decl, field.default_expression);
+            const default_literal = if (is_null_default) null else try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, true);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) ![]const u8 {{
@@ -14532,6 +14533,29 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 , .{index});
             }
             try appendFmt(allocator, out,
+                \\    pub fn {s}OrNull(self: @This()) !?[]const u8 {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                \\        if (@"cpz.pointer".isNull()) {{
+            , .{index});
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\            return {s};
+                    \\
+                , .{literal});
+            } else {
+                try out.appendSlice(allocator,
+                    \\            return null;
+                    \\
+                );
+            }
+            try appendFmt(allocator, out,
+                \\        }}
+                \\        return try @"cpz.pointer".getText();
+                \\    }}
+                \\
                 \\    pub fn {s}ByteCount(self: @This()) !usize {{
                 \\        return (try self.{s}()).len;
                 \\    }}
@@ -14543,7 +14567,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
             , .{ field_name, field_name, field_name, field_name });
         },
         .data => {
-            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, false);
+            const is_null_default = defaultExpressionIsNullPointer(file, layout.decl, field.default_expression);
+            const default_literal = if (is_null_default) null else try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, false);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) ![]const u8 {{
@@ -14563,6 +14588,29 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 , .{index});
             }
             try appendFmt(allocator, out,
+                \\    pub fn {s}OrNull(self: @This()) !?[]const u8 {{
+            , .{field_name});
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                \\        if (@"cpz.pointer".isNull()) {{
+            , .{index});
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\            return {s};
+                    \\
+                , .{literal});
+            } else {
+                try out.appendSlice(allocator,
+                    \\            return null;
+                    \\
+                );
+            }
+            try appendFmt(allocator, out,
+                \\        }}
+                \\        return try @"cpz.pointer".getData();
+                \\    }}
+                \\
                 \\    pub fn {s}ByteCount(self: @This()) !usize {{
                 \\        return (try self.{s}()).len;
                 \\    }}
@@ -17565,7 +17613,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
-            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, true);
+            const is_null_default = defaultExpressionIsNullPointer(file, layout.decl, field.default_expression);
+            const default_literal = if (is_null_default) null else try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, true);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) ![]const u8 {{
@@ -17585,6 +17634,29 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 , .{index});
             }
             try appendFmt(allocator, out,
+                \\        pub fn get_{s}OrNull(self: Builder) !?[]const u8 {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                \\            if (@"cpz.pointer".isNull()) {{
+            , .{index});
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\                return {s};
+                    \\
+                , .{literal});
+            } else {
+                try out.appendSlice(allocator,
+                    \\                return null;
+                    \\
+                );
+            }
+            try appendFmt(allocator, out,
+                \\            }}
+                \\            return try @"cpz.pointer".getText();
+                \\        }}
+                \\
                 \\        pub fn get_{s}ByteCount(self: Builder) !usize {{
                 \\            return (try self.get_{s}()).len;
                 \\        }}
@@ -17602,14 +17674,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.builder.setText({}, new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}OrNull(self: Builder, new_value: ?[]const u8) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set_{s}(@"cpz.value");
+                \\            return self.clear_{s}();
+                \\        }}
+                \\
                 \\        pub fn new_{s}_orphan(self: Builder, new_value: []const u8) !cpz.Orphan {{
                 \\            return self.orphanage().newText(new_value);
                 \\        }}
                 \\
-            , .{ index, field_name });
+            , .{ index, field_name, field_name, field_name, field_name });
         },
         .data => {
-            const default_literal = try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, false);
+            const is_null_default = defaultExpressionIsNullPointer(file, layout.decl, field.default_expression);
+            const default_literal = if (is_null_default) null else try fieldBlobDefaultLiteralAlloc(allocator, file, layout.decl, field, false);
             defer if (default_literal) |literal| allocator.free(literal);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) ![]const u8 {{
@@ -17629,6 +17707,29 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 , .{index});
             }
             try appendFmt(allocator, out,
+                \\        pub fn get_{s}OrNull(self: Builder) !?[]const u8 {{
+            , .{field_name});
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                \\            if (@"cpz.pointer".isNull()) {{
+            , .{index});
+            if (default_literal) |literal| {
+                try appendFmt(allocator, out,
+                    \\                return {s};
+                    \\
+                , .{literal});
+            } else {
+                try out.appendSlice(allocator,
+                    \\                return null;
+                    \\
+                );
+            }
+            try appendFmt(allocator, out,
+                \\            }}
+                \\            return try @"cpz.pointer".getData();
+                \\        }}
+                \\
                 \\        pub fn get_{s}ByteCount(self: Builder) !usize {{
                 \\            return (try self.get_{s}()).len;
                 \\        }}
@@ -17646,11 +17747,16 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.builder.setData({}, new_value);
                 \\        }}
                 \\
+                \\        pub fn set_{s}OrNull(self: Builder, new_value: ?[]const u8) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set_{s}(@"cpz.value");
+                \\            return self.clear_{s}();
+                \\        }}
+                \\
                 \\        pub fn new_{s}_orphan(self: Builder, new_value: []const u8) !cpz.Orphan {{
                 \\            return self.orphanage().newData(new_value);
                 \\        }}
                 \\
-            , .{ index, field_name });
+            , .{ index, field_name, field_name, field_name, field_name });
         },
         .list => |child| {
             const has_default_flat = try listFieldDefaultFlatIsEmitted(allocator, file, layout, field, child.*);
