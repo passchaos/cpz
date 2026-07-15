@@ -298,6 +298,17 @@ test "generated helpers avoid element_size field shadowing" {
     defer list_orphan.release();
 }
 
+test "generated reader field name is sanitized" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    const root_builder = try generated.ReaderFieldDefaults.initRootTyped(&builder);
+    try root_builder.set_reader_("reader");
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.ReaderFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqualStrings("reader", try root.reader_());
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

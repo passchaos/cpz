@@ -89,6 +89,10 @@ struct ElementSizeFieldDefaults {
   any @1 :AnyPointer;
 }
 
+struct ReaderFieldDefaults {
+  reader @0 :Text = "reader";
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
