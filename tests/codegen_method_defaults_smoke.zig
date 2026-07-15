@@ -150,6 +150,25 @@ test "generated helpers avoid count field shadowing" {
     try std.testing.expect(!try root.labelMatchesMaxCapabilityCount(0));
 }
 
+test "generated helpers avoid expected field shadowing" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    const builder_root = try generated.ExpectedFieldDefaults.initRootTyped(&builder);
+    try builder_root.set_expected("expected");
+    const items = try builder_root.init_items(2);
+    try items.set(0, 1);
+    try items.set(1, 2);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.ExpectedFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqualStrings("expected", try root.expected());
+    try std.testing.expectEqual(@as(usize, "expected".len), try root.expectedByteCount());
+    try std.testing.expect(try root.expectedMatchesBytes("expected".len));
+    try std.testing.expect(try root.expectedListMatchesLen(.byte, "expected".len + 1));
+    try std.testing.expect(try root.itemsListMatchesLen(.two_bytes, 2));
+    try std.testing.expect(try root.itemsListMatchesElementSize(.two_bytes, .two_bytes));
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

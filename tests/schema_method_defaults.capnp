@@ -48,6 +48,11 @@ struct CountFieldDefaults {
   label @1 :Text = "counted";
 }
 
+struct ExpectedFieldDefaults {
+  expected @0 :Text = "expected";
+  items @1 :List(UInt16) = [1, 2];
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
