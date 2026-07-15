@@ -13986,8 +13986,8 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return (try self.{s}AsPointer()).getListElementSize(@"cpz.expected");
         \\    }}
         \\
-        \\    pub fn {s}ListMatchesElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize, element_size: cpz.ElementSize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementSize(@"cpz.expected", element_size);
+        \\    pub fn {s}ListMatchesElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\        return (try self.{s}AsPointer()).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
         \\    }}
         \\
         \\    pub fn {s}ListElementBitCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
@@ -14918,8 +14918,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         \\            return self.orphan.getListElementSize({s});
         \\        }}
         \\
-        \\        pub fn matchesElementSize(self: @This(), element_size: cpz.ElementSize) bool {{
-        \\            return self.orphan.listMatchesElementSize({s}, element_size);
+        \\        pub fn matchesElementSize(self: @This(), @"cpz.elementSize": cpz.ElementSize) bool {{
+        \\            return self.orphan.listMatchesElementSize({s}, @"cpz.elementSize");
         \\        }}
         \\
         \\        pub fn elementBitCount(self: @This()) !usize {{
@@ -15463,8 +15463,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(@"cpz.index")).initStruct(struct_size);
             \\        }}
             \\
-            \\        pub fn initList(self: @This(), @"cpz.index": usize, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(@"cpz.index")).initList(element_size, @"cpz.count");
+            \\        pub fn initList(self: @This(), @"cpz.index": usize, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(@"cpz.index")).initList(@"cpz.elementSize", @"cpz.count");
             \\        }}
             \\
             \\        pub fn initStructList(self: @This(), @"cpz.index": usize, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
@@ -15487,8 +15487,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return self.orphanage().newStruct(struct_size);
             \\        }}
             \\
-            \\        pub fn newListOrphan(self: @This(), element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
-            \\            return self.orphanage().newList(element_size, @"cpz.count");
+            \\        pub fn newListOrphan(self: @This(), @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+            \\            return self.orphanage().newList(@"cpz.elementSize", @"cpz.count");
             \\        }}
             \\
             \\        pub fn newStructListOrphan(self: @This(), @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{
@@ -15603,8 +15603,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try (try self.list.getPointerElement(@"cpz.index")).getList(null)).structElementSize();
             \\        }}
             \\
-            \\        pub fn init(self: @This(), @"cpz.index": usize, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
-            \\            return (try self.list.getPointerElement(@"cpz.index")).initList(element_size, @"cpz.count");
+            \\        pub fn init(self: @This(), @"cpz.index": usize, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+            \\            return (try self.list.getPointerElement(@"cpz.index")).initList(@"cpz.elementSize", @"cpz.count");
             \\        }}
             \\
             \\        pub fn initStructList(self: @This(), @"cpz.index": usize, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
@@ -15615,8 +15615,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(@"cpz.index")).copyFrom(new_value);
             \\        }}
             \\
-            \\        pub fn newOrphan(self: @This(), element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
-            \\            return self.orphanage().newList(element_size, @"cpz.count");
+            \\        pub fn newOrphan(self: @This(), @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+            \\            return self.orphanage().newList(@"cpz.elementSize", @"cpz.count");
             \\        }}
             \\
             \\        pub fn newStructListOrphan(self: @This(), @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{
@@ -15684,8 +15684,8 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return (try self.list.getPointerElement(@"cpz.index")).getList(null);
                 \\        }}
                 \\
-                \\        pub fn init(self: @This(), @"cpz.index": usize, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
-                \\            return (try self.list.getPointerElement(@"cpz.index")).initList(element_size, @"cpz.count");
+                \\        pub fn init(self: @This(), @"cpz.index": usize, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).initList(@"cpz.elementSize", @"cpz.count");
                 \\        }}
                 \\
             , .{});
@@ -16118,8 +16118,8 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(@"cpz.index")).getListElementSize(@"cpz.expected");
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementSize(self: @This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize, element_size: cpz.ElementSize) !bool {{
-        \\            return (try self.list.getPointerElement(@"cpz.index")).listMatchesElementSize(@"cpz.expected", element_size);
+        \\        pub fn elementListMatchesElementSize(self: @This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\            return (try self.list.getPointerElement(@"cpz.index")).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
         \\        }}
         \\
         \\        pub fn elementListElementBitCount(self: @This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !usize {{
@@ -16431,8 +16431,8 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(@"cpz.index")).getListElementSize(@"cpz.expected");
         \\        }}
         \\
-        \\        pub fn elementListMatchesElementSize(self: @This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize, element_size: cpz.ElementSize) !bool {{
-        \\            return (try self.list.getPointerElement(@"cpz.index")).listMatchesElementSize(@"cpz.expected", element_size);
+        \\        pub fn elementListMatchesElementSize(self: @This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\            return (try self.list.getPointerElement(@"cpz.index")).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
         \\        }}
         \\
         \\        pub fn elementListElementBitCount(self: @This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !usize {{
@@ -17021,8 +17021,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.get_{s}AsPointer()).getListElementSize(@"cpz.expected");
         \\        }}
         \\
-        \\        pub fn get_{s}ListMatchesElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize, element_size: cpz.ElementSize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementSize(@"cpz.expected", element_size);
+        \\        pub fn get_{s}ListMatchesElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
+        \\            return (try self.get_{s}AsPointer()).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
         \\        }}
         \\
         \\        pub fn get_{s}ListElementBitCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
@@ -17493,11 +17493,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initStruct(struct_size);
                 \\        }}
                 \\
-                \\        pub fn init_{s}_list(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+                \\        pub fn init_{s}_list(self: Builder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).initList(element_size, @"cpz.count");
+                \\            return (try self.builder.getPointerField({})).initList(@"cpz.elementSize", @"cpz.count");
                 \\        }}
                 \\
                 \\        pub fn init_{s}_structList(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
@@ -17511,8 +17511,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return self.orphanage().newStruct(struct_size);
                 \\        }}
                 \\
-                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
-                \\            return self.orphanage().newList(element_size, @"cpz.count");
+                \\        pub fn new_{s}_listOrphan(self: Builder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+                \\            return self.orphanage().newList(@"cpz.elementSize", @"cpz.count");
                 \\        }}
                 \\
                 \\        pub fn new_{s}_structListOrphan(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{
@@ -17638,11 +17638,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).getList(null);
                 \\        }}
                 \\
-                \\        pub fn init_{s}(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
+                \\        pub fn init_{s}(self: Builder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.ListBuilder {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).initList(element_size, @"cpz.count");
+                \\            return (try self.builder.getPointerField({})).initList(@"cpz.elementSize", @"cpz.count");
                 \\        }}
                 \\
                 \\        pub fn init_{s}_structList(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.ListBuilder {{
@@ -17652,8 +17652,8 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return (try self.builder.getPointerField({})).initStructList(@"cpz.count", struct_size);
                 \\        }}
                 \\
-                \\        pub fn new_{s}_listOrphan(self: Builder, element_size: cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
-                \\            return self.orphanage().newList(element_size, @"cpz.count");
+                \\        pub fn new_{s}_listOrphan(self: Builder, @"cpz.elementSize": cpz.ElementSize, @"cpz.count": usize) !cpz.Orphan {{
+                \\            return self.orphanage().newList(@"cpz.elementSize", @"cpz.count");
                 \\        }}
                 \\
                 \\        pub fn new_{s}_structListOrphan(self: Builder, @"cpz.count": usize, struct_size: cpz.StructSize) !cpz.Orphan {{

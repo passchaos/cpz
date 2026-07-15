@@ -282,6 +282,22 @@ test "generated helpers avoid location field shadowing" {
     try std.testing.expect(try root_builder.get_itemPointerMatchesLocation(segment_id, word_index));
 }
 
+test "generated helpers avoid element_size field shadowing" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 2 });
+    defer builder.deinit();
+    const root_builder = try generated.ElementSizeFieldDefaults.initRootTyped(&builder);
+    try root_builder.set_element_size("element");
+    _ = try root_builder.init_any_list(.two_bytes, 2);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.ElementSizeFieldDefaults.getRoot(&reader);
+    try std.testing.expectEqualStrings("element", try root.element_size());
+    try std.testing.expect(try root.anyListMatchesElementSize(.two_bytes, .two_bytes));
+    _ = try root_builder.init_any_list(.byte, 1);
+    var list_orphan = try root_builder.new_any_listOrphan(.byte, 1);
+    defer list_orphan.release();
+}
+
 test "generated method default flats expose typed scalar and enum getters" {
     try std.testing.expectEqual(@as(usize, 7), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");

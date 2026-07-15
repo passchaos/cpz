@@ -84,6 +84,11 @@ struct LocationFieldDefaults {
   item @2 :NullPointerDefaults;
 }
 
+struct ElementSizeFieldDefaults {
+  element_size @0 :Text = "element";
+  any @1 :AnyPointer;
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;
