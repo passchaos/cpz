@@ -78,6 +78,12 @@ struct OptionsFieldDefaults {
   item @1 :NullPointerDefaults;
 }
 
+struct LocationFieldDefaults {
+  segment_id @0 :Text = "segment";
+  word_index @1 :Text = "word";
+  item @2 :NullPointerDefaults;
+}
+
 interface Defaults {
   enum LocalMode {
     stopped @0;

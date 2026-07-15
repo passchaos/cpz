@@ -11221,8 +11221,8 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         \\            return self.orphan.pointerWordIndex();
         \\        }}
         \\
-        \\        pub fn matchesLocation(self: @This(), segment_id: u32, word_index: usize) bool {{
-        \\            return self.orphan.matchesLocation(segment_id, word_index);
+        \\        pub fn matchesLocation(self: @This(), @"cpz.segmentId": u32, @"cpz.wordIndex": usize) bool {{
+        \\            return self.orphan.matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
         \\        }}
         \\
         \\        pub fn matchesPointerType(self: @This(), @"cpz.expected": cpz.wire.PointerType) bool {{
@@ -13797,11 +13797,11 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
         \\        return self.reader.getPointerField({}).pointerWordIndex();
         \\    }}
         \\
-        \\    pub fn {s}PointerMatchesLocation(self: @This(), segment_id: u32, word_index: usize) !bool {{
+        \\    pub fn {s}PointerMatchesLocation(self: @This(), @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
     , .{ index, field_name });
     try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).matchesLocation(segment_id, word_index);
+        \\        return self.reader.getPointerField({}).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
         \\    }}
         \\
         \\    pub fn {s}MatchesPointerKind(self: @This(), @"cpz.kind": cpz.wire.PointerType) !bool {{
@@ -15970,8 +15970,8 @@ fn emitListReaderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.A
         \\            return (try self.list.getPointerElement(@"cpz.index")).pointerWordIndex();
         \\        }}
         \\
-        \\        pub fn elementPointerMatchesLocation(self: @This(), @"cpz.index": usize, segment_id: u32, word_index: usize) !bool {{
-        \\            return (try self.list.getPointerElement(@"cpz.index")).matchesLocation(segment_id, word_index);
+        \\        pub fn elementPointerMatchesLocation(self: @This(), @"cpz.index": usize, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        \\            return (try self.list.getPointerElement(@"cpz.index")).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
         \\        }}
         \\
         \\        pub fn elementMatchesPointerKind(self: @This(), @"cpz.index": usize, @"cpz.kind": cpz.wire.PointerType) !bool {{
@@ -16283,8 +16283,8 @@ fn emitListBuilderPointerElementHelpers(allocator: std.mem.Allocator, out: *std.
         \\            return (try self.list.getPointerElement(@"cpz.index")).pointerWordIndex();
         \\        }}
         \\
-        \\        pub fn elementPointerMatchesLocation(self: @This(), @"cpz.index": usize, segment_id: u32, word_index: usize) !bool {{
-        \\            return (try self.list.getPointerElement(@"cpz.index")).matchesLocation(segment_id, word_index);
+        \\        pub fn elementPointerMatchesLocation(self: @This(), @"cpz.index": usize, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        \\            return (try self.list.getPointerElement(@"cpz.index")).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
         \\        }}
         \\
         \\        pub fn elementMatchesPointerKind(self: @This(), @"cpz.index": usize, @"cpz.kind": cpz.wire.PointerType) !bool {{
@@ -16832,11 +16832,11 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         \\            return (try self.builder.getPointerField({})).pointerWordIndex();
         \\        }}
         \\
-        \\        pub fn get_{s}PointerMatchesLocation(self: Builder, segment_id: u32, word_index: usize) !bool {{
+        \\        pub fn get_{s}PointerMatchesLocation(self: Builder, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
     , .{ index, field_name });
     try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
     try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).matchesLocation(segment_id, word_index);
+        \\            return (try self.builder.getPointerField({})).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
         \\        }}
         \\
         \\        pub fn get_{s}MatchesPointerKind(self: Builder, @"cpz.kind": cpz.wire.PointerType) !bool {{
