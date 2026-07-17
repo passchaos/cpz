@@ -133,6 +133,8 @@ struct ScopedAliasBox {
   using LocalMaybeNames = List(?LocalName);
   using LocalMaybeCaps = List(?Capability);
   using LocalMaybeFriends = List(?LocalFriend);
+  using LocalMaybeIds = List(?LocalId);
+  using LocalMaybeShades = List(?LocalShade);
 
   const defaultLocalId :LocalId = 77;
   const defaultLocalNames :LocalNames = ["local", "aliases"];
