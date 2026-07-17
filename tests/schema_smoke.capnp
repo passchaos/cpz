@@ -29,6 +29,10 @@ using MaybeIds = List(?UInt32);
 using MaybeShades = List(?Color);
 using MaybeName = ?Text;
 using MaybeShade = ?Color;
+using NameGroups = List(List(Name));
+using ServiceList = List(ServiceAlias);
+using MaybeService = ?ServiceAlias;
+using MaybeServices = List(?ServiceAlias);
 
 const globalId @0xc0571d01 :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;
@@ -141,6 +145,9 @@ struct ScopedAliasBox {
   using LocalMaybeShades = List(?LocalShade);
   using LocalMaybeName = ?LocalName;
   using LocalMaybeShade = ?LocalShade;
+  using LocalNameGroups = List(List(LocalName));
+  using LocalServiceList = List(ServiceAlias);
+  using LocalMaybeService = ?ServiceAlias;
 
   const defaultLocalId :LocalId = 77;
   const defaultLocalNames :LocalNames = ["local", "aliases"];

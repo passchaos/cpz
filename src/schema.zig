@@ -8391,6 +8391,42 @@ fn aliasLine(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []co
     return appendFmt(allocator, out, "{s}pub const {s} = {s};\n\n", .{ indent, alias_name, value });
 }
 
+fn aliasValueTypeAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError![]u8 {
+    return switch (resolveTypeScoped(file, scope, ty)) {
+        .void => allocator.dupe(u8, "void"),
+        .bool => allocator.dupe(u8, "bool"),
+        .int8 => allocator.dupe(u8, "i8"),
+        .int16 => allocator.dupe(u8, "i16"),
+        .int32 => allocator.dupe(u8, "i32"),
+        .int64 => allocator.dupe(u8, "i64"),
+        .uint8 => allocator.dupe(u8, "u8"),
+        .uint16 => allocator.dupe(u8, "u16"),
+        .uint32 => allocator.dupe(u8, "u32"),
+        .uint64 => allocator.dupe(u8, "u64"),
+        .float32 => allocator.dupe(u8, "f32"),
+        .float64 => allocator.dupe(u8, "f64"),
+        .text, .data => allocator.dupe(u8, "[]const u8"),
+        .capability => allocator.dupe(u8, "u32"),
+        .any_pointer => allocator.dupe(u8, "cpz.PointerReader"),
+        .any_struct => allocator.dupe(u8, "cpz.StructReader"),
+        .any_list => allocator.dupe(u8, "cpz.ListReader"),
+        .named => |type_name| {
+            if (findInterface(file, type_name) != null) return allocator.dupe(u8, "u32");
+            return zigTypeRefAlloc(allocator, file, type_name);
+        },
+        .list => |child| {
+            const child_type = try aliasValueTypeAlloc(allocator, file, scope, child.*);
+            defer allocator.free(child_type);
+            return std.fmt.allocPrint(allocator, "[]const {s}", .{child_type});
+        },
+        .optional => |child| {
+            const child_type = try aliasValueTypeAlloc(allocator, file, scope, child.*);
+            defer allocator.free(child_type);
+            return std.fmt.allocPrint(allocator, "?{s}", .{child_type});
+        },
+    };
+}
+
 fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, alias_name: []const u8, target: Type) LayoutError!void {
     switch (resolveTypeScoped(file, scope, target)) {
         .void => try aliasLine(allocator, out, indent, alias_name, "void"),
@@ -8415,70 +8451,18 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             defer allocator.free(zig_type);
             try aliasLine(allocator, out, indent, alias_name, zig_type);
         },
-        .list => |child| switch (resolveTypeScoped(file, scope, child.*)) {
-            .void => try aliasLine(allocator, out, indent, alias_name, "[]const void"),
-            .bool => try aliasLine(allocator, out, indent, alias_name, "[]const bool"),
-            .uint8 => try aliasLine(allocator, out, indent, alias_name, "[]const u8"),
-            .uint16 => try aliasLine(allocator, out, indent, alias_name, "[]const u16"),
-            .uint32 => try aliasLine(allocator, out, indent, alias_name, "[]const u32"),
-            .uint64 => try aliasLine(allocator, out, indent, alias_name, "[]const u64"),
-            .int8 => try aliasLine(allocator, out, indent, alias_name, "[]const i8"),
-            .int16 => try aliasLine(allocator, out, indent, alias_name, "[]const i16"),
-            .int32 => try aliasLine(allocator, out, indent, alias_name, "[]const i32"),
-            .int64 => try aliasLine(allocator, out, indent, alias_name, "[]const i64"),
-            .float32 => try aliasLine(allocator, out, indent, alias_name, "[]const f32"),
-            .float64 => try aliasLine(allocator, out, indent, alias_name, "[]const f64"),
-            .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const []const u8"),
-            .capability => try aliasLine(allocator, out, indent, alias_name, "[]const u32"),
-            .named => |type_name| {
-                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-                defer allocator.free(zig_type);
-                const list_type = try std.fmt.allocPrint(allocator, "[]const {s}", .{zig_type});
-                defer allocator.free(list_type);
-                try aliasLine(allocator, out, indent, alias_name, list_type);
-            },
-            .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
-                .void => try aliasLine(allocator, out, indent, alias_name, "[]const ?void"),
-                .bool => try aliasLine(allocator, out, indent, alias_name, "[]const ?bool"),
-                .uint8 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u8"),
-                .uint16 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u16"),
-                .uint32 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
-                .uint64 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u64"),
-                .int8 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i8"),
-                .int16 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i16"),
-                .int32 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i32"),
-                .int64 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i64"),
-                .float32 => try aliasLine(allocator, out, indent, alias_name, "[]const ?f32"),
-                .float64 => try aliasLine(allocator, out, indent, alias_name, "[]const ?f64"),
-                .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const ?[]const u8"),
-                .capability => try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
-                .any_pointer => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.PointerReader"),
-                .any_struct => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.StructReader"),
-                .any_list => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.ListReader"),
-                .named => |type_name| if (findInterface(file, type_name) != null)
-                    try aliasLine(allocator, out, indent, alias_name, "[]const ?u32")
-                else if (findEnum(file, type_name) != null) {
-                    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-                    defer allocator.free(zig_type);
-                    const list_type = try std.fmt.allocPrint(allocator, "[]const ?{s}", .{zig_type});
-                    defer allocator.free(list_type);
-                    try aliasLine(allocator, out, indent, alias_name, list_type);
-                } else if (isStructLikeName(file, type_name)) {
-                    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-                    defer allocator.free(zig_type);
-                    const list_type = try std.fmt.allocPrint(allocator, "[]const ?{s}", .{zig_type});
-                    defer allocator.free(list_type);
-                    try aliasLine(allocator, out, indent, alias_name, list_type);
-                },
-                else => {},
-            },
-            .any_pointer, .any_struct, .any_list, .list => {},
+        .list => |child| {
+            const child_type = try aliasValueTypeAlloc(allocator, file, scope, child.*);
+            defer allocator.free(child_type);
+            const list_type = try std.fmt.allocPrint(allocator, "[]const {s}", .{child_type});
+            defer allocator.free(list_type);
+            try aliasLine(allocator, out, indent, alias_name, list_type);
         },
         .optional => |child| {
             // Preserve the nullable marker for direct aliases such as
             // `using MaybeName = ?Text`; recursing into the child would emit
             // the non-optional value type and silently change the public API.
-            const child_type = try constZigValueTypeAlloc(allocator, file, scope, child.*);
+            const child_type = try aliasValueTypeAlloc(allocator, file, scope, child.*);
             defer allocator.free(child_type);
             const optional_type = try std.fmt.allocPrint(allocator, "?{s}", .{child_type});
             defer allocator.free(optional_type);
