@@ -2,7 +2,7 @@ const std = @import("std");
 const cpz = @import("cpz");
 
 const usage =
-    \\usage: cpzc [--runtime-import name] [--namespace name] [--check] [--emit-raw-schema-comments] <schema.capnp> [output.zig]
+    \\usage: cpzc [--help] [--runtime-import name] [--namespace name] [--check] [--emit-raw-schema-comments] <schema.capnp> [output.zig]
     \\
     \\Parses a supported subset of Cap'n Proto schemas and emits Zig accessor skeletons.
     \\Use --check to validate parse/layout/codegen without writing generated output.
@@ -36,7 +36,7 @@ pub fn main(init: std.process.Init) !u8 {
         } else if (std.mem.eql(u8, arg, "--check")) {
             check = true;
         } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
-            std.debug.print("{s}", .{usage});
+            try std.Io.File.stdout().writeStreamingAll(io, usage);
             return 0;
         } else if (std.mem.eql(u8, arg, "--emit-raw-schema-comments")) {
             emit_raw_schema_comments = true;
