@@ -10,6 +10,8 @@ const referencedAmount :UInt32 = 123;
 const referencedRatio :Float64 = +1.25e2;
 const referencedMode :Mode = on;
 const referencedNumbers :List(UInt16) = [7, 8];
+const referencedCap :Capability = void;
+const referencedCallback :TopCallback = void;
 const referencedCaps :List(Capability) = [void, null];
 const referencedCallbacks :List(TopCallback) = [void];
 const referencedMaybeCallback :?TopCallback = void;
@@ -212,6 +214,8 @@ interface Defaults {
     done @0 () -> ();
   }
 
+  const defaultCap :Capability = void;
+  const defaultCallback :Callback = void;
   const defaultCaps :List(Capability) = [void, null];
   const defaultCallbacks :List(Callback) = [void];
   const defaultMaybeCapElements :List(?Capability) = [void, null];

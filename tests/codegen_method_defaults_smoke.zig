@@ -14,6 +14,14 @@ test "generated top-level optional interface list aliases emit types" {
 }
 
 test "generated optional interface constants expose null flats" {
+    try std.testing.expectEqual(@as(?u32, null), generated.referencedCap);
+    var cap_reader = generated.referencedCapFlat.reader(.{});
+    try std.testing.expect(try generated.referencedCapFlat.isNull(&cap_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.referencedCapFlat.rawPointer(&cap_reader));
+    try std.testing.expectEqual(@as(?u32, null), generated.referencedCallback);
+    var direct_callback_reader = generated.referencedCallbackFlat.reader(.{});
+    try std.testing.expect(try generated.referencedCallbackFlat.isNull(&direct_callback_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.referencedCallbackFlat.rawPointer(&direct_callback_reader));
     try std.testing.expectEqual(@as(?u32, null), generated.referencedMaybeCallback);
     var callback_reader = generated.referencedMaybeCallbackFlat.reader(.{});
     try std.testing.expect(try generated.referencedMaybeCallbackFlat.isNull(&callback_reader));
@@ -26,6 +34,12 @@ test "generated capability list constants expose null values" {
     try std.testing.expectEqual(@as(?u32, null), generated.referencedCaps[1]);
     try std.testing.expectEqual(@as(usize, 1), generated.referencedCallbacks.len);
     try std.testing.expectEqual(@as(?u32, null), generated.referencedCallbacks[0]);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultCap);
+    var default_cap_reader = generated.Defaults.defaultCapFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultCapFlat.isNull(&default_cap_reader));
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultCallback);
+    var default_callback_reader = generated.Defaults.defaultCallbackFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultCallbackFlat.isNull(&default_callback_reader));
     try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultCaps.len);
     try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultCaps[0]);
     try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultCaps[1]);
