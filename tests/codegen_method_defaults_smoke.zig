@@ -309,6 +309,11 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(u32, 99), item_alias.value());
     try std.testing.expectEqualStrings("ninety-nine", try item_alias.label());
 
+    var blob_item_reader = generated.Defaults.defaultBlobItem.reader(.{});
+    const blob_item = try generated.Defaults.defaultBlobItem.typedRoot(&blob_item_reader);
+    try std.testing.expectEqualStrings("local", try blob_item.label());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0a, 0x0b }, try blob_item.payload());
+
     var any_item_reader = generated.Defaults.defaultMaybeAnyItem.reader(.{});
     const any_item = try (try generated.Defaults.defaultMaybeAnyItem.get(&any_item_reader)).getStruct(null);
     try std.testing.expectEqual(@as(u32, 99), any_item.getUInt32(0, 0));

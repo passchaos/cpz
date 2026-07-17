@@ -6074,7 +6074,7 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
                 defer allocator.free(items);
                 return listCapabilityFlatBytesAlloc(allocator, file, scope, items);
             }
-            if (findStructDirect(file, type_name) != null) return listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolved_literal);
+            if (findStructDirect(file, type_name) != null) return listStructFieldDefaultFlatBytesAlloc(allocator, file, scope, type_name, resolved_literal);
             return error.UnsupportedType;
         },
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
@@ -6105,7 +6105,7 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
 }
 
 fn methodStructDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, default_literal: []const u8) LayoutError!?[]u8 {
-    return structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, scope, default_literal));
+    return structFieldDefaultFlatBytesAlloc(allocator, file, scope, type_name, resolveConstReferenceLiteral(file, scope, default_literal));
 }
 
 const AnyPointerDefaultKind = enum { any, struct_ptr, list };
@@ -6120,7 +6120,10 @@ fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *co
         .named => |type_name| {
             if (want == .list) return error.UnsupportedType;
             if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
-            return (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, decl.literal)) orelse error.UnsupportedType;
+            var decl_scope_fields: [0]Field = .{};
+            var decl_scope_storage: Struct = undefined;
+            const decl_scope = constDeclResolutionScope(file, scope, decl, decl_scope_fields[0..], &decl_scope_storage);
+            return (try structFieldDefaultFlatBytesAlloc(allocator, file, decl_scope, type_name, decl.literal)) orelse error.UnsupportedType;
         },
         .list => |child| {
             if (want == .struct_ptr) return error.UnsupportedType;
@@ -8727,7 +8730,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
             if (referenced) |ref_decl| {
                 switch (resolveTypeScoped(file, scope, list_child.*)) {
                     .named => |type_name| if (findEnum(file, type_name) == null and findInterface(file, type_name) == null and isStructLikeName(file, type_name)) {
-                        const flat = try listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, ref_decl.literal);
+                        const flat = try listStructFieldDefaultFlatBytesAlloc(allocator, file, item_scope, type_name, ref_decl.literal);
                         defer allocator.free(flat);
                         const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                         defer allocator.free(zig_type);
@@ -8754,7 +8757,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                     \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.schema".@"cpz.const.{s}.structFields";
                     \\
                 , .{ indent, const_name, indent, fields.len, indent, const_name });
-                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, decl.literal)) orelse return;
+                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, scope, type_name, decl.literal)) orelse return;
                 defer allocator.free(flat);
                 const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
                 defer allocator.free(flat_literal);
@@ -9336,7 +9339,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 }
                 if (isStructLikeName(file, type_name)) {
                     const literal = resolveConstReferenceLiteral(file, scope, decl.literal);
-                    const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, literal)) orelse return;
+                    const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, scope, type_name, literal)) orelse return;
                     defer allocator.free(flat);
                     const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                     defer allocator.free(zig_type);
@@ -9677,7 +9680,7 @@ fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
 
     for (items) |item| {
         if (item.struct_fields.len == 0) return null;
-        writeStructLiteralFieldsIntoSegment(allocator, file, &layout, item.struct_fields, &segment, 2 + item.index * element_words) catch |err| switch (err) {
+        writeStructLiteralFieldsIntoSegment(allocator, file, scope, &layout, item.struct_fields, &segment, 2 + item.index * element_words) catch |err| switch (err) {
             error.UnsupportedType => return null,
             else => return err,
         };
@@ -9932,7 +9935,7 @@ fn parseStructLiteralOrImpliedFirstFieldAlloc(allocator: std.mem.Allocator, stru
     };
 }
 
-fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, type_name: []const u8, literal: []const u8) LayoutError!void {
+fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, type_name: []const u8, literal: []const u8) LayoutError!void {
     const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
     var nested_layout = try planStructLayout(allocator, file, struct_decl);
     defer nested_layout.deinit(allocator);
@@ -9957,10 +9960,10 @@ fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, s
     try segment.appendNTimes(allocator, 0, object_words * @sizeOf(u64));
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(offset, nested_layout.data_words, nested_layout.pointer_count));
-    try writeStructLiteralFieldsIntoSegment(allocator, file, &nested_layout, fields, segment, target_word_index);
+    try writeStructLiteralFieldsIntoSegment(allocator, file, scope, &nested_layout, fields, segment, target_word_index);
 }
 
-fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, type_name: []const u8, literal: []const u8) LayoutError!void {
+fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, type_name: []const u8, literal: []const u8) LayoutError!void {
     const items = parseInlineConstListElementsAlloc(allocator, literal) catch |err| switch (err) {
         error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
         else => return err,
@@ -9989,7 +9992,7 @@ fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, segm
     for (items, 0..) |item, index| {
         const fields = try parseStructLiteralOrImpliedFirstFieldAlloc(allocator, struct_decl, item);
         defer allocator.free(fields);
-        try writeStructLiteralFieldsIntoSegment(allocator, file, &element_layout, fields, segment, target_word_index + 1 + index * element_words);
+        try writeStructLiteralFieldsIntoSegment(allocator, file, scope, &element_layout, fields, segment, target_word_index + 1 + index * element_words);
     }
 }
 
@@ -10096,27 +10099,24 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
                     std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
                 }
             } else {
-                try appendStructListPointer(allocator, file, segment, pointer_index, data_words, object_start_words, type_name, literal);
+                try appendStructListPointer(allocator, file, scope, segment, pointer_index, data_words, object_start_words, type_name, literal);
             }
         },
         else => return error.UnsupportedType,
     }
 }
 
-fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, segment: *std.ArrayList(u8), pointer_index: usize, object_start_words: usize, ty: Type, literal: []const u8) LayoutError!void {
-    const const_ref = findConstReference(file, layout.decl, literal);
-    const resolved_literal = resolveConstReferenceLiteral(file, layout.decl, literal);
+fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, layout: *const StructLayout, segment: *std.ArrayList(u8), pointer_index: usize, object_start_words: usize, ty: Type, literal: []const u8) LayoutError!void {
+    const literal_scope = scope orelse layout.decl;
+    const const_ref = findConstReference(file, literal_scope, literal);
+    const resolved_literal = resolveConstReferenceLiteral(file, literal_scope, literal);
     switch (resolveTypeScoped(file, layout.decl, ty)) {
         .text => {
             if (const_ref) |decl| {
-                if (resolveTypeScoped(file, layout.decl, decl.ty) == .text) {
-                    if (decl.is_embed) {
-                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, decl.embed_bytes orelse return error.UnsupportedType, true, object_start_words);
-                    } else {
-                        const text = try decodedStringBytesAlloc(allocator, decl.literal);
-                        defer allocator.free(text);
-                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
-                    }
+                if (resolveConstDeclType(file, layout.decl, decl) == .text) {
+                    const text = try constBlobBytesAlloc(allocator, file, literal_scope, decl, true);
+                    defer allocator.free(text);
+                    try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, text, true, object_start_words);
                     return;
                 }
             }
@@ -10129,17 +10129,10 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
         },
         .data => {
             if (const_ref) |decl| {
-                if (resolveTypeScoped(file, layout.decl, decl.ty) == .data) {
-                    if (decl.is_embed) {
-                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, decl.embed_bytes orelse return error.UnsupportedType, false, object_start_words);
-                    } else {
-                        const data = if (decl.is_hex_data)
-                            try hexBytesAlloc(allocator, decl.literal)
-                        else
-                            try decodedStringBytesAlloc(allocator, decl.literal);
-                        defer allocator.free(data);
-                        try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
-                    }
+                if (resolveConstDeclType(file, layout.decl, decl) == .data) {
+                    const data = try constBlobBytesAlloc(allocator, file, literal_scope, decl, false);
+                    defer allocator.free(data);
+                    try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
                     return;
                 }
             }
@@ -10150,10 +10143,10 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
             defer allocator.free(data);
             try appendByteListPointer(allocator, segment, pointer_index, layout.data_words, data, false, object_start_words);
         },
-        .list => |child| try appendScalarListPointer(allocator, file, layout.decl, segment, pointer_index, layout.data_words, object_start_words, child.*, resolved_literal),
+        .list => |child| try appendScalarListPointer(allocator, file, literal_scope, segment, pointer_index, layout.data_words, object_start_words, child.*, resolved_literal),
         .any_pointer => {
             if (const_ref) |decl| {
-                return appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
+                return appendStructPointerFieldLiteral(allocator, file, literal_scope, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
             }
             const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
             if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
@@ -10161,8 +10154,8 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
         },
         .any_struct => {
             if (const_ref) |decl| {
-                if (resolveTypeScoped(file, layout.decl, decl.ty) == .named) {
-                    return appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
+                if (resolveConstDeclType(file, literal_scope, decl) == .named) {
+                    return appendStructPointerFieldLiteral(allocator, file, literal_scope, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
                 }
             }
             const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
@@ -10171,8 +10164,8 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
         },
         .any_list => {
             if (const_ref) |decl| {
-                if (resolveTypeScoped(file, layout.decl, decl.ty) == .list) {
-                    return appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
+                if (resolveConstDeclType(file, literal_scope, decl) == .list) {
+                    return appendStructPointerFieldLiteral(allocator, file, literal_scope, layout, segment, pointer_index, object_start_words, decl.ty, decl.literal);
                 }
             }
             const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
@@ -10190,18 +10183,18 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
                 if (std.mem.eql(u8, raw, "void") or std.mem.eql(u8, raw, "null")) return;
                 return error.UnsupportedType;
             }
-            try appendStructLiteralPointer(allocator, file, segment, pointer_index, layout.data_words, object_start_words, type_name, resolved_literal);
+            try appendStructLiteralPointer(allocator, file, literal_scope, segment, pointer_index, layout.data_words, object_start_words, type_name, resolved_literal);
         },
         .optional => |child| {
             const raw = std.mem.trim(u8, resolved_literal, " \t\r\n");
             if (std.mem.eql(u8, raw, "null")) return;
-            try appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, child.*, resolved_literal);
+            try appendStructPointerFieldLiteral(allocator, file, literal_scope, layout, segment, pointer_index, object_start_words, child.*, resolved_literal);
         },
         else => return error.UnsupportedType,
     }
 }
 
-fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *const File, layout: *const StructLayout, fields: []const ConstStructField, segment: *std.ArrayList(u8), object_start_words: usize) LayoutError!void {
+fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, layout: *const StructLayout, fields: []const ConstStructField, segment: *std.ArrayList(u8), object_start_words: usize) LayoutError!void {
     const object_start_bytes = object_start_words * @sizeOf(u64);
     for (fields) |const_field| {
         const field_layout = findFieldLayoutByNameOrGroupFirst(layout, const_field.name) orelse return error.UnsupportedType;
@@ -10292,13 +10285,12 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
                 },
                 else => return error.UnsupportedType,
             },
-            .pointer => |pointer_index| try appendStructPointerFieldLiteral(allocator, file, layout, segment, pointer_index, object_start_words, field.ty, const_field.literal),
+            .pointer => |pointer_index| try appendStructPointerFieldLiteral(allocator, file, scope, layout, segment, pointer_index, object_start_words, field.ty, const_field.literal),
         }
     }
 }
 
 fn structLiteralObjectBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, layout: *const StructLayout, fields: []const ConstStructField, comptime include_root_pointer: bool) LayoutError!?[]u8 {
-    _ = scope;
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
     const object_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
@@ -10307,7 +10299,7 @@ fn structLiteralObjectBytesAlloc(allocator: std.mem.Allocator, file: *const File
     if (include_root_pointer) {
         writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeStruct(0, layout.data_words, layout.pointer_count));
     }
-    writeStructLiteralFieldsIntoSegment(allocator, file, layout, fields, &segment, object_start_words) catch |err| switch (err) {
+    writeStructLiteralFieldsIntoSegment(allocator, file, scope, layout, fields, &segment, object_start_words) catch |err| switch (err) {
         error.UnsupportedType => return null,
         else => return err,
     };
@@ -11796,7 +11788,7 @@ fn listOptionalStructConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *co
         if (item.index >= items.len) return error.InvalidToken;
         const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item.literal), " \t\r\n");
         if (std.mem.eql(u8, resolved_item, "null")) continue;
-        try appendStructLiteralPointer(allocator, file, &segment, item.index, 0, list_start_words, type_name, resolved_item);
+        try appendStructLiteralPointer(allocator, file, scope, &segment, item.index, 0, list_start_words, type_name, resolved_item);
     }
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
@@ -11834,7 +11826,7 @@ fn listOptionalAnyPointerConstFlatBytesAlloc(allocator: std.mem.Allocator, file:
             .named => |type_name| {
                 if (want == .list) return error.UnsupportedType;
                 if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
-                try appendStructLiteralPointer(allocator, file, &segment, item.index, 0, list_start_words, type_name, decl.literal);
+                try appendStructLiteralPointer(allocator, file, scope, &segment, item.index, 0, list_start_words, type_name, decl.literal);
             },
             .list => |list_child| {
                 if (want == .struct_ptr) return error.UnsupportedType;
@@ -12314,11 +12306,11 @@ fn listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator
     return flat;
 }
 
-fn listStructFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, type_name: []const u8, literal: []const u8) LayoutError![]u8 {
+fn listStructFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, literal: []const u8) LayoutError![]u8 {
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
     try segment.appendNTimes(allocator, 0, @sizeOf(u64));
-    try appendStructListPointer(allocator, file, &segment, 0, 0, 0, type_name, literal);
+    try appendStructListPointer(allocator, file, scope, &segment, 0, 0, 0, type_name, literal);
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
@@ -12340,7 +12332,7 @@ fn appendOptionalStructListPointer(allocator: std.mem.Allocator, file: *const Fi
     for (items, 0..) |item, index| {
         const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item), " \t\r\n");
         if (std.mem.eql(u8, resolved_item, "null")) continue;
-        try appendStructLiteralPointer(allocator, file, segment, index, 0, list_start_words, type_name, resolved_item);
+        try appendStructLiteralPointer(allocator, file, scope, segment, index, 0, list_start_words, type_name, resolved_item);
     }
 }
 
@@ -12365,7 +12357,7 @@ fn appendOptionalAnyPointerListPointer(allocator: std.mem.Allocator, file: *cons
             .named => |type_name| {
                 if (want == .list) return error.UnsupportedType;
                 if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
-                try appendStructLiteralPointer(allocator, file, segment, index, 0, list_start_words, type_name, decl.literal);
+                try appendStructLiteralPointer(allocator, file, scope, segment, index, 0, list_start_words, type_name, decl.literal);
             },
             .list => |child| {
                 if (want == .struct_ptr) return error.UnsupportedType;
@@ -12472,7 +12464,7 @@ fn emitBlobFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
     , .{ indent, indent, indent, indent, indent });
 }
 
-fn structFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, type_name: []const u8, default_expression: []const u8) LayoutError!?[]u8 {
+fn structFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, default_expression: []const u8) LayoutError!?[]u8 {
     const struct_decl = findStructDirect(file, type_name) orelse return null;
     var layout = try planStructLayout(allocator, file, struct_decl);
     defer layout.deinit(allocator);
@@ -12481,7 +12473,7 @@ fn structFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const F
         else => return err,
     };
     defer allocator.free(fields);
-    const object = try structLiteralObjectBytesAlloc(allocator, file, struct_decl, &layout, fields, true) orelse return null;
+    const object = try structLiteralObjectBytesAlloc(allocator, file, scope, &layout, fields, true) orelse return null;
     defer allocator.free(object);
     const segment_words = object.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
@@ -12691,7 +12683,7 @@ fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList
                     continue;
                 }
                 if (findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) continue;
-                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, layout.decl, field.default_expression))) orelse continue;
+                const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, layout.decl, type_name, resolveConstReferenceLiteral(file, layout.decl, field.default_expression))) orelse continue;
                 defer allocator.free(flat);
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
@@ -12708,7 +12700,7 @@ fn structFieldDefaultFlatIsEmitted(allocator: std.mem.Allocator, file: *const Fi
     if (field.default_expression.len == 0) return false;
     if (defaultExpressionIsNullPointer(file, layout.decl, field.default_expression)) return false;
     if (findInterface(file, type_name) != null or !isStructLikeName(file, type_name)) return false;
-    const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, layout.decl, field.default_expression))) orelse return false;
+    const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, layout.decl, type_name, resolveConstReferenceLiteral(file, layout.decl, field.default_expression))) orelse return false;
     defer allocator.free(flat);
     return true;
 }

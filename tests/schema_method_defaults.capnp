@@ -268,6 +268,11 @@ interface Defaults {
     label @1 :Text;
   }
 
+  struct BlobItem {
+    label @0 :Text;
+    payload @1 :Data;
+  }
+
   interface Callback {
     done @0 () -> ();
   }
@@ -286,6 +291,7 @@ interface Defaults {
   const defaultMaybeItemElements :List(?Item) = [defaultMaybeItem, null, defaultItem];
   const defaultItem :Item = (value = 99, label = "ninety-nine");
   const defaultItemAlias :Item = defaultItem;
+  const defaultBlobItem :BlobItem = (label = defaultLabelAlias, payload = defaultPayloadAlias);
   const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
   const defaultMaybeAnyItem :?AnyPointer = defaultItem;
   const defaultMaybeAnyStructItem :?AnyStruct = defaultItem;
