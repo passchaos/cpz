@@ -225,6 +225,27 @@ test "generated optional blob list elements expose typed nullable helpers" {
     } else return error.TestExpectedEqual;
     try std.testing.expect((try reset_any_values.getOrNull(1)) == null);
 
+    const any_structs = try root_builder.init_anyStructs(2);
+    var struct_source_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer struct_source_builder.deinit();
+    const source_struct = try struct_source_builder.initRoot(.{ .data_words = 1, .pointer_count = 0 });
+    try source_struct.setUInt32(0, 91, 0);
+    var struct_source_reader = cpz.MessageReader.init(try struct_source_builder.segmentsConst(), .{});
+    try any_structs.setOrNull(0, try struct_source_reader.getRoot());
+    try any_structs.setOrNull(1, null);
+    if (try any_structs.getOrNull(0)) |value| {
+        try std.testing.expectEqual(@as(u32, 91), value.getUInt32(0, 0));
+    } else return error.TestExpectedEqual;
+    try std.testing.expect((try any_structs.getOrNull(1)) == null);
+
+    const any_lists = try root_builder.init_anyLists(2);
+    try any_lists.setOrNull(0, reset_payloads.list.asReader(&builder_reader_for_any));
+    try any_lists.setOrNull(1, null);
+    if (try any_lists.getOrNull(0)) |value| {
+        try std.testing.expectEqualSlices(u8, &[_]u8{1}, try (try value.getPointerElement(0)).getData());
+    } else return error.TestExpectedEqual;
+    try std.testing.expect((try any_lists.getOrNull(1)) == null);
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try generated.OptionalBlobLists.getRoot(&reader);
     const read_labels = try root.labels();
@@ -247,6 +268,12 @@ test "generated optional blob list elements expose typed nullable helpers" {
     const read_any_values = try root.anyValues();
     try std.testing.expectEqualStrings("tail", try (try read_any_values.getOrNull(0)).?.getText());
     try std.testing.expect((try read_any_values.getOrNull(1)) == null);
+    const read_any_structs = try root.anyStructs();
+    try std.testing.expectEqual(@as(u32, 91), (try read_any_structs.getOrNull(0)).?.getUInt32(0, 0));
+    try std.testing.expect((try read_any_structs.getOrNull(1)) == null);
+    const read_any_lists = try root.anyLists();
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, try (try (try read_any_lists.getOrNull(0)).?.getPointerElement(0)).getData());
+    try std.testing.expect((try read_any_lists.getOrNull(1)) == null);
 }
 
 test "generated struct pointer null defaults expose flats" {

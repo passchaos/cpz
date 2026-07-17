@@ -15394,6 +15394,46 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{}),
+            .any_struct => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.StructReader {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getStruct(null);
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?cpz.StructReader {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getStruct(null);
+                \\        }}
+                \\
+                \\        pub fn pointerSection(self: @This(), @"cpz.index": usize) !cpz.ListReader {{
+                \\            return (try self.get(@"cpz.index")).pointerSectionAsList();
+                \\        }}
+                \\
+                \\        pub fn dataSection(self: @This(), @"cpz.index": usize) ![]const u8 {{
+                \\            return (try self.get(@"cpz.index")).dataSectionBytes();
+                \\        }}
+                \\
+            , .{}),
+            .any_list => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.ListReader {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getList(null);
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?cpz.ListReader {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getList(null);
+                \\        }}
+                \\
+                \\        pub fn elementSizeAt(self: @This(), @"cpz.index": usize) !cpz.ElementSize {{
+                \\            return (try self.get(@"cpz.index")).elementSize();
+                \\        }}
+                \\
+                \\        pub fn structElementSizeAt(self: @This(), @"cpz.index": usize) !cpz.StructSize {{
+                \\            return (try self.get(@"cpz.index")).structElementSize();
+                \\        }}
+                \\
+            , .{}),
             else => {},
         },
     }
@@ -16599,6 +16639,56 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
                 \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?cpz.PointerReader) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
+                \\            return self.clear(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), @"cpz.index": usize) !void {{
+                \\            return self.list.clearPointerElement(@"cpz.index");
+                \\        }}
+                \\
+            , .{}),
+            .any_struct => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.StructBuilder {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getStruct();
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?cpz.StructBuilder {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getStruct();
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: cpz.StructReader) !void {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).copyStructFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?cpz.StructReader) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
+                \\            return self.clear(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), @"cpz.index": usize) !void {{
+                \\            return self.list.clearPointerElement(@"cpz.index");
+                \\        }}
+                \\
+            , .{}),
+            .any_list => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.ListBuilder {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getList(null);
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?cpz.ListBuilder {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getList(null);
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: cpz.ListReader) !void {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).copyListFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?cpz.ListReader) !void {{
                 \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
                 \\            return self.clear(@"cpz.index");
                 \\        }}
