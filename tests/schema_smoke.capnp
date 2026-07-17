@@ -25,6 +25,8 @@ using MaybeAnyPointers = List(?AnyPointer);
 using MaybeAnyStructs = List(?AnyStruct);
 using MaybeAnyLists = List(?AnyList);
 using MaybePeople = List(?Person);
+using MaybeIds = List(?UInt32);
+using MaybeShades = List(?Color);
 
 const globalId @0xc0571d01 :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;

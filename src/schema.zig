@@ -8434,6 +8434,18 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 try aliasLine(allocator, out, indent, alias_name, list_type);
             },
             .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+                .void => try aliasLine(allocator, out, indent, alias_name, "[]const ?void"),
+                .bool => try aliasLine(allocator, out, indent, alias_name, "[]const ?bool"),
+                .uint8 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u8"),
+                .uint16 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u16"),
+                .uint32 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
+                .uint64 => try aliasLine(allocator, out, indent, alias_name, "[]const ?u64"),
+                .int8 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i8"),
+                .int16 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i16"),
+                .int32 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i32"),
+                .int64 => try aliasLine(allocator, out, indent, alias_name, "[]const ?i64"),
+                .float32 => try aliasLine(allocator, out, indent, alias_name, "[]const ?f32"),
+                .float64 => try aliasLine(allocator, out, indent, alias_name, "[]const ?f64"),
                 .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const ?[]const u8"),
                 .capability => try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
                 .any_pointer => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.PointerReader"),
@@ -8441,7 +8453,13 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 .any_list => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.ListReader"),
                 .named => |type_name| if (findInterface(file, type_name) != null)
                     try aliasLine(allocator, out, indent, alias_name, "[]const ?u32")
-                else if (isStructLikeName(file, type_name)) {
+                else if (findEnum(file, type_name) != null) {
+                    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                    defer allocator.free(zig_type);
+                    const list_type = try std.fmt.allocPrint(allocator, "[]const ?{s}", .{zig_type});
+                    defer allocator.free(list_type);
+                    try aliasLine(allocator, out, indent, alias_name, list_type);
+                } else if (isStructLikeName(file, type_name)) {
                     const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                     defer allocator.free(zig_type);
                     const list_type = try std.fmt.allocPrint(allocator, "[]const ?{s}", .{zig_type});

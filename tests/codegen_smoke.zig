@@ -115,8 +115,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(generated.Person.size.data_words, generated.Person.@"cpz.dataWordCount");
     try std.testing.expectEqual(generated.Person.size.pointer_count, generated.Person.@"cpz.pointerCount");
     try std.testing.expectEqual(generated.Choice.size, generated.Choice.@"cpz.structSize");
-    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.aliasCount");
-    try std.testing.expectEqual(@as(usize, 15), generated.@"cpz.aliases".len);
+    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.aliasCount");
+    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("Id", generated.@"cpz.aliases"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.aliases"[0].index);
     try std.testing.expectEqualStrings("Names", generated.@"cpz.aliasByName"("Names").?.name);
@@ -166,6 +166,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("List(?AnyList)", generated.@"cpz.aliases"[13].resolved_target);
     try std.testing.expectEqualStrings("MaybePeople", generated.@"cpz.aliases"[14].name);
     try std.testing.expectEqualStrings("List(?Person)", generated.@"cpz.aliases"[14].resolved_target);
+    try std.testing.expectEqualStrings("MaybeIds", generated.@"cpz.aliases"[15].name);
+    try std.testing.expectEqualStrings("List(?UInt32)", generated.@"cpz.aliases"[15].resolved_target);
+    try std.testing.expectEqualStrings("MaybeShades", generated.@"cpz.aliases"[16].name);
+    try std.testing.expectEqualStrings("List(?Color)", generated.@"cpz.aliases"[16].resolved_target);
     try std.testing.expectEqual(@as(u32, 123), @as(generated.Id, 123));
     try std.testing.expectEqual(generated.Color.blue, @as(generated.Shade, generated.Color.blue));
     try std.testing.expectEqualStrings("nullable", @as(generated.MaybeNames, &[_]?[]const u8{"nullable"})[0].?);
@@ -175,6 +179,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(usize, 0), @as(generated.MaybeAnyStructs, &[_]?cpz.StructReader{}).len);
     try std.testing.expectEqual(@as(usize, 0), @as(generated.MaybeAnyLists, &[_]?cpz.ListReader{}).len);
     try std.testing.expectEqual(@as(usize, 0), @as(generated.MaybePeople, &[_]?generated.Person{}).len);
+    try std.testing.expectEqual(@as(?u32, 123), @as(generated.MaybeIds, &[_]?u32{123})[0]);
+    try std.testing.expectEqual(generated.Color.green, @as(generated.MaybeShades, &[_]?generated.Color{generated.Color.green})[0].?);
     try std.testing.expectEqual(@as(u32, 456), @as(generated.ScopedAliasBox.LocalId, 456));
     try std.testing.expectEqual(generated.Color.red, @as(generated.ScopedAliasBox.LocalShade, generated.Color.red));
 }
