@@ -8451,6 +8451,15 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         .any_list => try aliasLine(allocator, out, indent, alias_name, "cpz.ListReader"),
         .capability => try aliasLine(allocator, out, indent, alias_name, "u32"),
         .named => |type_name| {
+            if (findInterface(file, type_name) != null) {
+                const local_name = anonymousAliasName(.{ .named = type_name }) orelse type_name;
+                const local_ident = try zigIdentAlloc(allocator, local_name);
+                defer allocator.free(local_ident);
+                if (!std.mem.eql(u8, alias_name, local_ident)) {
+                    try aliasLine(allocator, out, indent, alias_name, "u32");
+                    return;
+                }
+            }
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             try aliasLine(allocator, out, indent, alias_name, zig_type);

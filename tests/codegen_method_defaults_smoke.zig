@@ -6,6 +6,9 @@ test "generated top-level optional interface list aliases emit types" {
     try std.testing.expectEqualStrings("MaybeCallbacks", generated.@"cpz.aliasByName"("MaybeCallbacks").?.name);
     try std.testing.expectEqualStrings("List(?TopCallback)", generated.@"cpz.aliasByName"("MaybeCallbacks").?.target);
     try std.testing.expectEqualStrings("List(?TopCallback)", generated.@"cpz.aliasByName"("MaybeCallbacks").?.resolved_target);
+    try std.testing.expectEqualStrings("DefaultsAlias", generated.@"cpz.aliasByName"("DefaultsAlias").?.name);
+    try std.testing.expectEqualStrings("Defaults", generated.@"cpz.aliasByName"("DefaultsAlias").?.resolved_target);
+    try std.testing.expectEqual(@as(u32, 41), @as(generated.DefaultsAlias, 41));
     try std.testing.expectEqual(@as(?u32, 42), @as(generated.MaybeCallbacks, &[_]?u32{42})[0]);
     try std.testing.expectEqual(@as(?u32, null), @as(generated.MaybeCallbacks, &[_]?u32{null})[0]);
 }

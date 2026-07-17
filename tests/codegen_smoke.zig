@@ -151,6 +151,7 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("ServiceAlias", generated.@"cpz.aliases"[7].name);
     try std.testing.expectEqualStrings("Service", generated.@"cpz.aliases"[7].target);
     try std.testing.expectEqualStrings("Service", generated.@"cpz.aliases"[7].resolved_target);
+    try std.testing.expectEqual(@as(u32, 777), @as(generated.ServiceAlias, 777));
     try std.testing.expectEqualStrings("MaybeNames", generated.@"cpz.aliases"[8].name);
     try std.testing.expectEqualStrings("List(?Text)", generated.@"cpz.aliases"[8].target);
     try std.testing.expectEqualStrings("List(?Text)", generated.@"cpz.aliases"[8].resolved_target);
