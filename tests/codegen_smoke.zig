@@ -4678,8 +4678,8 @@ test "generated using aliases resolve for layout and accessors" {
 }
 
 test "generated scoped using aliases resolve for fields, consts, lists, and unions" {
-    try std.testing.expectEqual(@as(usize, 6), generated.ScopedAliasBox.@"cpz.aliasCount");
-    try std.testing.expectEqual(@as(usize, 6), generated.ScopedAliasBox.@"cpz.aliases".len);
+    try std.testing.expectEqual(@as(usize, 8), generated.ScopedAliasBox.@"cpz.aliasCount");
+    try std.testing.expectEqual(@as(usize, 8), generated.ScopedAliasBox.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("LocalId", generated.ScopedAliasBox.@"cpz.aliases"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.ScopedAliasBox.@"cpz.aliases"[0].index);
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliasByName"("LocalNames").?.name);
@@ -4700,6 +4700,13 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliases"[2].name);
     try std.testing.expectEqualStrings("List(LocalName)", generated.ScopedAliasBox.@"cpz.aliases"[2].target);
     try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.aliases"[2].resolved_target);
+    try std.testing.expectEqualStrings("LocalMaybeNames", generated.ScopedAliasBox.@"cpz.aliases"[6].name);
+    try std.testing.expectEqualStrings("List(?LocalName)", generated.ScopedAliasBox.@"cpz.aliases"[6].target);
+    try std.testing.expectEqualStrings("List(?Text)", generated.ScopedAliasBox.@"cpz.aliases"[6].resolved_target);
+    try std.testing.expectEqualStrings("LocalMaybeCaps", generated.ScopedAliasBox.@"cpz.aliases"[7].name);
+    try std.testing.expectEqualStrings("List(?Capability)", generated.ScopedAliasBox.@"cpz.aliases"[7].resolved_target);
+    try std.testing.expectEqualStrings("scoped", @as(generated.ScopedAliasBox.LocalMaybeNames, &[_]?[]const u8{"scoped"})[0].?);
+    try std.testing.expectEqual(@as(?u32, null), @as(generated.ScopedAliasBox.LocalMaybeCaps, &[_]?u32{null})[0]);
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.const.defaultLocalNames.type");
     try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.const.defaultLocalNames.resolvedType");
     try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.consts"[1].resolved_ty);
