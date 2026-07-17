@@ -27,6 +27,8 @@ using MaybeAnyLists = List(?AnyList);
 using MaybePeople = List(?Person);
 using MaybeIds = List(?UInt32);
 using MaybeShades = List(?Color);
+using MaybeName = ?Text;
+using MaybeShade = ?Color;
 
 const globalId @0xc0571d01 :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;
@@ -137,6 +139,8 @@ struct ScopedAliasBox {
   using LocalMaybeFriends = List(?LocalFriend);
   using LocalMaybeIds = List(?LocalId);
   using LocalMaybeShades = List(?LocalShade);
+  using LocalMaybeName = ?LocalName;
+  using LocalMaybeShade = ?LocalShade;
 
   const defaultLocalId :LocalId = 77;
   const defaultLocalNames :LocalNames = ["local", "aliases"];

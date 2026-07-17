@@ -115,8 +115,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(generated.Person.size.data_words, generated.Person.@"cpz.dataWordCount");
     try std.testing.expectEqual(generated.Person.size.pointer_count, generated.Person.@"cpz.pointerCount");
     try std.testing.expectEqual(generated.Choice.size, generated.Choice.@"cpz.structSize");
-    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.aliasCount");
-    try std.testing.expectEqual(@as(usize, 17), generated.@"cpz.aliases".len);
+    try std.testing.expectEqual(@as(usize, 19), generated.@"cpz.aliasCount");
+    try std.testing.expectEqual(@as(usize, 19), generated.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("Id", generated.@"cpz.aliases"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.aliases"[0].index);
     try std.testing.expectEqualStrings("Names", generated.@"cpz.aliasByName"("Names").?.name);
@@ -170,6 +170,12 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("List(?UInt32)", generated.@"cpz.aliases"[15].resolved_target);
     try std.testing.expectEqualStrings("MaybeShades", generated.@"cpz.aliases"[16].name);
     try std.testing.expectEqualStrings("List(?Color)", generated.@"cpz.aliases"[16].resolved_target);
+    try std.testing.expectEqualStrings("MaybeName", generated.@"cpz.aliases"[17].name);
+    try std.testing.expectEqualStrings("?Text", generated.@"cpz.aliases"[17].target);
+    try std.testing.expectEqualStrings("?Text", generated.@"cpz.aliases"[17].resolved_target);
+    try std.testing.expectEqualStrings("MaybeShade", generated.@"cpz.aliases"[18].name);
+    try std.testing.expectEqualStrings("?Color", generated.@"cpz.aliases"[18].target);
+    try std.testing.expectEqualStrings("?Color", generated.@"cpz.aliases"[18].resolved_target);
     try std.testing.expectEqual(@as(u32, 123), @as(generated.Id, 123));
     try std.testing.expectEqual(generated.Color.blue, @as(generated.Shade, generated.Color.blue));
     try std.testing.expectEqualStrings("nullable", @as(generated.MaybeNames, &[_]?[]const u8{"nullable"})[0].?);
@@ -181,6 +187,10 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(usize, 0), @as(generated.MaybePeople, &[_]?generated.Person{}).len);
     try std.testing.expectEqual(@as(?u32, 123), @as(generated.MaybeIds, &[_]?u32{123})[0]);
     try std.testing.expectEqual(generated.Color.green, @as(generated.MaybeShades, &[_]?generated.Color{generated.Color.green})[0].?);
+    try std.testing.expectEqualStrings("direct optional", @as(generated.MaybeName, "direct optional").?);
+    try std.testing.expect(@as(generated.MaybeName, null) == null);
+    try std.testing.expectEqual(generated.Color.red, @as(generated.MaybeShade, generated.Color.red).?);
+    try std.testing.expect(@as(generated.MaybeShade, null) == null);
     try std.testing.expectEqual(@as(u32, 456), @as(generated.ScopedAliasBox.LocalId, 456));
     try std.testing.expectEqual(generated.Color.red, @as(generated.ScopedAliasBox.LocalShade, generated.Color.red));
 }
@@ -4726,8 +4736,8 @@ test "generated using aliases resolve for layout and accessors" {
 }
 
 test "generated scoped using aliases resolve for fields, consts, lists, and unions" {
-    try std.testing.expectEqual(@as(usize, 11), generated.ScopedAliasBox.@"cpz.aliasCount");
-    try std.testing.expectEqual(@as(usize, 11), generated.ScopedAliasBox.@"cpz.aliases".len);
+    try std.testing.expectEqual(@as(usize, 13), generated.ScopedAliasBox.@"cpz.aliasCount");
+    try std.testing.expectEqual(@as(usize, 13), generated.ScopedAliasBox.@"cpz.aliases".len);
     try std.testing.expectEqualStrings("LocalId", generated.ScopedAliasBox.@"cpz.aliases"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.ScopedAliasBox.@"cpz.aliases"[0].index);
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.aliasByName"("LocalNames").?.name);
@@ -4759,11 +4769,21 @@ test "generated scoped using aliases resolve for fields, consts, lists, and unio
     try std.testing.expectEqualStrings("List(?UInt32)", generated.ScopedAliasBox.@"cpz.aliases"[9].resolved_target);
     try std.testing.expectEqualStrings("LocalMaybeShades", generated.ScopedAliasBox.@"cpz.aliases"[10].name);
     try std.testing.expectEqualStrings("List(?Color)", generated.ScopedAliasBox.@"cpz.aliases"[10].resolved_target);
+    try std.testing.expectEqualStrings("LocalMaybeName", generated.ScopedAliasBox.@"cpz.aliases"[11].name);
+    try std.testing.expectEqualStrings("?LocalName", generated.ScopedAliasBox.@"cpz.aliases"[11].target);
+    try std.testing.expectEqualStrings("?Text", generated.ScopedAliasBox.@"cpz.aliases"[11].resolved_target);
+    try std.testing.expectEqualStrings("LocalMaybeShade", generated.ScopedAliasBox.@"cpz.aliases"[12].name);
+    try std.testing.expectEqualStrings("?LocalShade", generated.ScopedAliasBox.@"cpz.aliases"[12].target);
+    try std.testing.expectEqualStrings("?Color", generated.ScopedAliasBox.@"cpz.aliases"[12].resolved_target);
     try std.testing.expectEqualStrings("scoped", @as(generated.ScopedAliasBox.LocalMaybeNames, &[_]?[]const u8{"scoped"})[0].?);
     try std.testing.expectEqual(@as(?u32, null), @as(generated.ScopedAliasBox.LocalMaybeCaps, &[_]?u32{null})[0]);
     try std.testing.expectEqual(@as(usize, 0), @as(generated.ScopedAliasBox.LocalMaybeFriends, &[_]?generated.Person{}).len);
     try std.testing.expectEqual(@as(?u32, 77), @as(generated.ScopedAliasBox.LocalMaybeIds, &[_]?u32{77})[0]);
     try std.testing.expectEqual(generated.Color.blue, @as(generated.ScopedAliasBox.LocalMaybeShades, &[_]?generated.Color{generated.Color.blue})[0].?);
+    try std.testing.expectEqualStrings("scoped optional", @as(generated.ScopedAliasBox.LocalMaybeName, "scoped optional").?);
+    try std.testing.expect(@as(generated.ScopedAliasBox.LocalMaybeName, null) == null);
+    try std.testing.expectEqual(generated.Color.green, @as(generated.ScopedAliasBox.LocalMaybeShade, generated.Color.green).?);
+    try std.testing.expect(@as(generated.ScopedAliasBox.LocalMaybeShade, null) == null);
     try std.testing.expectEqualStrings("LocalNames", generated.ScopedAliasBox.@"cpz.const.defaultLocalNames.type");
     try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.const.defaultLocalNames.resolvedType");
     try std.testing.expectEqualStrings("List(Text)", generated.ScopedAliasBox.@"cpz.consts"[1].resolved_ty);

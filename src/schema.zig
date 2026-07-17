@@ -8474,7 +8474,16 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             },
             .any_pointer, .any_struct, .any_list, .list => {},
         },
-        .optional => |child| try emitAliasTarget(allocator, out, file, scope, indent, alias_name, child.*),
+        .optional => |child| {
+            // Preserve the nullable marker for direct aliases such as
+            // `using MaybeName = ?Text`; recursing into the child would emit
+            // the non-optional value type and silently change the public API.
+            const child_type = try constZigValueTypeAlloc(allocator, file, scope, child.*);
+            defer allocator.free(child_type);
+            const optional_type = try std.fmt.allocPrint(allocator, "?{s}", .{child_type});
+            defer allocator.free(optional_type);
+            try aliasLine(allocator, out, indent, alias_name, optional_type);
+        },
     }
 }
 
