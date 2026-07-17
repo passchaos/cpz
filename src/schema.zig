@@ -11530,7 +11530,8 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             try appendFmt(allocator, out, "{s}pub const {s}: {s} = &[_]{s}{{", .{ indent, name, value_type, zig_type });
             for (items, 0..) |item, i| {
                 if (i != 0) try out.appendSlice(allocator, ", ");
-                try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, item.literal)});
+                const resolved_item = resolveScalarConstListItem(file, scope, item);
+                try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, resolved_item.literal)});
             }
             try out.appendSlice(allocator, "};\n\n");
             try emitEnumListFlatContainer(allocator, out, file, scope, indent, name, zig_type, enum_decl, items);

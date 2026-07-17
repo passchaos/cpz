@@ -35,6 +35,11 @@ test "generated optional interface constants expose null flats" {
     try std.testing.expectEqualSlices(u16, &[_]u16{ 7, 8 }, generated.referencedNumbersAlias);
     var referenced_numbers_alias_reader = generated.referencedNumbersAliasFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 8), try generated.referencedNumbersAliasFlat.get(&referenced_numbers_alias_reader, 1));
+    try std.testing.expectEqual(generated.Mode.on, generated.referencedModes[0]);
+    try std.testing.expectEqual(generated.Mode.on, generated.referencedModes[1]);
+    var referenced_modes_reader = generated.referencedModesFlat.reader(.{});
+    try std.testing.expectEqual(generated.Mode.on, try generated.referencedModesFlat.get(&referenced_modes_reader, 0));
+    try std.testing.expectEqual(generated.Mode.on, try generated.referencedModesFlat.get(&referenced_modes_reader, 1));
     try std.testing.expectEqualStrings("referenced text", generated.referencedLabels[0]);
     try std.testing.expectEqualStrings("referenced text", generated.referencedLabels[1]);
     var referenced_labels_reader = generated.referencedLabelsFlat.reader(.{});

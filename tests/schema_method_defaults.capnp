@@ -15,6 +15,7 @@ const referencedAmountAlias :UInt32 = referencedAmount;
 const referencedRatio :Float64 = +1.25e2;
 const referencedMode :Mode = on;
 const referencedModeAlias :Mode = referencedMode;
+const referencedModes :List(Mode) = [referencedMode, referencedModeAlias];
 const referencedNumbers :List(UInt16) = [7, 8];
 const referencedNumbersAlias :List(UInt16) = referencedNumbers;
 const referencedNullNumbers :List(UInt16) = null;
