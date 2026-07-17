@@ -11246,6 +11246,11 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             defer allocator.free(flat);
             try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
         },
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .text => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, true, optional_value),
+            .data => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, false, optional_value),
+            else => return,
+        },
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse {
                 if (findInterface(file, type_name) != null) {
@@ -11363,6 +11368,66 @@ fn stringConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutErro
 
 fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
     return zigDataLiteralAlloc(allocator, item.literal, item.is_hex_data);
+}
+
+fn optionalBlobConstItemBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, item: ConstListItem, comptime is_text: bool) LayoutError!?[]u8 {
+    const resolved_literal = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item.literal), " \t\r\n");
+    if (std.mem.eql(u8, resolved_literal, "null")) return null;
+    if (try referencedBlobBytesAlloc(allocator, file, scope, item.literal, is_text)) |bytes| return bytes;
+    return if (item.is_hex_data)
+        try hexBytesAlloc(allocator, item.literal)
+    else
+        try decodedStringBytesAlloc(allocator, resolved_literal);
+}
+
+fn optionalBlobConstItem(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, item: ConstListItem, comptime is_text: bool) LayoutError![]const u8 {
+    const bytes = try optionalBlobConstItemBytesAlloc(allocator, file, scope, item, is_text) orelse return allocator.dupe(u8, "null");
+    defer allocator.free(bytes);
+    return zigRawStringLiteralAlloc(allocator, bytes);
+}
+
+fn listOptionalTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, comptime is_text: bool) LayoutError![]u8 {
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
+
+    for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
+        const bytes = try optionalBlobConstItemBytesAlloc(allocator, file, scope, item, is_text) orelse continue;
+        defer allocator.free(bytes);
+        try appendByteListPointer(allocator, &segment, 0, 0, bytes, is_text, 1 + item.index);
+    }
+
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
+fn emitOptionalTextOrDataListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool, comptime optional_value: bool) LayoutError!void {
+    const value_type = if (optional_value) "?[]const ?[]const u8" else "[]const ?[]const u8";
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}: {s} = &[_]?[]const u8{{
+    , .{ indent, name, value_type });
+    for (items, 0..) |item, i| {
+        if (i != 0) try out.appendSlice(allocator, ", ");
+        const literal = try optionalBlobConstItem(allocator, file, scope, item, is_text);
+        defer allocator.free(literal);
+        try out.appendSlice(allocator, literal);
+    }
+    try out.appendSlice(allocator, "};\n\n");
+
+    const flat = try listOptionalTextOrDataFlatBytesAlloc(allocator, file, scope, items, is_text);
+    defer allocator.free(flat);
+    var text_type: Type = .text;
+    var data_type: Type = .data;
+    const child: Type = if (is_text) .{ .optional = &text_type } else .{ .optional = &data_type };
+    try emitListFieldDefaultFlatContainerFromBytes(allocator, out, file, scope, indent, name, child, flat);
 }
 
 fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {

@@ -180,6 +180,8 @@ interface Defaults {
   const defaultPayloads :List(Data) = [0x"0c 0d", "raw"];
   const defaultModes :List(ModeAlias) = [stopped, running];
   const defaultGroups :List(List(UInt16)) = [[1, 2], [3]];
+  const defaultMaybeLabels :List(?Text) = ["maybe alpha", null, defaultMaybeLabel, referencedText];
+  const defaultMaybePayloads :List(?Data) = [0x"aa bb", null, defaultMaybePayload, referencedData];
 
   struct Item {
     value @0 :UInt32;
