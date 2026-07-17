@@ -8552,7 +8552,8 @@ fn optionalConstZigTypeAlloc(allocator: std.mem.Allocator, file: *const File, sc
 fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, const_name: []const u8, child: Type, decl: *const ConstDecl) LayoutError!void {
     const raw = std.mem.trim(u8, decl.literal, " \t\r\n");
     const resolved_child = resolveTypeScoped(file, scope, child);
-    if (std.mem.eql(u8, raw, "null") or (std.mem.eql(u8, raw, "void") and typeAcceptsVoidPointerDefault(file, resolved_child))) {
+    const resolved_raw = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, raw), " \t\r\n");
+    if (std.mem.eql(u8, resolved_raw, "null") or (std.mem.eql(u8, resolved_raw, "void") and typeAcceptsVoidPointerDefault(file, resolved_child))) {
         const zig_type = try optionalConstZigTypeAlloc(allocator, file, scope, child);
         defer allocator.free(zig_type);
         try constNullPointerValue(allocator, out, indent, const_name, zig_type);

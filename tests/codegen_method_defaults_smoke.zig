@@ -100,6 +100,12 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Defaults.defaultNullPayload);
     var null_payload_reader = generated.Defaults.defaultNullPayloadFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultNullPayloadFlat.isNull(&null_payload_reader));
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.Defaults.defaultMaybeNullLabelRef);
+    var maybe_null_label_ref_reader = generated.Defaults.defaultMaybeNullLabelRefFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeNullLabelRefFlat.isNull(&maybe_null_label_ref_reader));
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.Defaults.defaultMaybeNullPayloadRef);
+    var maybe_null_payload_ref_reader = generated.Defaults.defaultMaybeNullPayloadRefFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeNullPayloadRefFlat.isNull(&maybe_null_payload_ref_reader));
     try std.testing.expectEqual(@as(?[]const u16, null), generated.Defaults.defaultNullNumbers);
     var null_numbers_reader = generated.Defaults.defaultNullNumbersFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultNullNumbersFlat.isNull(&null_numbers_reader));

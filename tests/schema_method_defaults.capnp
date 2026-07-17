@@ -211,6 +211,8 @@ interface Defaults {
   const defaultPayload :Data = 0x"0a 0b";
   const defaultNullLabel :Text = null;
   const defaultNullPayload :Data = null;
+  const defaultMaybeNullLabelRef :?Text = defaultNullLabel;
+  const defaultMaybeNullPayloadRef :?Data = defaultNullPayload;
   const defaultMaybeVoid :?Void = void;
   const defaultMaybeFlag :?Bool = true;
   const defaultMaybeAmount :?UInt32 = 321;
