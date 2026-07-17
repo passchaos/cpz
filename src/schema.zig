@@ -9247,6 +9247,10 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             try constNullPointerValue(allocator, out, indent, const_name, "?cpz.ListReader");
         },
         .text => {
+            if (std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) {
+                try constNullPointerValue(allocator, out, indent, const_name, "?[]const u8");
+                return;
+            }
             const literal = if (decl.is_embed)
                 try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
             else
@@ -9266,6 +9270,10 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             }
         },
         .data => {
+            if (std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) {
+                try constNullPointerValue(allocator, out, indent, const_name, "?[]const u8");
+                return;
+            }
             const literal = if (decl.is_embed)
                 try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
             else

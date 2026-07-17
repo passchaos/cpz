@@ -14,6 +14,14 @@ test "generated top-level optional interface list aliases emit types" {
 }
 
 test "generated optional interface constants expose null flats" {
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.referencedNullText);
+    var null_text_reader = generated.referencedNullTextFlat.reader(.{});
+    try std.testing.expect(try generated.referencedNullTextFlat.isNull(&null_text_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.referencedNullTextFlat.pointerKind(&null_text_reader));
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.referencedNullData);
+    var null_data_reader = generated.referencedNullDataFlat.reader(.{});
+    try std.testing.expect(try generated.referencedNullDataFlat.isNull(&null_data_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.referencedNullDataFlat.pointerKind(&null_data_reader));
     try std.testing.expectEqual(@as(?u32, null), generated.referencedCap);
     var cap_reader = generated.referencedCapFlat.reader(.{});
     try std.testing.expect(try generated.referencedCapFlat.isNull(&cap_reader));
@@ -69,6 +77,13 @@ test "generated capability list constants expose null values" {
 }
 
 test "generated optional constants expose values and flats" {
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.Defaults.defaultNullLabel);
+    var null_label_reader = generated.Defaults.defaultNullLabelFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultNullLabelFlat.isNull(&null_label_reader));
+    try std.testing.expectEqual(@as(?[]const u8, null), generated.Defaults.defaultNullPayload);
+    var null_payload_reader = generated.Defaults.defaultNullPayloadFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultNullPayloadFlat.isNull(&null_payload_reader));
+
     try std.testing.expectEqual(@as(?void, {}), generated.Defaults.defaultMaybeVoid);
     var void_reader = generated.Defaults.defaultMaybeVoidFlat.reader(.{});
     try generated.Defaults.defaultMaybeVoidFlat.get(&void_reader);

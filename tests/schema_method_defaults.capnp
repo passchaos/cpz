@@ -5,6 +5,8 @@ enum Mode {
 
 const referencedText :Text = "referenced text";
 const referencedData :Data = 0x"12 34";
+const referencedNullText :Text = null;
+const referencedNullData :Data = null;
 const referencedFlag :Bool = true;
 const referencedAmount :UInt32 = 123;
 const referencedRatio :Float64 = +1.25e2;
@@ -183,6 +185,8 @@ interface Defaults {
   const defaultLocalMode :ModeAlias = running;
   const defaultLabel :Text = "local";
   const defaultPayload :Data = 0x"0a 0b";
+  const defaultNullLabel :Text = null;
+  const defaultNullPayload :Data = null;
   const defaultMaybeVoid :?Void = void;
   const defaultMaybeFlag :?Bool = true;
   const defaultMaybeAmount :?UInt32 = 321;
