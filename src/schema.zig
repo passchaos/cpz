@@ -9334,7 +9334,10 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 try constNullPointerValue(allocator, out, indent, const_name, optional_list_type);
                 return;
             }
-            const items = decl.list_items orelse return;
+            const items = decl.list_items orelse if (findConstReference(file, scope, decl.literal)) |referenced|
+                referenced.list_items orelse return
+            else
+                return;
             try emitListConst(allocator, out, file, scope, indent, const_name, child.*, items, false);
         },
         .optional => |child| try emitOptionalConstValue(allocator, out, file, scope, indent, const_name, child.*, decl),

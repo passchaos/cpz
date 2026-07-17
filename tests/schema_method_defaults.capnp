@@ -16,6 +16,7 @@ const referencedRatio :Float64 = +1.25e2;
 const referencedMode :Mode = on;
 const referencedModeAlias :Mode = referencedMode;
 const referencedNumbers :List(UInt16) = [7, 8];
+const referencedNumbersAlias :List(UInt16) = referencedNumbers;
 const referencedNullNumbers :List(UInt16) = null;
 const referencedCap :Capability = void;
 const referencedCallback :TopCallback = void;
@@ -227,6 +228,7 @@ interface Defaults {
   const defaultMaybeReferencedText :?Text = referencedText;
   const defaultMaybeReferencedData :?Data = referencedData;
   const defaultNumbers :List(UInt16) = [7, 8];
+  const defaultNumbersAlias :List(UInt16) = defaultNumbers;
   const defaultNullNumbers :List(UInt16) = null;
   const defaultLabels :List(Text) = ["alpha", "beta"];
   const defaultPayloads :List(Data) = [0x"0c 0d", "raw"];
