@@ -172,6 +172,25 @@ test "generated optional constants expose values and flats" {
     try std.testing.expect(try generated.Defaults.defaultMaybeAnyListsFlat.elementIsNull(&maybe_any_lists_reader, 1));
     try std.testing.expect((try generated.Defaults.defaultMaybeAnyListsFlat.getOrNull(&maybe_any_lists_reader, 1, .two_bytes)) == null);
 
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.const.defaultAnyValues.listItemCount");
+    var any_values_reader = generated.Defaults.defaultAnyValuesFlat.reader(.{});
+    const any_values = try generated.Defaults.defaultAnyValuesFlat.list(&any_values_reader);
+    try std.testing.expectEqual(@as(usize, 2), any_values.len());
+    try std.testing.expectEqual(@as(u32, 99), (try generated.Defaults.defaultAnyValuesFlat.asStruct(&any_values_reader, 0)).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u16, 7), (try generated.Defaults.defaultAnyValuesFlat.asList(&any_values_reader, 1, .two_bytes)).getUInt16(0));
+
+    try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.const.defaultAnyStructs.listItemCount");
+    var any_structs_reader = generated.Defaults.defaultAnyStructsFlat.reader(.{});
+    const any_structs = try generated.Defaults.defaultAnyStructsFlat.list(&any_structs_reader);
+    try std.testing.expectEqual(@as(usize, 1), any_structs.len());
+    try std.testing.expectEqual(@as(u32, 99), (try generated.Defaults.defaultAnyStructsFlat.get(&any_structs_reader, 0)).getUInt32(0, 0));
+
+    try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.const.defaultAnyLists.listItemCount");
+    var any_lists_reader = generated.Defaults.defaultAnyListsFlat.reader(.{});
+    const any_lists = try generated.Defaults.defaultAnyListsFlat.list(&any_lists_reader);
+    try std.testing.expectEqual(@as(usize, 1), any_lists.len());
+    try std.testing.expectEqual(@as(u16, 8), (try generated.Defaults.defaultAnyListsFlat.get(&any_lists_reader, 0, .two_bytes)).getUInt16(1));
+
     try std.testing.expectEqual(@as(?[]const ?[]const u8, null), generated.Defaults.defaultMaybeLabelsNull);
     var maybe_labels_null_reader = generated.Defaults.defaultMaybeLabelsNullFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultMaybeLabelsNullFlat.isNull(&maybe_labels_null_reader));

@@ -11278,6 +11278,9 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             defer allocator.free(flat);
             try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
         },
+        .any_pointer => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .any),
+        .any_struct => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .struct_ptr),
+        .any_list => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .list),
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
             .void => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "void", items, voidConstItem, optional_value),
             .bool => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "bool", items, boolConstItem, optional_value),
@@ -11598,6 +11601,12 @@ fn listOptionalAnyPointerConstFlatBytesAlloc(allocator: std.mem.Allocator, file:
 }
 
 fn emitOptionalAnyPointerListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, child: Type, items: []const ConstListItem, comptime want: AnyPointerDefaultKind) LayoutError!void {
+    const flat = try listOptionalAnyPointerConstFlatBytesAlloc(allocator, file, scope, items, want);
+    defer allocator.free(flat);
+    try emitListFieldDefaultFlatContainerFromBytes(allocator, out, file, scope, indent, name, child, flat);
+}
+
+fn emitAnyPointerListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, child: Type, items: []const ConstListItem, comptime want: AnyPointerDefaultKind) LayoutError!void {
     const flat = try listOptionalAnyPointerConstFlatBytesAlloc(allocator, file, scope, items, want);
     defer allocator.free(flat);
     try emitListFieldDefaultFlatContainerFromBytes(allocator, out, file, scope, indent, name, child, flat);

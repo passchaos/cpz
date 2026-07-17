@@ -217,6 +217,9 @@ interface Defaults {
   const defaultMaybeAnyValues :List(?AnyPointer) = [defaultMaybeItem, null, defaultMaybeNumbers];
   const defaultMaybeAnyStructs :List(?AnyStruct) = [defaultMaybeItem, null];
   const defaultMaybeAnyLists :List(?AnyList) = [defaultMaybeNumbers, null];
+  const defaultAnyValues :List(AnyPointer) = [defaultItem, defaultNumbers];
+  const defaultAnyStructs :List(AnyStruct) = [defaultItem];
+  const defaultAnyLists :List(AnyList) = [defaultNumbers];
   const defaultMaybeLabelsNull :?List(?Text) = null;
   const defaultMaybePayloadsNull :?List(?Data) = null;
   const defaultMaybeCallbacksNull :?List(?Callback) = null;
