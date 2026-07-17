@@ -8492,7 +8492,7 @@ fn emitNestedConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     return emitConstWithIndent(allocator, out, file, scope, index, decl, "    ");
 }
 
-fn constNullCapabilityValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, const_name: []const u8, zig_type: []const u8) LayoutError!void {
+fn constNullPointerValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, const_name: []const u8, zig_type: []const u8) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}pub const {s}: {s} = null;
         \\
@@ -8551,7 +8551,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
     if (std.mem.eql(u8, raw, "null") or (std.mem.eql(u8, raw, "void") and typeAcceptsVoidPointerDefault(file, resolved_child))) {
         const zig_type = try optionalConstZigTypeAlloc(allocator, file, scope, child);
         defer allocator.free(zig_type);
-        try constNullCapabilityValue(allocator, out, indent, const_name, zig_type);
+        try constNullPointerValue(allocator, out, indent, const_name, zig_type);
         return;
     }
 
@@ -9232,7 +9232,19 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         .capability => {
             const raw = std.mem.trim(u8, resolveScalarConstLiteral(file, scope, decl.literal), " \t\r\n");
             if (!std.mem.eql(u8, raw, "void") and !std.mem.eql(u8, raw, "null")) return;
-            try constNullCapabilityValue(allocator, out, indent, const_name, "?u32");
+            try constNullPointerValue(allocator, out, indent, const_name, "?u32");
+        },
+        .any_pointer => {
+            if (!std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) return;
+            try constNullPointerValue(allocator, out, indent, const_name, "?cpz.PointerReader");
+        },
+        .any_struct => {
+            if (!std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) return;
+            try constNullPointerValue(allocator, out, indent, const_name, "?cpz.StructReader");
+        },
+        .any_list => {
+            if (!std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) return;
+            try constNullPointerValue(allocator, out, indent, const_name, "?cpz.ListReader");
         },
         .text => {
             const literal = if (decl.is_embed)
@@ -9290,7 +9302,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 if (findInterface(file, type_name) != null) {
                     const raw = std.mem.trim(u8, resolveScalarConstLiteral(file, scope, decl.literal), " \t\r\n");
                     if (!std.mem.eql(u8, raw, "void") and !std.mem.eql(u8, raw, "null")) return;
-                    try constNullCapabilityValue(allocator, out, indent, const_name, "?u32");
+                    try constNullPointerValue(allocator, out, indent, const_name, "?u32");
                     return;
                 }
                 const enum_decl = findEnum(file, type_name) orelse return;
@@ -9308,7 +9320,6 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             try emitListConst(allocator, out, file, scope, indent, const_name, child.*, items, false);
         },
         .optional => |child| try emitOptionalConstValue(allocator, out, file, scope, indent, const_name, child.*, decl),
-        else => return,
     }
 }
 

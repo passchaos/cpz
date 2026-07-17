@@ -12,6 +12,9 @@ const referencedMode :Mode = on;
 const referencedNumbers :List(UInt16) = [7, 8];
 const referencedCap :Capability = void;
 const referencedCallback :TopCallback = void;
+const referencedAny :AnyPointer = null;
+const referencedAnyStruct :AnyStruct = null;
+const referencedAnyList :AnyList = null;
 const referencedCaps :List(Capability) = [void, null];
 const referencedCallbacks :List(TopCallback) = [void];
 const referencedMaybeCallback :?TopCallback = void;
@@ -216,6 +219,9 @@ interface Defaults {
 
   const defaultCap :Capability = void;
   const defaultCallback :Callback = void;
+  const defaultAnyNull :AnyPointer = null;
+  const defaultAnyStructNull :AnyStruct = null;
+  const defaultAnyListNull :AnyList = null;
   const defaultCaps :List(Capability) = [void, null];
   const defaultCallbacks :List(Callback) = [void];
   const defaultMaybeCapElements :List(?Capability) = [void, null];
