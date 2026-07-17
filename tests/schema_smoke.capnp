@@ -24,6 +24,7 @@ using MaybeCaps = List(?Capability);
 using MaybeAnyPointers = List(?AnyPointer);
 using MaybeAnyStructs = List(?AnyStruct);
 using MaybeAnyLists = List(?AnyList);
+using MaybePeople = List(?Person);
 
 const globalId @0xc0571d01 :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;
@@ -129,6 +130,7 @@ struct ScopedAliasBox {
   using LocalScores = List(LocalId);
   using LocalMaybeNames = List(?LocalName);
   using LocalMaybeCaps = List(?Capability);
+  using LocalMaybeFriends = List(?LocalFriend);
 
   const defaultLocalId :LocalId = 77;
   const defaultLocalNames :LocalNames = ["local", "aliases"];

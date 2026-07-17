@@ -7979,7 +7979,14 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 .any_struct => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.StructReader"),
                 .any_list => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.ListReader"),
                 .named => |type_name| if (findInterface(file, type_name) != null)
-                    try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
+                    try aliasLine(allocator, out, indent, alias_name, "[]const ?u32")
+                else if (isStructLikeName(file, type_name)) {
+                    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                    defer allocator.free(zig_type);
+                    const list_type = try std.fmt.allocPrint(allocator, "[]const ?{s}", .{zig_type});
+                    defer allocator.free(list_type);
+                    try aliasLine(allocator, out, indent, alias_name, list_type);
+                },
                 else => {},
             },
             .any_pointer, .any_struct, .any_list, .list => {},
