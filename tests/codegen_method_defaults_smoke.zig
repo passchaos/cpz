@@ -66,6 +66,14 @@ test "generated optional constants expose values and flats" {
     var payload_reader = generated.Defaults.defaultMaybePayloadFlat.reader(.{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0e, 0x0f }, try generated.Defaults.defaultMaybePayloadFlat.get(&payload_reader));
 
+    try std.testing.expectEqualStrings("referenced text", generated.Defaults.defaultMaybeReferencedText.?);
+    var referenced_text_reader = generated.Defaults.defaultMaybeReferencedTextFlat.reader(.{});
+    try std.testing.expectEqualStrings("referenced text", try generated.Defaults.defaultMaybeReferencedTextFlat.get(&referenced_text_reader));
+
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, generated.Defaults.defaultMaybeReferencedData.?);
+    var referenced_data_reader = generated.Defaults.defaultMaybeReferencedDataFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.Defaults.defaultMaybeReferencedDataFlat.get(&referenced_data_reader));
+
     try std.testing.expectEqualSlices(u16, &[_]u16{ 5, 6 }, generated.Defaults.defaultMaybeNumbers.?);
     var numbers_reader = generated.Defaults.defaultMaybeNumbersFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 5), try generated.Defaults.defaultMaybeNumbersFlat.get(&numbers_reader, 0));

@@ -173,6 +173,8 @@ interface Defaults {
   const defaultMaybeAnyList :?AnyList = null;
   const defaultMaybeLabel :?Text = "maybe local";
   const defaultMaybePayload :?Data = 0x"0e 0f";
+  const defaultMaybeReferencedText :?Text = referencedText;
+  const defaultMaybeReferencedData :?Data = referencedData;
   const defaultNumbers :List(UInt16) = [7, 8];
   const defaultLabels :List(Text) = ["alpha", "beta"];
   const defaultPayloads :List(Data) = [0x"0c 0d", "raw"];

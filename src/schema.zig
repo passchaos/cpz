@@ -8085,45 +8085,41 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
             try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, child, raw);
         },
         .text => {
-            const literal = if (decl.is_embed)
-                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
+            const referenced_bytes = if (decl.is_embed) null else try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, true);
+            defer if (referenced_bytes) |bytes| allocator.free(bytes);
+            const bytes = if (decl.is_embed)
+                decl.embed_bytes orelse return
             else
-                try zigStringLiteralAlloc(allocator, decl.literal);
+                referenced_bytes orelse try decodedStringBytesAlloc(allocator, decl.literal);
+            defer if (!decl.is_embed and referenced_bytes == null) allocator.free(bytes);
+            const literal = try zigRawStringLiteralAlloc(allocator, bytes);
             defer allocator.free(literal);
             try appendFmt(allocator, out,
                 \\{s}pub const {s}: ?[]const u8 = {s};
                 \\
                 \\
             , .{ indent, const_name, literal });
-            if (decl.is_embed) {
-                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, true);
-            } else {
-                const bytes = try decodedStringBytesAlloc(allocator, decl.literal);
-                defer allocator.free(bytes);
-                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, true);
-            }
+            try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, true);
         },
         .data => {
-            const literal = if (decl.is_embed)
-                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
+            const referenced_bytes = if (decl.is_embed) null else try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, false);
+            defer if (referenced_bytes) |bytes| allocator.free(bytes);
+            const bytes = if (decl.is_embed)
+                decl.embed_bytes orelse return
             else
-                try zigDataLiteralAlloc(allocator, decl.literal, decl.is_hex_data);
-            defer allocator.free(literal);
-            try appendFmt(allocator, out,
-                \\{s}pub const {s}: ?[]const u8 = {s};
-                \\
-                \\
-            , .{ indent, const_name, literal });
-            if (decl.is_embed) {
-                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, false);
-            } else {
-                const bytes = if (decl.is_hex_data)
+                referenced_bytes orelse if (decl.is_hex_data)
                     try hexBytesAlloc(allocator, decl.literal)
                 else
                     try decodedStringBytesAlloc(allocator, decl.literal);
-                defer allocator.free(bytes);
-                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, false);
-            }
+            defer if (!decl.is_embed and referenced_bytes == null) allocator.free(bytes);
+            const literal = try zigRawStringLiteralAlloc(allocator, bytes);
+            defer allocator.free(literal);
+            try appendFmt(allocator, out,
+                \\{s}pub const {s}: ?[]const u8 = {s};
+                \\
+                \\
+            , .{ indent, const_name, literal });
+            try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, false);
         },
         .any_pointer, .any_struct, .any_list => {
             const flat = switch (resolved_child) {
