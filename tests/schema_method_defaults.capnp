@@ -230,6 +230,12 @@ interface Defaults {
     caps :List(Capability) = defaultCaps,
     callbacks :List(Callback) = defaultCallbacks
   ) -> ();
+
+  literalSyntax @8 (
+    greeting :Text = "hello, method",
+    payload :Data = "raw,bytes",
+    marker :Text = "contains $ marker"
+  ) -> (reply :Text = "ok, result");
 }
 
 const referencedItem :Defaults.Item = (value = 88, label = "referenced item");

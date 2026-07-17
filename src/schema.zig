@@ -1559,6 +1559,48 @@ fn skipRawSlashIndex(source: []const u8, start: usize) Error!usize {
     return start + 1;
 }
 
+fn skipRawStringIndex(source: []const u8, start: usize) Error!usize {
+    if (start + 2 < source.len and source[start + 1] == '"' and source[start + 2] == '"') {
+        var index = start + 3;
+        while (index + 2 < source.len and !(source[index] == '"' and source[index + 1] == '"' and source[index + 2] == '"')) : (index += 1) {}
+        if (index + 2 >= source.len) return error.UnexpectedToken;
+        return index + 3;
+    }
+
+    var index = start + 1;
+    while (index < source.len) {
+        if (source[index] == '\\') {
+            index += 2;
+        } else if (source[index] == '"') {
+            return index + 1;
+        } else {
+            index += 1;
+        }
+    }
+    return error.UnexpectedToken;
+}
+
+fn skipRawStringOrCommentIndex(source: []const u8, start: usize) Error!?usize {
+    return switch (source[start]) {
+        '`' => skipLineCommentIndex(source, start),
+        '"' => try skipRawStringIndex(source, start),
+        '#' => skipLineCommentIndex(source, start),
+        '/' => if (start + 1 < source.len and (source[start + 1] == '/' or source[start + 1] == '*'))
+            try skipRawSlashIndex(source, start)
+        else
+            null,
+        else => null,
+    };
+}
+
+fn skipRawStringOrCommentInPostLoop(source: []const u8, index: *usize) Error!bool {
+    if (try skipRawStringOrCommentIndex(source, index.*)) |next| {
+        index.* = if (next == 0) 0 else next - 1;
+        return true;
+    }
+    return false;
+}
+
 fn skipTriviaIndex(source: []const u8, start: usize) Error!usize {
     var index = start;
     while (index < source.len) {
@@ -2086,7 +2128,7 @@ pub const Parser = struct {
             const ordinal_entry = try occupied_ordinals.getOrPut(ordinal);
             if (ordinal_entry.found_existing) return error.OrdinalCollision;
             const signature = try self.takeRawUntilSemicolon();
-            const parts = splitMethodSignature(signature);
+            const parts = try splitMethodSignature(signature);
             const parameters = try self.parseMethodSignatureParameters(signature);
             var keep_parameters = false;
             errdefer if (!keep_parameters) self.allocator.free(parameters);
@@ -2161,6 +2203,7 @@ pub const Parser = struct {
         var scan: usize = 1;
         var list_depth: usize = 1;
         while (scan < trimmed.len) : (scan += 1) {
+            if (try skipRawStringOrCommentInPostLoop(trimmed, &scan)) continue;
             switch (trimmed[scan]) {
                 '(' => list_depth += 1,
                 ')' => {
@@ -2197,6 +2240,7 @@ pub const Parser = struct {
             const type_start = index;
             var paren_depth: usize = 0;
             while (index < end) : (index += 1) {
+                if (try skipRawStringOrCommentInPostLoop(trimmed, &index)) continue;
                 switch (trimmed[index]) {
                     '(' => paren_depth += 1,
                     ')' => {
@@ -2222,6 +2266,7 @@ pub const Parser = struct {
                 var annotation_paren_depth: usize = 0;
                 var annotation_bracket_depth: usize = 0;
                 while (index < end) : (index += 1) {
+                    if (try skipRawStringOrCommentInPostLoop(trimmed, &index)) continue;
                     switch (trimmed[index]) {
                         '(' => annotation_paren_depth += 1,
                         ')' => {
@@ -2247,6 +2292,7 @@ pub const Parser = struct {
                 var default_paren_depth: usize = 0;
                 var default_bracket_depth: usize = 0;
                 while (index < end) : (index += 1) {
+                    if (try skipRawStringOrCommentInPostLoop(trimmed, &index)) continue;
                     switch (trimmed[index]) {
                         '(' => default_paren_depth += 1,
                         ')' => {
@@ -2277,6 +2323,7 @@ pub const Parser = struct {
                 var annotation_paren_depth: usize = 0;
                 var annotation_bracket_depth: usize = 0;
                 while (index < end) : (index += 1) {
+                    if (try skipRawStringOrCommentInPostLoop(trimmed, &index)) continue;
                     switch (trimmed[index]) {
                         '(' => annotation_paren_depth += 1,
                         ')' => {
@@ -2304,12 +2351,13 @@ pub const Parser = struct {
         return trimmed;
     }
 
-    fn splitMethodSignature(signature: []const u8) struct { params: []const u8, results: []const u8, annotations: []const u8 } {
+    fn splitMethodSignature(signature: []const u8) Error!struct { params: []const u8, results: []const u8, annotations: []const u8 } {
         var index: usize = 0;
         if (signature.len != 0 and signature[0] == '[') {
             var bracket_depth: usize = 1;
             index = 1;
             while (index < signature.len and bracket_depth != 0) : (index += 1) {
+                if (try skipRawStringOrCommentInPostLoop(signature, &index)) continue;
                 switch (signature[index]) {
                     '[' => bracket_depth += 1,
                     ']' => bracket_depth -= 1,
@@ -2321,6 +2369,7 @@ pub const Parser = struct {
         const params_start = index;
         var paren_depth: usize = 0;
         while (index < signature.len) : (index += 1) {
+            if (try skipRawStringOrCommentInPostLoop(signature, &index)) continue;
             switch (signature[index]) {
                 '(' => paren_depth += 1,
                 ')' => {
@@ -2328,7 +2377,7 @@ pub const Parser = struct {
                 },
                 '-' => if (paren_depth == 0 and index + 1 < signature.len and signature[index + 1] == '>') {
                     const params = std.mem.trim(u8, signature[params_start..index], " \t\r\n");
-                    const result_parts = splitResultAndAnnotations(std.mem.trim(u8, signature[index + 2 ..], " \t\r\n"));
+                    const result_parts = try splitResultAndAnnotations(std.mem.trim(u8, signature[index + 2 ..], " \t\r\n"));
                     return .{ .params = params, .results = result_parts.results, .annotations = result_parts.annotations };
                 },
                 else => {},
@@ -2337,13 +2386,14 @@ pub const Parser = struct {
         return .{ .params = std.mem.trim(u8, signature[params_start..], " \t\r\n"), .results = "", .annotations = "" };
     }
 
-    fn splitResultAndAnnotations(raw: []const u8) struct { results: []const u8, annotations: []const u8 } {
+    fn splitResultAndAnnotations(raw: []const u8) Error!struct { results: []const u8, annotations: []const u8 } {
         if (raw.len == 0) return .{ .results = "", .annotations = "" };
         var index: usize = 0;
         if (raw[0] == '(') {
             var paren_depth: usize = 1;
             index = 1;
             while (index < raw.len and paren_depth != 0) : (index += 1) {
+                if (try skipRawStringOrCommentInPostLoop(raw, &index)) continue;
                 switch (raw[index]) {
                     '(' => paren_depth += 1,
                     ')' => paren_depth -= 1,
@@ -2358,6 +2408,7 @@ pub const Parser = struct {
         }
         var paren_depth: usize = 0;
         while (index < raw.len) : (index += 1) {
+            if (try skipRawStringOrCommentInPostLoop(raw, &index)) continue;
             switch (raw[index]) {
                 '(' => paren_depth += 1,
                 ')' => {
@@ -4560,6 +4611,29 @@ test "schema parser rejects duplicate interface method names and ordinals" {
         \\  second @0 () -> ();
         \\}
     ));
+}
+
+test "schema parser keeps separators inside quoted method defaults" {
+    var file = try parse(std.testing.allocator,
+        \\interface Service {
+        \\  literalSyntax @0 (
+        \\    greeting :Text = "hello, method",
+        \\    payload :Data = "raw,bytes",
+        \\    marker :Text = "contains $ marker"
+        \\  ) -> (reply :Text = "ok, result");
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces.len);
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces[0].methods.len);
+    const method = file.interfaces[0].methods[0];
+    try std.testing.expectEqual(@as(usize, 3), method.param_fields.len);
+    try std.testing.expectEqual(@as(usize, 1), method.result_fields.len);
+    try std.testing.expectEqualStrings("\"hello, method\"", method.param_fields[0].default_literal.?);
+    try std.testing.expectEqualStrings("\"raw,bytes\"", method.param_fields[1].default_literal.?);
+    try std.testing.expectEqualStrings("\"contains $ marker\"", method.param_fields[2].default_literal.?);
+    try std.testing.expectEqualStrings("\"ok, result\"", method.result_fields[0].default_literal.?);
 }
 
 test "schema parser rejects duplicate field names" {

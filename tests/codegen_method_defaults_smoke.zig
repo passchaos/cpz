@@ -546,7 +546,7 @@ test "generated member field names are sanitized" {
 }
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 8), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 9), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -608,6 +608,28 @@ test "generated method default flats expose typed scalar and enum getters" {
 
     var result_mode_reader = generated.Defaults.@"cpz.method.scalars.results.field.resultMode.defaultFlat".reader(.{});
     try std.testing.expectEqual(generated.Mode.off, try generated.Defaults.@"cpz.method.scalars.results.field.resultMode.defaultFlat".get(&result_mode_reader));
+}
+
+test "generated method default flats preserve quoted separators" {
+    try std.testing.expectEqualStrings("literalSyntax", generated.Defaults.@"cpz.methodByName"("literalSyntax").?.name);
+    try std.testing.expectEqual(@as(usize, 3), generated.Defaults.@"cpz.method.literalSyntax.params.fieldCount");
+    try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.literalSyntax.results.fieldCount");
+    try std.testing.expectEqualStrings("\"hello, method\"", generated.Defaults.@"cpz.method.literalSyntax.params.field.greeting.default".?);
+    try std.testing.expectEqualStrings("\"raw,bytes\"", generated.Defaults.@"cpz.method.literalSyntax.params.field.payload.default".?);
+    try std.testing.expectEqualStrings("\"contains $ marker\"", generated.Defaults.@"cpz.method.literalSyntax.params.field.marker.default".?);
+    try std.testing.expectEqualStrings("\"ok, result\"", generated.Defaults.@"cpz.method.literalSyntax.results.field.reply.default".?);
+
+    var greeting_reader = generated.Defaults.@"cpz.method.literalSyntax.params.field.greeting.defaultFlat".reader(.{});
+    try std.testing.expectEqualStrings("hello, method", try generated.Defaults.@"cpz.method.literalSyntax.params.field.greeting.defaultFlat".get(&greeting_reader));
+
+    var payload_reader = generated.Defaults.@"cpz.method.literalSyntax.params.field.payload.defaultFlat".reader(.{});
+    try std.testing.expectEqualSlices(u8, "raw,bytes", try generated.Defaults.@"cpz.method.literalSyntax.params.field.payload.defaultFlat".get(&payload_reader));
+
+    var marker_reader = generated.Defaults.@"cpz.method.literalSyntax.params.field.marker.defaultFlat".reader(.{});
+    try std.testing.expectEqualStrings("contains $ marker", try generated.Defaults.@"cpz.method.literalSyntax.params.field.marker.defaultFlat".get(&marker_reader));
+
+    var reply_reader = generated.Defaults.@"cpz.method.literalSyntax.results.field.reply.defaultFlat".reader(.{});
+    try std.testing.expectEqualStrings("ok, result", try generated.Defaults.@"cpz.method.literalSyntax.results.field.reply.defaultFlat".get(&reply_reader));
 }
 
 test "generated method default flats resolve interface scoped aliases and const references" {
