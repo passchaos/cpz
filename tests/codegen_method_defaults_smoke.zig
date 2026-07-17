@@ -79,6 +79,12 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(u16, 5), try generated.Defaults.defaultMaybeNumbersFlat.get(&numbers_reader, 0));
     try std.testing.expectEqual(@as(u16, 6), try generated.Defaults.defaultMaybeNumbersFlat.get(&numbers_reader, 1));
 
+    try std.testing.expectEqualSlices(u16, &[_]u16{ 7, 8 }, generated.Defaults.defaultMaybeNumbersRef.?);
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.const.defaultMaybeNumbersRef.listItemCount");
+    var numbers_ref_reader = generated.Defaults.defaultMaybeNumbersRefFlat.reader(.{});
+    try std.testing.expectEqual(@as(u16, 7), try generated.Defaults.defaultMaybeNumbersRefFlat.get(&numbers_ref_reader, 0));
+    try std.testing.expectEqual(@as(u16, 8), try generated.Defaults.defaultMaybeNumbersRefFlat.get(&numbers_ref_reader, 1));
+
     try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeItem.fieldCount);
     var item_reader = generated.Defaults.defaultMaybeItem.reader(.{});
     const item = try generated.Defaults.defaultMaybeItem.typedRoot(&item_reader);

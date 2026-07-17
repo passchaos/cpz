@@ -200,6 +200,7 @@ interface Defaults {
   const defaultMaybeAnyStructItem :?AnyStruct = defaultItem;
   const defaultMaybeAnyListNumbers :?AnyList = defaultNumbers;
   const defaultMaybeNumbers :?List(UInt16) = [5, 6];
+  const defaultMaybeNumbersRef :?List(UInt16) = defaultNumbers;
   const defaultMaybeItems :?List(Item) = [(value = 30, label = "thirty"), (value = 40, label = "forty")];
   const defaultMaybeItemsRef :?List(Item) = defaultItems;
   const defaultMaybeCaps :?List(Capability) = defaultCaps;
