@@ -161,6 +161,10 @@ interface Defaults {
   const defaultLocalMode :ModeAlias = running;
   const defaultLabel :Text = "local";
   const defaultPayload :Data = 0x"0a 0b";
+  const defaultMaybeFlag :?Bool = true;
+  const defaultMaybeAmount :?UInt32 = 321;
+  const defaultMaybeRatio :?Float64 = +3.5e1;
+  const defaultMaybeMode :?ModeAlias = stopped;
   const defaultMaybeLabel :?Text = "maybe local";
   const defaultMaybePayload :?Data = 0x"0e 0f";
   const defaultNumbers :List(UInt16) = [7, 8];

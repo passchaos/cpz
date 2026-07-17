@@ -11,6 +11,22 @@ test "generated top-level optional interface list aliases emit types" {
 }
 
 test "generated optional constants expose values and flats" {
+    try std.testing.expectEqual(@as(?bool, true), generated.Defaults.defaultMaybeFlag);
+    var flag_reader = generated.Defaults.defaultMaybeFlagFlat.reader(.{});
+    try std.testing.expectEqual(true, try generated.Defaults.defaultMaybeFlagFlat.get(&flag_reader));
+
+    try std.testing.expectEqual(@as(?u32, 321), generated.Defaults.defaultMaybeAmount);
+    var amount_reader = generated.Defaults.defaultMaybeAmountFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 321), try generated.Defaults.defaultMaybeAmountFlat.get(&amount_reader));
+
+    try std.testing.expectApproxEqAbs(@as(f64, 35.0), generated.Defaults.defaultMaybeRatio.?, 0.0);
+    var ratio_reader = generated.Defaults.defaultMaybeRatioFlat.reader(.{});
+    try std.testing.expectApproxEqAbs(@as(f64, 35.0), try generated.Defaults.defaultMaybeRatioFlat.get(&ratio_reader), 0.0);
+
+    try std.testing.expectEqual(generated.Defaults.LocalMode.stopped, generated.Defaults.defaultMaybeMode.?);
+    var mode_reader = generated.Defaults.defaultMaybeModeFlat.reader(.{});
+    try std.testing.expectEqual(generated.Defaults.LocalMode.stopped, try generated.Defaults.defaultMaybeModeFlat.get(&mode_reader));
+
     try std.testing.expectEqualStrings("maybe local", generated.Defaults.defaultMaybeLabel.?);
     var label_reader = generated.Defaults.defaultMaybeLabelFlat.reader(.{});
     try std.testing.expectEqualStrings("maybe local", try generated.Defaults.defaultMaybeLabelFlat.get(&label_reader));

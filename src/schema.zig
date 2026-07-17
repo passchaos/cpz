@@ -8051,6 +8051,35 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
     }
 
     switch (resolveTypeScoped(file, scope, child)) {
+        .void => {
+            try appendFmt(allocator, out,
+                \\{s}pub const {s}: ?void = {{}};
+                \\
+                \\
+            , .{ indent, const_name });
+            try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, child, raw);
+        },
+        .bool => {
+            const value = parseBoolLiteral(resolveScalarConstLiteral(file, scope, raw)) orelse return;
+            try appendFmt(allocator, out,
+                \\{s}pub const {s}: ?bool = {};
+                \\
+                \\
+            , .{ indent, const_name, value });
+            try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, child, raw);
+        },
+        .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => {
+            const resolved = resolveScalarConstLiteral(file, scope, raw);
+            const literal = if (std.mem.startsWith(u8, resolved, "+")) resolved[1..] else resolved;
+            const zig_type = try optionalConstZigTypeAlloc(allocator, file, scope, child);
+            defer allocator.free(zig_type);
+            try appendFmt(allocator, out,
+                \\{s}pub const {s}: {s} = {s};
+                \\
+                \\
+            , .{ indent, const_name, zig_type, literal });
+            try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, child, raw);
+        },
         .text => {
             const literal = if (decl.is_embed)
                 try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
@@ -8156,6 +8185,17 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                     \\{s}}};
                     \\
                 , .{indent});
+            } else if (findEnum(file, type_name)) |enum_decl| {
+                const zig_type = try optionalConstZigTypeAlloc(allocator, file, scope, child);
+                defer allocator.free(zig_type);
+                const enum_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(enum_type);
+                try appendFmt(allocator, out,
+                    \\{s}pub const {s}: {s} = @as({s}, @enumFromInt({}));
+                    \\
+                    \\
+                , .{ indent, const_name, zig_type, enum_type, try enumDefaultOrdinal(enum_decl, resolveScalarConstLiteral(file, scope, raw)) });
+                try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, child, raw);
             }
         },
         else => return,
