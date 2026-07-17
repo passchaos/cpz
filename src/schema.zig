@@ -8346,6 +8346,11 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
     defer allocator.free(literal_value);
     const embed_path_literal = try zigStringLiteralAlloc(allocator, decl.embed_path);
     defer allocator.free(embed_path_literal);
+    const effective_list_items = decl.list_items orelse blk: {
+        _ = constListChildTypeOrNull(file, scope, decl.ty) orelse break :blk null;
+        const referenced = findConstReference(file, scope, decl.literal) orelse break :blk null;
+        break :blk referenced.list_items;
+    };
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.const.{s}.index": usize = {};
         \\{s}pub const @"cpz.const.{s}.name": []const u8 = {s};
@@ -8372,8 +8377,8 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
         \\{s}pub const @"cpz.const.{s}.listItemCount": usize = {};
         \\{s}pub const @"cpz.const.{s}.listItems": []const cpz.schema.ConstListItem = 
-    , .{ indent, const_name, decl.is_embed, indent, const_name, embed_path_literal, indent, const_name, if (decl.embed_bytes) |bytes| bytes.len else 0, indent, const_name, decl.is_struct_literal, indent, const_name, decl.emit_value, indent, const_name, if (decl.list_items) |items| items.len else 0, indent, const_name });
-    if (decl.list_items) |items| {
+    , .{ indent, const_name, decl.is_embed, indent, const_name, embed_path_literal, indent, const_name, if (decl.embed_bytes) |bytes| bytes.len else 0, indent, const_name, decl.is_struct_literal, indent, const_name, decl.emit_value, indent, const_name, if (effective_list_items) |items| items.len else 0, indent, const_name });
+    if (effective_list_items) |items| {
         try appendConstListItemsLiteral(allocator, out, items);
     } else {
         try out.appendSlice(allocator, "&[_]cpz.schema.ConstListItem{}");
@@ -8418,7 +8423,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\{s}}}
         \\
     , .{ indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
-    if (decl.list_items) |items| {
+    if (effective_list_items) |items| {
         if (!decl.emit_value) {
             try appendFmt(allocator, out,
                 \\{s}pub const {s} = struct {{

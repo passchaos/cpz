@@ -115,12 +115,17 @@ test "generated optional constants expose values and flats" {
     var maybe_caps_reader = generated.Defaults.defaultMaybeCapsFlat.reader(.{});
     const maybe_caps = try generated.Defaults.defaultMaybeCapsFlat.list(&maybe_caps_reader);
     try std.testing.expectEqual(@as(usize, 2), maybe_caps.len());
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.const.defaultMaybeCaps.listItemCount");
+    try std.testing.expectEqualStrings("void", generated.Defaults.@"cpz.const.defaultMaybeCaps.listItems"[0].literal);
+    try std.testing.expectEqualStrings("null", generated.Defaults.@"cpz.const.defaultMaybeCaps.listItems"[1].literal);
     try std.testing.expect(try generated.Defaults.defaultMaybeCapsFlat.elementIsNull(&maybe_caps_reader, 0));
     try std.testing.expect(try generated.Defaults.defaultMaybeCapsFlat.elementIsNull(&maybe_caps_reader, 1));
 
     var maybe_callbacks_reader = generated.Defaults.defaultMaybeCallbacksFlat.reader(.{});
     const maybe_callbacks = try generated.Defaults.defaultMaybeCallbacksFlat.list(&maybe_callbacks_reader);
     try std.testing.expectEqual(@as(usize, 1), maybe_callbacks.len());
+    try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.const.defaultMaybeCallbacks.listItemCount");
+    try std.testing.expectEqualStrings("void", generated.Defaults.@"cpz.const.defaultMaybeCallbacks.listItems"[0].literal);
     try std.testing.expect(try generated.Defaults.defaultMaybeCallbacksFlat.elementIsNull(&maybe_callbacks_reader, 0));
 
     try std.testing.expectEqual(@as(?generated.Defaults.Item, null), generated.Defaults.defaultNothing);
