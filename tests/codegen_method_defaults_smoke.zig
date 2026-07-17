@@ -158,6 +158,26 @@ test "generated optional constants expose values and flats" {
     try std.testing.expect(try generated.Defaults.defaultMaybeAnyListsFlat.elementIsNull(&maybe_any_lists_reader, 1));
     try std.testing.expect((try generated.Defaults.defaultMaybeAnyListsFlat.getOrNull(&maybe_any_lists_reader, 1, .two_bytes)) == null);
 
+    try std.testing.expectEqual(@as(?[]const ?[]const u8, null), generated.Defaults.defaultMaybeLabelsNull);
+    var maybe_labels_null_reader = generated.Defaults.defaultMaybeLabelsNullFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeLabelsNullFlat.isNull(&maybe_labels_null_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultMaybeLabelsNullFlat.pointerKind(&maybe_labels_null_reader));
+
+    try std.testing.expectEqual(@as(?[]const ?[]const u8, null), generated.Defaults.defaultMaybePayloadsNull);
+    var maybe_payloads_null_reader = generated.Defaults.defaultMaybePayloadsNullFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybePayloadsNullFlat.isNull(&maybe_payloads_null_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultMaybePayloadsNullFlat.pointerKind(&maybe_payloads_null_reader));
+
+    try std.testing.expectEqual(@as(?[]const ?generated.Defaults.Callback, null), generated.Defaults.defaultMaybeCallbacksNull);
+    var maybe_callbacks_null_reader = generated.Defaults.defaultMaybeCallbacksNullFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeCallbacksNullFlat.isNull(&maybe_callbacks_null_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultMaybeCallbacksNullFlat.pointerKind(&maybe_callbacks_null_reader));
+
+    try std.testing.expectEqual(@as(?[]const ?generated.Defaults.Item, null), generated.Defaults.defaultMaybeItemsNull);
+    var maybe_items_null_reader = generated.Defaults.defaultMaybeItemsNullFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeItemsNullFlat.isNull(&maybe_items_null_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultMaybeItemsNullFlat.pointerKind(&maybe_items_null_reader));
+
     try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeItems.itemCount);
     var items_reader = generated.Defaults.defaultMaybeItems.reader(.{});
     const maybe_item0 = try generated.Defaults.defaultMaybeItems.get(&items_reader, 0);
