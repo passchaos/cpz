@@ -280,6 +280,11 @@ interface Defaults {
     anyList :AnyPointer = defaultMaybeNumbers,
     listValue :AnyList = defaultMaybeNumbers
   ) -> ();
+
+  optionalElementLists @10 (
+    caps :List(?Capability) = [void, null],
+    callbacks :List(?Callback) = [void]
+  ) -> ();
 }
 
 const referencedItem :Defaults.Item = (value = 88, label = "referenced item");

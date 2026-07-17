@@ -6074,6 +6074,22 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
             if (findStructDirect(file, type_name) != null) return listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolved_literal);
             return error.UnsupportedType;
         },
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .capability => {
+                const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+                defer allocator.free(items);
+                return listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+            },
+            .named => |type_name| {
+                if (findInterface(file, type_name) != null) {
+                    const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
+                    defer allocator.free(items);
+                    return listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+                }
+                return error.UnsupportedType;
+            },
+            else => return error.UnsupportedType,
+        },
         else => return error.UnsupportedType,
     }
 }
@@ -6341,6 +6357,12 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
                 try emitMethodListDefaultCapabilityGetters(allocator, out, indent);
             }
         },
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .capability => try emitMethodListDefaultCapabilityGetters(allocator, out, indent),
+            .named => |type_name| if (findInterface(file, type_name) != null)
+                try emitMethodListDefaultCapabilityGetters(allocator, out, indent),
+            else => {},
+        },
         else => {},
     }
 }
@@ -6532,8 +6554,45 @@ fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.Ar
                 });
             }
         },
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .capability => try emitMethodDefaultReaderCapabilityElementGetters(allocator, out, indent, container_literal),
+            .named => |type_name| if (findInterface(file, type_name) != null)
+                try emitMethodDefaultReaderCapabilityElementGetters(allocator, out, indent, container_literal),
+            else => {},
+        },
         else => {},
     }
+}
+
+fn emitMethodDefaultReaderCapabilityElementGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_literal: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}        pub fn pointer(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}            return @{s}.pointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementIsNull(self: *@This(), @"cpz.index": usize) !bool {{
+        \\{s}            return @{s}.elementIsNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementPointerKind(self: *@This(), @"cpz.index": usize) !?cpz.wire.PointerType {{
+        \\{s}            return @{s}.elementPointerKind(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn rawPointer(self: *@This(), @"cpz.index": usize) !cpz.Word {{
+        \\{s}            return @{s}.rawPointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn get(self: *@This(), @"cpz.index": usize) !u32 {{
+        \\{s}            return @{s}.get(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+    , .{
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+    });
 }
 
 fn emitMethodDefaultReaderWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, container_literal: []const u8, resolved_ty: Type, is_null_default: bool) LayoutError!void {
