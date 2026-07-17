@@ -10,6 +10,13 @@ test "generated top-level optional interface list aliases emit types" {
     try std.testing.expectEqual(@as(?u32, null), @as(generated.MaybeCallbacks, &[_]?u32{null})[0]);
 }
 
+test "generated optional interface constants expose null flats" {
+    try std.testing.expectEqual(@as(?generated.TopCallback, null), generated.referencedMaybeCallback);
+    var callback_reader = generated.referencedMaybeCallbackFlat.reader(.{});
+    try std.testing.expect(try generated.referencedMaybeCallbackFlat.isNull(&callback_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.referencedMaybeCallbackFlat.rawPointer(&callback_reader));
+}
+
 test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(?void, {}), generated.Defaults.defaultMaybeVoid);
     var void_reader = generated.Defaults.defaultMaybeVoidFlat.reader(.{});

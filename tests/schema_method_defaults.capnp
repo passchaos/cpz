@@ -12,6 +12,7 @@ const referencedMode :Mode = on;
 const referencedNumbers :List(UInt16) = [7, 8];
 const referencedCaps :List(Capability) = [void, null];
 const referencedCallbacks :List(TopCallback) = [void];
+const referencedMaybeCallback :?TopCallback = void;
 
 interface TopCallback {
   ping @0 () -> ();
