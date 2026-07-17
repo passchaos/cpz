@@ -66,6 +66,10 @@ test "generated optional interface constants expose null flats" {
     var referenced_any_list_numbers_reader = generated.referencedAnyListNumbers.reader(.{});
     const referenced_any_list_numbers = try generated.referencedAnyListNumbers.get(&referenced_any_list_numbers_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 8), referenced_any_list_numbers.getUInt16(1));
+    var referenced_item_alias_reader = generated.referencedItemAlias.reader(.{});
+    const referenced_item_alias = try generated.referencedItemAlias.typedRoot(&referenced_item_alias_reader);
+    try std.testing.expectEqual(@as(u32, 88), referenced_item_alias.value());
+    try std.testing.expectEqualStrings("referenced item", try referenced_item_alias.label());
 }
 
 test "generated capability list constants expose null values" {
@@ -231,6 +235,11 @@ test "generated optional constants expose values and flats" {
     const item = try generated.Defaults.defaultMaybeItem.typedRoot(&item_reader);
     try std.testing.expectEqual(@as(u32, 77), item.value());
     try std.testing.expectEqualStrings("seventy-seven", try item.label());
+
+    var item_alias_reader = generated.Defaults.defaultItemAlias.reader(.{});
+    const item_alias = try generated.Defaults.defaultItemAlias.typedRoot(&item_alias_reader);
+    try std.testing.expectEqual(@as(u32, 99), item_alias.value());
+    try std.testing.expectEqualStrings("ninety-nine", try item_alias.label());
 
     var any_item_reader = generated.Defaults.defaultMaybeAnyItem.reader(.{});
     const any_item = try (try generated.Defaults.defaultMaybeAnyItem.get(&any_item_reader)).getStruct(null);

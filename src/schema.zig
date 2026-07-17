@@ -9315,6 +9315,15 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                     try constNullPointerValue(allocator, out, indent, const_name, optional_type);
                     return;
                 }
+                if (isStructLikeName(file, type_name)) {
+                    const literal = resolveConstReferenceLiteral(file, scope, decl.literal);
+                    const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, type_name, literal)) orelse return;
+                    defer allocator.free(flat);
+                    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                    defer allocator.free(zig_type);
+                    try emitEmbeddedStructConst(allocator, out, indent, const_name, zig_type, flat);
+                    return;
+                }
                 const enum_decl = findEnum(file, type_name) orelse return;
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
