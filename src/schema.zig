@@ -15398,7 +15398,22 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return try @"cpz.pointer".getCapabilityIndex();
                 \\        }}
                 \\
-            , .{}),
+            , .{}) else if (isStructLikeName(file, type_name)) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\        pub fn get(self: @This(), @"cpz.index": usize) !{s} {{
+                    \\            return {s}.fromReader(try (try self.list.getPointerElement(@"cpz.index")).getStruct(null));
+                    \\        }}
+                    \\
+                    \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?{s} {{
+                    \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                    \\            if (@"cpz.pointer".isNull()) return null;
+                    \\            return {s}.fromReader(try @"cpz.pointer".getStruct(null));
+                    \\        }}
+                    \\
+                , .{ zig_type, zig_type, zig_type, zig_type });
+            },
             .any_pointer => try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerReader {{
                 \\            return self.list.getPointerElement(@"cpz.index");
@@ -16664,7 +16679,44 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return self.list.clearPointerElement(@"cpz.index");
                 \\        }}
                 \\
-            , .{}),
+            , .{}) else if (isStructLikeName(file, type_name)) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try appendFmt(allocator, out,
+                    \\        pub fn get(self: @This(), @"cpz.index": usize) !{s}.Builder {{
+                    \\            return {s}.Builder.fromBuilder(try (try self.list.getPointerElement(@"cpz.index")).getStruct());
+                    \\        }}
+                    \\
+                    \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?{s}.Builder {{
+                    \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                    \\            if (@"cpz.pointer".isNull()) return null;
+                    \\            return {s}.Builder.fromBuilder(try @"cpz.pointer".getStruct());
+                    \\        }}
+                    \\
+                    \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: {s}) !void {{
+                    \\            return (try self.list.getPointerElement(@"cpz.index")).copyStructFrom(new_value.reader);
+                    \\        }}
+                    \\
+                    \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?{s}) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
+                    \\            return self.clear(@"cpz.index");
+                    \\        }}
+                    \\
+                    \\        pub fn setFromBuilder(self: @This(), @"cpz.index": usize, new_value: {s}.Builder) !void {{
+                    \\            return (try self.list.getPointerElement(@"cpz.index")).copyStructFromBuilder(new_value.builder);
+                    \\        }}
+                    \\
+                    \\        pub fn setOrNullFromBuilder(self: @This(), @"cpz.index": usize, new_value: ?{s}.Builder) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.setFromBuilder(@"cpz.index", @"cpz.value");
+                    \\            return self.clear(@"cpz.index");
+                    \\        }}
+                    \\
+                    \\        pub fn clear(self: @This(), @"cpz.index": usize) !void {{
+                    \\            return self.list.clearPointerElement(@"cpz.index");
+                    \\        }}
+                    \\
+                , .{ zig_type, zig_type, zig_type, zig_type, zig_type, zig_type, zig_type, zig_type });
+            },
             .any_pointer => try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerBuilder {{
                 \\            return self.list.getPointerElement(@"cpz.index");

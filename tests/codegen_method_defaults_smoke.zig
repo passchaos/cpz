@@ -266,6 +266,15 @@ test "generated optional blob list elements expose typed nullable helpers" {
     } else return error.TestExpectedEqual;
     try std.testing.expect((try any_lists.getOrNull(1)) == null);
 
+    const items = try root_builder.init_items(2);
+    const source_item = generated.Defaults.Item.fromReader(try struct_source_reader.getRoot());
+    try items.setOrNull(0, source_item);
+    try items.setOrNull(1, null);
+    if (try items.getOrNull(0)) |value| {
+        try std.testing.expectEqual(@as(u32, 91), try value.get_value());
+    } else return error.TestExpectedEqual;
+    try std.testing.expect((try items.getOrNull(1)) == null);
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try generated.OptionalBlobLists.getRoot(&reader);
     const read_labels = try root.labels();
@@ -298,6 +307,9 @@ test "generated optional blob list elements expose typed nullable helpers" {
     const read_any_lists = try root.anyLists();
     try std.testing.expectEqualSlices(u8, &[_]u8{1}, try (try (try read_any_lists.getOrNull(0)).?.getPointerElement(0)).getData());
     try std.testing.expect((try read_any_lists.getOrNull(1)) == null);
+    const read_items = try root.items();
+    try std.testing.expectEqual(@as(u32, 91), (try read_items.getOrNull(0)).?.value());
+    try std.testing.expect((try read_items.getOrNull(1)) == null);
 }
 
 test "generated struct pointer null defaults expose flats" {

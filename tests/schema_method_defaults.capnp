@@ -37,6 +37,7 @@ struct OptionalBlobLists {
   anyStructs @4 :List(?AnyStruct);
   anyLists @5 :List(?AnyList);
   callbacks @6 :List(?TopCallback);
+  items @7 :List(?Defaults.Item);
 }
 
 struct NullPointerDefaults {
