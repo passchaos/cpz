@@ -36,6 +36,21 @@ test "generated optional constants expose values and flats" {
     try std.testing.expect(try generated.Defaults.defaultMaybeCapFlat.isNull(&cap_reader));
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.defaultMaybeCapFlat.rawPointer(&cap_reader));
 
+    try std.testing.expectEqual(@as(?cpz.PointerReader, null), generated.Defaults.defaultMaybeAny);
+    var any_reader = generated.Defaults.defaultMaybeAnyFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeAnyFlat.isNull(&any_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.defaultMaybeAnyFlat.rawPointer(&any_reader));
+
+    try std.testing.expectEqual(@as(?cpz.StructReader, null), generated.Defaults.defaultMaybeAnyStruct);
+    var any_struct_reader = generated.Defaults.defaultMaybeAnyStructFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeAnyStructFlat.isNull(&any_struct_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.defaultMaybeAnyStructFlat.rawPointer(&any_struct_reader));
+
+    try std.testing.expectEqual(@as(?cpz.ListReader, null), generated.Defaults.defaultMaybeAnyList);
+    var any_list_reader = generated.Defaults.defaultMaybeAnyListFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeAnyListFlat.isNull(&any_list_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.defaultMaybeAnyListFlat.rawPointer(&any_list_reader));
+
     try std.testing.expectEqualStrings("maybe local", generated.Defaults.defaultMaybeLabel.?);
     var label_reader = generated.Defaults.defaultMaybeLabelFlat.reader(.{});
     try std.testing.expectEqualStrings("maybe local", try generated.Defaults.defaultMaybeLabelFlat.get(&label_reader));

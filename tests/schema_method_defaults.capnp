@@ -167,6 +167,9 @@ interface Defaults {
   const defaultMaybeRatio :?Float64 = +3.5e1;
   const defaultMaybeMode :?ModeAlias = stopped;
   const defaultMaybeCap :?Capability = void;
+  const defaultMaybeAny :?AnyPointer = null;
+  const defaultMaybeAnyStruct :?AnyStruct = null;
+  const defaultMaybeAnyList :?AnyList = null;
   const defaultMaybeLabel :?Text = "maybe local";
   const defaultMaybePayload :?Data = 0x"0e 0f";
   const defaultNumbers :List(UInt16) = [7, 8];
