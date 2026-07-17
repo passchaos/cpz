@@ -9376,6 +9376,19 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 ref_decl.list_items orelse return
             else
                 return;
+            if (referenced) |ref_decl| {
+                switch (resolveTypeScoped(file, scope, child.*)) {
+                    .named => |type_name| if (findEnum(file, type_name) == null and findInterface(file, type_name) == null and isStructLikeName(file, type_name)) {
+                        const flat = try listStructFieldDefaultFlatBytesAlloc(allocator, file, item_scope, type_name, ref_decl.literal);
+                        defer allocator.free(flat);
+                        const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                        defer allocator.free(zig_type);
+                        try emitStructListFlatContainerFromBytes(allocator, out, indent, const_name, zig_type, flat);
+                        return;
+                    },
+                    else => {},
+                }
+            }
             try emitListConst(allocator, out, file, item_scope, indent, const_name, child.*, items, false);
         },
         .optional => |child| try emitOptionalConstValue(allocator, out, file, scope, indent, const_name, child.*, decl),

@@ -121,6 +121,10 @@ test "generated optional interface constants expose null flats" {
     const referenced_item_alias = try generated.referencedItemAlias.typedRoot(&referenced_item_alias_reader);
     try std.testing.expectEqual(@as(u32, 88), referenced_item_alias.value());
     try std.testing.expectEqualStrings("referenced item", try referenced_item_alias.label());
+    var referenced_items_reader = generated.referencedItemsFlat.reader(.{});
+    const referenced_item0 = try generated.referencedItemsFlat.get(&referenced_items_reader, 0);
+    try std.testing.expectEqual(@as(u32, 10), referenced_item0.value());
+    try std.testing.expectEqualStrings("ten", try referenced_item0.label());
 }
 
 test "generated capability list constants expose null values" {

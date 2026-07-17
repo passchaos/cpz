@@ -34,6 +34,7 @@ const referencedAnyItem :AnyPointer = referencedItem;
 const referencedAnyStructItem :AnyStruct = referencedItem;
 const referencedAnyListNumbers :AnyList = referencedNumbers;
 const referencedItemAlias :Defaults.Item = referencedItem;
+const referencedItems :List(Defaults.Item) = Defaults.defaultItems;
 const referencedMaybeAnyValues :List(?AnyPointer) = [Defaults.defaultMaybeItem, null, Defaults.defaultMaybeNumbers];
 const referencedMaybeAnyStructs :List(?AnyStruct) = [Defaults.defaultMaybeItem, null];
 const referencedMaybeAnyLists :List(?AnyList) = [Defaults.defaultMaybeNumbers, null];
