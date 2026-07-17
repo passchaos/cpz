@@ -268,6 +268,13 @@ interface Defaults {
     payload :Data = "raw,bytes",
     marker :Text = "contains $ marker"
   ) -> (reply :Text = "ok, result");
+
+  optionalAnyRefs @9 (
+    any :AnyPointer = defaultMaybeItem,
+    structValue :AnyStruct = defaultMaybeItem,
+    anyList :AnyPointer = defaultMaybeNumbers,
+    listValue :AnyList = defaultMaybeNumbers
+  ) -> ();
 }
 
 const referencedItem :Defaults.Item = (value = 88, label = "referenced item");

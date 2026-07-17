@@ -837,7 +837,7 @@ test "generated member field names are sanitized" {
 }
 
 test "generated method default flats expose typed scalar and enum getters" {
-    try std.testing.expectEqual(@as(usize, 9), generated.Defaults.@"cpz.methodCount");
+    try std.testing.expectEqual(@as(usize, 10), generated.Defaults.@"cpz.methodCount");
     try std.testing.expectEqual(@as(usize, 15), generated.Defaults.@"cpz.method.scalars.params.fieldCount");
     try std.testing.expectEqual(@as(usize, 1), generated.Defaults.@"cpz.method.scalars.results.fieldCount");
 
@@ -1072,6 +1072,26 @@ test "generated method default flats resolve any pointer const references" {
     var list_value_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".reader(.{});
     const list_value = try generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".get(&list_value_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 8), list_value.getUInt16(1));
+}
+
+test "generated method default flats resolve optional any const references" {
+    try std.testing.expectEqualStrings("optionalAnyRefs", generated.Defaults.@"cpz.methodByName"("optionalAnyRefs").?.name);
+
+    var any_reader = generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.any.defaultFlat".reader(.{});
+    const any_struct = try (try generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.any.defaultFlat".pointer(&any_reader)).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 77), any_struct.getUInt32(0, 0));
+
+    var struct_value_reader = generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.structValue.defaultFlat".reader(.{});
+    const struct_value = try generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.structValue.defaultFlat".get(&struct_value_reader);
+    try std.testing.expectEqual(@as(u32, 77), struct_value.getUInt32(0, 0));
+
+    var any_list_reader = generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.anyList.defaultFlat".reader(.{});
+    const any_list = try generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.anyList.defaultFlat".asList(&any_list_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 5), any_list.getUInt16(0));
+
+    var list_value_reader = generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.listValue.defaultFlat".reader(.{});
+    const list_value = try generated.Defaults.@"cpz.method.optionalAnyRefs.params.field.listValue.defaultFlat".get(&list_value_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 6), list_value.getUInt16(1));
 }
 
 test "generated method default flats expose named capability null defaults" {

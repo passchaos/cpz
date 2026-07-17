@@ -6084,7 +6084,11 @@ fn methodStructDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const 
 
 fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, default_literal: []const u8, comptime want: enum { any, struct_ptr, list }) LayoutError![]u8 {
     const decl = findConstReference(file, scope, default_literal) orelse return error.UnsupportedType;
-    switch (resolveTypeScoped(file, scope, decl.ty)) {
+    const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
+        .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, decl.literal) orelse return error.UnsupportedType,
+        else => |resolved| resolved,
+    };
+    switch (resolved_ty) {
         .named => |type_name| {
             if (want == .list) return error.UnsupportedType;
             if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
