@@ -12030,66 +12030,41 @@ fn emitScalarFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     };
 }
 
+fn emitListFieldDefaultFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, container_name: []const u8, child: Type, flat: []const u8) LayoutError!void {
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+        \\{s}    }}
+        \\
+    , .{ indent, container_name, indent, flat_literal, indent, indent, indent, indent, indent });
+    try emitMethodListDefaultGetters(allocator, out, file, scope, indent, child);
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, indent, indent, indent, indent });
+}
+
 fn emitListFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, field_name: []const u8, child: Type, default_expression: []const u8) LayoutError!void {
-    const items = constListItemsFromInlineLiteralAlloc(allocator, default_expression) catch |err| switch (err) {
-        error.UnexpectedToken, error.InvalidToken => return,
+    const flat = methodListDefaultFlatBytesAlloc(allocator, file, scope, child, default_expression) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
         else => return err,
     };
-    defer allocator.free(items);
+    defer allocator.free(flat);
     const container_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
     defer allocator.free(container_name);
-    switch (resolveTypeScoped(file, scope, child)) {
-        .void => try emitVoidListFlatContainer(allocator, out, file, scope, indent, container_name, items),
-        .bool => try emitBoolListFlatContainer(allocator, out, file, scope, indent, container_name, items),
-        .int8 => try emitSignedListFlatContainer(i8, u8, allocator, out, file, scope, indent, container_name, items, .byte, ".byte", "getInt8"),
-        .int16 => try emitSignedListFlatContainer(i16, u16, allocator, out, file, scope, indent, container_name, items, .two_bytes, ".two_bytes", "getInt16"),
-        .int32 => try emitSignedListFlatContainer(i32, u32, allocator, out, file, scope, indent, container_name, items, .four_bytes, ".four_bytes", "getInt32"),
-        .int64 => try emitSignedListFlatContainer(i64, u64, allocator, out, file, scope, indent, container_name, items, .eight_bytes, ".eight_bytes", "getInt64"),
-        .uint8 => try emitUnsignedListFlatContainer(u8, allocator, out, file, scope, indent, container_name, items, .byte, ".byte", "getUInt8"),
-        .uint16 => try emitUnsignedListFlatContainer(u16, allocator, out, file, scope, indent, container_name, items, .two_bytes, ".two_bytes", "getUInt16"),
-        .uint32 => try emitUnsignedListFlatContainer(u32, allocator, out, file, scope, indent, container_name, items, .four_bytes, ".four_bytes", "getUInt32"),
-        .uint64 => try emitUnsignedListFlatContainer(u64, allocator, out, file, scope, indent, container_name, items, .eight_bytes, ".eight_bytes", "getUInt64"),
-        .float32 => try emitFloatListFlatContainer(f32, u32, allocator, out, file, scope, indent, container_name, items, .four_bytes, ".four_bytes", "getFloat32"),
-        .float64 => try emitFloatListFlatContainer(f64, u64, allocator, out, file, scope, indent, container_name, items, .eight_bytes, ".eight_bytes", "getFloat64"),
-        .text => {
-            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, default_expression, true);
-            defer allocator.free(flat);
-            try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, true);
-        },
-        .data => {
-            const flat = try listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, default_expression, false);
-            defer allocator.free(flat);
-            try emitTextOrDataListFlatContainerFromBytes(allocator, out, indent, container_name, flat, false);
-        },
-        .capability => {
-            const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
-            defer allocator.free(flat);
-            try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, container_name, flat);
-        },
-        .list => {
-            const flat = try listNestedFieldDefaultFlatBytesAlloc(allocator, file, scope, child, default_expression);
-            defer allocator.free(flat);
-            try emitFlatListContainerFromBytes(allocator, out, indent, container_name, flat, ".pointer", null, null);
-        },
-        .named => |type_name| {
-            if (findEnum(file, type_name)) |enum_decl| {
-                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-                defer allocator.free(zig_type);
-                try emitEnumListFlatContainer(allocator, out, file, scope, indent, container_name, zig_type, enum_decl, items);
-            } else if (findStructDirect(file, type_name) != null) {
-                const flat = try listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, default_expression);
-                defer allocator.free(flat);
-                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
-                defer allocator.free(zig_type);
-                try emitStructListFlatContainerFromBytes(allocator, out, indent, container_name, zig_type, flat);
-            } else if (findInterface(file, type_name) != null) {
-                const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
-                defer allocator.free(flat);
-                try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, container_name, flat);
-            }
-        },
-        else => return,
-    }
+    try emitListFieldDefaultFlatContainerFromBytes(allocator, out, file, scope, indent, container_name, child, flat);
 }
 
 fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {

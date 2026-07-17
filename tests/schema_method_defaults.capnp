@@ -31,14 +31,14 @@ struct MaybeDefaults {
 }
 
 struct OptionalBlobLists {
-  labels @0 :List(?Text);
-  payloads @1 :List(?Data);
-  caps @2 :List(?Capability);
-  anyValues @3 :List(?AnyPointer);
-  anyStructs @4 :List(?AnyStruct);
-  anyLists @5 :List(?AnyList);
-  callbacks @6 :List(?TopCallback);
-  items @7 :List(?Defaults.Item);
+  labels @0 :List(?Text) = ["field label", null, referencedText];
+  payloads @1 :List(?Data) = [0x"aa bb", null, referencedData];
+  caps @2 :List(?Capability) = [void, null];
+  anyValues @3 :List(?AnyPointer) = [referencedItem, null, referencedNumbers];
+  anyStructs @4 :List(?AnyStruct) = [referencedItem, null];
+  anyLists @5 :List(?AnyList) = [referencedNumbers, null];
+  callbacks @6 :List(?TopCallback) = [void, null];
+  items @7 :List(?Defaults.Item) = [referencedItem, null];
 }
 
 struct NullPointerDefaults {

@@ -419,6 +419,69 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expect((try read_items.getOrNull(1)) == null);
 }
 
+test "generated optional pointer list field defaults expose flats" {
+    try std.testing.expectEqualStrings("[\"field label\", null, referencedText]", generated.OptionalBlobLists.@"cpz.field.labels.default");
+    var labels_reader = generated.OptionalBlobLists.labelsDefaultFlat.reader(.{});
+    const labels = try generated.OptionalBlobLists.labelsDefaultFlat.list(&labels_reader);
+    try std.testing.expectEqual(@as(usize, 3), labels.len());
+    try std.testing.expectEqualStrings("field label", try generated.OptionalBlobLists.labelsDefaultFlat.get(&labels_reader, 0));
+    try std.testing.expect(try generated.OptionalBlobLists.labelsDefaultFlat.elementIsNull(&labels_reader, 1));
+    try std.testing.expect((try generated.OptionalBlobLists.labelsDefaultFlat.getOrNull(&labels_reader, 1)) == null);
+    try std.testing.expectEqualStrings("referenced text", (try generated.OptionalBlobLists.labelsDefaultFlat.getOrNull(&labels_reader, 2)).?);
+
+    try std.testing.expectEqualStrings("[0x\"aa bb\", null, referencedData]", generated.OptionalBlobLists.@"cpz.field.payloads.default");
+    var payloads_reader = generated.OptionalBlobLists.payloadsDefaultFlat.reader(.{});
+    const payloads = try generated.OptionalBlobLists.payloadsDefaultFlat.list(&payloads_reader);
+    try std.testing.expectEqual(@as(usize, 3), payloads.len());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, try generated.OptionalBlobLists.payloadsDefaultFlat.get(&payloads_reader, 0));
+    try std.testing.expect(try generated.OptionalBlobLists.payloadsDefaultFlat.elementIsNull(&payloads_reader, 1));
+    try std.testing.expect((try generated.OptionalBlobLists.payloadsDefaultFlat.getOrNull(&payloads_reader, 1)) == null);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, (try generated.OptionalBlobLists.payloadsDefaultFlat.getOrNull(&payloads_reader, 2)).?);
+
+    var caps_reader = generated.OptionalBlobLists.capsDefaultFlat.reader(.{});
+    const caps = try generated.OptionalBlobLists.capsDefaultFlat.list(&caps_reader);
+    try std.testing.expectEqual(@as(usize, 2), caps.len());
+    try std.testing.expect(try generated.OptionalBlobLists.capsDefaultFlat.elementIsNull(&caps_reader, 0));
+    try std.testing.expect(try generated.OptionalBlobLists.capsDefaultFlat.elementIsNull(&caps_reader, 1));
+
+    var any_values_reader = generated.OptionalBlobLists.anyValuesDefaultFlat.reader(.{});
+    const any_values = try generated.OptionalBlobLists.anyValuesDefaultFlat.list(&any_values_reader);
+    try std.testing.expectEqual(@as(usize, 3), any_values.len());
+    try std.testing.expectEqual(@as(u32, 88), (try generated.OptionalBlobLists.anyValuesDefaultFlat.asStruct(&any_values_reader, 0)).getUInt32(0, 0));
+    try std.testing.expect(try generated.OptionalBlobLists.anyValuesDefaultFlat.elementIsNull(&any_values_reader, 1));
+    try std.testing.expect((try generated.OptionalBlobLists.anyValuesDefaultFlat.getOrNull(&any_values_reader, 1)) == null);
+    try std.testing.expectEqual(@as(u16, 7), (try generated.OptionalBlobLists.anyValuesDefaultFlat.asList(&any_values_reader, 2, .two_bytes)).getUInt16(0));
+
+    var any_structs_reader = generated.OptionalBlobLists.anyStructsDefaultFlat.reader(.{});
+    const any_structs = try generated.OptionalBlobLists.anyStructsDefaultFlat.list(&any_structs_reader);
+    try std.testing.expectEqual(@as(usize, 2), any_structs.len());
+    try std.testing.expectEqual(@as(u32, 88), (try generated.OptionalBlobLists.anyStructsDefaultFlat.get(&any_structs_reader, 0)).getUInt32(0, 0));
+    try std.testing.expect(try generated.OptionalBlobLists.anyStructsDefaultFlat.elementIsNull(&any_structs_reader, 1));
+    try std.testing.expect((try generated.OptionalBlobLists.anyStructsDefaultFlat.getOrNull(&any_structs_reader, 1)) == null);
+
+    var any_lists_reader = generated.OptionalBlobLists.anyListsDefaultFlat.reader(.{});
+    const any_lists = try generated.OptionalBlobLists.anyListsDefaultFlat.list(&any_lists_reader);
+    try std.testing.expectEqual(@as(usize, 2), any_lists.len());
+    try std.testing.expectEqual(@as(u16, 7), (try generated.OptionalBlobLists.anyListsDefaultFlat.get(&any_lists_reader, 0, .two_bytes)).getUInt16(0));
+    try std.testing.expect(try generated.OptionalBlobLists.anyListsDefaultFlat.elementIsNull(&any_lists_reader, 1));
+    try std.testing.expect((try generated.OptionalBlobLists.anyListsDefaultFlat.getOrNull(&any_lists_reader, 1, .two_bytes)) == null);
+
+    var callbacks_reader = generated.OptionalBlobLists.callbacksDefaultFlat.reader(.{});
+    const callbacks = try generated.OptionalBlobLists.callbacksDefaultFlat.list(&callbacks_reader);
+    try std.testing.expectEqual(@as(usize, 2), callbacks.len());
+    try std.testing.expect(try generated.OptionalBlobLists.callbacksDefaultFlat.elementIsNull(&callbacks_reader, 0));
+    try std.testing.expect(try generated.OptionalBlobLists.callbacksDefaultFlat.elementIsNull(&callbacks_reader, 1));
+
+    var items_reader = generated.OptionalBlobLists.itemsDefaultFlat.reader(.{});
+    const items = try generated.OptionalBlobLists.itemsDefaultFlat.list(&items_reader);
+    try std.testing.expectEqual(@as(usize, 2), items.len());
+    const item0 = try generated.OptionalBlobLists.itemsDefaultFlat.get(&items_reader, 0);
+    try std.testing.expectEqual(@as(u32, 88), item0.value());
+    try std.testing.expectEqualStrings("referenced item", try item0.label());
+    try std.testing.expect(try generated.OptionalBlobLists.itemsDefaultFlat.elementIsNull(&items_reader, 1));
+    try std.testing.expect((try generated.OptionalBlobLists.itemsDefaultFlat.getOrNull(&items_reader, 1)) == null);
+}
+
 test "generated struct pointer null defaults expose flats" {
     try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.text.default");
     var text_reader = generated.NullPointerDefaults.textDefaultFlat.reader(.{});
