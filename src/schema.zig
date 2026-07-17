@@ -9332,6 +9332,14 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             }
         },
         .list => |child| {
+            if (decl.list_items == null and std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) {
+                const list_type = try constZigValueTypeAlloc(allocator, file, scope, decl.ty);
+                defer allocator.free(list_type);
+                const optional_list_type = try std.fmt.allocPrint(allocator, "?{s}", .{list_type});
+                defer allocator.free(optional_list_type);
+                try constNullPointerValue(allocator, out, indent, const_name, optional_list_type);
+                return;
+            }
             const items = decl.list_items orelse return;
             try emitListConst(allocator, out, file, scope, indent, const_name, child.*, items, false);
         },

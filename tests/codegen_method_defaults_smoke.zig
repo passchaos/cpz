@@ -22,6 +22,10 @@ test "generated optional interface constants expose null flats" {
     var null_data_reader = generated.referencedNullDataFlat.reader(.{});
     try std.testing.expect(try generated.referencedNullDataFlat.isNull(&null_data_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.referencedNullDataFlat.pointerKind(&null_data_reader));
+    try std.testing.expectEqual(@as(?[]const u16, null), generated.referencedNullNumbers);
+    var null_numbers_reader = generated.referencedNullNumbersFlat.reader(.{});
+    try std.testing.expect(try generated.referencedNullNumbersFlat.isNull(&null_numbers_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.referencedNullNumbersFlat.pointerKind(&null_numbers_reader));
     try std.testing.expectEqual(@as(?u32, null), generated.referencedCap);
     var cap_reader = generated.referencedCapFlat.reader(.{});
     try std.testing.expect(try generated.referencedCapFlat.isNull(&cap_reader));
@@ -87,6 +91,9 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Defaults.defaultNullPayload);
     var null_payload_reader = generated.Defaults.defaultNullPayloadFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultNullPayloadFlat.isNull(&null_payload_reader));
+    try std.testing.expectEqual(@as(?[]const u16, null), generated.Defaults.defaultNullNumbers);
+    var null_numbers_reader = generated.Defaults.defaultNullNumbersFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultNullNumbersFlat.isNull(&null_numbers_reader));
 
     try std.testing.expectEqual(@as(?void, {}), generated.Defaults.defaultMaybeVoid);
     var void_reader = generated.Defaults.defaultMaybeVoidFlat.reader(.{});
