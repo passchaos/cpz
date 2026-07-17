@@ -155,6 +155,43 @@ test "generated struct optional null defaults expose flats" {
     try std.testing.expect((try root_reader.maybeAnyListOrNull()) == null);
 }
 
+test "generated optional blob list elements expose typed nullable helpers" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+    const root_builder = try generated.OptionalBlobLists.initRootTyped(&builder);
+
+    const labels = try root_builder.init_labels(3);
+    try labels.setOrNull(0, "alpha");
+    try labels.setOrNull(1, null);
+    try labels.set(2, "omega");
+    if (try labels.getOrNull(0)) |value| {
+        try std.testing.expectEqualStrings("alpha", value);
+    } else return error.TestExpectedEqual;
+    try std.testing.expect((try labels.getOrNull(1)) == null);
+    try std.testing.expectEqualStrings("omega", try labels.get(2));
+
+    const payloads = try root_builder.init_payloads(3);
+    try payloads.set(0, &[_]u8{ 0xaa, 0xbb });
+    try payloads.setOrNull(1, null);
+    try payloads.setOrNull(2, &[_]u8{0xcc});
+    if (try payloads.getOrNull(0)) |value| {
+        try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, value);
+    } else return error.TestExpectedEqual;
+    try std.testing.expect((try payloads.getOrNull(1)) == null);
+    try std.testing.expectEqualSlices(u8, &[_]u8{0xcc}, try payloads.get(2));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const root = try generated.OptionalBlobLists.getRoot(&reader);
+    const read_labels = try root.labels();
+    try std.testing.expectEqualStrings("alpha", (try read_labels.getOrNull(0)).?);
+    try std.testing.expect((try read_labels.getOrNull(1)) == null);
+    try std.testing.expectEqualStrings("omega", try read_labels.get(2));
+    const read_payloads = try root.payloads();
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, (try read_payloads.getOrNull(0)).?);
+    try std.testing.expect((try read_payloads.getOrNull(1)) == null);
+    try std.testing.expectEqualSlices(u8, &[_]u8{0xcc}, try read_payloads.get(2));
+}
+
 test "generated struct pointer null defaults expose flats" {
     try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.text.default");
     var text_reader = generated.NullPointerDefaults.textDefaultFlat.reader(.{});

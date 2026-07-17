@@ -27,6 +27,11 @@ struct MaybeDefaults {
   maybeAnyList @6 :?AnyList = null;
 }
 
+struct OptionalBlobLists {
+  labels @0 :List(?Text);
+  payloads @1 :List(?Data);
+}
+
 struct NullPointerDefaults {
   text @0 :Text = null;
   data @1 :Data = null;

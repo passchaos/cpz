@@ -15323,7 +15323,49 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type });
         },
-        .optional => {},
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .text => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) ![]const u8 {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getText();
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?[]const u8 {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getText();
+                \\        }}
+                \\
+                \\        pub fn getByteCount(self: @This(), @"cpz.index": usize) !usize {{
+                \\            return (try self.get(@"cpz.index")).len;
+                \\        }}
+                \\
+                \\        pub fn matchesBytes(self: @This(), @"cpz.index": usize, @"cpz.count": usize) !bool {{
+                \\            return (try self.getByteCount(@"cpz.index")) == @"cpz.count";
+                \\        }}
+                \\
+            , .{}),
+            .data => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) ![]const u8 {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getData();
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?[]const u8 {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getData();
+                \\        }}
+                \\
+                \\        pub fn getByteCount(self: @This(), @"cpz.index": usize) !usize {{
+                \\            return (try self.get(@"cpz.index")).len;
+                \\        }}
+                \\
+                \\        pub fn matchesBytes(self: @This(), @"cpz.index": usize, @"cpz.count": usize) !bool {{
+                \\            return (try self.getByteCount(@"cpz.index")) == @"cpz.count";
+                \\        }}
+                \\
+            , .{}),
+            else => {},
+        },
     }
 
     try appendFmt(allocator, out,
@@ -16435,7 +16477,59 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\
             , .{ zig_type, zig_type, zig_type, zig_type });
         },
-        .optional => {},
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .text => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) ![]const u8 {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getText();
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?[]const u8 {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getText();
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: []const u8) !void {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).setText(new_value);
+                \\        }}
+                \\
+                \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?[]const u8) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
+                \\            return self.clear(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), @"cpz.index": usize) !void {{
+                \\            return self.list.clearPointerElement(@"cpz.index");
+                \\        }}
+                \\
+            , .{}),
+            .data => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) ![]const u8 {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getData();
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?[]const u8 {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getData();
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: []const u8) !void {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).setData(new_value);
+                \\        }}
+                \\
+                \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?[]const u8) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
+                \\            return self.clear(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), @"cpz.index": usize) !void {{
+                \\            return self.list.clearPointerElement(@"cpz.index");
+                \\        }}
+                \\
+            , .{}),
+            else => {},
+        },
     }
 
     try appendFmt(allocator, out,
