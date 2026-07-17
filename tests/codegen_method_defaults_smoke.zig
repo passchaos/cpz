@@ -2,6 +2,14 @@ const std = @import("std");
 const cpz = @import("cpz");
 const generated = @import("generated_method_defaults_schema");
 
+test "generated top-level optional interface list aliases emit types" {
+    try std.testing.expectEqualStrings("MaybeCallbacks", generated.@"cpz.aliasByName"("MaybeCallbacks").?.name);
+    try std.testing.expectEqualStrings("List(?TopCallback)", generated.@"cpz.aliasByName"("MaybeCallbacks").?.target);
+    try std.testing.expectEqualStrings("List(?TopCallback)", generated.@"cpz.aliasByName"("MaybeCallbacks").?.resolved_target);
+    try std.testing.expectEqual(@as(?u32, 42), @as(generated.MaybeCallbacks, &[_]?u32{42})[0]);
+    try std.testing.expectEqual(@as(?u32, null), @as(generated.MaybeCallbacks, &[_]?u32{null})[0]);
+}
+
 test "generated optional constants expose values and flats" {
     try std.testing.expectEqualStrings("maybe local", generated.Defaults.defaultMaybeLabel.?);
     var label_reader = generated.Defaults.defaultMaybeLabelFlat.reader(.{});

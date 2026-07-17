@@ -17,6 +17,8 @@ interface TopCallback {
   ping @0 () -> ();
 }
 
+using MaybeCallbacks = List(?TopCallback);
+
 struct MaybeDefaults {
   absent @0 :?Text = null;
   absentData @1 :?Data = null;

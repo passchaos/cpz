@@ -7978,6 +7978,8 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 .any_pointer => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.PointerReader"),
                 .any_struct => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.StructReader"),
                 .any_list => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.ListReader"),
+                .named => |type_name| if (findInterface(file, type_name) != null)
+                    try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
                 else => {},
             },
             .any_pointer, .any_struct, .any_list, .list => {},
