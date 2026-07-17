@@ -10897,6 +10897,32 @@ fn resolveConstReferenceLiteralDepth(file: *const File, scope: ?*const Struct, l
 
 fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError!?[]u8 {
     const decl = findConstReference(file, scope, literal) orelse return null;
+    return referencedBlobBytesFromDeclAlloc(allocator, file, scope, decl, literal, constDeclOwnerName(file, decl), is_text);
+}
+
+fn constDeclOwnerName(file: *const File, decl: *const ConstDecl) ?[]const u8 {
+    for (file.structs) |*owner| {
+        for (owner.consts) |*candidate| {
+            if (candidate == decl) return owner.name;
+        }
+    }
+    for (file.interfaces) |*owner| {
+        for (owner.consts) |*candidate| {
+            if (candidate == decl) return owner.name;
+        }
+    }
+    return null;
+}
+
+fn referencedBlobBytesFromDeclAlloc(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    decl: *const ConstDecl,
+    original_literal: []const u8,
+    owner_name: ?[]const u8,
+    comptime is_text: bool,
+) LayoutError!?[]u8 {
     const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
         .optional => |child| resolveTypeScoped(file, scope, child.*),
         else => |resolved| resolved,
@@ -10904,20 +10930,39 @@ fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, sco
     if (is_text) {
         if (resolved_ty != .text) return null;
         if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
-        if (!std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, literal, " \t\r\n"))) {
-            if (try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, true)) |bytes| return bytes;
-        }
+        if (try referencedBlobBytesFromNestedConstAlloc(allocator, file, scope, decl, original_literal, owner_name, true)) |bytes| return bytes;
         return try decodedStringBytesAlloc(allocator, decl.literal);
     }
     if (resolved_ty != .data) return null;
     if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
-    if (!std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, literal, " \t\r\n"))) {
-        if (try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, false)) |bytes| return bytes;
-    }
+    if (try referencedBlobBytesFromNestedConstAlloc(allocator, file, scope, decl, original_literal, owner_name, false)) |bytes| return bytes;
     return if (decl.is_hex_data)
         try hexBytesAlloc(allocator, decl.literal)
     else
         try decodedStringBytesAlloc(allocator, decl.literal);
+}
+
+fn referencedBlobBytesFromNestedConstAlloc(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    decl: *const ConstDecl,
+    original_literal: []const u8,
+    owner_name: ?[]const u8,
+    comptime is_text: bool,
+) LayoutError!?[]u8 {
+    const raw_literal = std.mem.trim(u8, decl.literal, " \t\r\n");
+    if (std.mem.eql(u8, raw_literal, std.mem.trim(u8, original_literal, " \t\r\n"))) return null;
+    if (lastTopLevelDot(raw_literal) == null) {
+        if (owner_name) |owner| {
+            if (findConstInOwner(file, scope, owner, raw_literal)) |nested_decl| {
+                if (nested_decl != decl) {
+                    if (try referencedBlobBytesFromDeclAlloc(allocator, file, scope, nested_decl, decl.literal, constDeclOwnerName(file, nested_decl) orelse owner, is_text)) |bytes| return bytes;
+                }
+            }
+        }
+    }
+    return try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, is_text);
 }
 
 fn fieldBlobDefaultBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: *const Field, comptime is_text: bool) LayoutError!?[]u8 {

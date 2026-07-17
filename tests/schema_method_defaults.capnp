@@ -121,6 +121,8 @@ struct ConstRefDefaults {
   anyFromConst @31 :AnyPointer = referencedAnyItem;
   anyStructFromConst @32 :AnyStruct = referencedAnyStructItem;
   anyListFromConst @33 :AnyList = referencedAnyListNumbers;
+  ownerChainedText @34 :Text = Defaults.defaultLabelAlias;
+  ownerChainedData @35 :Data = Defaults.defaultPayloadAlias;
 }
 
 struct StructOwnerAliasDefaults {
@@ -210,7 +212,9 @@ interface Defaults {
   using ModeAlias = LocalMode;
   const defaultLocalMode :ModeAlias = running;
   const defaultLabel :Text = "local";
+  const defaultLabelAlias :Text = defaultLabel;
   const defaultPayload :Data = 0x"0a 0b";
+  const defaultPayloadAlias :Data = defaultPayload;
   const defaultNullLabel :Text = null;
   const defaultNullPayload :Data = null;
   const defaultMaybeNullLabelRef :?Text = defaultNullLabel;

@@ -1014,6 +1014,10 @@ test "generated struct field defaults resolve const references" {
     var any_list_from_const_reader = generated.ConstRefDefaults.anyListFromConstDefaultFlat.reader(.{});
     const any_list_from_const = try generated.ConstRefDefaults.anyListFromConstDefaultFlat.get(&any_list_from_const_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 8), any_list_from_const.getUInt16(1));
+    var owner_chained_text_default_reader = generated.ConstRefDefaults.ownerChainedTextDefaultFlat.reader(.{});
+    try std.testing.expectEqualStrings("local", try generated.ConstRefDefaults.ownerChainedTextDefaultFlat.get(&owner_chained_text_default_reader));
+    var owner_chained_data_default_reader = generated.ConstRefDefaults.ownerChainedDataDefaultFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0a, 0x0b }, try generated.ConstRefDefaults.ownerChainedDataDefaultFlat.get(&owner_chained_data_default_reader));
     var cap_list_default_reader = generated.ConstRefDefaults.capListDefaultFlat.reader(.{});
     const cap_list_default = try generated.ConstRefDefaults.capListDefaultFlat.list(&cap_list_default_reader);
     try std.testing.expectEqual(@as(usize, 2), cap_list_default.len());
