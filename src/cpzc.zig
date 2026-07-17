@@ -20,27 +20,30 @@ pub fn main(init: std.process.Init) !u8 {
     var namespace: ?[]const u8 = null;
     var check = false;
     var emit_raw_schema_comments = false;
+    var parse_options = true;
     var input_path: ?[]const u8 = null;
     var output_path: ?[]const u8 = null;
     while (args.next()) |arg| {
-        if (std.mem.eql(u8, arg, "--runtime-import")) {
+        if (parse_options and std.mem.eql(u8, arg, "--")) {
+            parse_options = false;
+        } else if (parse_options and std.mem.eql(u8, arg, "--runtime-import")) {
             runtime_import_name = args.next() orelse {
                 std.debug.print("{s}", .{usage});
                 return 2;
             };
-        } else if (std.mem.eql(u8, arg, "--namespace")) {
+        } else if (parse_options and std.mem.eql(u8, arg, "--namespace")) {
             namespace = args.next() orelse {
                 std.debug.print("{s}", .{usage});
                 return 2;
             };
-        } else if (std.mem.eql(u8, arg, "--check")) {
+        } else if (parse_options and std.mem.eql(u8, arg, "--check")) {
             check = true;
-        } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
+        } else if (parse_options and (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h"))) {
             try std.Io.File.stdout().writeStreamingAll(io, usage);
             return 0;
-        } else if (std.mem.eql(u8, arg, "--emit-raw-schema-comments")) {
+        } else if (parse_options and std.mem.eql(u8, arg, "--emit-raw-schema-comments")) {
             emit_raw_schema_comments = true;
-        } else if (std.mem.startsWith(u8, arg, "-")) {
+        } else if (parse_options and std.mem.startsWith(u8, arg, "-")) {
             std.debug.print("{s}", .{usage});
             return 2;
         } else if (input_path == null) {
