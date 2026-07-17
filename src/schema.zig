@@ -6112,7 +6112,7 @@ const AnyPointerDefaultKind = enum { any, struct_ptr, list };
 
 fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, default_literal: []const u8, comptime want: AnyPointerDefaultKind) LayoutError![]u8 {
     const decl = findConstReference(file, scope, default_literal) orelse return error.UnsupportedType;
-    const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
+    const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
         .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, decl.literal) orelse return error.UnsupportedType,
         else => |resolved| resolved,
     };
@@ -6128,10 +6128,27 @@ fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *co
         },
         .any_pointer, .any_struct, .any_list => {
             if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, default_literal, " \t\r\n"))) return error.UnsupportedType;
+            const next_literal = std.mem.trim(u8, decl.literal, " \t\r\n");
+            if (lastTopLevelDot(next_literal) == null) {
+                if (constDeclOwnerName(file, decl)) |owner| {
+                    const qualified_literal = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ owner, next_literal });
+                    defer allocator.free(qualified_literal);
+                    if (!std.mem.eql(u8, qualified_literal, std.mem.trim(u8, default_literal, " \t\r\n"))) {
+                        return methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, qualified_literal, want);
+                    }
+                }
+            }
             return methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, decl.literal, want);
         },
         else => return error.UnsupportedType,
     }
+}
+
+fn resolveConstDeclType(file: *const File, scope: ?*const Struct, decl: *const ConstDecl) Type {
+    if (constDeclOwnerName(file, decl)) |owner_name| {
+        return resolveTypeInOwnerScope(file, owner_name, decl.ty);
+    }
+    return resolveTypeScoped(file, scope, decl.ty);
 }
 
 fn methodOptionalDefaultChildOrNull(file: *const File, scope: ?*const Struct, child: Type, default_literal: []const u8) ?Type {

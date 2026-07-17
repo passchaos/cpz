@@ -1023,6 +1023,15 @@ test "generated struct field defaults resolve const references" {
     var owner_chained_numbers_default_reader = generated.ConstRefDefaults.ownerChainedNumbersDefaultFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 7), try generated.ConstRefDefaults.ownerChainedNumbersDefaultFlat.get(&owner_chained_numbers_default_reader, 0));
     try std.testing.expectEqual(@as(u16, 8), try generated.ConstRefDefaults.ownerChainedNumbersDefaultFlat.get(&owner_chained_numbers_default_reader, 1));
+    var owner_any_from_alias_reader = generated.ConstRefDefaults.ownerAnyFromAliasDefaultFlat.reader(.{});
+    const owner_any_from_alias = try (try generated.ConstRefDefaults.ownerAnyFromAliasDefaultFlat.pointer(&owner_any_from_alias_reader)).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 99), owner_any_from_alias.getUInt32(0, 0));
+    var owner_any_struct_from_alias_reader = generated.ConstRefDefaults.ownerAnyStructFromAliasDefaultFlat.reader(.{});
+    const owner_any_struct_from_alias = try generated.ConstRefDefaults.ownerAnyStructFromAliasDefaultFlat.get(&owner_any_struct_from_alias_reader);
+    try std.testing.expectEqual(@as(u32, 99), owner_any_struct_from_alias.getUInt32(0, 0));
+    var owner_any_list_from_alias_reader = generated.ConstRefDefaults.ownerAnyListFromAliasDefaultFlat.reader(.{});
+    const owner_any_list_from_alias = try generated.ConstRefDefaults.ownerAnyListFromAliasDefaultFlat.get(&owner_any_list_from_alias_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 8), owner_any_list_from_alias.getUInt16(1));
     var cap_list_default_reader = generated.ConstRefDefaults.capListDefaultFlat.reader(.{});
     const cap_list_default = try generated.ConstRefDefaults.capListDefaultFlat.list(&cap_list_default_reader);
     try std.testing.expectEqual(@as(usize, 2), cap_list_default.len());

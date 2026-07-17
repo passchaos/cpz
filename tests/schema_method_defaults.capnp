@@ -125,6 +125,9 @@ struct ConstRefDefaults {
   ownerChainedData @35 :Data = Defaults.defaultPayloadAlias;
   ownerChainedMode @36 :Defaults.LocalMode = Defaults.defaultLocalModeAlias;
   ownerChainedNumbers @37 :List(UInt16) = Defaults.defaultNumbersAlias;
+  ownerAnyFromAlias @38 :AnyPointer = Defaults.defaultAnyItemAlias;
+  ownerAnyStructFromAlias @39 :AnyStruct = Defaults.defaultAnyStructItemAlias;
+  ownerAnyListFromAlias @40 :AnyList = Defaults.defaultAnyListNumbersAlias;
 }
 
 struct StructOwnerAliasDefaults {
@@ -285,6 +288,9 @@ interface Defaults {
   const defaultAnyItem :AnyPointer = defaultItem;
   const defaultAnyStructItem :AnyStruct = defaultItem;
   const defaultAnyListNumbers :AnyList = defaultNumbers;
+  const defaultAnyItemAlias :AnyPointer = defaultAnyItem;
+  const defaultAnyStructItemAlias :AnyStruct = defaultAnyStructItem;
+  const defaultAnyListNumbersAlias :AnyList = defaultAnyListNumbers;
   const defaultMaybeLabelsNull :?List(?Text) = null;
   const defaultMaybePayloadsNull :?List(?Data) = null;
   const defaultMaybeCallbacksNull :?List(?Callback) = null;
