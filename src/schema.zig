@@ -9218,17 +9218,17 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             \\{s}pub const {s}: bool = {s};
             \\
             \\
-        , .{ indent, const_name, try boolConstLiteral(decl.literal) }),
-        .int8 => try emitNumericConst(allocator, out, indent, const_name, "i8", decl.literal),
-        .int16 => try emitNumericConst(allocator, out, indent, const_name, "i16", decl.literal),
-        .int32 => try emitNumericConst(allocator, out, indent, const_name, "i32", decl.literal),
-        .int64 => try emitNumericConst(allocator, out, indent, const_name, "i64", decl.literal),
-        .uint8 => try emitNumericConst(allocator, out, indent, const_name, "u8", decl.literal),
-        .uint16 => try emitNumericConst(allocator, out, indent, const_name, "u16", decl.literal),
-        .uint32 => try emitNumericConst(allocator, out, indent, const_name, "u32", decl.literal),
-        .uint64 => try emitNumericConst(allocator, out, indent, const_name, "u64", decl.literal),
-        .float32 => try emitNumericConst(allocator, out, indent, const_name, "f32", floatConstLiteral(decl.literal, "f32")),
-        .float64 => try emitNumericConst(allocator, out, indent, const_name, "f64", floatConstLiteral(decl.literal, "f64")),
+        , .{ indent, const_name, try boolConstLiteral(resolveScalarConstLiteral(file, scope, decl.literal)) }),
+        .int8 => try emitNumericConst(allocator, out, indent, const_name, "i8", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .int16 => try emitNumericConst(allocator, out, indent, const_name, "i16", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .int32 => try emitNumericConst(allocator, out, indent, const_name, "i32", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .int64 => try emitNumericConst(allocator, out, indent, const_name, "i64", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .uint8 => try emitNumericConst(allocator, out, indent, const_name, "u8", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .uint16 => try emitNumericConst(allocator, out, indent, const_name, "u16", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .uint32 => try emitNumericConst(allocator, out, indent, const_name, "u32", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .uint64 => try emitNumericConst(allocator, out, indent, const_name, "u64", resolveScalarConstLiteral(file, scope, decl.literal)),
+        .float32 => try emitNumericConst(allocator, out, indent, const_name, "f32", floatConstLiteral(resolveScalarConstLiteral(file, scope, decl.literal), "f32")),
+        .float64 => try emitNumericConst(allocator, out, indent, const_name, "f64", floatConstLiteral(resolveScalarConstLiteral(file, scope, decl.literal), "f64")),
         .capability => {
             const raw = std.mem.trim(u8, resolveScalarConstLiteral(file, scope, decl.literal), " \t\r\n");
             if (!std.mem.eql(u8, raw, "void") and !std.mem.eql(u8, raw, "null")) return;
@@ -9317,7 +9317,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                     \\{s}pub const {s}: {s} = @enumFromInt({});
                     \\
                     \\
-                , .{ indent, const_name, zig_type, try enumDefaultOrdinal(enum_decl, decl.literal) });
+                , .{ indent, const_name, zig_type, try enumDefaultOrdinal(enum_decl, resolveScalarConstLiteral(file, scope, decl.literal)) });
             }
         },
         .list => |child| {
@@ -10784,23 +10784,35 @@ fn supportsScalarConstFlatContainer(file: *const File, scope: ?*const Struct, ty
 }
 
 fn resolveScalarConstLiteral(file: *const File, scope: ?*const Struct, literal: []const u8) []const u8 {
+    return resolveScalarConstLiteralDepth(file, scope, literal, 0);
+}
+
+fn resolveScalarConstLiteralDepth(file: *const File, scope: ?*const Struct, literal: []const u8, depth: usize) []const u8 {
+    if (depth >= 32) return literal;
     const raw = std.mem.trim(u8, literal, " \t\r\n");
     const name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
     const owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else null;
     if (scope) |decl| {
         if (owner == null or typeNameEqualsCanonical(owner.?, decl.name)) {
             for (decl.consts) |const_decl| {
-                if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
+                if (std.mem.eql(u8, const_decl.name, name)) {
+                    if (std.mem.eql(u8, std.mem.trim(u8, const_decl.literal, " \t\r\n"), raw)) return const_decl.literal;
+                    return resolveScalarConstLiteralDepth(file, scope, const_decl.literal, depth + 1);
+                }
             }
         }
     }
     if (owner) |owner_name| {
         if (findConstInOwner(file, scope, owner_name, name)) |decl| {
-            return decl.literal;
+            if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), raw)) return decl.literal;
+            return resolveScalarConstLiteralDepth(file, scope, decl.literal, depth + 1);
         }
     }
     for (file.consts) |const_decl| {
-        if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
+        if (std.mem.eql(u8, const_decl.name, name)) {
+            if (std.mem.eql(u8, std.mem.trim(u8, const_decl.literal, " \t\r\n"), raw)) return const_decl.literal;
+            return resolveScalarConstLiteralDepth(file, scope, const_decl.literal, depth + 1);
+        }
     }
     return literal;
 }
@@ -10875,10 +10887,16 @@ fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, sco
     if (is_text) {
         if (resolved_ty != .text) return null;
         if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
+        if (!std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, literal, " \t\r\n"))) {
+            if (try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, true)) |bytes| return bytes;
+        }
         return try decodedStringBytesAlloc(allocator, decl.literal);
     }
     if (resolved_ty != .data) return null;
     if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
+    if (!std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, literal, " \t\r\n"))) {
+        if (try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, false)) |bytes| return bytes;
+    }
     return if (decl.is_hex_data)
         try hexBytesAlloc(allocator, decl.literal)
     else

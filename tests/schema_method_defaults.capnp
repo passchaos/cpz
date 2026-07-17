@@ -4,13 +4,17 @@ enum Mode {
 }
 
 const referencedText :Text = "referenced text";
+const referencedTextAlias :Text = referencedText;
 const referencedData :Data = 0x"12 34";
+const referencedDataAlias :Data = referencedData;
 const referencedNullText :Text = null;
 const referencedNullData :Data = null;
 const referencedFlag :Bool = true;
 const referencedAmount :UInt32 = 123;
+const referencedAmountAlias :UInt32 = referencedAmount;
 const referencedRatio :Float64 = +1.25e2;
 const referencedMode :Mode = on;
+const referencedModeAlias :Mode = referencedMode;
 const referencedNumbers :List(UInt16) = [7, 8];
 const referencedNullNumbers :List(UInt16) = null;
 const referencedCap :Capability = void;
@@ -108,6 +112,10 @@ struct ConstRefDefaults {
   interfaceTextViaAlias @24 :Text = DefaultsAlias.defaultLabel;
   localInterfaceTextViaAlias @25 :Text = LocalDefaultsAlias.defaultLabel;
   interfaceModeViaAlias @26 :Defaults.LocalMode = DefaultsAlias.defaultLocalMode;
+  chainedText @27 :Text = referencedTextAlias;
+  chainedData @28 :Data = referencedDataAlias;
+  chainedAmount @29 :UInt32 = referencedAmountAlias;
+  chainedMode @30 :Mode = referencedModeAlias;
 }
 
 struct StructOwnerAliasDefaults {

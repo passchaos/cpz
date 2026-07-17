@@ -843,6 +843,10 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqualStrings("local", try empty_root_builder.get_interfaceTextViaAlias());
     try std.testing.expectEqualStrings("local", try empty_root_builder.get_localInterfaceTextViaAlias());
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try empty_root_builder.get_interfaceModeViaAlias());
+    try std.testing.expectEqualStrings("referenced text", try empty_root_builder.get_chainedText());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try empty_root_builder.get_chainedData());
+    try std.testing.expectEqual(@as(u32, 123), try empty_root_builder.get_chainedAmount());
+    try std.testing.expectEqual(generated.Mode.on, try empty_root_builder.get_chainedMode());
     try std.testing.expect(!try empty_root_builder.has_numbers());
     const materialized_numbers_builder = try empty_root_builder.get_numbers();
     try std.testing.expectEqual(@as(usize, 2), materialized_numbers_builder.len());
@@ -906,6 +910,10 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqualStrings("local", try empty_root_as_reader.interfaceTextViaAlias());
     try std.testing.expectEqualStrings("local", try empty_root_as_reader.localInterfaceTextViaAlias());
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try empty_root_as_reader.interfaceModeViaAlias());
+    try std.testing.expectEqualStrings("referenced text", try empty_root_as_reader.chainedText());
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try empty_root_as_reader.chainedData());
+    try std.testing.expectEqual(@as(u32, 123), empty_root_as_reader.chainedAmount());
+    try std.testing.expectEqual(generated.Mode.on, try empty_root_as_reader.chainedMode());
     const materialized_item_reader = try empty_root_as_reader.item();
     try std.testing.expectEqual(@as(u32, 88), materialized_item_reader.value());
     try std.testing.expectEqualStrings("referenced item", try materialized_item_reader.label());
@@ -946,6 +954,14 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqualStrings("local", try generated.ConstRefDefaults.localInterfaceTextViaAliasDefaultFlat.get(&local_interface_text_alias_default_reader));
     var interface_mode_alias_default_reader = generated.ConstRefDefaults.interfaceModeViaAliasDefaultFlat.reader(.{});
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.ConstRefDefaults.interfaceModeViaAliasDefaultFlat.get(&interface_mode_alias_default_reader));
+    var chained_text_default_reader = generated.ConstRefDefaults.chainedTextDefaultFlat.reader(.{});
+    try std.testing.expectEqualStrings("referenced text", try generated.ConstRefDefaults.chainedTextDefaultFlat.get(&chained_text_default_reader));
+    var chained_data_default_reader = generated.ConstRefDefaults.chainedDataDefaultFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.ConstRefDefaults.chainedDataDefaultFlat.get(&chained_data_default_reader));
+    var chained_amount_default_reader = generated.ConstRefDefaults.chainedAmountDefaultFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 123), try generated.ConstRefDefaults.chainedAmountDefaultFlat.get(&chained_amount_default_reader));
+    var chained_mode_default_reader = generated.ConstRefDefaults.chainedModeDefaultFlat.reader(.{});
+    try std.testing.expectEqual(generated.Mode.on, try generated.ConstRefDefaults.chainedModeDefaultFlat.get(&chained_mode_default_reader));
     var numbers_default_reader = generated.ConstRefDefaults.numbersDefaultFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 7), try generated.ConstRefDefaults.numbersDefaultFlat.get(&numbers_default_reader, 0));
     try std.testing.expectEqual(@as(u16, 8), try generated.ConstRefDefaults.numbersDefaultFlat.get(&numbers_default_reader, 1));
