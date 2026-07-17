@@ -1155,10 +1155,11 @@ test "generated method default flats expose capability list defaults" {
 
 test "generated method default flats expose optional pointer list elements" {
     try std.testing.expectEqualStrings("optionalElementLists", generated.Defaults.@"cpz.methodByName"("optionalElementLists").?.name);
-    try std.testing.expectEqual(@as(usize, 4), generated.Defaults.@"cpz.method.optionalElementLists.params.fieldCount");
+    try std.testing.expectEqual(@as(usize, 5), generated.Defaults.@"cpz.method.optionalElementLists.params.fieldCount");
 
     try std.testing.expectEqualStrings("[\"alpha\", null, defaultMaybeLabel]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.labels.default".?);
     try std.testing.expectEqualStrings("[0x\"0a 0b\", null, defaultMaybePayload]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.payloads.default".?);
+    try std.testing.expectEqualStrings("[(value = 11, label = \"eleven\"), null, defaultMaybeItem]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.default".?);
 
     var labels_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.labels.defaultFlat".reader(.{});
     const labels = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.labels.defaultFlat".list(&labels_reader);
@@ -1181,6 +1182,21 @@ test "generated method default flats expose optional pointer list elements" {
     var payloads_wrapped = generated.Defaults.@"cpz.method.optionalElementLists.params.field.payloads.defaultFlat".init(.{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0e, 0x0f }, try payloads_wrapped.get(2));
     try std.testing.expect((try payloads_wrapped.getOrNull(1)) == null);
+
+    var items_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".reader(.{});
+    const items = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".list(&items_reader);
+    try std.testing.expectEqual(@as(usize, 3), items.len());
+    const item0 = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".get(&items_reader, 0);
+    try std.testing.expectEqual(@as(u32, 11), item0.value());
+    try std.testing.expectEqualStrings("eleven", try item0.label());
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".elementIsNull(&items_reader, 1));
+    try std.testing.expect((try generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".getOrNull(&items_reader, 1)) == null);
+    const item2 = (try generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".getOrNull(&items_reader, 2)).?;
+    try std.testing.expectEqual(@as(u32, 77), item2.value());
+    try std.testing.expectEqualStrings("seventy-seven", try item2.label());
+    var items_wrapped = generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".init(.{});
+    try std.testing.expectEqual(@as(u32, 77), (try items_wrapped.get(2)).value());
+    try std.testing.expect((try items_wrapped.getOrNull(1)) == null);
 
     var caps_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.caps.defaultFlat".reader(.{});
     const caps = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.caps.defaultFlat".list(&caps_reader);

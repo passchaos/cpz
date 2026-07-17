@@ -284,6 +284,7 @@ interface Defaults {
   optionalElementLists @10 (
     labels :List(?Text) = ["alpha", null, defaultMaybeLabel],
     payloads :List(?Data) = [0x"0a 0b", null, defaultMaybePayload],
+    items :List(?Item) = [(value = 11, label = "eleven"), null, defaultMaybeItem],
     caps :List(?Capability) = [void, null],
     callbacks :List(?Callback) = [void]
   ) -> ();
