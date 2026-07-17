@@ -11249,6 +11249,9 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
             .text => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, true, optional_value),
             .data => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, false, optional_value),
+            .capability => try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value),
+            .named => |type_name| if (findInterface(file, type_name) != null)
+                try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value),
             else => return,
         },
         .named => |type_name| {
@@ -11428,6 +11431,30 @@ fn emitOptionalTextOrDataListConst(allocator: std.mem.Allocator, out: *std.Array
     var data_type: Type = .data;
     const child: Type = if (is_text) .{ .optional = &text_type } else .{ .optional = &data_type };
     try emitListFieldDefaultFlatContainerFromBytes(allocator, out, file, scope, indent, name, child, flat);
+}
+
+fn optionalCapabilityConstItem(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, item: ConstListItem) LayoutError![]const u8 {
+    const resolved = std.mem.trim(u8, resolveScalarConstLiteral(file, scope, item.literal), " \t\r\n");
+    if (std.mem.eql(u8, resolved, "void") or std.mem.eql(u8, resolved, "null")) return allocator.dupe(u8, "null");
+    return error.InvalidToken;
+}
+
+fn emitOptionalCapabilityListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, items: []const ConstListItem, comptime optional_value: bool) LayoutError!void {
+    const value_type = if (optional_value) "?[]const ?u32" else "[]const ?u32";
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}: {s} = &[_]?u32{{
+    , .{ indent, name, value_type });
+    for (items, 0..) |item, i| {
+        if (i != 0) try out.appendSlice(allocator, ", ");
+        const literal = try optionalCapabilityConstItem(allocator, file, scope, item);
+        defer allocator.free(literal);
+        try out.appendSlice(allocator, literal);
+    }
+    try out.appendSlice(allocator, "};\n\n");
+
+    const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+    defer allocator.free(flat);
+    try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
 }
 
 fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {

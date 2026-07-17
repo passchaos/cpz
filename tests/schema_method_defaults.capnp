@@ -194,6 +194,8 @@ interface Defaults {
 
   const defaultCaps :List(Capability) = [void, null];
   const defaultCallbacks :List(Callback) = [void];
+  const defaultMaybeCapElements :List(?Capability) = [void, null];
+  const defaultMaybeCallbackElements :List(?Callback) = [void, null];
 
   const defaultItems :List(Item) = [(value = 10, label = "ten"), (value = 20, label = "twenty")];
   const defaultItem :Item = (value = 99, label = "ninety-nine");

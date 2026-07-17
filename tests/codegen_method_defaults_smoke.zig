@@ -147,6 +147,26 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(u32, 10), item_ref0.value());
     try std.testing.expectEqualStrings("ten", try item_ref0.label());
 
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeCapElements.len);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultMaybeCapElements[0]);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultMaybeCapElements[1]);
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.const.defaultMaybeCapElements.listItemCount");
+    var maybe_cap_elements_reader = generated.Defaults.defaultMaybeCapElementsFlat.reader(.{});
+    const maybe_cap_elements = try generated.Defaults.defaultMaybeCapElementsFlat.list(&maybe_cap_elements_reader);
+    try std.testing.expectEqual(@as(usize, 2), maybe_cap_elements.len());
+    try std.testing.expect(try generated.Defaults.defaultMaybeCapElementsFlat.elementIsNull(&maybe_cap_elements_reader, 0));
+    try std.testing.expect(try generated.Defaults.defaultMaybeCapElementsFlat.elementIsNull(&maybe_cap_elements_reader, 1));
+
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeCallbackElements.len);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultMaybeCallbackElements[0]);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultMaybeCallbackElements[1]);
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.const.defaultMaybeCallbackElements.listItemCount");
+    var maybe_callback_elements_reader = generated.Defaults.defaultMaybeCallbackElementsFlat.reader(.{});
+    const maybe_callback_elements = try generated.Defaults.defaultMaybeCallbackElementsFlat.list(&maybe_callback_elements_reader);
+    try std.testing.expectEqual(@as(usize, 2), maybe_callback_elements.len());
+    try std.testing.expect(try generated.Defaults.defaultMaybeCallbackElementsFlat.elementIsNull(&maybe_callback_elements_reader, 0));
+    try std.testing.expect(try generated.Defaults.defaultMaybeCallbackElementsFlat.elementIsNull(&maybe_callback_elements_reader, 1));
+
     var maybe_caps_reader = generated.Defaults.defaultMaybeCapsFlat.reader(.{});
     const maybe_caps = try generated.Defaults.defaultMaybeCapsFlat.list(&maybe_caps_reader);
     try std.testing.expectEqual(@as(usize, 2), maybe_caps.len());
