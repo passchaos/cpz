@@ -348,6 +348,9 @@ test "generated optional constants expose values and flats" {
     const any_list_numbers = try generated.Defaults.defaultMaybeAnyListNumbers.get(&any_list_numbers_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 7), any_list_numbers.getUInt16(0));
     try std.testing.expectEqual(@as(u16, 8), any_list_numbers.getUInt16(1));
+    var any_list_alias_numbers_reader = generated.Defaults.defaultMaybeAnyListAliasNumbers.reader(.{});
+    const any_list_alias_numbers = try generated.Defaults.defaultMaybeAnyListAliasNumbers.get(&any_list_alias_numbers_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 8), any_list_alias_numbers.getUInt16(1));
 
     var direct_any_item_reader = generated.Defaults.defaultAnyItem.reader(.{});
     const direct_any_item = try (try generated.Defaults.defaultAnyItem.get(&direct_any_item_reader)).getStruct(null);
@@ -360,6 +363,9 @@ test "generated optional constants expose values and flats" {
     var direct_any_list_numbers_reader = generated.Defaults.defaultAnyListNumbers.reader(.{});
     const direct_any_list_numbers = try generated.Defaults.defaultAnyListNumbers.get(&direct_any_list_numbers_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 8), direct_any_list_numbers.getUInt16(1));
+    var direct_any_list_alias_numbers_reader = generated.Defaults.defaultAnyListAliasNumbers.reader(.{});
+    const direct_any_list_alias_numbers = try generated.Defaults.defaultAnyListAliasNumbers.get(&direct_any_list_alias_numbers_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 7), direct_any_list_alias_numbers.getUInt16(0));
 
     try std.testing.expectEqual(@as(usize, 3), generated.Defaults.@"cpz.const.defaultMaybeAnyValues.listItemCount");
     var maybe_any_values_reader = generated.Defaults.defaultMaybeAnyValuesFlat.reader(.{});

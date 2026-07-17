@@ -6127,7 +6127,10 @@ fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *co
         },
         .list => |child| {
             if (want == .struct_ptr) return error.UnsupportedType;
-            return methodListDefaultFlatBytesAlloc(allocator, file, scope, child.*, decl.literal);
+            var decl_scope_fields: [0]Field = .{};
+            var decl_scope_storage: Struct = undefined;
+            const decl_scope = constDeclResolutionScope(file, scope, decl, decl_scope_fields[0..], &decl_scope_storage);
+            return methodListDefaultFlatBytesAlloc(allocator, file, decl_scope, child.*, decl.literal);
         },
         .any_pointer, .any_struct, .any_list => {
             if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, default_literal, " \t\r\n"))) return error.UnsupportedType;

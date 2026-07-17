@@ -300,6 +300,7 @@ interface Defaults {
   const defaultMaybeAnyItem :?AnyPointer = defaultItem;
   const defaultMaybeAnyStructItem :?AnyStruct = defaultItem;
   const defaultMaybeAnyListNumbers :?AnyList = defaultNumbers;
+  const defaultMaybeAnyListAliasNumbers :?AnyList = defaultNumbersAlias;
   const defaultMaybeAnyValues :List(?AnyPointer) = [defaultMaybeItem, null, defaultMaybeNumbers];
   const defaultMaybeAnyStructs :List(?AnyStruct) = [defaultMaybeItem, null];
   const defaultMaybeAnyLists :List(?AnyList) = [defaultMaybeNumbers, null];
@@ -309,6 +310,7 @@ interface Defaults {
   const defaultAnyItem :AnyPointer = defaultItem;
   const defaultAnyStructItem :AnyStruct = defaultItem;
   const defaultAnyListNumbers :AnyList = defaultNumbers;
+  const defaultAnyListAliasNumbers :AnyList = defaultNumbersAlias;
   const defaultAnyItemAlias :AnyPointer = defaultAnyItem;
   const defaultAnyStructItemAlias :AnyStruct = defaultAnyStructItem;
   const defaultAnyListNumbersAlias :AnyList = defaultAnyListNumbers;
