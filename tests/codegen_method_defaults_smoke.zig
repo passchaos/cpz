@@ -737,6 +737,9 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqualStrings("local", try empty_root_builder.get_interfaceText());
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0a, 0x0b }, try empty_root_builder.get_interfaceData());
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try empty_root_builder.get_interfaceMode());
+    try std.testing.expectEqualStrings("local", try empty_root_builder.get_interfaceTextViaAlias());
+    try std.testing.expectEqualStrings("local", try empty_root_builder.get_localInterfaceTextViaAlias());
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, try empty_root_builder.get_interfaceModeViaAlias());
     try std.testing.expect(!try empty_root_builder.has_numbers());
     const materialized_numbers_builder = try empty_root_builder.get_numbers();
     try std.testing.expectEqual(@as(usize, 2), materialized_numbers_builder.len());
@@ -797,6 +800,9 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqual(@as(u16, 7), interface_numbers_reader.get(0));
     try std.testing.expectEqual(@as(u16, 8), interface_numbers_reader.get(1));
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try empty_root_as_reader.interfaceMode());
+    try std.testing.expectEqualStrings("local", try empty_root_as_reader.interfaceTextViaAlias());
+    try std.testing.expectEqualStrings("local", try empty_root_as_reader.localInterfaceTextViaAlias());
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, try empty_root_as_reader.interfaceModeViaAlias());
     const materialized_item_reader = try empty_root_as_reader.item();
     try std.testing.expectEqual(@as(u32, 88), materialized_item_reader.value());
     try std.testing.expectEqualStrings("referenced item", try materialized_item_reader.label());
@@ -831,6 +837,12 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0a, 0x0b }, try generated.ConstRefDefaults.interfaceDataDefaultFlat.get(&interface_data_default_reader));
     var interface_mode_default_reader = generated.ConstRefDefaults.interfaceModeDefaultFlat.reader(.{});
     try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.ConstRefDefaults.interfaceModeDefaultFlat.get(&interface_mode_default_reader));
+    var interface_text_alias_default_reader = generated.ConstRefDefaults.interfaceTextViaAliasDefaultFlat.reader(.{});
+    try std.testing.expectEqualStrings("local", try generated.ConstRefDefaults.interfaceTextViaAliasDefaultFlat.get(&interface_text_alias_default_reader));
+    var local_interface_text_alias_default_reader = generated.ConstRefDefaults.localInterfaceTextViaAliasDefaultFlat.reader(.{});
+    try std.testing.expectEqualStrings("local", try generated.ConstRefDefaults.localInterfaceTextViaAliasDefaultFlat.get(&local_interface_text_alias_default_reader));
+    var interface_mode_alias_default_reader = generated.ConstRefDefaults.interfaceModeViaAliasDefaultFlat.reader(.{});
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, try generated.ConstRefDefaults.interfaceModeViaAliasDefaultFlat.get(&interface_mode_alias_default_reader));
     var numbers_default_reader = generated.ConstRefDefaults.numbersDefaultFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 7), try generated.ConstRefDefaults.numbersDefaultFlat.get(&numbers_default_reader, 0));
     try std.testing.expectEqual(@as(u16, 8), try generated.ConstRefDefaults.numbersDefaultFlat.get(&numbers_default_reader, 1));

@@ -19,6 +19,7 @@ interface TopCallback {
 }
 
 using MaybeCallbacks = List(?TopCallback);
+using DefaultsAlias = Defaults;
 
 struct MaybeDefaults {
   absent @0 :?Text = null;
@@ -57,6 +58,8 @@ struct NullPointerDefaults {
 }
 
 struct ConstRefDefaults {
+  using LocalDefaultsAlias = DefaultsAlias;
+
   const localText :Text = "local text";
   const localData :Data = 0x"56 78";
   const localFlag :Bool = false;
@@ -89,6 +92,9 @@ struct ConstRefDefaults {
   interfaceData @21 :Data = Defaults.defaultPayload;
   interfaceNumbers @22 :List(UInt16) = Defaults.defaultNumbers;
   interfaceMode @23 :Defaults.LocalMode = Defaults.defaultLocalMode;
+  interfaceTextViaAlias @24 :Text = DefaultsAlias.defaultLabel;
+  localInterfaceTextViaAlias @25 :Text = LocalDefaultsAlias.defaultLabel;
+  interfaceModeViaAlias @26 :Defaults.LocalMode = DefaultsAlias.defaultLocalMode;
 }
 
 struct CountFieldDefaults {

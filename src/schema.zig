@@ -10746,10 +10746,8 @@ fn resolveScalarConstLiteral(file: *const File, scope: ?*const Struct, literal: 
         }
     }
     if (owner) |owner_name| {
-        if (findInterfaceDirect(file, owner_name)) |decl| {
-            for (decl.consts) |const_decl| {
-                if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
-            }
+        if (findConstInOwner(file, scope, owner_name, name)) |decl| {
+            return decl.literal;
         }
     }
     for (file.consts) |const_decl| {
@@ -10770,15 +10768,8 @@ fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const
                 }
             }
         }
-        if (findStructDirect(file, owner_name)) |decl| {
-            for (decl.consts) |*const_decl| {
-                if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
-            }
-        }
-        if (findInterfaceDirect(file, owner_name)) |decl| {
-            for (decl.consts) |*const_decl| {
-                if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
-            }
+        if (findConstInOwner(file, scope, owner_name, name)) |decl| {
+            return decl;
         }
     } else if (scope) |decl| {
         for (decl.consts) |*const_decl| {
@@ -10789,6 +10780,30 @@ fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const
         if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
     }
     return null;
+}
+
+fn findConstInOwner(file: *const File, scope: ?*const Struct, owner_name: []const u8, const_name: []const u8) ?*const ConstDecl {
+    if (findStructDirect(file, owner_name)) |decl| {
+        for (decl.consts) |*const_decl| {
+            if (std.mem.eql(u8, const_decl.name, const_name)) return const_decl;
+        }
+    }
+    if (findInterfaceDirect(file, owner_name)) |decl| {
+        for (decl.consts) |*const_decl| {
+            if (std.mem.eql(u8, const_decl.name, const_name)) return const_decl;
+        }
+    }
+    // Qualified references may use a public alias as the owner
+    // (`Alias.localConst`). Resolve that owner alias before looking for consts
+    // on the underlying struct/interface declaration.
+    const resolved_owner = resolveNamedAlias(file, scope, owner_name, 0) orelse return null;
+    return switch (resolved_owner) {
+        .named => |resolved_name| if (std.mem.eql(u8, resolved_name, owner_name))
+            null
+        else
+            findConstInOwner(file, scope, resolved_name, const_name),
+        else => null,
+    };
 }
 
 fn resolveConstReferenceLiteral(file: *const File, scope: ?*const Struct, literal: []const u8) []const u8 {
