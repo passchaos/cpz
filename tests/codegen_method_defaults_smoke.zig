@@ -180,6 +180,19 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expect((try payloads.getOrNull(1)) == null);
     try std.testing.expectEqualSlices(u8, &[_]u8{0xcc}, try payloads.get(2));
 
+    const caps = try root_builder.init_caps(3);
+    try caps.setOrNull(0, 7);
+    try caps.setOrNull(1, null);
+    try caps.set(2, 9);
+    try std.testing.expectEqual(@as(?u32, 7), try caps.getOrNull(0));
+    try std.testing.expectEqual(@as(?u32, null), try caps.getOrNull(1));
+    try std.testing.expectEqual(@as(u32, 9), try caps.get(2));
+    try root_builder.set_caps(&[_]?u32{ 10, null, 12 });
+    const reset_caps = try root_builder.get_caps();
+    try std.testing.expectEqual(@as(?u32, 10), try reset_caps.getOrNull(0));
+    try std.testing.expectEqual(@as(?u32, null), try reset_caps.getOrNull(1));
+    try std.testing.expectEqual(@as(?u32, 12), try reset_caps.getOrNull(2));
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try generated.OptionalBlobLists.getRoot(&reader);
     const read_labels = try root.labels();
@@ -190,6 +203,10 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, (try read_payloads.getOrNull(0)).?);
     try std.testing.expect((try read_payloads.getOrNull(1)) == null);
     try std.testing.expectEqualSlices(u8, &[_]u8{0xcc}, try read_payloads.get(2));
+    const read_caps = try root.caps();
+    try std.testing.expectEqual(@as(?u32, 10), try read_caps.getOrNull(0));
+    try std.testing.expectEqual(@as(?u32, null), try read_caps.getOrNull(1));
+    try std.testing.expectEqual(@as(u32, 12), try read_caps.get(2));
 }
 
 test "generated struct pointer null defaults expose flats" {
