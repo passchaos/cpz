@@ -40,6 +40,9 @@ pub fn main(init: std.process.Init) !u8 {
             return 0;
         } else if (std.mem.eql(u8, arg, "--emit-raw-schema-comments")) {
             emit_raw_schema_comments = true;
+        } else if (std.mem.startsWith(u8, arg, "-")) {
+            std.debug.print("{s}", .{usage});
+            return 2;
         } else if (input_path == null) {
             input_path = arg;
         } else if (output_path == null) {
