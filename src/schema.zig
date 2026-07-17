@@ -8504,6 +8504,7 @@ fn constZigValueTypeAlloc(allocator: std.mem.Allocator, file: *const File, scope
             return std.fmt.allocPrint(allocator, "[]const {s}", .{child_type});
         },
         .named => |type_name| {
+            if (findInterface(file, type_name) != null) return allocator.dupe(u8, "u32");
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             return allocator.dupe(u8, zig_type);

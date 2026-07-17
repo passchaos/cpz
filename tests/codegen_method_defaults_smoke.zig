@@ -11,7 +11,7 @@ test "generated top-level optional interface list aliases emit types" {
 }
 
 test "generated optional interface constants expose null flats" {
-    try std.testing.expectEqual(@as(?generated.TopCallback, null), generated.referencedMaybeCallback);
+    try std.testing.expectEqual(@as(?u32, null), generated.referencedMaybeCallback);
     var callback_reader = generated.referencedMaybeCallbackFlat.reader(.{});
     try std.testing.expect(try generated.referencedMaybeCallbackFlat.isNull(&callback_reader));
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.referencedMaybeCallbackFlat.rawPointer(&callback_reader));
@@ -201,7 +201,7 @@ test "generated optional constants expose values and flats" {
     try std.testing.expect(try generated.Defaults.defaultMaybePayloadsNullFlat.isNull(&maybe_payloads_null_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultMaybePayloadsNullFlat.pointerKind(&maybe_payloads_null_reader));
 
-    try std.testing.expectEqual(@as(?[]const ?generated.Defaults.Callback, null), generated.Defaults.defaultMaybeCallbacksNull);
+    try std.testing.expectEqual(@as(?[]const ?u32, null), generated.Defaults.defaultMaybeCallbacksNull);
     var maybe_callbacks_null_reader = generated.Defaults.defaultMaybeCallbacksNullFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultMaybeCallbacksNullFlat.isNull(&maybe_callbacks_null_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultMaybeCallbacksNullFlat.pointerKind(&maybe_callbacks_null_reader));
