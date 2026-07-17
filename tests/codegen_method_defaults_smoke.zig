@@ -103,6 +103,20 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0e, 0x0f }, (try generated.Defaults.defaultMaybePayloadsFlat.getOrNull(&maybe_payloads_reader, 2)).?);
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.Defaults.defaultMaybePayloadsFlat.get(&maybe_payloads_reader, 3));
 
+    try std.testing.expectEqualSlices(?bool, &[_]?bool{ true, null, true }, generated.Defaults.defaultMaybeFlags);
+    try std.testing.expectEqual(@as(?u32, 1), generated.Defaults.defaultMaybeAmounts[0]);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultMaybeAmounts[1]);
+    try std.testing.expectEqual(@as(?u32, 321), generated.Defaults.defaultMaybeAmounts[2]);
+    try std.testing.expectEqual(@as(?u32, 123), generated.Defaults.defaultMaybeAmounts[3]);
+    try std.testing.expectApproxEqAbs(@as(f64, 1.5), generated.Defaults.defaultMaybeRatios[0].?, 0.0);
+    try std.testing.expect(generated.Defaults.defaultMaybeRatios[1] == null);
+    try std.testing.expectApproxEqAbs(@as(f64, 35.0), generated.Defaults.defaultMaybeRatios[2].?, 0.0);
+    try std.testing.expectApproxEqAbs(@as(f64, 125.0), generated.Defaults.defaultMaybeRatios[3].?, 0.0);
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, generated.Defaults.defaultMaybeModes[0].?);
+    try std.testing.expect(generated.Defaults.defaultMaybeModes[1] == null);
+    try std.testing.expectEqual(generated.Defaults.LocalMode.stopped, generated.Defaults.defaultMaybeModes[2].?);
+    try std.testing.expectEqual(generated.Defaults.LocalMode.running, generated.Defaults.defaultMaybeModes[3].?);
+
     try std.testing.expectEqualSlices(u16, &[_]u16{ 5, 6 }, generated.Defaults.defaultMaybeNumbers.?);
     var numbers_reader = generated.Defaults.defaultMaybeNumbersFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 5), try generated.Defaults.defaultMaybeNumbersFlat.get(&numbers_reader, 0));

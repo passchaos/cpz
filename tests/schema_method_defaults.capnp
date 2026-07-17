@@ -188,6 +188,10 @@ interface Defaults {
   const defaultGroups :List(List(UInt16)) = [[1, 2], [3]];
   const defaultMaybeLabels :List(?Text) = ["maybe alpha", null, defaultMaybeLabel, referencedText];
   const defaultMaybePayloads :List(?Data) = [0x"aa bb", null, defaultMaybePayload, referencedData];
+  const defaultMaybeFlags :List(?Bool) = [true, null, referencedFlag];
+  const defaultMaybeAmounts :List(?UInt32) = [1, null, defaultMaybeAmount, referencedAmount];
+  const defaultMaybeRatios :List(?Float64) = [+1.5, null, defaultMaybeRatio, referencedRatio];
+  const defaultMaybeModes :List(?ModeAlias) = [running, null, defaultMaybeMode, defaultLocalMode];
 
   struct Item {
     value @0 :UInt32;

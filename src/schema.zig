@@ -11261,6 +11261,18 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
         },
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .void => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "void", items, voidConstItem, optional_value),
+            .bool => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "bool", items, boolConstItem, optional_value),
+            .int8 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "i8", items, numericConstItem, optional_value),
+            .int16 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "i16", items, numericConstItem, optional_value),
+            .int32 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "i32", items, numericConstItem, optional_value),
+            .int64 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "i64", items, numericConstItem, optional_value),
+            .uint8 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "u8", items, numericConstItem, optional_value),
+            .uint16 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "u16", items, numericConstItem, optional_value),
+            .uint32 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "u32", items, numericConstItem, optional_value),
+            .uint64 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "u64", items, numericConstItem, optional_value),
+            .float32 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "f32", items, float32ConstItem, optional_value),
+            .float64 => try emitOptionalListConstOfType(allocator, out, file, scope, indent, name, "f64", items, float64ConstItem, optional_value),
             .text => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, true, optional_value),
             .data => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, false, optional_value),
             .any_pointer => try emitOptionalAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .any),
@@ -11272,6 +11284,8 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
                     try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value);
                 } else if (findStructDirect(file, type_name) != null) {
                     try emitOptionalStructListConst(allocator, out, file, scope, indent, name, child, type_name, items);
+                } else if (findEnum(file, type_name)) |enum_decl| {
+                    try emitOptionalEnumListConst(allocator, out, file, scope, indent, name, type_name, enum_decl, items, optional_value);
                 }
             },
             else => return,
@@ -11393,6 +11407,70 @@ fn stringConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutErro
 
 fn dataConstItem(allocator: std.mem.Allocator, item: ConstListItem) LayoutError![]const u8 {
     return zigDataLiteralAlloc(allocator, item.literal, item.is_hex_data);
+}
+
+fn optionalListConstItem(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    item: ConstListItem,
+    comptime itemLiteral: fn (std.mem.Allocator, ConstListItem) LayoutError![]const u8,
+) LayoutError![]const u8 {
+    const resolved_item = resolveScalarConstListItem(file, scope, item);
+    if (std.mem.eql(u8, std.mem.trim(u8, resolved_item.literal, " \t\r\n"), "null")) {
+        return allocator.dupe(u8, "null");
+    }
+    return itemLiteral(allocator, resolved_item);
+}
+
+fn emitOptionalListConstOfType(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    file: *const File,
+    scope: ?*const Struct,
+    indent: []const u8,
+    name: []const u8,
+    zig_type: []const u8,
+    items: []const ConstListItem,
+    comptime itemLiteral: fn (std.mem.Allocator, ConstListItem) LayoutError![]const u8,
+    comptime optional_value: bool,
+) LayoutError!void {
+    const value_type = if (optional_value)
+        try std.fmt.allocPrint(allocator, "?[]const ?{s}", .{zig_type})
+    else
+        try std.fmt.allocPrint(allocator, "[]const ?{s}", .{zig_type});
+    defer allocator.free(value_type);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}: {s} = &[_]?{s}{{
+    , .{ indent, name, value_type, zig_type });
+    for (items, 0..) |item, i| {
+        if (i != 0) try out.appendSlice(allocator, ", ");
+        const literal = try optionalListConstItem(allocator, file, scope, item, itemLiteral);
+        defer allocator.free(literal);
+        try out.appendSlice(allocator, literal);
+    }
+    try out.appendSlice(allocator, "};\n\n");
+}
+
+fn emitOptionalEnumListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, type_name: []const u8, enum_decl: *const EnumDecl, items: []const ConstListItem, comptime optional_value: bool) LayoutError!void {
+    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+    defer allocator.free(zig_type);
+    const value_type = if (optional_value)
+        try std.fmt.allocPrint(allocator, "?[]const ?{s}", .{zig_type})
+    else
+        try std.fmt.allocPrint(allocator, "[]const ?{s}", .{zig_type});
+    defer allocator.free(value_type);
+    try appendFmt(allocator, out, "{s}pub const {s}: {s} = &[_]?{s}{{", .{ indent, name, value_type, zig_type });
+    for (items, 0..) |item, i| {
+        if (i != 0) try out.appendSlice(allocator, ", ");
+        const resolved_item = resolveScalarConstListItem(file, scope, item);
+        if (std.mem.eql(u8, std.mem.trim(u8, resolved_item.literal, " \t\r\n"), "null")) {
+            try out.appendSlice(allocator, "null");
+        } else {
+            try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, resolved_item.literal)});
+        }
+    }
+    try out.appendSlice(allocator, "};\n\n");
 }
 
 fn optionalBlobConstItemBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, item: ConstListItem, comptime is_text: bool) LayoutError!?[]u8 {
