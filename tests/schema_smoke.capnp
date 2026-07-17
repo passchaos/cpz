@@ -18,6 +18,9 @@ using DynamicAlias = AnyPointer;
 using CapAlias = Capability;
 using GenericPersonAlias = GenericBox(Person);
 using ServiceAlias = Service;
+using MaybeNames = List(?Text);
+using MaybeData = List(?Data);
+using MaybeCaps = List(?Capability);
 
 const globalId @0xc0571d01 :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;

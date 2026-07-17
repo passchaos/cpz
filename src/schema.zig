@@ -7964,6 +7964,7 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             .float32 => try aliasLine(allocator, out, indent, alias_name, "[]const f32"),
             .float64 => try aliasLine(allocator, out, indent, alias_name, "[]const f64"),
             .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const []const u8"),
+            .capability => try aliasLine(allocator, out, indent, alias_name, "[]const u32"),
             .named => |type_name| {
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);
@@ -7971,7 +7972,12 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 defer allocator.free(list_type);
                 try aliasLine(allocator, out, indent, alias_name, list_type);
             },
-            .any_pointer, .any_struct, .any_list, .capability, .list, .optional => {},
+            .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+                .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const ?[]const u8"),
+                .capability => try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
+                else => {},
+            },
+            .any_pointer, .any_struct, .any_list, .list => {},
         },
         .optional => |child| try emitAliasTarget(allocator, out, file, scope, indent, alias_name, child.*),
     }
