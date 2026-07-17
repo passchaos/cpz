@@ -32,6 +32,7 @@ interface TopCallback {
 
 using MaybeCallbacks = List(?TopCallback);
 using DefaultsAlias = Defaults;
+using ConstRefAlias = ConstRefDefaults;
 
 struct MaybeDefaults {
   absent @0 :?Text = null;
@@ -107,6 +108,13 @@ struct ConstRefDefaults {
   interfaceTextViaAlias @24 :Text = DefaultsAlias.defaultLabel;
   localInterfaceTextViaAlias @25 :Text = LocalDefaultsAlias.defaultLabel;
   interfaceModeViaAlias @26 :Defaults.LocalMode = DefaultsAlias.defaultLocalMode;
+}
+
+struct StructOwnerAliasDefaults {
+  text @0 :Text = ConstRefAlias.localText;
+  amount @1 :UInt32 = ConstRefAlias.localAmount;
+  mode @2 :Mode = ConstRefAlias.localMode;
+  numbers @3 :List(UInt16) = ConstRefAlias.localNumbers;
 }
 
 struct CountFieldDefaults {

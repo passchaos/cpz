@@ -981,6 +981,42 @@ test "generated struct field defaults resolve const references" {
     try std.testing.expect(try generated.ConstRefDefaults.callbackListDefaultFlat.elementIsNull(&callback_list_default_reader, 0));
 }
 
+test "generated field defaults resolve struct-owner alias const references" {
+    var empty_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
+    defer empty_builder.deinit();
+    _ = try generated.StructOwnerAliasDefaults.initRootTyped(&empty_builder);
+
+    var empty_reader = cpz.MessageReader.init(try empty_builder.segmentsConst(), .{});
+    const empty_root = try generated.StructOwnerAliasDefaults.getRoot(&empty_reader);
+    try std.testing.expectEqualStrings("local text", try empty_root.text());
+    try std.testing.expectEqual(@as(u32, 456), empty_root.amount());
+    try std.testing.expectEqual(generated.Mode.off, try empty_root.mode());
+
+    var builder_reader = cpz.MessageReader.init(try empty_builder.segmentsConst(), .{});
+    const empty_root_builder = try generated.StructOwnerAliasDefaults.getRootTyped(&empty_builder);
+    try std.testing.expectEqualStrings("local text", try empty_root_builder.get_text());
+    try std.testing.expectEqual(@as(u32, 456), try empty_root_builder.get_amount());
+    try std.testing.expectEqual(generated.Mode.off, try empty_root_builder.get_mode());
+    try std.testing.expect(!try empty_root_builder.has_numbers());
+    const materialized_numbers = try empty_root_builder.get_numbers();
+    try std.testing.expectEqual(@as(u16, 9), try materialized_numbers.get(0));
+    try std.testing.expectEqual(@as(u16, 10), try materialized_numbers.get(1));
+    const as_reader = empty_root_builder.asReader(&builder_reader);
+    const numbers = try as_reader.numbers();
+    try std.testing.expectEqual(@as(u16, 9), numbers.get(0));
+    try std.testing.expectEqual(@as(u16, 10), numbers.get(1));
+
+    var text_default_reader = generated.StructOwnerAliasDefaults.textDefaultFlat.reader(.{});
+    try std.testing.expectEqualStrings("local text", try generated.StructOwnerAliasDefaults.textDefaultFlat.get(&text_default_reader));
+    var amount_default_reader = generated.StructOwnerAliasDefaults.amountDefaultFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 456), try generated.StructOwnerAliasDefaults.amountDefaultFlat.get(&amount_default_reader));
+    var mode_default_reader = generated.StructOwnerAliasDefaults.modeDefaultFlat.reader(.{});
+    try std.testing.expectEqual(generated.Mode.off, try generated.StructOwnerAliasDefaults.modeDefaultFlat.get(&mode_default_reader));
+    var numbers_default_reader = generated.StructOwnerAliasDefaults.numbersDefaultFlat.reader(.{});
+    try std.testing.expectEqual(@as(u16, 9), try generated.StructOwnerAliasDefaults.numbersDefaultFlat.get(&numbers_default_reader, 0));
+    try std.testing.expectEqual(@as(u16, 10), try generated.StructOwnerAliasDefaults.numbersDefaultFlat.get(&numbers_default_reader, 1));
+}
+
 test "generated helpers avoid count field shadowing" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
     defer builder.deinit();
