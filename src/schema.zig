@@ -10822,7 +10822,7 @@ fn resolveScalarConstLiteralDepth(file: *const File, scope: ?*const Struct, lite
     if (owner) |owner_name| {
         if (findConstInOwner(file, scope, owner_name, name)) |decl| {
             if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), raw)) return decl.literal;
-            return resolveScalarConstLiteralDepth(file, scope, decl.literal, depth + 1);
+            return resolveScalarConstLiteralInOwnerDepth(file, scope, constDeclOwnerName(file, decl) orelse owner_name, decl.literal, depth + 1);
         }
     }
     for (file.consts) |const_decl| {
@@ -10832,6 +10832,18 @@ fn resolveScalarConstLiteralDepth(file: *const File, scope: ?*const Struct, lite
         }
     }
     return literal;
+}
+
+fn resolveScalarConstLiteralInOwnerDepth(file: *const File, scope: ?*const Struct, owner_name: []const u8, literal: []const u8, depth: usize) []const u8 {
+    if (depth >= 32) return literal;
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    if (lastTopLevelDot(raw) == null) {
+        if (findConstInOwner(file, scope, owner_name, raw)) |decl| {
+            if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), raw)) return decl.literal;
+            return resolveScalarConstLiteralInOwnerDepth(file, scope, constDeclOwnerName(file, decl) orelse owner_name, decl.literal, depth + 1);
+        }
+    }
+    return resolveScalarConstLiteralDepth(file, scope, literal, depth);
 }
 
 fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const u8) ?*const ConstDecl {
@@ -10892,7 +10904,22 @@ fn resolveConstReferenceLiteralDepth(file: *const File, scope: ?*const Struct, l
     if (depth >= 32) return literal;
     const decl = findConstReference(file, scope, literal) orelse return literal;
     if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, literal, " \t\r\n"))) return decl.literal;
+    if (constDeclOwnerName(file, decl)) |owner_name| {
+        return resolveConstReferenceLiteralInOwnerDepth(file, scope, owner_name, decl.literal, depth + 1);
+    }
     return resolveConstReferenceLiteralDepth(file, scope, decl.literal, depth + 1);
+}
+
+fn resolveConstReferenceLiteralInOwnerDepth(file: *const File, scope: ?*const Struct, owner_name: []const u8, literal: []const u8, depth: usize) []const u8 {
+    if (depth >= 32) return literal;
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    if (lastTopLevelDot(raw) == null) {
+        if (findConstInOwner(file, scope, owner_name, raw)) |decl| {
+            if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), raw)) return decl.literal;
+            return resolveConstReferenceLiteralInOwnerDepth(file, scope, constDeclOwnerName(file, decl) orelse owner_name, decl.literal, depth + 1);
+        }
+    }
+    return resolveConstReferenceLiteralDepth(file, scope, literal, depth);
 }
 
 fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError!?[]u8 {
