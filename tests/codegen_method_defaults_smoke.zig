@@ -589,6 +589,24 @@ test "generated optional pointer list field defaults expose flats" {
     try std.testing.expect((try generated.OptionalBlobLists.itemsDefaultFlat.getOrNull(&items_reader, 1)) == null);
 }
 
+test "generated any pointer list field defaults expose flats" {
+    var any_values_reader = generated.AnyListDefaults.anyValuesDefaultFlat.reader(.{});
+    const any_values = try generated.AnyListDefaults.anyValuesDefaultFlat.list(&any_values_reader);
+    try std.testing.expectEqual(@as(usize, 2), any_values.len());
+    try std.testing.expectEqual(@as(u32, 88), (try generated.AnyListDefaults.anyValuesDefaultFlat.asStruct(&any_values_reader, 0)).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u16, 7), (try generated.AnyListDefaults.anyValuesDefaultFlat.asList(&any_values_reader, 1, .two_bytes)).getUInt16(0));
+
+    var struct_values_reader = generated.AnyListDefaults.structValuesDefaultFlat.reader(.{});
+    const struct_values = try generated.AnyListDefaults.structValuesDefaultFlat.list(&struct_values_reader);
+    try std.testing.expectEqual(@as(usize, 1), struct_values.len());
+    try std.testing.expectEqual(@as(u32, 88), (try generated.AnyListDefaults.structValuesDefaultFlat.get(&struct_values_reader, 0)).getUInt32(0, 0));
+
+    var list_values_reader = generated.AnyListDefaults.listValuesDefaultFlat.reader(.{});
+    const list_values = try generated.AnyListDefaults.listValuesDefaultFlat.list(&list_values_reader);
+    try std.testing.expectEqual(@as(usize, 1), list_values.len());
+    try std.testing.expectEqual(@as(u16, 8), (try generated.AnyListDefaults.listValuesDefaultFlat.get(&list_values_reader, 0, .two_bytes)).getUInt16(1));
+}
+
 test "generated struct pointer null defaults expose flats" {
     try std.testing.expectEqualStrings("null", generated.NullPointerDefaults.@"cpz.field.text.default");
     var text_reader = generated.NullPointerDefaults.textDefaultFlat.reader(.{});

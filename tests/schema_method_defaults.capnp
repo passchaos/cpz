@@ -41,6 +41,12 @@ struct OptionalBlobLists {
   items @7 :List(?Defaults.Item) = [referencedItem, null];
 }
 
+struct AnyListDefaults {
+  anyValues @0 :List(AnyPointer) = [referencedItem, referencedNumbers];
+  structValues @1 :List(AnyStruct) = [referencedItem];
+  listValues @2 :List(AnyList) = [referencedNumbers];
+}
+
 struct NullPointerDefaults {
   text @0 :Text = null;
   data @1 :Data = null;
