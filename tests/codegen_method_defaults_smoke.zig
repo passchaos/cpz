@@ -11,6 +11,10 @@ test "generated top-level optional interface list aliases emit types" {
 }
 
 test "generated optional constants expose values and flats" {
+    try std.testing.expectEqual(@as(?void, {}), generated.Defaults.defaultMaybeVoid);
+    var void_reader = generated.Defaults.defaultMaybeVoidFlat.reader(.{});
+    try generated.Defaults.defaultMaybeVoidFlat.get(&void_reader);
+
     try std.testing.expectEqual(@as(?bool, true), generated.Defaults.defaultMaybeFlag);
     var flag_reader = generated.Defaults.defaultMaybeFlagFlat.reader(.{});
     try std.testing.expectEqual(true, try generated.Defaults.defaultMaybeFlagFlat.get(&flag_reader));
