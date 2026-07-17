@@ -173,6 +173,11 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expectEqual(cpz.wire.PointerType.list, (try labels.elementPointerKind(0)).?);
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try labels.elementPointerKind(1));
     try std.testing.expectEqualStrings("omega", try labels.get(2));
+    try root_builder.set_labels(&[_]?[]const u8{ "reset", null, "tail" });
+    const reset_labels = try root_builder.get_labels();
+    try std.testing.expectEqualStrings("reset", (try reset_labels.getOrNull(0)).?);
+    try std.testing.expect((try reset_labels.getOrNull(1)) == null);
+    try std.testing.expectEqualStrings("tail", try reset_labels.get(2));
 
     const payloads = try root_builder.init_payloads(3);
     try payloads.set(0, &[_]u8{ 0xaa, 0xbb });
@@ -183,6 +188,11 @@ test "generated optional blob list elements expose typed nullable helpers" {
     } else return error.TestExpectedEqual;
     try std.testing.expect((try payloads.getOrNull(1)) == null);
     try std.testing.expectEqualSlices(u8, &[_]u8{0xcc}, try payloads.get(2));
+    try root_builder.set_payloads(&[_]?[]const u8{ &[_]u8{1}, null, &[_]u8{ 2, 3 } });
+    const reset_payloads = try root_builder.get_payloads();
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, (try reset_payloads.getOrNull(0)).?);
+    try std.testing.expect((try reset_payloads.getOrNull(1)) == null);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 2, 3 }, try reset_payloads.get(2));
 
     const caps = try root_builder.init_caps(3);
     try caps.setOrNull(0, 7);
@@ -203,15 +213,15 @@ test "generated optional blob list elements expose typed nullable helpers" {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try generated.OptionalBlobLists.getRoot(&reader);
     const read_labels = try root.labels();
-    try std.testing.expectEqualStrings("alpha", (try read_labels.getOrNull(0)).?);
+    try std.testing.expectEqualStrings("reset", (try read_labels.getOrNull(0)).?);
     try std.testing.expect((try read_labels.getOrNull(1)) == null);
     try std.testing.expect(!try read_labels.elementIsNull(0));
     try std.testing.expect(try read_labels.elementIsNull(1));
-    try std.testing.expectEqualStrings("omega", try read_labels.get(2));
+    try std.testing.expectEqualStrings("tail", try read_labels.get(2));
     const read_payloads = try root.payloads();
-    try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, (try read_payloads.getOrNull(0)).?);
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, (try read_payloads.getOrNull(0)).?);
     try std.testing.expect((try read_payloads.getOrNull(1)) == null);
-    try std.testing.expectEqualSlices(u8, &[_]u8{0xcc}, try read_payloads.get(2));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 2, 3 }, try read_payloads.get(2));
     const read_caps = try root.caps();
     try std.testing.expectEqual(@as(?u32, 10), try read_caps.getOrNull(0));
     try std.testing.expectEqual(@as(?u32, null), try read_caps.getOrNull(1));

@@ -16650,6 +16650,8 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             , .{ index, zig_type });
         },
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .text => try emitOptionalBlobSliceSetter(allocator, out, field_name, field, index, "setText"),
+            .data => try emitOptionalBlobSliceSetter(allocator, out, field_name, field, index, "setData"),
             .capability => try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index),
             else => {},
         },
@@ -17334,6 +17336,25 @@ fn emitOptionalCapabilitySliceSetter(allocator: std.mem.Allocator, out: *std.Arr
         \\        }}
         \\
     , .{index});
+}
+
+fn emitOptionalBlobSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize, method: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const ?[]const u8) !void {{
+    , .{field_name});
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.pointer, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| {{
+        \\                if (@"cpz.item") |@"cpz.value"| {{
+        \\                    try (try @"cpz.list".getPointerElement(@"cpz.i")).{s}(@"cpz.value");
+        \\                }} else {{
+        \\                    try @"cpz.list".clearPointerElement(@"cpz.i");
+        \\                }}
+        \\            }}
+        \\        }}
+        \\
+    , .{ index, method });
 }
 
 fn listScalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_type: []const u8, method: []const u8) LayoutError!void {
