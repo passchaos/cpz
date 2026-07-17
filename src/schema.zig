@@ -15382,6 +15382,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{}),
+            .any_pointer => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerReader {{
+                \\            return self.list.getPointerElement(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?cpz.PointerReader {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return @"cpz.pointer";
+                \\        }}
+                \\
+            , .{}),
             else => {},
         },
     }
@@ -16571,6 +16583,31 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{}),
+            .any_pointer => try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerBuilder {{
+                \\            return self.list.getPointerElement(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?cpz.PointerBuilder {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return @"cpz.pointer";
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: cpz.PointerReader) !void {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).copyFrom(new_value);
+                \\        }}
+                \\
+                \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?cpz.PointerReader) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
+                \\            return self.clear(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), @"cpz.index": usize) !void {{
+                \\            return self.list.clearPointerElement(@"cpz.index");
+                \\        }}
+                \\
+            , .{}),
             else => {},
         },
     }
@@ -16652,6 +16689,7 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
             .text => try emitOptionalBlobSliceSetter(allocator, out, field_name, field, index, "setText"),
             .data => try emitOptionalBlobSliceSetter(allocator, out, field_name, field, index, "setData"),
+            .any_pointer => try emitOptionalPointerSliceSetter(allocator, out, field_name, field, index),
             .capability => try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index),
             else => {},
         },
@@ -17355,6 +17393,25 @@ fn emitOptionalBlobSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList
         \\        }}
         \\
     , .{ index, method });
+}
+
+fn emitOptionalPointerSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const ?cpz.PointerReader) !void {{
+    , .{field_name});
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.pointer, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| {{
+        \\                if (@"cpz.item") |@"cpz.value"| {{
+        \\                    try (try @"cpz.list".getPointerElement(@"cpz.i")).copyFrom(@"cpz.value");
+        \\                }} else {{
+        \\                    try @"cpz.list".clearPointerElement(@"cpz.i");
+        \\                }}
+        \\            }}
+        \\        }}
+        \\
+    , .{index});
 }
 
 fn listScalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), zig_type: []const u8, method: []const u8) LayoutError!void {

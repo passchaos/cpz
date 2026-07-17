@@ -31,6 +31,7 @@ struct OptionalBlobLists {
   labels @0 :List(?Text);
   payloads @1 :List(?Data);
   caps @2 :List(?Capability);
+  anyValues @3 :List(?AnyPointer);
 }
 
 struct NullPointerDefaults {

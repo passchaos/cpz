@@ -210,6 +210,21 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expect(try reset_caps.elementIsNull(1));
     try std.testing.expect(try reset_caps.elementPointerIsCapability(2));
 
+    const any_values = try root_builder.init_anyValues(2);
+    var builder_reader_for_any = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    try any_values.setOrNull(0, try reset_labels.elementAsReader(0, &builder_reader_for_any));
+    try any_values.setOrNull(1, null);
+    if (try any_values.getOrNull(0)) |value| {
+        try std.testing.expectEqualStrings("reset", try value.getText());
+    } else return error.TestExpectedEqual;
+    try std.testing.expect((try any_values.getOrNull(1)) == null);
+    try root_builder.set_anyValues(&[_]?cpz.PointerReader{ try reset_labels.elementAsReader(2, &builder_reader_for_any), null });
+    const reset_any_values = try root_builder.get_anyValues();
+    if (try reset_any_values.getOrNull(0)) |value| {
+        try std.testing.expectEqualStrings("tail", try value.getText());
+    } else return error.TestExpectedEqual;
+    try std.testing.expect((try reset_any_values.getOrNull(1)) == null);
+
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try generated.OptionalBlobLists.getRoot(&reader);
     const read_labels = try root.labels();
@@ -229,6 +244,9 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expect(!try read_caps.elementIsNull(0));
     try std.testing.expect(try read_caps.elementIsNull(1));
     try std.testing.expect(try read_caps.elementPointerIsCapability(2));
+    const read_any_values = try root.anyValues();
+    try std.testing.expectEqualStrings("tail", try (try read_any_values.getOrNull(0)).?.getText());
+    try std.testing.expect((try read_any_values.getOrNull(1)) == null);
 }
 
 test "generated struct pointer null defaults expose flats" {
