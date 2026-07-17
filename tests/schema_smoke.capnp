@@ -61,6 +61,8 @@ annotation marker(interface, method) :Void;
 annotation labels(enumerant) :List(Text);
 annotation maybeLabels(field) :List(?Text);
 annotation maybeShades(field) :List(?Color);
+annotation serviceRefs(method) :List(?ServiceAlias);
+annotation maybeService(method) :?ServiceAlias;
 
 struct Person $schemaNote("person") {
   id @0 :UInt32 = 42;

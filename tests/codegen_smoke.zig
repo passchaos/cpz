@@ -22,8 +22,8 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.structCount");
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.enumCount");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.interfaceCount");
-    try std.testing.expectEqual(@as(usize, 26), generated.@"cpz.declarationCount");
-    try std.testing.expectEqual(@as(usize, 26), generated.@"cpz.declarations".len);
+    try std.testing.expectEqual(@as(usize, 28), generated.@"cpz.declarationCount");
+    try std.testing.expectEqual(@as(usize, 28), generated.@"cpz.declarations".len);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.declarations"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.declarations"[0].index);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.declaration.Person.index");
@@ -210,8 +210,8 @@ test "generated schema exposes file and type ids" {
 }
 
 test "generated annotation declarations expose ids types and targets" {
-    try std.testing.expectEqual(@as(usize, 9), generated.@"cpz.annotationCount");
-    try std.testing.expectEqual(@as(usize, 9), generated.@"cpz.annotation_decls".len);
+    try std.testing.expectEqual(@as(usize, 11), generated.@"cpz.annotationCount");
+    try std.testing.expectEqual(@as(usize, 11), generated.@"cpz.annotation_decls".len);
     try std.testing.expectEqualStrings("enumNote", generated.@"cpz.annotation_decls"[0].name);
     try std.testing.expectEqual(@as(usize, 0), generated.@"cpz.annotation_decls"[0].index);
     try std.testing.expectEqualStrings("Text", generated.@"cpz.annotation_decls"[0].ty);
@@ -316,6 +316,38 @@ test "generated annotation declarations expose ids types and targets" {
     try std.testing.expect(generated.maybeShades.@"cpz.annotation");
     try std.testing.expect(generated.maybeShades.Type == []const ?generated.Color);
     try std.testing.expect(generated.maybeShades.targets.field);
+    try std.testing.expectEqualStrings("serviceRefs", generated.@"cpz.annotation_decls"[6].name);
+    try std.testing.expectEqual(@as(usize, 6), generated.@"cpz.annotationDecl.serviceRefs.index");
+    try std.testing.expectEqualStrings("serviceRefs", generated.@"cpz.annotationDecl.serviceRefs.name");
+    try std.testing.expectEqualStrings("serviceRefs", generated.@"cpz.annotationDecl.serviceRefs.metadata".name);
+    try std.testing.expectEqualStrings("List(?ServiceAlias)", generated.@"cpz.annotationDecl.serviceRefs.type");
+    try std.testing.expectEqualStrings("List(?Service)", generated.@"cpz.annotationDecl.serviceRefs.resolvedType");
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationDecl.serviceRefs.targetCount");
+    try std.testing.expect(generated.@"cpz.annotationDecl.serviceRefs.targets".method);
+    try std.testing.expect(generated.@"cpz.annotation_decls"[6].matchesType("List(?ServiceAlias)"));
+    try std.testing.expect(generated.@"cpz.annotation_decls"[6].matchesResolvedType("List(?Service)"));
+    try std.testing.expect(generated.@"cpz.annotation_decls"[6].targets.method);
+    try std.testing.expectEqualStrings("serviceRefs", generated.@"cpz.annotationByType"("List(?ServiceAlias)").?.name);
+    try std.testing.expect(generated.serviceRefs.@"cpz.annotation");
+    try std.testing.expect(generated.serviceRefs.Type == []const ?u32);
+    try std.testing.expect(generated.serviceRefs.targets.method);
+    try std.testing.expectEqual(@as(?u32, 42), @as(generated.serviceRefs.Type, &[_]?u32{42})[0]);
+    try std.testing.expectEqualStrings("maybeService", generated.@"cpz.annotation_decls"[7].name);
+    try std.testing.expectEqual(@as(usize, 7), generated.@"cpz.annotationDecl.maybeService.index");
+    try std.testing.expectEqualStrings("maybeService", generated.@"cpz.annotationDecl.maybeService.name");
+    try std.testing.expectEqualStrings("maybeService", generated.@"cpz.annotationDecl.maybeService.metadata".name);
+    try std.testing.expectEqualStrings("?ServiceAlias", generated.@"cpz.annotationDecl.maybeService.type");
+    try std.testing.expectEqualStrings("?Service", generated.@"cpz.annotationDecl.maybeService.resolvedType");
+    try std.testing.expectEqual(@as(usize, 1), generated.@"cpz.annotationDecl.maybeService.targetCount");
+    try std.testing.expect(generated.@"cpz.annotationDecl.maybeService.targets".method);
+    try std.testing.expect(generated.@"cpz.annotation_decls"[7].matchesType("?ServiceAlias"));
+    try std.testing.expect(generated.@"cpz.annotation_decls"[7].matchesResolvedType("?Service"));
+    try std.testing.expect(generated.@"cpz.annotation_decls"[7].targets.method);
+    try std.testing.expectEqualStrings("maybeService", generated.@"cpz.annotationByType"("?ServiceAlias").?.name);
+    try std.testing.expect(generated.maybeService.@"cpz.annotation");
+    try std.testing.expect(generated.maybeService.Type == ?u32);
+    try std.testing.expect(generated.maybeService.targets.method);
+    try std.testing.expectEqual(@as(?u32, 43), @as(generated.maybeService.Type, 43));
     try std.testing.expect(generated.NestedBox_itemNote.@"cpz.annotation");
     try std.testing.expect(generated.NestedBox_itemNote.Type == generated.NestedBox_Item);
     try std.testing.expect(generated.NestedBox_itemNote.targets.field);

@@ -7589,7 +7589,11 @@ fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, owne
         .any_list => allocator.dupe(u8, "cpz.ListReader"),
         .capability => allocator.dupe(u8, "u32"),
         .named => |type_name| {
-            if (findEnum(file, type_name) != null or findInterface(file, type_name) != null or isStructLikeName(file, type_name)) {
+            // Interface annotation values are encoded as capability IDs in the
+            // generated Zig API; the generated interface struct is metadata,
+            // not the value representation accepted by annotation users.
+            if (findInterface(file, type_name) != null) return allocator.dupe(u8, "u32");
+            if (findEnum(file, type_name) != null or isStructLikeName(file, type_name)) {
                 return zigTypeRefAlloc(allocator, file, type_name);
             }
             return allocator.dupe(u8, "cpz.PointerReader");
