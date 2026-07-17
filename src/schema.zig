@@ -11250,8 +11250,13 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             .text => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, true, optional_value),
             .data => try emitOptionalTextOrDataListConst(allocator, out, file, scope, indent, name, items, false, optional_value),
             .capability => try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value),
-            .named => |type_name| if (findInterface(file, type_name) != null)
-                try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value),
+            .named => |type_name| {
+                if (findInterface(file, type_name) != null) {
+                    try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value);
+                } else if (findStructDirect(file, type_name) != null) {
+                    try emitOptionalStructListConst(allocator, out, file, scope, indent, name, child, type_name, items);
+                }
+            },
             else => return,
         },
         .named => |type_name| {
@@ -11410,6 +11415,33 @@ fn listOptionalTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *con
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
     @memcpy(flat[@sizeOf(u64)..], segment.items);
     return flat;
+}
+
+fn listOptionalStructConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, items: []const ConstListItem) LayoutError![]u8 {
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, @sizeOf(u64));
+    const list_start_words = try appendPointerListPointer(allocator, &segment, 0, 0, 0, items.len);
+    for (items) |item| {
+        if (item.index >= items.len) return error.InvalidToken;
+        const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item.literal), " \t\r\n");
+        if (std.mem.eql(u8, resolved_item, "null")) continue;
+        try appendStructLiteralPointer(allocator, file, &segment, item.index, 0, list_start_words, type_name, resolved_item);
+    }
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
+fn emitOptionalStructListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, child: Type, type_name: []const u8, items: []const ConstListItem) LayoutError!void {
+    const flat = try listOptionalStructConstFlatBytesAlloc(allocator, file, scope, type_name, items);
+    defer allocator.free(flat);
+    try emitListFieldDefaultFlatContainerFromBytes(allocator, out, file, scope, indent, name, child, flat);
 }
 
 fn emitOptionalTextOrDataListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool, comptime optional_value: bool) LayoutError!void {

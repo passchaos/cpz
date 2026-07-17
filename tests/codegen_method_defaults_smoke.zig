@@ -167,6 +167,19 @@ test "generated optional constants expose values and flats" {
     try std.testing.expect(try generated.Defaults.defaultMaybeCallbackElementsFlat.elementIsNull(&maybe_callback_elements_reader, 0));
     try std.testing.expect(try generated.Defaults.defaultMaybeCallbackElementsFlat.elementIsNull(&maybe_callback_elements_reader, 1));
 
+    try std.testing.expectEqual(@as(usize, 3), generated.Defaults.@"cpz.const.defaultMaybeItemElements.listItemCount");
+    var maybe_item_elements_reader = generated.Defaults.defaultMaybeItemElementsFlat.reader(.{});
+    const maybe_item_elements = try generated.Defaults.defaultMaybeItemElementsFlat.list(&maybe_item_elements_reader);
+    try std.testing.expectEqual(@as(usize, 3), maybe_item_elements.len());
+    const maybe_item_element0 = try generated.Defaults.defaultMaybeItemElementsFlat.get(&maybe_item_elements_reader, 0);
+    try std.testing.expectEqual(@as(u32, 77), maybe_item_element0.value());
+    try std.testing.expectEqualStrings("seventy-seven", try maybe_item_element0.label());
+    try std.testing.expect(try generated.Defaults.defaultMaybeItemElementsFlat.elementIsNull(&maybe_item_elements_reader, 1));
+    try std.testing.expect((try generated.Defaults.defaultMaybeItemElementsFlat.getOrNull(&maybe_item_elements_reader, 1)) == null);
+    const maybe_item_element2 = (try generated.Defaults.defaultMaybeItemElementsFlat.getOrNull(&maybe_item_elements_reader, 2)).?;
+    try std.testing.expectEqual(@as(u32, 99), maybe_item_element2.value());
+    try std.testing.expectEqualStrings("ninety-nine", try maybe_item_element2.label());
+
     var maybe_caps_reader = generated.Defaults.defaultMaybeCapsFlat.reader(.{});
     const maybe_caps = try generated.Defaults.defaultMaybeCapsFlat.list(&maybe_caps_reader);
     try std.testing.expectEqual(@as(usize, 2), maybe_caps.len());

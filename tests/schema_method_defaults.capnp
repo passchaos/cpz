@@ -198,6 +198,7 @@ interface Defaults {
   const defaultMaybeCallbackElements :List(?Callback) = [void, null];
 
   const defaultItems :List(Item) = [(value = 10, label = "ten"), (value = 20, label = "twenty")];
+  const defaultMaybeItemElements :List(?Item) = [defaultMaybeItem, null, defaultItem];
   const defaultItem :Item = (value = 99, label = "ninety-nine");
   const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
   const defaultMaybeAnyItem :?AnyPointer = defaultItem;
