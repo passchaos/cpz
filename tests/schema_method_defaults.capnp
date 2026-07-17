@@ -124,6 +124,7 @@ struct ConstRefDefaults {
   ownerChainedText @34 :Text = Defaults.defaultLabelAlias;
   ownerChainedData @35 :Data = Defaults.defaultPayloadAlias;
   ownerChainedMode @36 :Defaults.LocalMode = Defaults.defaultLocalModeAlias;
+  ownerChainedNumbers @37 :List(UInt16) = Defaults.defaultNumbersAlias;
 }
 
 struct StructOwnerAliasDefaults {
