@@ -11477,8 +11477,8 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         .uint64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "u64", items, numericConstItem, optional_value),
         .float32 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f32", items, float32ConstItem, optional_value),
         .float64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f64", items, float64ConstItem, optional_value),
-        .text => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, stringConstItem, optional_value),
-        .data => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, dataConstItem, optional_value),
+        .text => try emitTextOrDataListConst(allocator, out, file, scope, indent, name, items, true, optional_value),
+        .data => try emitTextOrDataListConst(allocator, out, file, scope, indent, name, items, false, optional_value),
         .capability => try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value),
         .any_pointer => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .any),
         .any_struct => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .struct_ptr),
@@ -11537,6 +11537,31 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         },
         else => return,
     }
+}
+
+fn blobListConstItem(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, item: ConstListItem, comptime is_text: bool) LayoutError![]const u8 {
+    const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, item.literal, is_text)) orelse if (!is_text and item.is_hex_data)
+        try hexBytesAlloc(allocator, item.literal)
+    else
+        try decodedStringBytesAlloc(allocator, item.literal);
+    defer allocator.free(bytes);
+    return zigRawStringLiteralAlloc(allocator, bytes);
+}
+
+fn emitTextOrDataListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, items: []const ConstListItem, comptime is_text: bool, comptime optional_value: bool) LayoutError!void {
+    const value_type = if (optional_value) "?[]const []const u8" else "[]const []const u8";
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}: {s} = &[_][]const u8{{
+    , .{ indent, name, value_type });
+    for (items, 0..) |item, i| {
+        if (i != 0) try out.appendSlice(allocator, ", ");
+        const literal = try blobListConstItem(allocator, file, scope, item, is_text);
+        defer allocator.free(literal);
+        try out.appendSlice(allocator, literal);
+    }
+    try out.appendSlice(allocator, "};\n\n");
+
+    try emitTextOrDataListFlatContainer(allocator, out, file, scope, indent, name, items, is_text);
 }
 
 fn emitListConstOfType(

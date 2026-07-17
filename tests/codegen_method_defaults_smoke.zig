@@ -35,6 +35,16 @@ test "generated optional interface constants expose null flats" {
     try std.testing.expectEqualSlices(u16, &[_]u16{ 7, 8 }, generated.referencedNumbersAlias);
     var referenced_numbers_alias_reader = generated.referencedNumbersAliasFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 8), try generated.referencedNumbersAliasFlat.get(&referenced_numbers_alias_reader, 1));
+    try std.testing.expectEqualStrings("referenced text", generated.referencedLabels[0]);
+    try std.testing.expectEqualStrings("referenced text", generated.referencedLabels[1]);
+    var referenced_labels_reader = generated.referencedLabelsFlat.reader(.{});
+    try std.testing.expectEqualStrings("referenced text", try generated.referencedLabelsFlat.get(&referenced_labels_reader, 0));
+    try std.testing.expectEqualStrings("referenced text", try generated.referencedLabelsFlat.get(&referenced_labels_reader, 1));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, generated.referencedPayloads[0]);
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, generated.referencedPayloads[1]);
+    var referenced_payloads_reader = generated.referencedPayloadsFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.referencedPayloadsFlat.get(&referenced_payloads_reader, 0));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.referencedPayloadsFlat.get(&referenced_payloads_reader, 1));
     try std.testing.expectEqual(@as(?u32, null), generated.referencedCap);
     var cap_reader = generated.referencedCapFlat.reader(.{});
     try std.testing.expect(try generated.referencedCapFlat.isNull(&cap_reader));
@@ -228,6 +238,17 @@ test "generated optional constants expose values and flats" {
     try std.testing.expect((try generated.Defaults.defaultMaybePayloadsFlat.getOrNull(&maybe_payloads_reader, 1)) == null);
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0e, 0x0f }, (try generated.Defaults.defaultMaybePayloadsFlat.getOrNull(&maybe_payloads_reader, 2)).?);
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.Defaults.defaultMaybePayloadsFlat.get(&maybe_payloads_reader, 3));
+
+    try std.testing.expectEqualStrings("alpha", generated.Defaults.defaultLabels[0]);
+    try std.testing.expectEqualStrings("beta", generated.Defaults.defaultLabels[1]);
+    var default_labels_reader = generated.Defaults.defaultLabelsFlat.reader(.{});
+    try std.testing.expectEqualStrings("alpha", try generated.Defaults.defaultLabelsFlat.get(&default_labels_reader, 0));
+    try std.testing.expectEqualStrings("beta", try generated.Defaults.defaultLabelsFlat.get(&default_labels_reader, 1));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0c, 0x0d }, generated.Defaults.defaultPayloads[0]);
+    try std.testing.expectEqualStrings("raw", generated.Defaults.defaultPayloads[1]);
+    var default_payloads_reader = generated.Defaults.defaultPayloadsFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0c, 0x0d }, try generated.Defaults.defaultPayloadsFlat.get(&default_payloads_reader, 0));
+    try std.testing.expectEqualStrings("raw", try generated.Defaults.defaultPayloadsFlat.get(&default_payloads_reader, 1));
 
     try std.testing.expectEqualSlices(?bool, &[_]?bool{ true, null, true }, generated.Defaults.defaultMaybeFlags);
     try std.testing.expectEqual(@as(?u32, 1), generated.Defaults.defaultMaybeAmounts[0]);
