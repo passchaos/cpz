@@ -14771,6 +14771,19 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\    }}
                 \\
             , .{index});
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\    pub fn {s}OrNull(self: @This()) !?cpz.PointerReader {{
+                , .{field_name});
+                try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                    \\        if (@"cpz.pointer".isNull()) return null;
+                    \\        return @"cpz.pointer";
+                    \\    }}
+                    \\
+                , .{index});
+            }
         },
         .any_struct => {
             try appendFmt(allocator, out,
@@ -14796,6 +14809,19 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\    }}
                 \\
             , .{index});
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\    pub fn {s}OrNull(self: @This()) !?cpz.StructReader {{
+                , .{field_name});
+                try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                    \\        if (@"cpz.pointer".isNull()) return null;
+                    \\        return try @"cpz.pointer".getStruct(null);
+                    \\    }}
+                    \\
+                , .{index});
+            }
         },
         .any_list => {
             try appendFmt(allocator, out,
@@ -14807,6 +14833,19 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\    }}
                 \\
             , .{index});
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\    pub fn {s}OrNull(self: @This()) !?cpz.ListReader {{
+                , .{field_name});
+                try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                    \\        if (@"cpz.pointer".isNull()) return null;
+                    \\        return try @"cpz.pointer".getList(null);
+                    \\    }}
+                    \\
+                , .{index});
+            }
         },
         .capability => {
             try appendFmt(allocator, out,
@@ -18012,6 +18051,29 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                     \\
                 , .{index});
             }
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\        pub fn get_{s}OrNull(self: Builder) !?cpz.PointerBuilder {{
+                , .{field_name});
+                try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) return null;
+                    \\            return @"cpz.pointer";
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNull(self: Builder, new_value: ?cpz.PointerReader) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNullFromBuilder(self: Builder, new_value: ?cpz.PointerBuilder) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_fromBuilder(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                , .{ index, field_name, field_name, field_name, field_name, field_name, field_name });
+            }
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}PointerType(self: Builder) !?cpz.wire.PointerType {{
                 \\            return (try self.get_{s}()).pointerType();
@@ -18179,6 +18241,29 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         },
         .any_struct => {
             const has_default_flat = try anyPointerFieldDefaultFlatIsEmitted(allocator, file, layout, field, .struct_ptr);
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\        pub fn get_{s}OrNull(self: Builder) !?cpz.StructBuilder {{
+                , .{field_name});
+                try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) return null;
+                    \\            return try @"cpz.pointer".getStruct();
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNullFrom(self: Builder, new_value: ?cpz.StructReader) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_from(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNullFromBuilder(self: Builder, new_value: ?cpz.StructBuilder) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_fromBuilder(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                , .{ index, field_name, field_name, field_name, field_name, field_name, field_name });
+            }
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !cpz.StructBuilder {{
             , .{field_name});
@@ -18279,6 +18364,29 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
         },
         .any_list => {
             const has_default_flat = try anyPointerFieldDefaultFlatIsEmitted(allocator, file, layout, field, .list);
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\        pub fn get_{s}OrNull(self: Builder) !?cpz.ListBuilder {{
+                , .{field_name});
+                try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) return null;
+                    \\            return try @"cpz.pointer".getList(null);
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNullFrom(self: Builder, new_value: ?cpz.PointerReader) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_from(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNullFromBuilder(self: Builder, new_value: ?cpz.ListBuilder) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_fromBuilder(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                , .{ index, field_name, field_name, field_name, field_name, field_name, field_name });
+            }
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !cpz.ListBuilder {{
             , .{field_name});

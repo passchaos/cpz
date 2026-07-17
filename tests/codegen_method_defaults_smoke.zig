@@ -63,6 +63,24 @@ test "generated struct optional null defaults expose flats" {
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.maybeItemDefaultFlat.rawPointer(&maybe_item_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.MaybeDefaults.maybeItemDefaultFlat.pointerKind(&maybe_item_reader));
 
+    try std.testing.expectEqualStrings("null", generated.MaybeDefaults.@"cpz.field.maybeAny.default");
+    var maybe_any_reader = generated.MaybeDefaults.maybeAnyDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.MaybeDefaults.maybeAnyDefaultFlat.isNull(&maybe_any_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.maybeAnyDefaultFlat.rawPointer(&maybe_any_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.MaybeDefaults.maybeAnyDefaultFlat.pointerKind(&maybe_any_reader));
+
+    try std.testing.expectEqualStrings("null", generated.MaybeDefaults.@"cpz.field.maybeAnyStruct.default");
+    var maybe_any_struct_reader = generated.MaybeDefaults.maybeAnyStructDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.MaybeDefaults.maybeAnyStructDefaultFlat.isNull(&maybe_any_struct_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.maybeAnyStructDefaultFlat.rawPointer(&maybe_any_struct_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.MaybeDefaults.maybeAnyStructDefaultFlat.pointerKind(&maybe_any_struct_reader));
+
+    try std.testing.expectEqualStrings("null", generated.MaybeDefaults.@"cpz.field.maybeAnyList.default");
+    var maybe_any_list_reader = generated.MaybeDefaults.maybeAnyListDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.MaybeDefaults.maybeAnyListDefaultFlat.isNull(&maybe_any_list_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.maybeAnyListDefaultFlat.rawPointer(&maybe_any_list_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.MaybeDefaults.maybeAnyListDefaultFlat.pointerKind(&maybe_any_list_reader));
+
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
     defer builder.deinit();
     const root_builder = try generated.MaybeDefaults.initRootTyped(&builder);
@@ -70,6 +88,9 @@ test "generated struct optional null defaults expose flats" {
     try std.testing.expectEqual(@as(?[]const u8, null), try root_builder.get_absentDataOrNull());
     try std.testing.expect((try root_builder.get_maybeNumbersOrNull()) == null);
     try std.testing.expect((try root_builder.get_maybeItemOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeAnyOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeAnyStructOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeAnyListOrNull()) == null);
     try root_builder.set_absentOrNull("present");
     if (try root_builder.get_absentOrNull()) |value| {
         try std.testing.expectEqualStrings("present", value);
@@ -92,14 +113,36 @@ test "generated struct optional null defaults expose flats" {
         try std.testing.expectEqual(@as(u32, 91), try value.get_value());
         try std.testing.expectEqualStrings("ninety-one", try value.get_label());
     } else return error.TestExpectedEqual;
+    try root_builder.set_maybeAny_text("dynamic text");
+    if (try root_builder.get_maybeAnyOrNull()) |value| {
+        try std.testing.expectEqualStrings("dynamic text", try value.getText());
+    } else return error.TestExpectedEqual;
+    const any_struct = try root_builder.init_maybeAnyStruct(.{ .data_words = 1, .pointer_count = 0 });
+    try any_struct.setUInt32(0, 404, 0);
+    if (try root_builder.get_maybeAnyStructOrNull()) |value| {
+        try std.testing.expectEqual(@as(u32, 404), try value.getUInt32(0, 0));
+    } else return error.TestExpectedEqual;
+    const any_list = try root_builder.init_maybeAnyList(.two_bytes, 2);
+    try any_list.setUInt16(0, 21);
+    try any_list.setUInt16(1, 22);
+    if (try root_builder.get_maybeAnyListOrNull()) |value| {
+        try std.testing.expectEqual(@as(u16, 21), try value.getUInt16(0));
+        try std.testing.expectEqual(@as(u16, 22), try value.getUInt16(1));
+    } else return error.TestExpectedEqual;
     try root_builder.set_absentOrNull(null);
     try root_builder.set_absentDataOrNull(null);
     try root_builder.set_maybeNumbersOrNull(null);
     try root_builder.set_maybeItemOrNull(null);
+    try root_builder.set_maybeAnyOrNull(null);
+    try root_builder.set_maybeAnyStructOrNullFrom(null);
+    try root_builder.set_maybeAnyListOrNullFrom(null);
     try std.testing.expectEqual(@as(?[]const u8, null), try root_builder.get_absentOrNull());
     try std.testing.expectEqual(@as(?[]const u8, null), try root_builder.get_absentDataOrNull());
     try std.testing.expect((try root_builder.get_maybeNumbersOrNull()) == null);
     try std.testing.expect((try root_builder.get_maybeItemOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeAnyOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeAnyStructOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeAnyListOrNull()) == null);
 
     var message_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root_reader = try generated.MaybeDefaults.getRoot(&message_reader);
@@ -107,6 +150,9 @@ test "generated struct optional null defaults expose flats" {
     try std.testing.expectEqual(@as(?[]const u8, null), try root_reader.absentDataOrNull());
     try std.testing.expect((try root_reader.maybeNumbersOrNull()) == null);
     try std.testing.expect((try root_reader.maybeItemOrNull()) == null);
+    try std.testing.expect((try root_reader.maybeAnyOrNull()) == null);
+    try std.testing.expect((try root_reader.maybeAnyStructOrNull()) == null);
+    try std.testing.expect((try root_reader.maybeAnyListOrNull()) == null);
 }
 
 test "generated struct pointer null defaults expose flats" {

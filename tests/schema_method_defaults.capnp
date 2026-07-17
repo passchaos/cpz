@@ -22,6 +22,9 @@ struct MaybeDefaults {
   absentData @1 :?Data = null;
   maybeNumbers @2 :?List(UInt16) = null;
   maybeItem @3 :?Defaults.Item = null;
+  maybeAny @4 :?AnyPointer = null;
+  maybeAnyStruct @5 :?AnyStruct = null;
+  maybeAnyList @6 :?AnyList = null;
 }
 
 struct NullPointerDefaults {
