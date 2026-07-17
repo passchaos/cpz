@@ -9313,6 +9313,14 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                     try constNullPointerValue(allocator, out, indent, const_name, "?u32");
                     return;
                 }
+                if (isStructLikeName(file, type_name) and std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) {
+                    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                    defer allocator.free(zig_type);
+                    const optional_type = try std.fmt.allocPrint(allocator, "?{s}", .{zig_type});
+                    defer allocator.free(optional_type);
+                    try constNullPointerValue(allocator, out, indent, const_name, optional_type);
+                    return;
+                }
                 const enum_decl = findEnum(file, type_name) orelse return;
                 const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
                 defer allocator.free(zig_type);

@@ -46,6 +46,10 @@ test "generated optional interface constants expose null flats" {
     var callback_reader = generated.referencedMaybeCallbackFlat.reader(.{});
     try std.testing.expect(try generated.referencedMaybeCallbackFlat.isNull(&callback_reader));
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.referencedMaybeCallbackFlat.rawPointer(&callback_reader));
+    try std.testing.expectEqual(@as(?generated.Defaults.Item, null), generated.referencedNullItem);
+    var null_item_reader = generated.referencedNullItemFlat.reader(.{});
+    try std.testing.expect(try generated.referencedNullItemFlat.isNull(&null_item_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.referencedNullItemFlat.pointerKind(&null_item_reader));
 }
 
 test "generated capability list constants expose null values" {
@@ -276,6 +280,11 @@ test "generated optional constants expose values and flats" {
     var maybe_items_null_reader = generated.Defaults.defaultMaybeItemsNullFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultMaybeItemsNullFlat.isNull(&maybe_items_null_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultMaybeItemsNullFlat.pointerKind(&maybe_items_null_reader));
+
+    try std.testing.expectEqual(@as(?generated.Defaults.Item, null), generated.Defaults.defaultNullItem);
+    var null_item_reader = generated.Defaults.defaultNullItemFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultNullItemFlat.isNull(&null_item_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.Defaults.defaultNullItemFlat.pointerKind(&null_item_reader));
 
     try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeItems.itemCount);
     var items_reader = generated.Defaults.defaultMaybeItems.reader(.{});

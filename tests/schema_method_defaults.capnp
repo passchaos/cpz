@@ -20,6 +20,7 @@ const referencedAnyList :AnyList = null;
 const referencedCaps :List(Capability) = [void, null];
 const referencedCallbacks :List(TopCallback) = [void];
 const referencedMaybeCallback :?TopCallback = void;
+const referencedNullItem :Defaults.Item = null;
 
 interface TopCallback {
   ping @0 () -> ();
@@ -254,6 +255,7 @@ interface Defaults {
   const defaultMaybeItemsRef :?List(Item) = defaultItems;
   const defaultMaybeCaps :?List(Capability) = defaultCaps;
   const defaultMaybeCallbacks :?List(Callback) = defaultCallbacks;
+  const defaultNullItem :Item = null;
   const defaultNothing :?Item = null;
 
   scalars @0 (
