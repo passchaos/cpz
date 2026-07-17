@@ -26,11 +26,15 @@ pub fn main(init: std.process.Init) !u8 {
     while (args.next()) |arg| {
         if (parse_options and std.mem.eql(u8, arg, "--")) {
             parse_options = false;
+        } else if (parse_options and optionValue(arg, "--runtime-import") != null) {
+            runtime_import_name = optionValue(arg, "--runtime-import").?;
         } else if (parse_options and std.mem.eql(u8, arg, "--runtime-import")) {
             runtime_import_name = args.next() orelse {
                 std.debug.print("{s}", .{usage});
                 return 2;
             };
+        } else if (parse_options and optionValue(arg, "--namespace") != null) {
+            namespace = optionValue(arg, "--namespace").?;
         } else if (parse_options and std.mem.eql(u8, arg, "--namespace")) {
             namespace = args.next() orelse {
                 std.debug.print("{s}", .{usage});
@@ -89,4 +93,10 @@ pub fn main(init: std.process.Init) !u8 {
         try std.Io.File.stdout().writeStreamingAll(io, code);
     }
     return 0;
+}
+
+fn optionValue(arg: []const u8, name: []const u8) ?[]const u8 {
+    if (!std.mem.startsWith(u8, arg, name) or arg.len <= name.len or arg[name.len] != '=') return null;
+    const value = arg[name.len + 1 ..];
+    return if (value.len == 0) null else value;
 }
