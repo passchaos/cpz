@@ -294,6 +294,7 @@ interface Defaults {
   const defaultItemAlias :Item = defaultItem;
   const defaultBlobItem :BlobItem = (label = defaultLabelAlias, payload = defaultPayloadAlias);
   const defaultScalarItem :Item = (value = defaultMaybeAmount, label = defaultLabelAlias);
+  const defaultItemRefs :List(Item) = [defaultItem, defaultScalarItem];
   const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
   const defaultMaybeAnyItem :?AnyPointer = defaultItem;
   const defaultMaybeAnyStructItem :?AnyStruct = defaultItem;

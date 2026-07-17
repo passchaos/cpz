@@ -9677,11 +9677,62 @@ fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
         .named => |name| name,
         else => return null,
     };
-    const struct_decl = findStructDirect(file, type_name) orelse return null;
+    return listStructItemsFlatBytesAlloc(allocator, file, scope, type_name, items) catch |err| switch (err) {
+        error.UnsupportedType => return null,
+        else => return err,
+    };
+}
+
+fn writeStructListItemIntoSegment(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    struct_decl: *const Struct,
+    layout: *const StructLayout,
+    item: ConstListItem,
+    segment: *std.ArrayList(u8),
+    object_start_words: usize,
+    depth: usize,
+) LayoutError!void {
+    if (depth >= 32) return error.UnsupportedType;
+    if (item.struct_fields.len != 0) {
+        try writeStructLiteralFieldsIntoSegment(allocator, file, scope, layout, item.struct_fields, segment, object_start_words);
+        return;
+    }
+
+    if (findConstReference(file, scope, item.literal)) |decl| {
+        var decl_scope_fields: [0]Field = .{};
+        var decl_scope_storage: Struct = undefined;
+        const decl_scope = constDeclResolutionScope(file, scope, decl, decl_scope_fields[0..], &decl_scope_storage);
+        if (decl.struct_fields) |fields| {
+            try writeStructLiteralFieldsIntoSegment(allocator, file, decl_scope, layout, fields, segment, object_start_words);
+            return;
+        }
+        try writeStructListItemIntoSegment(
+            allocator,
+            file,
+            decl_scope,
+            struct_decl,
+            layout,
+            .{ .index = item.index, .literal = decl.literal },
+            segment,
+            object_start_words,
+            depth + 1,
+        );
+        return;
+    }
+
+    const fields = try parseStructLiteralOrImpliedFirstFieldAlloc(allocator, struct_decl, item.literal);
+    defer allocator.free(fields);
+    try writeStructLiteralFieldsIntoSegment(allocator, file, scope, layout, fields, segment, object_start_words);
+}
+
+fn listStructItemsFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, items: []const ConstListItem) LayoutError![]u8 {
+    const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
     var layout = try planStructLayout(allocator, file, struct_decl);
     defer layout.deinit(allocator);
     const element_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
-    if (element_words == 0) return null;
+    if (element_words == 0) return error.UnsupportedType;
     const content_words = try std.math.mul(usize, element_words, items.len);
 
     var segment = std.ArrayList(u8).empty;
@@ -9692,11 +9743,7 @@ fn structListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
     writeWordBytes(segment.items[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = layout.data_words, .pointer_count = layout.pointer_count }));
 
     for (items) |item| {
-        if (item.struct_fields.len == 0) return null;
-        writeStructLiteralFieldsIntoSegment(allocator, file, scope, &layout, item.struct_fields, &segment, 2 + item.index * element_words) catch |err| switch (err) {
-            error.UnsupportedType => return null,
-            else => return err,
-        };
+        try writeStructListItemIntoSegment(allocator, file, scope, struct_decl, &layout, item, &segment, 2 + item.index * element_words, 0);
     }
 
     const segment_words = segment.items.len / @sizeOf(u64);
@@ -11548,12 +11595,15 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             else => return,
         },
         .named => |type_name| {
-            const enum_decl = findEnum(file, type_name) orelse {
-                if (findInterface(file, type_name) != null) {
-                    try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value);
-                }
+            if (findStructDirect(file, type_name) != null) {
+                try emitStructListConst(allocator, out, file, scope, indent, name, type_name, items);
                 return;
-            };
+            }
+            if (findInterface(file, type_name) != null) {
+                try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value);
+                return;
+            }
+            const enum_decl = findEnum(file, type_name) orelse return;
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             const value_type = if (optional_value)
@@ -11572,6 +11622,14 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         },
         else => return,
     }
+}
+
+fn emitStructListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, name: []const u8, type_name: []const u8, items: []const ConstListItem) LayoutError!void {
+    const flat = try listStructItemsFlatBytesAlloc(allocator, file, scope, type_name, items);
+    defer allocator.free(flat);
+    const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+    defer allocator.free(zig_type);
+    try emitStructListFlatContainerFromBytes(allocator, out, indent, name, zig_type, flat);
 }
 
 fn blobListConstItem(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, item: ConstListItem, comptime is_text: bool) LayoutError![]const u8 {
