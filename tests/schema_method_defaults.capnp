@@ -31,6 +31,9 @@ const referencedAnyItem :AnyPointer = referencedItem;
 const referencedAnyStructItem :AnyStruct = referencedItem;
 const referencedAnyListNumbers :AnyList = referencedNumbers;
 const referencedItemAlias :Defaults.Item = referencedItem;
+const referencedMaybeAnyValues :List(?AnyPointer) = [Defaults.defaultMaybeItem, null, Defaults.defaultMaybeNumbers];
+const referencedMaybeAnyStructs :List(?AnyStruct) = [Defaults.defaultMaybeItem, null];
+const referencedMaybeAnyLists :List(?AnyList) = [Defaults.defaultMaybeNumbers, null];
 
 interface TopCallback {
   ping @0 () -> ();

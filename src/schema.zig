@@ -6113,7 +6113,7 @@ const AnyPointerDefaultKind = enum { any, struct_ptr, list };
 fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, default_literal: []const u8, comptime want: AnyPointerDefaultKind) LayoutError![]u8 {
     const decl = findConstReference(file, scope, default_literal) orelse return error.UnsupportedType;
     const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
-        .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, decl.literal) orelse return error.UnsupportedType,
+        .optional => |child| methodOptionalDefaultChildOrNullForDecl(file, scope, decl, child.*, decl.literal) orelse return error.UnsupportedType,
         else => |resolved| resolved,
     };
     switch (resolved_ty) {
@@ -6151,10 +6151,23 @@ fn resolveConstDeclType(file: *const File, scope: ?*const Struct, decl: *const C
     return resolveTypeScoped(file, scope, decl.ty);
 }
 
+fn resolveConstDeclChildType(file: *const File, scope: ?*const Struct, decl: *const ConstDecl, child: Type) Type {
+    if (constDeclOwnerName(file, decl)) |owner_name| {
+        return resolveTypeInOwnerScope(file, owner_name, child);
+    }
+    return resolveTypeScoped(file, scope, child);
+}
+
 fn methodOptionalDefaultChildOrNull(file: *const File, scope: ?*const Struct, child: Type, default_literal: []const u8) ?Type {
     const resolved_literal = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, default_literal), " \t\r\n");
     if (std.mem.eql(u8, resolved_literal, "null")) return null;
     return resolveTypeScoped(file, scope, child);
+}
+
+fn methodOptionalDefaultChildOrNullForDecl(file: *const File, scope: ?*const Struct, decl: *const ConstDecl, child: Type, default_literal: []const u8) ?Type {
+    const resolved_literal = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, default_literal), " \t\r\n");
+    if (std.mem.eql(u8, resolved_literal, "null")) return null;
+    return resolveConstDeclChildType(file, scope, decl, child);
 }
 
 fn methodDefaultIsNull(file: *const File, scope: ?*const Struct, default_literal: []const u8) bool {
@@ -11767,8 +11780,8 @@ fn listOptionalAnyPointerConstFlatBytesAlloc(allocator: std.mem.Allocator, file:
         if (std.mem.eql(u8, resolved_item, "null")) continue;
 
         const decl = findConstReference(file, scope, item.literal) orelse return error.UnsupportedType;
-        const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
-            .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, decl.literal) orelse return error.UnsupportedType,
+        const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
+            .optional => |child| methodOptionalDefaultChildOrNullForDecl(file, scope, decl, child.*, decl.literal) orelse return error.UnsupportedType,
             else => |resolved| resolved,
         };
         switch (resolved_ty) {
@@ -12298,8 +12311,8 @@ fn appendOptionalAnyPointerListPointer(allocator: std.mem.Allocator, file: *cons
         if (std.mem.eql(u8, resolved_item, "null")) continue;
 
         const decl = findConstReference(file, scope, item) orelse return error.UnsupportedType;
-        const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
-            .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, decl.literal) orelse return error.UnsupportedType,
+        const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
+            .optional => |child| methodOptionalDefaultChildOrNullForDecl(file, scope, decl, child.*, decl.literal) orelse return error.UnsupportedType,
             else => |resolved| resolved,
         };
         switch (resolved_ty) {

@@ -66,6 +66,18 @@ test "generated optional interface constants expose null flats" {
     var referenced_any_list_numbers_reader = generated.referencedAnyListNumbers.reader(.{});
     const referenced_any_list_numbers = try generated.referencedAnyListNumbers.get(&referenced_any_list_numbers_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 8), referenced_any_list_numbers.getUInt16(1));
+    var referenced_maybe_any_values_reader = generated.referencedMaybeAnyValuesFlat.reader(.{});
+    const referenced_maybe_any_values = try generated.referencedMaybeAnyValuesFlat.list(&referenced_maybe_any_values_reader);
+    try std.testing.expectEqual(@as(usize, 3), referenced_maybe_any_values.len());
+    try std.testing.expectEqual(@as(u32, 77), (try generated.referencedMaybeAnyValuesFlat.asStruct(&referenced_maybe_any_values_reader, 0)).getUInt32(0, 0));
+    try std.testing.expect(try generated.referencedMaybeAnyValuesFlat.elementIsNull(&referenced_maybe_any_values_reader, 1));
+    try std.testing.expectEqual(@as(u16, 6), (try generated.referencedMaybeAnyValuesFlat.asList(&referenced_maybe_any_values_reader, 2, .two_bytes)).getUInt16(1));
+    var referenced_maybe_any_structs_reader = generated.referencedMaybeAnyStructsFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 77), (try generated.referencedMaybeAnyStructsFlat.get(&referenced_maybe_any_structs_reader, 0)).getUInt32(0, 0));
+    try std.testing.expect(try generated.referencedMaybeAnyStructsFlat.elementIsNull(&referenced_maybe_any_structs_reader, 1));
+    var referenced_maybe_any_lists_reader = generated.referencedMaybeAnyListsFlat.reader(.{});
+    try std.testing.expectEqual(@as(u16, 5), (try generated.referencedMaybeAnyListsFlat.get(&referenced_maybe_any_lists_reader, 0, .two_bytes)).getUInt16(0));
+    try std.testing.expect(try generated.referencedMaybeAnyListsFlat.elementIsNull(&referenced_maybe_any_lists_reader, 1));
     var referenced_item_alias_reader = generated.referencedItemAlias.reader(.{});
     const referenced_item_alias = try generated.referencedItemAlias.typedRoot(&referenced_item_alias_reader);
     try std.testing.expectEqual(@as(u32, 88), referenced_item_alias.value());
