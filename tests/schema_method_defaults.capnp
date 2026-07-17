@@ -245,6 +245,8 @@ interface Defaults {
     label :?Text = defaultMaybeLabel,
     payload :?Data = defaultMaybePayload,
     numbers :?List(UInt16) = defaultMaybeNumbers,
+    caps :?List(Capability) = defaultMaybeCaps,
+    callbacks :?List(Callback) = defaultMaybeCallbacks,
     item :?Item = defaultMaybeItem,
     emptyLabel :?Text = null,
     any :AnyPointer = null,

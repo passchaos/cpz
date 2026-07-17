@@ -10288,7 +10288,14 @@ fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const
 }
 
 fn resolveConstReferenceLiteral(file: *const File, scope: ?*const Struct, literal: []const u8) []const u8 {
-    return if (findConstReference(file, scope, literal)) |decl| decl.literal else literal;
+    return resolveConstReferenceLiteralDepth(file, scope, literal, 0);
+}
+
+fn resolveConstReferenceLiteralDepth(file: *const File, scope: ?*const Struct, literal: []const u8, depth: usize) []const u8 {
+    if (depth >= 32) return literal;
+    const decl = findConstReference(file, scope, literal) orelse return literal;
+    if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, literal, " \t\r\n"))) return decl.literal;
+    return resolveConstReferenceLiteralDepth(file, scope, decl.literal, depth + 1);
 }
 
 fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError!?[]u8 {

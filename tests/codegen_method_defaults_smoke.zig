@@ -1034,6 +1034,13 @@ test "generated method default flats expose typed optional pointer getters" {
     var optional_numbers_wrapped = generated.Defaults.@"cpz.method.optionals.params.field.numbers.defaultFlat".init(.{});
     try std.testing.expectEqual(@as(u16, 6), try optional_numbers_wrapped.get(1));
 
+    var caps_reader = generated.Defaults.@"cpz.method.optionals.params.field.caps.defaultFlat".reader(.{});
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionals.params.field.caps.defaultFlat".elementIsNull(&caps_reader, 0));
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionals.params.field.caps.defaultFlat".elementIsNull(&caps_reader, 1));
+
+    var callbacks_reader = generated.Defaults.@"cpz.method.optionals.params.field.callbacks.defaultFlat".reader(.{});
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionals.params.field.callbacks.defaultFlat".elementIsNull(&callbacks_reader, 0));
+
     var item_reader = generated.Defaults.@"cpz.method.optionals.params.field.item.defaultFlat".reader(.{});
     const item = try generated.Defaults.@"cpz.method.optionals.params.field.item.defaultFlat".get(&item_reader);
     try std.testing.expectEqual(@as(u32, 77), item.value());
