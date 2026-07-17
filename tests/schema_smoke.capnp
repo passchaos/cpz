@@ -21,6 +21,9 @@ using ServiceAlias = Service;
 using MaybeNames = List(?Text);
 using MaybeData = List(?Data);
 using MaybeCaps = List(?Capability);
+using MaybeAnyPointers = List(?AnyPointer);
+using MaybeAnyStructs = List(?AnyStruct);
+using MaybeAnyLists = List(?AnyList);
 
 const globalId @0xc0571d01 :UInt32 = 12345 $schemaNote("global-id");
 const globalActive :Bool = true;

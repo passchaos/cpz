@@ -7975,6 +7975,9 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
                 .text, .data => try aliasLine(allocator, out, indent, alias_name, "[]const ?[]const u8"),
                 .capability => try aliasLine(allocator, out, indent, alias_name, "[]const ?u32"),
+                .any_pointer => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.PointerReader"),
+                .any_struct => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.StructReader"),
+                .any_list => try aliasLine(allocator, out, indent, alias_name, "[]const ?cpz.ListReader"),
                 else => {},
             },
             .any_pointer, .any_struct, .any_list, .list => {},
