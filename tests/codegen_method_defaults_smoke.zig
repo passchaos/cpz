@@ -133,6 +133,31 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(u16, 7), any_list_numbers.getUInt16(0));
     try std.testing.expectEqual(@as(u16, 8), any_list_numbers.getUInt16(1));
 
+    try std.testing.expectEqual(@as(usize, 3), generated.Defaults.@"cpz.const.defaultMaybeAnyValues.listItemCount");
+    var maybe_any_values_reader = generated.Defaults.defaultMaybeAnyValuesFlat.reader(.{});
+    const maybe_any_values = try generated.Defaults.defaultMaybeAnyValuesFlat.list(&maybe_any_values_reader);
+    try std.testing.expectEqual(@as(usize, 3), maybe_any_values.len());
+    try std.testing.expectEqual(@as(u32, 77), (try generated.Defaults.defaultMaybeAnyValuesFlat.asStruct(&maybe_any_values_reader, 0)).getUInt32(0, 0));
+    try std.testing.expect(try generated.Defaults.defaultMaybeAnyValuesFlat.elementIsNull(&maybe_any_values_reader, 1));
+    try std.testing.expect((try generated.Defaults.defaultMaybeAnyValuesFlat.getOrNull(&maybe_any_values_reader, 1)) == null);
+    try std.testing.expectEqual(@as(u16, 5), (try generated.Defaults.defaultMaybeAnyValuesFlat.asList(&maybe_any_values_reader, 2, .two_bytes)).getUInt16(0));
+
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.const.defaultMaybeAnyStructs.listItemCount");
+    var maybe_any_structs_reader = generated.Defaults.defaultMaybeAnyStructsFlat.reader(.{});
+    const maybe_any_structs = try generated.Defaults.defaultMaybeAnyStructsFlat.list(&maybe_any_structs_reader);
+    try std.testing.expectEqual(@as(usize, 2), maybe_any_structs.len());
+    try std.testing.expectEqual(@as(u32, 77), (try generated.Defaults.defaultMaybeAnyStructsFlat.get(&maybe_any_structs_reader, 0)).getUInt32(0, 0));
+    try std.testing.expect(try generated.Defaults.defaultMaybeAnyStructsFlat.elementIsNull(&maybe_any_structs_reader, 1));
+    try std.testing.expect((try generated.Defaults.defaultMaybeAnyStructsFlat.getOrNull(&maybe_any_structs_reader, 1)) == null);
+
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.@"cpz.const.defaultMaybeAnyLists.listItemCount");
+    var maybe_any_lists_reader = generated.Defaults.defaultMaybeAnyListsFlat.reader(.{});
+    const maybe_any_lists = try generated.Defaults.defaultMaybeAnyListsFlat.list(&maybe_any_lists_reader);
+    try std.testing.expectEqual(@as(usize, 2), maybe_any_lists.len());
+    try std.testing.expectEqual(@as(u16, 5), (try generated.Defaults.defaultMaybeAnyListsFlat.get(&maybe_any_lists_reader, 0, .two_bytes)).getUInt16(0));
+    try std.testing.expect(try generated.Defaults.defaultMaybeAnyListsFlat.elementIsNull(&maybe_any_lists_reader, 1));
+    try std.testing.expect((try generated.Defaults.defaultMaybeAnyListsFlat.getOrNull(&maybe_any_lists_reader, 1, .two_bytes)) == null);
+
     try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeItems.itemCount);
     var items_reader = generated.Defaults.defaultMaybeItems.reader(.{});
     const maybe_item0 = try generated.Defaults.defaultMaybeItems.get(&items_reader, 0);

@@ -204,6 +204,9 @@ interface Defaults {
   const defaultMaybeAnyItem :?AnyPointer = defaultItem;
   const defaultMaybeAnyStructItem :?AnyStruct = defaultItem;
   const defaultMaybeAnyListNumbers :?AnyList = defaultNumbers;
+  const defaultMaybeAnyValues :List(?AnyPointer) = [defaultMaybeItem, null, defaultMaybeNumbers];
+  const defaultMaybeAnyStructs :List(?AnyStruct) = [defaultMaybeItem, null];
+  const defaultMaybeAnyLists :List(?AnyList) = [defaultMaybeNumbers, null];
   const defaultMaybeNumbers :?List(UInt16) = [5, 6];
   const defaultMaybeNumbersRef :?List(UInt16) = defaultNumbers;
   const defaultMaybeItems :?List(Item) = [(value = 30, label = "thirty"), (value = 40, label = "forty")];
