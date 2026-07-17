@@ -270,7 +270,10 @@ interface Defaults {
     anyStruct :AnyPointer = defaultItem,
     structValue :AnyStruct = defaultItem,
     anyList :AnyPointer = defaultNumbers,
-    listValue :AnyList = defaultNumbers
+    listValue :AnyList = defaultNumbers,
+    anyValues :List(AnyPointer) = [defaultItem, defaultNumbers],
+    structValues :List(AnyStruct) = [defaultItem],
+    listValues :List(AnyList) = [defaultNumbers]
   ) -> ();
 
   capabilityDefaults @6 (callback :Callback = void) -> ();

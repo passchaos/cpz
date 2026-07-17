@@ -6057,6 +6057,9 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
             defer allocator.free(items);
             return listCapabilityFlatBytesAlloc(allocator, file, scope, items);
         },
+        .any_pointer => return listOptionalAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, .any),
+        .any_struct => return listOptionalAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, .struct_ptr),
+        .any_list => return listOptionalAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, .list),
         .text => return listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, true),
         .data => return listTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, false),
         .list => return listNestedFieldDefaultFlatBytesAlloc(allocator, file, scope, child, resolved_literal),
@@ -6098,7 +6101,6 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
             },
             else => return error.UnsupportedType,
         },
-        else => return error.UnsupportedType,
     }
 }
 
@@ -6472,6 +6474,9 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
             try emitMethodListDefaultScalarGet(allocator, out, indent, "f64", "getFloat64");
         },
         .capability => try emitMethodListDefaultCapabilityGetters(allocator, out, indent),
+        .any_pointer => try emitMethodListDefaultOptionalAnyPointerGetters(allocator, out, indent),
+        .any_struct => try emitMethodListDefaultOptionalAnyStructGetters(allocator, out, indent),
+        .any_list => try emitMethodListDefaultOptionalAnyListGetters(allocator, out, indent),
         .text => {
             try emitMethodListDefaultList(allocator, out, indent, ".pointer");
             try appendFmt(allocator, out,
@@ -6560,7 +6565,6 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
             },
             else => {},
         },
-        else => {},
     }
 }
 

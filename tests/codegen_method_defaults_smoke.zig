@@ -1268,6 +1268,22 @@ test "generated method default flats resolve any pointer const references" {
     var list_value_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".reader(.{});
     const list_value = try generated.Defaults.@"cpz.method.anyDefaults.params.field.listValue.defaultFlat".get(&list_value_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 8), list_value.getUInt16(1));
+
+    var any_values_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.anyValues.defaultFlat".reader(.{});
+    const any_values = try generated.Defaults.@"cpz.method.anyDefaults.params.field.anyValues.defaultFlat".list(&any_values_reader);
+    try std.testing.expectEqual(@as(usize, 2), any_values.len());
+    try std.testing.expectEqual(@as(u32, 99), (try generated.Defaults.@"cpz.method.anyDefaults.params.field.anyValues.defaultFlat".asStruct(&any_values_reader, 0)).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u16, 7), (try generated.Defaults.@"cpz.method.anyDefaults.params.field.anyValues.defaultFlat".asList(&any_values_reader, 1, .two_bytes)).getUInt16(0));
+
+    var struct_values_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.structValues.defaultFlat".reader(.{});
+    const struct_values = try generated.Defaults.@"cpz.method.anyDefaults.params.field.structValues.defaultFlat".list(&struct_values_reader);
+    try std.testing.expectEqual(@as(usize, 1), struct_values.len());
+    try std.testing.expectEqual(@as(u32, 99), (try generated.Defaults.@"cpz.method.anyDefaults.params.field.structValues.defaultFlat".get(&struct_values_reader, 0)).getUInt32(0, 0));
+
+    var list_values_reader = generated.Defaults.@"cpz.method.anyDefaults.params.field.listValues.defaultFlat".reader(.{});
+    const list_values = try generated.Defaults.@"cpz.method.anyDefaults.params.field.listValues.defaultFlat".list(&list_values_reader);
+    try std.testing.expectEqual(@as(usize, 1), list_values.len());
+    try std.testing.expectEqual(@as(u16, 8), (try generated.Defaults.@"cpz.method.anyDefaults.params.field.listValues.defaultFlat".get(&list_values_reader, 0, .two_bytes)).getUInt16(1));
 }
 
 test "generated method default flats resolve optional any const references" {
