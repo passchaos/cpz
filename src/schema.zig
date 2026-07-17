@@ -8181,7 +8181,12 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
             , .{ indent, indent, indent, indent, indent });
         },
         .list => |list_child| {
-            const items = decl.list_items orelse return;
+            const items = if (decl.list_items) |items|
+                items
+            else if (findConstReference(file, scope, raw)) |referenced|
+                referenced.list_items orelse return
+            else
+                return;
             try emitListConst(allocator, out, file, scope, indent, const_name, list_child.*, items, true);
         },
         .named => |type_name| {
@@ -10761,8 +10766,20 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         .float64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f64", items, float64ConstItem, optional_value),
         .text => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, stringConstItem, optional_value),
         .data => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, dataConstItem, optional_value),
+        .capability => {
+            const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+            defer allocator.free(flat);
+            try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
+        },
         .named => |type_name| {
-            const enum_decl = findEnum(file, type_name) orelse return;
+            const enum_decl = findEnum(file, type_name) orelse {
+                if (findInterface(file, type_name) != null) {
+                    const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
+                    defer allocator.free(flat);
+                    try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
+                }
+                return;
+            };
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
             defer allocator.free(zig_type);
             const value_type = if (optional_value)
