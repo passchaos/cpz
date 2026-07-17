@@ -35,6 +35,9 @@ pub fn main(init: std.process.Init) !u8 {
             };
         } else if (std.mem.eql(u8, arg, "--check")) {
             check = true;
+        } else if (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h")) {
+            std.debug.print("{s}", .{usage});
+            return 0;
         } else if (std.mem.eql(u8, arg, "--emit-raw-schema-comments")) {
             emit_raw_schema_comments = true;
         } else if (input_path == null) {
