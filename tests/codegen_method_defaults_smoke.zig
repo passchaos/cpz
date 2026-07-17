@@ -17,6 +17,19 @@ test "generated optional interface constants expose null flats" {
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.referencedMaybeCallbackFlat.rawPointer(&callback_reader));
 }
 
+test "generated capability list constants expose null values" {
+    try std.testing.expectEqual(@as(usize, 2), generated.referencedCaps.len);
+    try std.testing.expectEqual(@as(?u32, null), generated.referencedCaps[0]);
+    try std.testing.expectEqual(@as(?u32, null), generated.referencedCaps[1]);
+    try std.testing.expectEqual(@as(usize, 1), generated.referencedCallbacks.len);
+    try std.testing.expectEqual(@as(?u32, null), generated.referencedCallbacks[0]);
+    try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultCaps.len);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultCaps[0]);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultCaps[1]);
+    try std.testing.expectEqual(@as(usize, 1), generated.Defaults.defaultCallbacks.len);
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultCallbacks[0]);
+}
+
 test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(?void, {}), generated.Defaults.defaultMaybeVoid);
     var void_reader = generated.Defaults.defaultMaybeVoidFlat.reader(.{});

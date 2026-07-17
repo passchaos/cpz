@@ -11302,11 +11302,7 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         .float64 => try emitListConstOfType(allocator, out, file, scope, indent, name, "f64", items, float64ConstItem, optional_value),
         .text => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, stringConstItem, optional_value),
         .data => try emitListConstOfType(allocator, out, file, scope, indent, name, "[]const u8", items, dataConstItem, optional_value),
-        .capability => {
-            const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
-            defer allocator.free(flat);
-            try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
-        },
+        .capability => try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value),
         .any_pointer => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .any),
         .any_struct => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .struct_ptr),
         .any_list => try emitAnyPointerListConst(allocator, out, file, scope, indent, name, child, items, .list),
@@ -11343,9 +11339,7 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse {
                 if (findInterface(file, type_name) != null) {
-                    const flat = try listCapabilityFlatBytesAlloc(allocator, file, scope, items);
-                    defer allocator.free(flat);
-                    try emitCapabilityListFlatContainerFromBytes(allocator, out, indent, name, flat);
+                    try emitOptionalCapabilityListConst(allocator, out, file, scope, indent, name, items, optional_value);
                 }
                 return;
             };
