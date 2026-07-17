@@ -51,11 +51,25 @@ test "generated struct optional null defaults expose flats" {
     try std.testing.expect(try generated.MaybeDefaults.absentDataDefaultFlat.isNull(&absent_data_reader));
     try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.absentDataDefaultFlat.rawPointer(&absent_data_reader));
 
+    try std.testing.expectEqualStrings("null", generated.MaybeDefaults.@"cpz.field.maybeNumbers.default");
+    var maybe_numbers_reader = generated.MaybeDefaults.maybeNumbersDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.MaybeDefaults.maybeNumbersDefaultFlat.isNull(&maybe_numbers_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.maybeNumbersDefaultFlat.rawPointer(&maybe_numbers_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.MaybeDefaults.maybeNumbersDefaultFlat.pointerKind(&maybe_numbers_reader));
+
+    try std.testing.expectEqualStrings("null", generated.MaybeDefaults.@"cpz.field.maybeItem.default");
+    var maybe_item_reader = generated.MaybeDefaults.maybeItemDefaultFlat.reader(.{});
+    try std.testing.expect(try generated.MaybeDefaults.maybeItemDefaultFlat.isNull(&maybe_item_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.MaybeDefaults.maybeItemDefaultFlat.rawPointer(&maybe_item_reader));
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.MaybeDefaults.maybeItemDefaultFlat.pointerKind(&maybe_item_reader));
+
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 1 });
     defer builder.deinit();
     const root_builder = try generated.MaybeDefaults.initRootTyped(&builder);
     try std.testing.expectEqual(@as(?[]const u8, null), try root_builder.get_absentOrNull());
     try std.testing.expectEqual(@as(?[]const u8, null), try root_builder.get_absentDataOrNull());
+    try std.testing.expect((try root_builder.get_maybeNumbersOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeItemOrNull()) == null);
     try root_builder.set_absentOrNull("present");
     if (try root_builder.get_absentOrNull()) |value| {
         try std.testing.expectEqualStrings("present", value);
@@ -64,15 +78,35 @@ test "generated struct optional null defaults expose flats" {
     if (try root_builder.get_absentDataOrNull()) |value| {
         try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, value);
     } else return error.TestExpectedEqual;
+    const numbers = try root_builder.init_maybeNumbers(2);
+    try numbers.set(0, 11);
+    try numbers.set(1, 12);
+    if (try root_builder.get_maybeNumbersOrNull()) |value| {
+        try std.testing.expectEqual(@as(u16, 11), try value.get(0));
+        try std.testing.expectEqual(@as(u16, 12), try value.get(1));
+    } else return error.TestExpectedEqual;
+    const item = try root_builder.init_maybeItem();
+    try item.set_value(91);
+    try item.set_label("ninety-one");
+    if (try root_builder.get_maybeItemOrNull()) |value| {
+        try std.testing.expectEqual(@as(u32, 91), try value.get_value());
+        try std.testing.expectEqualStrings("ninety-one", try value.get_label());
+    } else return error.TestExpectedEqual;
     try root_builder.set_absentOrNull(null);
     try root_builder.set_absentDataOrNull(null);
+    try root_builder.set_maybeNumbersOrNull(null);
+    try root_builder.set_maybeItemOrNull(null);
     try std.testing.expectEqual(@as(?[]const u8, null), try root_builder.get_absentOrNull());
     try std.testing.expectEqual(@as(?[]const u8, null), try root_builder.get_absentDataOrNull());
+    try std.testing.expect((try root_builder.get_maybeNumbersOrNull()) == null);
+    try std.testing.expect((try root_builder.get_maybeItemOrNull()) == null);
 
     var message_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root_reader = try generated.MaybeDefaults.getRoot(&message_reader);
     try std.testing.expectEqual(@as(?[]const u8, null), try root_reader.absentOrNull());
     try std.testing.expectEqual(@as(?[]const u8, null), try root_reader.absentDataOrNull());
+    try std.testing.expect((try root_reader.maybeNumbersOrNull()) == null);
+    try std.testing.expect((try root_reader.maybeItemOrNull()) == null);
 }
 
 test "generated struct pointer null defaults expose flats" {

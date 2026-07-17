@@ -20,6 +20,8 @@ interface TopCallback {
 struct MaybeDefaults {
   absent @0 :?Text = null;
   absentData @1 :?Data = null;
+  maybeNumbers @2 :?List(UInt16) = null;
+  maybeItem @3 :?Defaults.Item = null;
 }
 
 struct NullPointerDefaults {

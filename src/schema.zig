@@ -13676,7 +13676,13 @@ fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *cons
         try emitFieldGetter(allocator, out, file, layout, struct_name, field_layout);
     }
     for (layout.fields) |field_layout| {
-        if (resolveTypeScoped(file, layout.decl, field_layout.field.ty) == .list) {
+        const resolved_field_ty = resolveTypeScoped(file, layout.decl, field_layout.field.ty);
+        const needs_list_wrapper = switch (resolved_field_ty) {
+            .list => true,
+            .optional => |child| resolveTypeScoped(file, layout.decl, child.*) == .list,
+            else => false,
+        };
+        if (needs_list_wrapper) {
             try emitListWrapper(allocator, out, file, layout.decl, struct_name, field_layout.field);
         }
     }
@@ -14094,12 +14100,14 @@ fn scalarGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
     }
 }
 
-fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
-    if (field.ty == .optional) {
-        var optional_field = field.*;
-        optional_field.ty = field.ty.optional.*;
-        return emitPointerGetter(allocator, out, file, layout, owner_name, field_name, &optional_field, index);
-    }
+fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_name: []const u8, raw_field: *const Field, index: usize) LayoutError!void {
+    var optional_field_storage: Field = undefined;
+    const field_is_optional = raw_field.ty == .optional;
+    const field: *const Field = if (field_is_optional) blk: {
+        optional_field_storage = raw_field.*;
+        optional_field_storage.ty = raw_field.ty.optional.*;
+        break :blk &optional_field_storage;
+    } else raw_field;
     const union_layout = unionLayoutForField(layout, field);
 
     if (union_layout) |u| {
@@ -14756,6 +14764,19 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\    }}
                 \\
             , .{ index, try listElementSizeLiteral(file, layout.decl, child.*) });
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\    pub fn {s}OrNull(self: @This()) !?{s}_{s}_List {{
+                , .{ field_name, owner_name, field_name });
+                try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                    \\        if (@"cpz.pointer".isNull()) return null;
+                    \\        return .{{ .list = try @"cpz.pointer".getList({s}) }};
+                    \\    }}
+                    \\
+                , .{ index, try listElementSizeLiteral(file, layout.decl, child.*) });
+            }
         },
         .named => |type_name| if (findInterface(file, type_name) != null) {
             try appendFmt(allocator, out,
@@ -14798,6 +14819,19 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\    }}
                 \\
             , .{ zig_type, index });
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\    pub fn {s}OrNull(self: @This()) !?{s} {{
+                , .{ field_name, zig_type });
+                try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\        const @"cpz.pointer" = self.reader.getPointerField({});
+                    \\        if (@"cpz.pointer".isNull()) return null;
+                    \\        return {s}.fromReader(try @"cpz.pointer".getStruct(null));
+                    \\    }}
+                    \\
+                , .{ index, zig_type });
+            }
         },
         else => return error.UnsupportedType,
     }
@@ -14820,6 +14854,10 @@ fn unionLayoutForField(layout: *const StructLayout, field: *const Field) ?UnionL
 fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, owner_name: []const u8, field: *const Field) LayoutError!void {
     const list_type = switch (resolveTypeScoped(file, scope, field.ty)) {
         .list => |child| child,
+        .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .list => |child| child,
+            else => return error.UnsupportedType,
+        },
         else => return error.UnsupportedType,
     };
     const child = list_type.*;
@@ -17163,12 +17201,14 @@ fn scalarSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), name: []c
     , .{ method, byte, default });
 }
 
-fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
-    if (field.ty == .optional) {
-        var optional_field = field.*;
-        optional_field.ty = field.ty.optional.*;
-        return emitPointerBuilderMethod(allocator, out, file, layout, owner_name, field_name, &optional_field, index);
-    }
+fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout, owner_name: []const u8, field_name: []const u8, raw_field: *const Field, index: usize) LayoutError!void {
+    var optional_field_storage: Field = undefined;
+    const field_is_optional = raw_field.ty == .optional;
+    const field: *const Field = if (field_is_optional) blk: {
+        optional_field_storage = raw_field.*;
+        optional_field_storage.ty = raw_field.ty.optional.*;
+        break :blk &optional_field_storage;
+    } else raw_field;
     const union_layout = unionLayoutForField(layout, field);
 
     if (union_layout) |u| {
@@ -17783,6 +17823,24 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                     \\
                 , .{ index, try listElementSizeLiteral(file, layout.decl, child.*) });
             }
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\        pub fn get_{s}OrNull(self: Builder) !?{s}_{s}_BuilderList {{
+                , .{ field_name, owner_name, field_name });
+                try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) return null;
+                    \\            return .{{ .list = try @"cpz.pointer".getList({s}) }};
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNull(self: Builder, new_value: ?{s}_{s}_List) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_from(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                , .{ index, try listElementSizeLiteral(file, layout.decl, child.*), field_name, owner_name, field_name, field_name, field_name });
+            }
 
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}_from(self: Builder, new_value: {s}_{s}_List) !void {{
@@ -18388,16 +18446,40 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                     \\            return {s}.Builder.fromBuilder(try @"cpz.pointer".getStruct());
                     \\        }}
                     \\
-                    \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
-                , .{ index, owner_name, field_name, owner_name, field_name, zig_type, field_name, zig_type });
+                , .{ index, owner_name, field_name, owner_name, field_name, zig_type });
             } else {
                 try appendFmt(allocator, out,
                     \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).getStruct());
                     \\        }}
                     \\
-                    \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
-                , .{ zig_type, index, field_name, zig_type });
+                , .{ zig_type, index });
             }
+            if (field_is_optional) {
+                try appendFmt(allocator, out,
+                    \\        pub fn get_{s}OrNull(self: Builder) !?{s}.Builder {{
+                , .{ field_name, zig_type });
+                try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\            const @"cpz.pointer" = try self.builder.getPointerField({});
+                    \\            if (@"cpz.pointer".isNull()) return null;
+                    \\            return {s}.Builder.fromBuilder(try @"cpz.pointer".getStruct());
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNull(self: Builder, new_value: ?{s}) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_from(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                    \\        pub fn set_{s}OrNullFromBuilder(self: Builder, new_value: ?{s}.Builder) !void {{
+                    \\            if (new_value) |@"cpz.value"| return self.set_{s}_fromBuilder(@"cpz.value");
+                    \\            return self.clear_{s}();
+                    \\        }}
+                    \\
+                , .{ index, zig_type, field_name, zig_type, field_name, field_name, field_name, zig_type, field_name, field_name });
+            }
+            try appendFmt(allocator, out,
+                \\        pub fn init_{s}(self: Builder) !{s}.Builder {{
+            , .{ field_name, zig_type });
             try emitBuilderUnionActivation(allocator, out, field);
             try appendFmt(allocator, out,
                 \\            return {s}.Builder.fromBuilder(try (try self.builder.getPointerField({})).initStruct({s}.size));
