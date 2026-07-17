@@ -16874,6 +16874,8 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             .text => try emitOptionalBlobSliceSetter(allocator, out, field_name, field, index, "setText"),
             .data => try emitOptionalBlobSliceSetter(allocator, out, field_name, field, index, "setData"),
             .any_pointer => try emitOptionalPointerSliceSetter(allocator, out, field_name, field, index),
+            .any_struct => try emitOptionalAnyStructSliceSetter(allocator, out, field_name, field, index),
+            .any_list => try emitOptionalAnyListSliceSetter(allocator, out, field_name, field, index),
             .capability => try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index),
             .named => |type_name| if (findInterface(file, type_name) != null)
                 try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index)
@@ -17615,6 +17617,44 @@ fn emitOptionalStructSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayLi
         \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| {{
         \\                if (@"cpz.item") |@"cpz.value"| {{
         \\                    try (try @"cpz.list".getPointerElement(@"cpz.i")).copyStructFrom(@"cpz.value".reader);
+        \\                }} else {{
+        \\                    try @"cpz.list".clearPointerElement(@"cpz.i");
+        \\                }}
+        \\            }}
+        \\        }}
+        \\
+    , .{index});
+}
+
+fn emitOptionalAnyStructSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const ?cpz.StructReader) !void {{
+    , .{field_name});
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.pointer, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| {{
+        \\                if (@"cpz.item") |@"cpz.value"| {{
+        \\                    try (try @"cpz.list".getPointerElement(@"cpz.i")).copyStructFrom(@"cpz.value");
+        \\                }} else {{
+        \\                    try @"cpz.list".clearPointerElement(@"cpz.i");
+        \\                }}
+        \\            }}
+        \\        }}
+        \\
+    , .{index});
+}
+
+fn emitOptionalAnyListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const ?cpz.ListReader) !void {{
+    , .{field_name});
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.pointer, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| {{
+        \\                if (@"cpz.item") |@"cpz.value"| {{
+        \\                    try (try @"cpz.list".getPointerElement(@"cpz.i")).copyListFrom(@"cpz.value");
         \\                }} else {{
         \\                    try @"cpz.list".clearPointerElement(@"cpz.i");
         \\                }}

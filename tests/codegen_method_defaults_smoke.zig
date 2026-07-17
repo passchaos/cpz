@@ -257,6 +257,10 @@ test "generated optional blob list elements expose typed nullable helpers" {
         try std.testing.expectEqual(@as(u32, 91), value.getUInt32(0, 0));
     } else return error.TestExpectedEqual;
     try std.testing.expect((try any_structs.getOrNull(1)) == null);
+    try root_builder.set_anyStructs(&[_]?cpz.StructReader{ try struct_source_reader.getRoot(), null });
+    const reset_any_structs = try root_builder.get_anyStructs();
+    try std.testing.expectEqual(@as(u32, 91), (try reset_any_structs.getOrNull(0)).?.getUInt32(0, 0));
+    try std.testing.expect((try reset_any_structs.getOrNull(1)) == null);
 
     const any_lists = try root_builder.init_anyLists(2);
     try any_lists.setOrNull(0, reset_payloads.list.asReader(&builder_reader_for_any));
@@ -265,6 +269,10 @@ test "generated optional blob list elements expose typed nullable helpers" {
         try std.testing.expectEqualSlices(u8, &[_]u8{1}, try (try value.getPointerElement(0)).getData());
     } else return error.TestExpectedEqual;
     try std.testing.expect((try any_lists.getOrNull(1)) == null);
+    try root_builder.set_anyLists(&[_]?cpz.ListReader{ reset_payloads.list.asReader(&builder_reader_for_any), null });
+    const reset_any_lists = try root_builder.get_anyLists();
+    try std.testing.expectEqualSlices(u8, &[_]u8{1}, try (try (try reset_any_lists.getOrNull(0)).?.getPointerElement(0)).getData());
+    try std.testing.expect((try reset_any_lists.getOrNull(1)) == null);
 
     const items = try root_builder.init_items(2);
     const source_item = generated.Defaults.Item.fromReader(try struct_source_reader.getRoot());
