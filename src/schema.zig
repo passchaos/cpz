@@ -11820,6 +11820,58 @@ fn emitOptionalStructListConst(allocator: std.mem.Allocator, out: *std.ArrayList
     try emitListFieldDefaultFlatContainerFromBytes(allocator, out, file, scope, indent, name, child, flat);
 }
 
+fn appendAnyPointerConstDeclListElementPointer(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    segment: *std.ArrayList(u8),
+    element_index: usize,
+    list_start_words: usize,
+    decl: *const ConstDecl,
+    comptime want: AnyPointerDefaultKind,
+    depth: usize,
+) LayoutError!void {
+    if (depth >= 32) return error.UnsupportedType;
+    var decl_scope_fields: [0]Field = .{};
+    var decl_scope_storage: Struct = undefined;
+    const decl_scope = constDeclResolutionScope(file, scope, decl, decl_scope_fields[0..], &decl_scope_storage);
+    const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
+        .optional => |child| methodOptionalDefaultChildOrNullForDecl(file, scope, decl, child.*, decl.literal) orelse return error.UnsupportedType,
+        else => |resolved| resolved,
+    };
+    switch (resolved_ty) {
+        .named => |type_name| {
+            if (want == .list) return error.UnsupportedType;
+            if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
+            try appendStructLiteralPointer(allocator, file, decl_scope, segment, element_index, 0, list_start_words, type_name, decl.literal);
+        },
+        .list => |child| {
+            if (want == .struct_ptr) return error.UnsupportedType;
+            try appendScalarListPointer(allocator, file, decl_scope, segment, element_index, 0, list_start_words, child.*, decl.literal);
+        },
+        .any_pointer, .any_struct, .any_list => {
+            const next_decl = findConstReference(file, decl_scope, decl.literal) orelse return error.UnsupportedType;
+            if (next_decl == decl) return error.UnsupportedType;
+            try appendAnyPointerConstDeclListElementPointer(allocator, file, decl_scope, segment, element_index, list_start_words, next_decl, want, depth + 1);
+        },
+        else => return error.UnsupportedType,
+    }
+}
+
+fn appendAnyPointerConstListElementPointer(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    segment: *std.ArrayList(u8),
+    element_index: usize,
+    list_start_words: usize,
+    literal: []const u8,
+    comptime want: AnyPointerDefaultKind,
+) LayoutError!void {
+    const decl = findConstReference(file, scope, literal) orelse return error.UnsupportedType;
+    try appendAnyPointerConstDeclListElementPointer(allocator, file, scope, segment, element_index, list_start_words, decl, want, 0);
+}
+
 fn listOptionalAnyPointerConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, comptime want: AnyPointerDefaultKind) LayoutError![]u8 {
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
@@ -11831,23 +11883,7 @@ fn listOptionalAnyPointerConstFlatBytesAlloc(allocator: std.mem.Allocator, file:
         const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item.literal), " \t\r\n");
         if (std.mem.eql(u8, resolved_item, "null")) continue;
 
-        const decl = findConstReference(file, scope, item.literal) orelse return error.UnsupportedType;
-        const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
-            .optional => |child| methodOptionalDefaultChildOrNullForDecl(file, scope, decl, child.*, decl.literal) orelse return error.UnsupportedType,
-            else => |resolved| resolved,
-        };
-        switch (resolved_ty) {
-            .named => |type_name| {
-                if (want == .list) return error.UnsupportedType;
-                if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
-                try appendStructLiteralPointer(allocator, file, scope, &segment, item.index, 0, list_start_words, type_name, decl.literal);
-            },
-            .list => |list_child| {
-                if (want == .struct_ptr) return error.UnsupportedType;
-                try appendScalarListPointer(allocator, file, scope, &segment, item.index, 0, list_start_words, list_child.*, decl.literal);
-            },
-            else => return error.UnsupportedType,
-        }
+        try appendAnyPointerConstListElementPointer(allocator, file, scope, &segment, item.index, list_start_words, item.literal, want);
     }
 
     const segment_words = segment.items.len / @sizeOf(u64);
@@ -12362,23 +12398,7 @@ fn appendOptionalAnyPointerListPointer(allocator: std.mem.Allocator, file: *cons
         const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item), " \t\r\n");
         if (std.mem.eql(u8, resolved_item, "null")) continue;
 
-        const decl = findConstReference(file, scope, item) orelse return error.UnsupportedType;
-        const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
-            .optional => |child| methodOptionalDefaultChildOrNullForDecl(file, scope, decl, child.*, decl.literal) orelse return error.UnsupportedType,
-            else => |resolved| resolved,
-        };
-        switch (resolved_ty) {
-            .named => |type_name| {
-                if (want == .list) return error.UnsupportedType;
-                if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
-                try appendStructLiteralPointer(allocator, file, scope, segment, index, 0, list_start_words, type_name, decl.literal);
-            },
-            .list => |child| {
-                if (want == .struct_ptr) return error.UnsupportedType;
-                try appendScalarListPointer(allocator, file, scope, segment, index, 0, list_start_words, child.*, decl.literal);
-            },
-            else => return error.UnsupportedType,
-        }
+        try appendAnyPointerConstListElementPointer(allocator, file, scope, segment, index, list_start_words, item, want);
     }
 }
 

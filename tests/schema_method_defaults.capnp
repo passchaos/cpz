@@ -310,6 +310,9 @@ interface Defaults {
   const defaultAnyItemAlias :AnyPointer = defaultAnyItem;
   const defaultAnyStructItemAlias :AnyStruct = defaultAnyStructItem;
   const defaultAnyListNumbersAlias :AnyList = defaultAnyListNumbers;
+  const defaultAnyValuesViaAlias :List(AnyPointer) = [defaultAnyItemAlias, defaultAnyListNumbersAlias];
+  const defaultAnyStructsViaAlias :List(AnyStruct) = [defaultAnyStructItemAlias];
+  const defaultAnyListsViaAlias :List(AnyList) = [defaultAnyListNumbersAlias];
   const defaultMaybeLabelsNull :?List(?Text) = null;
   const defaultMaybePayloadsNull :?List(?Data) = null;
   const defaultMaybeCallbacksNull :?List(?Callback) = null;

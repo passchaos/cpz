@@ -392,6 +392,14 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(usize, 1), any_lists.len());
     try std.testing.expectEqual(@as(u16, 8), (try generated.Defaults.defaultAnyListsFlat.get(&any_lists_reader, 0, .two_bytes)).getUInt16(1));
 
+    var any_values_alias_reader = generated.Defaults.defaultAnyValuesViaAliasFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 99), (try generated.Defaults.defaultAnyValuesViaAliasFlat.asStruct(&any_values_alias_reader, 0)).getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u16, 8), (try generated.Defaults.defaultAnyValuesViaAliasFlat.asList(&any_values_alias_reader, 1, .two_bytes)).getUInt16(1));
+    var any_structs_alias_reader = generated.Defaults.defaultAnyStructsViaAliasFlat.reader(.{});
+    try std.testing.expectEqual(@as(u32, 99), (try generated.Defaults.defaultAnyStructsViaAliasFlat.get(&any_structs_alias_reader, 0)).getUInt32(0, 0));
+    var any_lists_alias_reader = generated.Defaults.defaultAnyListsViaAliasFlat.reader(.{});
+    try std.testing.expectEqual(@as(u16, 7), (try generated.Defaults.defaultAnyListsViaAliasFlat.get(&any_lists_alias_reader, 0, .two_bytes)).getUInt16(0));
+
     try std.testing.expectEqual(@as(?[]const ?[]const u8, null), generated.Defaults.defaultMaybeLabelsNull);
     var maybe_labels_null_reader = generated.Defaults.defaultMaybeLabelsNullFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultMaybeLabelsNullFlat.isNull(&maybe_labels_null_reader));
