@@ -4898,32 +4898,35 @@ test "schema parser and codegen accept plus-prefixed numeric defaults" {
         \\struct Numbers {
         \\  ratio @0 :Float32 = +1.5;
         \\  count @1 :Int32 = +7;
-        \\  tiny @2 :Float64 = 1e-3;
-        \\  huge @3 :Float64 = +2.5E+4;
-        \\  posInf @4 :Float32 = inf;
-        \\  negInf @5 :Float64 = -inf;
-        \\  quietNan @6 :Float32 = nan;
+        \\  total @2 :UInt32 = +42;
+        \\  tiny @3 :Float64 = 1e-3;
+        \\  huge @4 :Float64 = +2.5E+4;
+        \\  posInf @5 :Float32 = inf;
+        \\  negInf @6 :Float64 = -inf;
+        \\  quietNan @7 :Float32 = nan;
         \\}
     );
     defer file.deinit(std.testing.allocator);
     try std.testing.expectEqualStrings("+1.5", file.structs[0].fields[0].default_literal.?);
     try std.testing.expectEqualStrings("+7", file.structs[0].fields[1].default_literal.?);
-    try std.testing.expectEqualStrings("1e-3", file.structs[0].fields[2].default_literal.?);
-    try std.testing.expectEqualStrings("+2.5E+4", file.structs[0].fields[3].default_literal.?);
-    try std.testing.expectEqualStrings("inf", file.structs[0].fields[4].default_literal.?);
-    try std.testing.expectEqualStrings("-inf", file.structs[0].fields[5].default_literal.?);
-    try std.testing.expectEqualStrings("nan", file.structs[0].fields[6].default_literal.?);
+    try std.testing.expectEqualStrings("+42", file.structs[0].fields[2].default_literal.?);
+    try std.testing.expectEqualStrings("1e-3", file.structs[0].fields[3].default_literal.?);
+    try std.testing.expectEqualStrings("+2.5E+4", file.structs[0].fields[4].default_literal.?);
+    try std.testing.expectEqualStrings("inf", file.structs[0].fields[5].default_literal.?);
+    try std.testing.expectEqualStrings("-inf", file.structs[0].fields[6].default_literal.?);
+    try std.testing.expectEqualStrings("nan", file.structs[0].fields[7].default_literal.?);
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(0, 1.5)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getInt32(4, 7)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(8, 1e-3)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(16, 2.5E+4)") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(24, std.math.inf(f32))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getUInt32(8, 42)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(16, 1e-3)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(24, 2.5E+4)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(12, std.math.inf(f32))") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getFloat64(32, -std.math.inf(f64))") != null);
-    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(28, std.math.nan(f32))") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "getFloat32(40, std.math.nan(f32))") != null);
 }
 
 test "schema parser tolerates list and struct field defaults" {
@@ -10465,7 +10468,9 @@ fn parseSignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
 fn parseUnsignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
     const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
     if (raw.len == 0 or raw[0] == '.') return null;
-    const value = parseInteger(raw) catch return null;
+    const digits = if (raw[0] == '+') raw[1..] else raw;
+    if (digits.len == 0) return null;
+    const value = parseInteger(digits) catch return null;
     if (value > std.math.maxInt(T)) return null;
     return @intCast(value);
 }
