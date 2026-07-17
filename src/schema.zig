@@ -18929,6 +18929,7 @@ fn listElementSizeLiteral(file: *const File, scope: ?*const Struct, ty: Type) La
 fn isPointerListElement(file: *const File, scope: ?*const Struct, ty: Type) bool {
     return switch (resolveTypeScoped(file, scope, ty)) {
         .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => true,
+        .optional => |child| isPointerListElement(file, scope, child.*),
         .named => |name| findEnum(file, name) == null and (findInterface(file, name) != null or !isStructLikeName(file, name)),
         else => false,
     };

@@ -168,6 +168,10 @@ test "generated optional blob list elements expose typed nullable helpers" {
         try std.testing.expectEqualStrings("alpha", value);
     } else return error.TestExpectedEqual;
     try std.testing.expect((try labels.getOrNull(1)) == null);
+    try std.testing.expect(!try labels.elementIsNull(0));
+    try std.testing.expect(try labels.elementIsNull(1));
+    try std.testing.expectEqual(cpz.wire.PointerType.list, (try labels.elementPointerKind(0)).?);
+    try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try labels.elementPointerKind(1));
     try std.testing.expectEqualStrings("omega", try labels.get(2));
 
     const payloads = try root_builder.init_payloads(3);
@@ -192,12 +196,17 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expectEqual(@as(?u32, 10), try reset_caps.getOrNull(0));
     try std.testing.expectEqual(@as(?u32, null), try reset_caps.getOrNull(1));
     try std.testing.expectEqual(@as(?u32, 12), try reset_caps.getOrNull(2));
+    try std.testing.expect(!try reset_caps.elementIsNull(0));
+    try std.testing.expect(try reset_caps.elementIsNull(1));
+    try std.testing.expect(try reset_caps.elementPointerIsCapability(2));
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try generated.OptionalBlobLists.getRoot(&reader);
     const read_labels = try root.labels();
     try std.testing.expectEqualStrings("alpha", (try read_labels.getOrNull(0)).?);
     try std.testing.expect((try read_labels.getOrNull(1)) == null);
+    try std.testing.expect(!try read_labels.elementIsNull(0));
+    try std.testing.expect(try read_labels.elementIsNull(1));
     try std.testing.expectEqualStrings("omega", try read_labels.get(2));
     const read_payloads = try root.payloads();
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0xaa, 0xbb }, (try read_payloads.getOrNull(0)).?);
@@ -207,6 +216,9 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expectEqual(@as(?u32, 10), try read_caps.getOrNull(0));
     try std.testing.expectEqual(@as(?u32, null), try read_caps.getOrNull(1));
     try std.testing.expectEqual(@as(u32, 12), try read_caps.get(2));
+    try std.testing.expect(!try read_caps.elementIsNull(0));
+    try std.testing.expect(try read_caps.elementIsNull(1));
+    try std.testing.expect(try read_caps.elementPointerIsCapability(2));
 }
 
 test "generated struct pointer null defaults expose flats" {
