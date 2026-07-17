@@ -16876,7 +16876,12 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             .any_pointer => try emitOptionalPointerSliceSetter(allocator, out, field_name, field, index),
             .capability => try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index),
             .named => |type_name| if (findInterface(file, type_name) != null)
-                try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index),
+                try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index)
+            else if (isStructLikeName(file, type_name)) {
+                const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                defer allocator.free(zig_type);
+                try emitOptionalStructSliceSetter(allocator, out, field_name, field, index, zig_type);
+            },
             else => {},
         },
     }
@@ -17591,6 +17596,25 @@ fn emitOptionalPointerSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayL
         \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| {{
         \\                if (@"cpz.item") |@"cpz.value"| {{
         \\                    try (try @"cpz.list".getPointerElement(@"cpz.i")).copyFrom(@"cpz.value");
+        \\                }} else {{
+        \\                    try @"cpz.list".clearPointerElement(@"cpz.i");
+        \\                }}
+        \\            }}
+        \\        }}
+        \\
+    , .{index});
+}
+
+fn emitOptionalStructSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), field_name: []const u8, field: *const Field, index: usize, zig_type: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\        pub fn set_{s}(self: Builder, @"cpz.values": []const ?{s}) !void {{
+    , .{ field_name, zig_type });
+    try emitBuilderUnionActivation(allocator, out, field);
+    try appendFmt(allocator, out,
+        \\            const @"cpz.list" = try (try self.builder.getPointerField({})).initList(.pointer, @"cpz.values".len);
+        \\            for (@"cpz.values", 0..) |@"cpz.item", @"cpz.i"| {{
+        \\                if (@"cpz.item") |@"cpz.value"| {{
+        \\                    try (try @"cpz.list".getPointerElement(@"cpz.i")).copyStructFrom(@"cpz.value".reader);
         \\                }} else {{
         \\                    try @"cpz.list".clearPointerElement(@"cpz.i");
         \\                }}

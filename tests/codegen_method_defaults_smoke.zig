@@ -274,6 +274,10 @@ test "generated optional blob list elements expose typed nullable helpers" {
         try std.testing.expectEqual(@as(u32, 91), try value.get_value());
     } else return error.TestExpectedEqual;
     try std.testing.expect((try items.getOrNull(1)) == null);
+    try root_builder.set_items(&[_]?generated.Defaults.Item{ source_item, null });
+    const reset_items = try root_builder.get_items();
+    try std.testing.expectEqual(@as(u32, 91), try (try reset_items.getOrNull(0)).?.get_value());
+    try std.testing.expect((try reset_items.getOrNull(1)) == null);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const root = try generated.OptionalBlobLists.getRoot(&reader);
