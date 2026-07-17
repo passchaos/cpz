@@ -14,6 +14,12 @@ test "generated top-level optional interface list aliases emit types" {
 }
 
 test "generated optional interface constants expose null flats" {
+    try std.testing.expectEqualStrings("referenced text", generated.referencedTextAlias);
+    var referenced_text_alias_reader = generated.referencedTextAliasFlat.reader(.{});
+    try std.testing.expectEqualStrings("referenced text", try generated.referencedTextAliasFlat.get(&referenced_text_alias_reader));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, generated.referencedDataAlias);
+    var referenced_data_alias_reader = generated.referencedDataAliasFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x12, 0x34 }, try generated.referencedDataAliasFlat.get(&referenced_data_alias_reader));
     try std.testing.expectEqual(@as(?[]const u8, null), generated.referencedNullText);
     var null_text_reader = generated.referencedNullTextFlat.reader(.{});
     try std.testing.expect(try generated.referencedNullTextFlat.isNull(&null_text_reader));
@@ -113,6 +119,12 @@ test "generated capability list constants expose null values" {
 }
 
 test "generated optional constants expose values and flats" {
+    try std.testing.expectEqualStrings("local", generated.Defaults.defaultLabelAlias);
+    var default_label_alias_reader = generated.Defaults.defaultLabelAliasFlat.reader(.{});
+    try std.testing.expectEqualStrings("local", try generated.Defaults.defaultLabelAliasFlat.get(&default_label_alias_reader));
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0a, 0x0b }, generated.Defaults.defaultPayloadAlias);
+    var default_payload_alias_reader = generated.Defaults.defaultPayloadAliasFlat.reader(.{});
+    try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0a, 0x0b }, try generated.Defaults.defaultPayloadAliasFlat.get(&default_payload_alias_reader));
     try std.testing.expectEqual(@as(?[]const u8, null), generated.Defaults.defaultNullLabel);
     var null_label_reader = generated.Defaults.defaultNullLabelFlat.reader(.{});
     try std.testing.expect(try generated.Defaults.defaultNullLabelFlat.isNull(&null_label_reader));

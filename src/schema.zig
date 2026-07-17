@@ -9275,49 +9275,32 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 try constNullPointerValue(allocator, out, indent, const_name, "?[]const u8");
                 return;
             }
-            const literal = if (decl.is_embed)
-                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
-            else
-                try zigStringLiteralAlloc(allocator, decl.literal);
+            const bytes = try constBlobBytesAlloc(allocator, file, scope, decl, true);
+            defer allocator.free(bytes);
+            const literal = try zigRawStringLiteralAlloc(allocator, bytes);
             defer allocator.free(literal);
             try appendFmt(allocator, out,
                 \\{s}pub const {s}: []const u8 = {s};
                 \\
                 \\
             , .{ indent, const_name, literal });
-            if (decl.is_embed) {
-                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, true);
-            } else {
-                const bytes = try decodedStringBytesAlloc(allocator, decl.literal);
-                defer allocator.free(bytes);
-                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, true);
-            }
+            try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, true);
         },
         .data => {
             if (std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) {
                 try constNullPointerValue(allocator, out, indent, const_name, "?[]const u8");
                 return;
             }
-            const literal = if (decl.is_embed)
-                try zigRawStringLiteralAlloc(allocator, decl.embed_bytes orelse return)
-            else
-                try zigDataLiteralAlloc(allocator, decl.literal, decl.is_hex_data);
+            const bytes = try constBlobBytesAlloc(allocator, file, scope, decl, false);
+            defer allocator.free(bytes);
+            const literal = try zigRawStringLiteralAlloc(allocator, bytes);
             defer allocator.free(literal);
             try appendFmt(allocator, out,
                 \\{s}pub const {s}: []const u8 = {s};
                 \\
                 \\
             , .{ indent, const_name, literal });
-            if (decl.is_embed) {
-                try emitBlobFlatContainer(allocator, out, indent, const_name, decl.embed_bytes orelse return, false);
-            } else {
-                const bytes = if (decl.is_hex_data)
-                    try hexBytesAlloc(allocator, decl.literal)
-                else
-                    try decodedStringBytesAlloc(allocator, decl.literal);
-                defer allocator.free(bytes);
-                try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, false);
-            }
+            try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, false);
         },
         .named => |type_name| {
             if (decl.is_embed) {
@@ -10957,6 +10940,15 @@ fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, sco
     return referencedBlobBytesFromDeclAlloc(allocator, file, scope, decl, literal, constDeclOwnerName(file, decl), is_text);
 }
 
+fn constBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl, comptime is_text: bool) LayoutError![]u8 {
+    if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
+    if (try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, is_text)) |bytes| return bytes;
+    return if (!is_text and decl.is_hex_data)
+        try hexBytesAlloc(allocator, decl.literal)
+    else
+        try decodedStringBytesAlloc(allocator, decl.literal);
+}
+
 fn constDeclOwnerName(file: *const File, decl: *const ConstDecl) ?[]const u8 {
     for (file.structs) |*owner| {
         for (owner.consts) |*candidate| {
@@ -10980,8 +10972,8 @@ fn referencedBlobBytesFromDeclAlloc(
     owner_name: ?[]const u8,
     comptime is_text: bool,
 ) LayoutError!?[]u8 {
-    const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
-        .optional => |child| resolveTypeScoped(file, scope, child.*),
+    const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
+        .optional => |child| resolveConstDeclChildType(file, scope, decl, child.*),
         else => |resolved| resolved,
     };
     if (is_text) {
