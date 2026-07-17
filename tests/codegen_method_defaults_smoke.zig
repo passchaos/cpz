@@ -984,6 +984,15 @@ test "generated struct field defaults resolve const references" {
     const any_list_default = try generated.ConstRefDefaults.anyListDefaultFlat.get(&any_list_default_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 7), any_list_default.getUInt16(0));
     try std.testing.expectEqual(@as(u16, 8), any_list_default.getUInt16(1));
+    var any_from_const_reader = generated.ConstRefDefaults.anyFromConstDefaultFlat.reader(.{});
+    const any_from_const = try (try generated.ConstRefDefaults.anyFromConstDefaultFlat.pointer(&any_from_const_reader)).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 88), any_from_const.getUInt32(0, 0));
+    var any_struct_from_const_reader = generated.ConstRefDefaults.anyStructFromConstDefaultFlat.reader(.{});
+    const any_struct_from_const = try generated.ConstRefDefaults.anyStructFromConstDefaultFlat.get(&any_struct_from_const_reader);
+    try std.testing.expectEqual(@as(u32, 88), any_struct_from_const.getUInt32(0, 0));
+    var any_list_from_const_reader = generated.ConstRefDefaults.anyListFromConstDefaultFlat.reader(.{});
+    const any_list_from_const = try generated.ConstRefDefaults.anyListFromConstDefaultFlat.get(&any_list_from_const_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 8), any_list_from_const.getUInt16(1));
     var cap_list_default_reader = generated.ConstRefDefaults.capListDefaultFlat.reader(.{});
     const cap_list_default = try generated.ConstRefDefaults.capListDefaultFlat.list(&cap_list_default_reader);
     try std.testing.expectEqual(@as(usize, 2), cap_list_default.len());

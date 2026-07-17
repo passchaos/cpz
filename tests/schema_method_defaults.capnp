@@ -116,6 +116,9 @@ struct ConstRefDefaults {
   chainedData @28 :Data = referencedDataAlias;
   chainedAmount @29 :UInt32 = referencedAmountAlias;
   chainedMode @30 :Mode = referencedModeAlias;
+  anyFromConst @31 :AnyPointer = referencedAnyItem;
+  anyStructFromConst @32 :AnyStruct = referencedAnyStructItem;
+  anyListFromConst @33 :AnyList = referencedAnyListNumbers;
 }
 
 struct StructOwnerAliasDefaults {
