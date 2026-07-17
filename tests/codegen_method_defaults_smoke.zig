@@ -99,6 +99,11 @@ test "generated optional interface constants expose null flats" {
     var referenced_maybe_any_lists_reader = generated.referencedMaybeAnyListsFlat.reader(.{});
     try std.testing.expectEqual(@as(u16, 5), (try generated.referencedMaybeAnyListsFlat.get(&referenced_maybe_any_lists_reader, 0, .two_bytes)).getUInt16(0));
     try std.testing.expect(try generated.referencedMaybeAnyListsFlat.elementIsNull(&referenced_maybe_any_lists_reader, 1));
+    var referenced_maybe_items_reader = generated.referencedMaybeItemsFlat.reader(.{});
+    const referenced_maybe_item0 = try generated.referencedMaybeItemsFlat.get(&referenced_maybe_items_reader, 0);
+    try std.testing.expectEqual(@as(u32, 321), referenced_maybe_item0.value());
+    try std.testing.expectEqualStrings("local", try referenced_maybe_item0.label());
+    try std.testing.expect(try generated.referencedMaybeItemsFlat.elementIsNull(&referenced_maybe_items_reader, 1));
     try std.testing.expectEqualStrings("maybe alpha", generated.referencedMaybeLabels[0].?);
     try std.testing.expect(generated.referencedMaybeLabels[1] == null);
     try std.testing.expectEqualStrings("maybe local", generated.referencedMaybeLabels[2].?);

@@ -9756,6 +9756,34 @@ fn listStructItemsFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File
     return flat;
 }
 
+fn appendStructListItemPointer(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    segment: *std.ArrayList(u8),
+    element_index: usize,
+    list_start_words: usize,
+    type_name: []const u8,
+    item: ConstListItem,
+) LayoutError!void {
+    var item_segment = std.ArrayList(u8).empty;
+    defer item_segment.deinit(allocator);
+
+    const struct_decl = findStructDirect(file, type_name) orelse return error.UnsupportedType;
+    var layout = try planStructLayout(allocator, file, struct_decl);
+    defer layout.deinit(allocator);
+    const object_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
+    if (object_words == 0) return error.UnsupportedType;
+    try item_segment.appendNTimes(allocator, 0, object_words * @sizeOf(u64));
+    try writeStructListItemIntoSegment(allocator, file, scope, struct_decl, &layout, item, &item_segment, 0, 0);
+
+    const pointer_word_index = list_start_words + element_index;
+    const target_word_index = segment.items.len / @sizeOf(u64);
+    try segment.appendSlice(allocator, item_segment.items);
+    const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
+    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(offset, layout.data_words, layout.pointer_count));
+}
+
 fn structLiteralTypeName(file: *const File, scope: ?*const Struct, ty: Type) ?[]const u8 {
     return switch (resolveTypeScoped(file, scope, ty)) {
         .named => |name| name,
@@ -11860,7 +11888,7 @@ fn listOptionalStructConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *co
         if (item.index >= items.len) return error.InvalidToken;
         const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item.literal), " \t\r\n");
         if (std.mem.eql(u8, resolved_item, "null")) continue;
-        try appendStructLiteralPointer(allocator, file, scope, &segment, item.index, 0, list_start_words, type_name, resolved_item);
+        try appendStructListItemPointer(allocator, file, scope, &segment, item.index, list_start_words, type_name, item);
     }
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
@@ -12440,7 +12468,7 @@ fn appendOptionalStructListPointer(allocator: std.mem.Allocator, file: *const Fi
     for (items, 0..) |item, index| {
         const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item), " \t\r\n");
         if (std.mem.eql(u8, resolved_item, "null")) continue;
-        try appendStructLiteralPointer(allocator, file, scope, segment, index, 0, list_start_words, type_name, resolved_item);
+        try appendStructListItemPointer(allocator, file, scope, segment, index, list_start_words, type_name, .{ .index = index, .literal = item });
     }
 }
 

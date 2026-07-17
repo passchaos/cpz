@@ -38,6 +38,7 @@ const referencedItems :List(Defaults.Item) = Defaults.defaultItems;
 const referencedMaybeAnyValues :List(?AnyPointer) = [Defaults.defaultMaybeItem, null, Defaults.defaultMaybeNumbers];
 const referencedMaybeAnyStructs :List(?AnyStruct) = [Defaults.defaultMaybeItem, null];
 const referencedMaybeAnyLists :List(?AnyList) = [Defaults.defaultMaybeNumbers, null];
+const referencedMaybeItems :List(?Defaults.Item) = [Defaults.defaultScalarItem, null];
 const referencedMaybeLabels :List(?Text) = Defaults.defaultMaybeLabels;
 const referencedMaybePayloads :List(?Data) = Defaults.defaultMaybePayloads;
 const referencedMaybeModes :List(?Defaults.LocalMode) = Defaults.defaultMaybeModes;
