@@ -7599,7 +7599,11 @@ fn annotationTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, owne
             defer allocator.free(child_type);
             return std.fmt.allocPrint(allocator, "[]const {s}", .{child_type});
         },
-        .optional => |child| annotationTypeNameAlloc(allocator, file, owner_name, child.*),
+        .optional => |child| {
+            const child_type = try annotationTypeNameAlloc(allocator, file, owner_name, child.*);
+            defer allocator.free(child_type);
+            return std.fmt.allocPrint(allocator, "?{s}", .{child_type});
+        },
     };
 }
 

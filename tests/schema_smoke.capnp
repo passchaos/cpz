@@ -53,6 +53,8 @@ const globalStructGroups :List(List(Person)) = [[(id = 21, name = "nested top")]
 annotation schemaNote @0xa110ca110c (file, struct, field, union) :Text;
 annotation marker(interface, method) :Void;
 annotation labels(enumerant) :List(Text);
+annotation maybeLabels(field) :List(?Text);
+annotation maybeShades(field) :List(?Color);
 
 struct Person $schemaNote("person") {
   id @0 :UInt32 = 42;
