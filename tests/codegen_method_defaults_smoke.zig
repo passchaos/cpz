@@ -31,6 +31,11 @@ test "generated optional constants expose values and flats" {
     var mode_reader = generated.Defaults.defaultMaybeModeFlat.reader(.{});
     try std.testing.expectEqual(generated.Defaults.LocalMode.stopped, try generated.Defaults.defaultMaybeModeFlat.get(&mode_reader));
 
+    try std.testing.expectEqual(@as(?u32, null), generated.Defaults.defaultMaybeCap);
+    var cap_reader = generated.Defaults.defaultMaybeCapFlat.reader(.{});
+    try std.testing.expect(try generated.Defaults.defaultMaybeCapFlat.isNull(&cap_reader));
+    try std.testing.expectEqual(@as(cpz.Word, 0), try generated.Defaults.defaultMaybeCapFlat.rawPointer(&cap_reader));
+
     try std.testing.expectEqualStrings("maybe local", generated.Defaults.defaultMaybeLabel.?);
     var label_reader = generated.Defaults.defaultMaybeLabelFlat.reader(.{});
     try std.testing.expectEqualStrings("maybe local", try generated.Defaults.defaultMaybeLabelFlat.get(&label_reader));

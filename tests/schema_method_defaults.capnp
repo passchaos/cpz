@@ -166,6 +166,7 @@ interface Defaults {
   const defaultMaybeAmount :?UInt32 = 321;
   const defaultMaybeRatio :?Float64 = +3.5e1;
   const defaultMaybeMode :?ModeAlias = stopped;
+  const defaultMaybeCap :?Capability = void;
   const defaultMaybeLabel :?Text = "maybe local";
   const defaultMaybePayload :?Data = 0x"0e 0f";
   const defaultNumbers :List(UInt16) = [7, 8];

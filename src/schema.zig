@@ -4426,9 +4426,8 @@ fn resolveNamedAlias(file: *const File, scope: ?*const Struct, name: []const u8,
 
 fn isSimpleConstType(ty: Type) bool {
     return switch (ty) {
-        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data, .list, .named => true,
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list, .named => true,
         .optional => |child| isSimpleConstType(child.*),
-        else => false,
     };
 }
 
@@ -8038,7 +8037,8 @@ fn optionalConstZigTypeAlloc(allocator: std.mem.Allocator, file: *const File, sc
 
 fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, const_name: []const u8, child: Type, decl: *const ConstDecl) LayoutError!void {
     const raw = std.mem.trim(u8, decl.literal, " \t\r\n");
-    if (std.mem.eql(u8, raw, "null")) {
+    const resolved_child = resolveTypeScoped(file, scope, child);
+    if (std.mem.eql(u8, raw, "null") or (std.mem.eql(u8, raw, "void") and typeAcceptsVoidPointerDefault(file, resolved_child))) {
         const zig_type = try optionalConstZigTypeAlloc(allocator, file, scope, child);
         defer allocator.free(zig_type);
         try appendFmt(allocator, out,
@@ -8050,7 +8050,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         return;
     }
 
-    switch (resolveTypeScoped(file, scope, child)) {
+    switch (resolved_child) {
         .void => {
             try appendFmt(allocator, out,
                 \\{s}pub const {s}: ?void = {{}};
