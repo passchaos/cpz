@@ -6077,6 +6077,9 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
             .text => return listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, true),
             .data => return listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, false),
+            .any_pointer => return listOptionalAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, .any),
+            .any_struct => return listOptionalAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, .struct_ptr),
+            .any_list => return listOptionalAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, .list),
             .capability => {
                 const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
                 defer allocator.free(items);
@@ -6103,7 +6106,9 @@ fn methodStructDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const 
     return structFieldDefaultFlatBytesAlloc(allocator, file, type_name, resolveConstReferenceLiteral(file, scope, default_literal));
 }
 
-fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, default_literal: []const u8, comptime want: enum { any, struct_ptr, list }) LayoutError![]u8 {
+const AnyPointerDefaultKind = enum { any, struct_ptr, list };
+
+fn methodAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, default_literal: []const u8, comptime want: AnyPointerDefaultKind) LayoutError![]u8 {
     const decl = findConstReference(file, scope, default_literal) orelse return error.UnsupportedType;
     const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
         .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, decl.literal) orelse return error.UnsupportedType,
@@ -6318,6 +6323,104 @@ fn emitMethodListDefaultOptionalStructGetters(allocator: std.mem.Allocator, out:
     });
 }
 
+fn emitMethodListDefaultOptionalAnyPointerCommonGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    try emitMethodListDefaultList(allocator, out, indent, ".pointer");
+    try appendFmt(allocator, out,
+        \\{s}    pub fn pointer(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}        const @"cpz.list" = try @This().list(message_reader);
+        \\{s}        if (!@"cpz.list".hasIndex(@"cpz.index")) return error.PointerOutOfBounds;
+        \\{s}        return @"cpz.list".getPointerElement(@"cpz.index");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn elementIsNull(message_reader: *cpz.MessageReader, @"cpz.index": usize) !bool {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).isNull();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn elementPointerKind(message_reader: *cpz.MessageReader, @"cpz.index": usize) !?cpz.wire.PointerType {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).pointerType();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn rawPointer(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.Word {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).raw();
+        \\{s}    }}
+        \\
+    , .{
+        indent, indent, indent, indent, indent,
+        indent, indent, indent, indent, indent,
+        indent, indent, indent, indent,
+    });
+}
+
+fn emitMethodListDefaultOptionalAnyPointerGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    try emitMethodListDefaultOptionalAnyPointerCommonGetters(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}        return @This().pointer(message_reader, @"cpz.index");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getOrNull(message_reader: *cpz.MessageReader, @"cpz.index": usize) !?cpz.PointerReader {{
+        \\{s}        const @"cpz.pointer" = try @This().pointer(message_reader, @"cpz.index");
+        \\{s}        if (@"cpz.pointer".isNull()) return null;
+        \\{s}        return @"cpz.pointer";
+        \\{s}    }}
+        \\
+        \\{s}    pub fn asStruct(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.StructReader {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).getStruct(null);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn asList(message_reader: *cpz.MessageReader, @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).getList(@"cpz.expected");
+        \\{s}    }}
+        \\
+    , .{
+        indent, indent, indent,
+        indent, indent, indent,
+        indent, indent, indent,
+        indent, indent, indent,
+        indent, indent,
+    });
+}
+
+fn emitMethodListDefaultOptionalAnyStructGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    try emitMethodListDefaultOptionalAnyPointerCommonGetters(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.StructReader {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).getStruct(null);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getOrNull(message_reader: *cpz.MessageReader, @"cpz.index": usize) !?cpz.StructReader {{
+        \\{s}        const @"cpz.pointer" = try @This().pointer(message_reader, @"cpz.index");
+        \\{s}        if (@"cpz.pointer".isNull()) return null;
+        \\{s}        return try @"cpz.pointer".getStruct(null);
+        \\{s}    }}
+        \\
+    , .{
+        indent, indent, indent,
+        indent, indent, indent,
+        indent, indent,
+    });
+}
+
+fn emitMethodListDefaultOptionalAnyListGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    try emitMethodListDefaultOptionalAnyPointerCommonGetters(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).getList(@"cpz.expected");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getOrNull(message_reader: *cpz.MessageReader, @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !?cpz.ListReader {{
+        \\{s}        const @"cpz.pointer" = try @This().pointer(message_reader, @"cpz.index");
+        \\{s}        if (@"cpz.pointer".isNull()) return null;
+        \\{s}        return try @"cpz.pointer".getList(@"cpz.expected");
+        \\{s}    }}
+        \\
+    , .{
+        indent, indent, indent,
+        indent, indent, indent,
+        indent, indent,
+    });
+}
+
 fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, child: Type) LayoutError!void {
     switch (resolveTypeScoped(file, scope, child)) {
         .void => {
@@ -6444,6 +6547,9 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
             .text => try emitMethodListDefaultOptionalBlobGetters(allocator, out, indent, "getText"),
             .data => try emitMethodListDefaultOptionalBlobGetters(allocator, out, indent, "getData"),
+            .any_pointer => try emitMethodListDefaultOptionalAnyPointerGetters(allocator, out, indent),
+            .any_struct => try emitMethodListDefaultOptionalAnyStructGetters(allocator, out, indent),
+            .any_list => try emitMethodListDefaultOptionalAnyListGetters(allocator, out, indent),
             .capability => try emitMethodListDefaultCapabilityGetters(allocator, out, indent),
             .named => |type_name| {
                 if (findInterface(file, type_name) != null) {
@@ -6648,6 +6754,9 @@ fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.Ar
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
             .text => try emitMethodDefaultReaderOptionalBlobElementGetters(allocator, out, indent, container_literal),
             .data => try emitMethodDefaultReaderOptionalBlobElementGetters(allocator, out, indent, container_literal),
+            .any_pointer => try emitMethodDefaultReaderOptionalAnyPointerElementGetters(allocator, out, indent, container_literal),
+            .any_struct => try emitMethodDefaultReaderOptionalAnyStructElementGetters(allocator, out, indent, container_literal),
+            .any_list => try emitMethodDefaultReaderOptionalAnyListElementGetters(allocator, out, indent, container_literal),
             .capability => try emitMethodDefaultReaderCapabilityElementGetters(allocator, out, indent, container_literal),
             .named => |type_name| {
                 if (findInterface(file, type_name) != null) {
@@ -6685,6 +6794,124 @@ fn emitMethodDefaultReaderOptionalBlobElementGetters(allocator: std.mem.Allocato
         \\{s}        }}
         \\
     , .{
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+    });
+}
+
+fn emitMethodDefaultReaderOptionalAnyPointerElementGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_literal: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}        pub fn pointer(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}            return @{s}.pointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementIsNull(self: *@This(), @"cpz.index": usize) !bool {{
+        \\{s}            return @{s}.elementIsNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementPointerKind(self: *@This(), @"cpz.index": usize) !?cpz.wire.PointerType {{
+        \\{s}            return @{s}.elementPointerKind(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn rawPointer(self: *@This(), @"cpz.index": usize) !cpz.Word {{
+        \\{s}            return @{s}.rawPointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn get(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}            return @{s}.get(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn getOrNull(self: *@This(), @"cpz.index": usize) !?cpz.PointerReader {{
+        \\{s}            return @{s}.getOrNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn asStruct(self: *@This(), @"cpz.index": usize) !cpz.StructReader {{
+        \\{s}            return @{s}.asStruct(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn asList(self: *@This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+        \\{s}            return @{s}.asList(&self.reader, @"cpz.index", @"cpz.expected");
+        \\{s}        }}
+        \\
+    , .{
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+    });
+}
+
+fn emitMethodDefaultReaderOptionalAnyStructElementGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_literal: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}        pub fn pointer(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}            return @{s}.pointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementIsNull(self: *@This(), @"cpz.index": usize) !bool {{
+        \\{s}            return @{s}.elementIsNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementPointerKind(self: *@This(), @"cpz.index": usize) !?cpz.wire.PointerType {{
+        \\{s}            return @{s}.elementPointerKind(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn rawPointer(self: *@This(), @"cpz.index": usize) !cpz.Word {{
+        \\{s}            return @{s}.rawPointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn get(self: *@This(), @"cpz.index": usize) !cpz.StructReader {{
+        \\{s}            return @{s}.get(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn getOrNull(self: *@This(), @"cpz.index": usize) !?cpz.StructReader {{
+        \\{s}            return @{s}.getOrNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+    , .{
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+    });
+}
+
+fn emitMethodDefaultReaderOptionalAnyListElementGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_literal: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}        pub fn pointer(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}            return @{s}.pointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementIsNull(self: *@This(), @"cpz.index": usize) !bool {{
+        \\{s}            return @{s}.elementIsNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementPointerKind(self: *@This(), @"cpz.index": usize) !?cpz.wire.PointerType {{
+        \\{s}            return @{s}.elementPointerKind(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn rawPointer(self: *@This(), @"cpz.index": usize) !cpz.Word {{
+        \\{s}            return @{s}.rawPointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn get(self: *@This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+        \\{s}            return @{s}.get(&self.reader, @"cpz.index", @"cpz.expected");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn getOrNull(self: *@This(), @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !?cpz.ListReader {{
+        \\{s}            return @{s}.getOrNull(&self.reader, @"cpz.index", @"cpz.expected");
+        \\{s}        }}
+        \\
+    , .{
+        indent, indent, container_literal, indent,
         indent, indent, container_literal, indent,
         indent, indent, container_literal, indent,
         indent, indent, container_literal, indent,
@@ -11571,11 +11798,58 @@ fn appendOptionalStructListPointer(allocator: std.mem.Allocator, file: *const Fi
     }
 }
 
+fn appendOptionalAnyPointerListPointer(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, segment: *std.ArrayList(u8), pointer_index: usize, data_words: u16, object_start_words: usize, literal: []const u8, comptime want: AnyPointerDefaultKind) LayoutError!void {
+    const items = parseInlineConstListElementsAlloc(allocator, literal) catch |err| switch (err) {
+        error.UnexpectedToken, error.InvalidToken => return error.UnsupportedType,
+        else => return err,
+    };
+    defer allocator.free(items);
+
+    const list_start_words = try appendPointerListPointer(allocator, segment, pointer_index, data_words, object_start_words, items.len);
+    for (items, 0..) |item, index| {
+        const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item), " \t\r\n");
+        if (std.mem.eql(u8, resolved_item, "null")) continue;
+
+        const decl = findConstReference(file, scope, item) orelse return error.UnsupportedType;
+        const resolved_ty = switch (resolveTypeScoped(file, scope, decl.ty)) {
+            .optional => |child| methodOptionalDefaultChildOrNull(file, scope, child.*, decl.literal) orelse return error.UnsupportedType,
+            else => |resolved| resolved,
+        };
+        switch (resolved_ty) {
+            .named => |type_name| {
+                if (want == .list) return error.UnsupportedType;
+                if (findStructDirect(file, type_name) == null) return error.UnsupportedType;
+                try appendStructLiteralPointer(allocator, file, segment, index, 0, list_start_words, type_name, decl.literal);
+            },
+            .list => |child| {
+                if (want == .struct_ptr) return error.UnsupportedType;
+                try appendScalarListPointer(allocator, file, scope, segment, index, 0, list_start_words, child.*, decl.literal);
+            },
+            else => return error.UnsupportedType,
+        }
+    }
+}
+
 fn listOptionalStructFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, literal: []const u8) LayoutError![]u8 {
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
     try segment.appendNTimes(allocator, 0, @sizeOf(u64));
     try appendOptionalStructListPointer(allocator, file, scope, &segment, 0, 0, 0, type_name, literal);
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
+fn listOptionalAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime want: AnyPointerDefaultKind) LayoutError![]u8 {
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, @sizeOf(u64));
+    try appendOptionalAnyPointerListPointer(allocator, file, scope, &segment, 0, 0, 0, literal, want);
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);

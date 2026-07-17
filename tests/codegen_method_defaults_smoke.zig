@@ -1155,11 +1155,14 @@ test "generated method default flats expose capability list defaults" {
 
 test "generated method default flats expose optional pointer list elements" {
     try std.testing.expectEqualStrings("optionalElementLists", generated.Defaults.@"cpz.methodByName"("optionalElementLists").?.name);
-    try std.testing.expectEqual(@as(usize, 5), generated.Defaults.@"cpz.method.optionalElementLists.params.fieldCount");
+    try std.testing.expectEqual(@as(usize, 8), generated.Defaults.@"cpz.method.optionalElementLists.params.fieldCount");
 
     try std.testing.expectEqualStrings("[\"alpha\", null, defaultMaybeLabel]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.labels.default".?);
     try std.testing.expectEqualStrings("[0x\"0a 0b\", null, defaultMaybePayload]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.payloads.default".?);
     try std.testing.expectEqualStrings("[(value = 11, label = \"eleven\"), null, defaultMaybeItem]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.default".?);
+    try std.testing.expectEqualStrings("[defaultMaybeItem, null, defaultMaybeNumbers]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.default".?);
+    try std.testing.expectEqualStrings("[defaultMaybeItem, null]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyStructs.default".?);
+    try std.testing.expectEqualStrings("[defaultMaybeNumbers, null]", generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyLists.default".?);
 
     var labels_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.labels.defaultFlat".reader(.{});
     const labels = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.labels.defaultFlat".list(&labels_reader);
@@ -1197,6 +1200,40 @@ test "generated method default flats expose optional pointer list elements" {
     var items_wrapped = generated.Defaults.@"cpz.method.optionalElementLists.params.field.items.defaultFlat".init(.{});
     try std.testing.expectEqual(@as(u32, 77), (try items_wrapped.get(2)).value());
     try std.testing.expect((try items_wrapped.getOrNull(1)) == null);
+
+    var any_values_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.defaultFlat".reader(.{});
+    const any_values = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.defaultFlat".list(&any_values_reader);
+    try std.testing.expectEqual(@as(usize, 3), any_values.len());
+    const any_value0 = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.defaultFlat".asStruct(&any_values_reader, 0);
+    try std.testing.expectEqual(@as(u32, 77), any_value0.getUInt32(0, 0));
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.defaultFlat".elementIsNull(&any_values_reader, 1));
+    try std.testing.expect((try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.defaultFlat".getOrNull(&any_values_reader, 1)) == null);
+    const any_value2 = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.defaultFlat".asList(&any_values_reader, 2, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 5), any_value2.getUInt16(0));
+    var any_values_wrapped = generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyValues.defaultFlat".init(.{});
+    try std.testing.expectEqual(@as(u32, 77), (try any_values_wrapped.asStruct(0)).getUInt32(0, 0));
+    try std.testing.expect((try any_values_wrapped.getOrNull(1)) == null);
+    try std.testing.expectEqual(@as(u16, 6), (try any_values_wrapped.asList(2, .two_bytes)).getUInt16(1));
+
+    var any_structs_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyStructs.defaultFlat".reader(.{});
+    const any_structs = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyStructs.defaultFlat".list(&any_structs_reader);
+    try std.testing.expectEqual(@as(usize, 2), any_structs.len());
+    try std.testing.expectEqual(@as(u32, 77), (try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyStructs.defaultFlat".get(&any_structs_reader, 0)).getUInt32(0, 0));
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyStructs.defaultFlat".elementIsNull(&any_structs_reader, 1));
+    try std.testing.expect((try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyStructs.defaultFlat".getOrNull(&any_structs_reader, 1)) == null);
+    var any_structs_wrapped = generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyStructs.defaultFlat".init(.{});
+    try std.testing.expectEqual(@as(u32, 77), (try any_structs_wrapped.get(0)).getUInt32(0, 0));
+    try std.testing.expect((try any_structs_wrapped.getOrNull(1)) == null);
+
+    var any_lists_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyLists.defaultFlat".reader(.{});
+    const any_lists = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyLists.defaultFlat".list(&any_lists_reader);
+    try std.testing.expectEqual(@as(usize, 2), any_lists.len());
+    try std.testing.expectEqual(@as(u16, 5), (try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyLists.defaultFlat".get(&any_lists_reader, 0, .two_bytes)).getUInt16(0));
+    try std.testing.expect(try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyLists.defaultFlat".elementIsNull(&any_lists_reader, 1));
+    try std.testing.expect((try generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyLists.defaultFlat".getOrNull(&any_lists_reader, 1, .two_bytes)) == null);
+    var any_lists_wrapped = generated.Defaults.@"cpz.method.optionalElementLists.params.field.anyLists.defaultFlat".init(.{});
+    try std.testing.expectEqual(@as(u16, 6), (try any_lists_wrapped.get(0, .two_bytes)).getUInt16(1));
+    try std.testing.expect((try any_lists_wrapped.getOrNull(1, .two_bytes)) == null);
 
     var caps_reader = generated.Defaults.@"cpz.method.optionalElementLists.params.field.caps.defaultFlat".reader(.{});
     const caps = try generated.Defaults.@"cpz.method.optionalElementLists.params.field.caps.defaultFlat".list(&caps_reader);
