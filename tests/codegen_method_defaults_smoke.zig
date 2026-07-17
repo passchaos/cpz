@@ -54,6 +54,15 @@ test "generated optional interface constants expose null flats" {
     var null_item_reader = generated.referencedNullItemFlat.reader(.{});
     try std.testing.expect(try generated.referencedNullItemFlat.isNull(&null_item_reader));
     try std.testing.expectEqual(@as(?cpz.wire.PointerType, null), try generated.referencedNullItemFlat.pointerKind(&null_item_reader));
+    var referenced_any_item_reader = generated.referencedAnyItem.reader(.{});
+    const referenced_any_item = try (try generated.referencedAnyItem.get(&referenced_any_item_reader)).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 88), referenced_any_item.getUInt32(0, 0));
+    var referenced_any_struct_item_reader = generated.referencedAnyStructItem.reader(.{});
+    const referenced_any_struct_item = try generated.referencedAnyStructItem.get(&referenced_any_struct_item_reader);
+    try std.testing.expectEqual(@as(u32, 88), referenced_any_struct_item.getUInt32(0, 0));
+    var referenced_any_list_numbers_reader = generated.referencedAnyListNumbers.reader(.{});
+    const referenced_any_list_numbers = try generated.referencedAnyListNumbers.get(&referenced_any_list_numbers_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 8), referenced_any_list_numbers.getUInt16(1));
 }
 
 test "generated capability list constants expose null values" {
@@ -223,6 +232,18 @@ test "generated optional constants expose values and flats" {
     const any_list_numbers = try generated.Defaults.defaultMaybeAnyListNumbers.get(&any_list_numbers_reader, .two_bytes);
     try std.testing.expectEqual(@as(u16, 7), any_list_numbers.getUInt16(0));
     try std.testing.expectEqual(@as(u16, 8), any_list_numbers.getUInt16(1));
+
+    var direct_any_item_reader = generated.Defaults.defaultAnyItem.reader(.{});
+    const direct_any_item = try (try generated.Defaults.defaultAnyItem.get(&direct_any_item_reader)).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 99), direct_any_item.getUInt32(0, 0));
+
+    var direct_any_struct_item_reader = generated.Defaults.defaultAnyStructItem.reader(.{});
+    const direct_any_struct_item = try generated.Defaults.defaultAnyStructItem.get(&direct_any_struct_item_reader);
+    try std.testing.expectEqual(@as(u32, 99), direct_any_struct_item.getUInt32(0, 0));
+
+    var direct_any_list_numbers_reader = generated.Defaults.defaultAnyListNumbers.reader(.{});
+    const direct_any_list_numbers = try generated.Defaults.defaultAnyListNumbers.get(&direct_any_list_numbers_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 8), direct_any_list_numbers.getUInt16(1));
 
     try std.testing.expectEqual(@as(usize, 3), generated.Defaults.@"cpz.const.defaultMaybeAnyValues.listItemCount");
     var maybe_any_values_reader = generated.Defaults.defaultMaybeAnyValuesFlat.reader(.{});

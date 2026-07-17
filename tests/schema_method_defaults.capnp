@@ -22,6 +22,9 @@ const referencedCaps :List(Capability) = [void, null];
 const referencedCallbacks :List(TopCallback) = [void];
 const referencedMaybeCallback :?TopCallback = void;
 const referencedNullItem :Defaults.Item = null;
+const referencedAnyItem :AnyPointer = referencedItem;
+const referencedAnyStructItem :AnyStruct = referencedItem;
+const referencedAnyListNumbers :AnyList = referencedNumbers;
 
 interface TopCallback {
   ping @0 () -> ();
@@ -247,6 +250,9 @@ interface Defaults {
   const defaultAnyValues :List(AnyPointer) = [defaultItem, defaultNumbers];
   const defaultAnyStructs :List(AnyStruct) = [defaultItem];
   const defaultAnyLists :List(AnyList) = [defaultNumbers];
+  const defaultAnyItem :AnyPointer = defaultItem;
+  const defaultAnyStructItem :AnyStruct = defaultItem;
+  const defaultAnyListNumbers :AnyList = defaultNumbers;
   const defaultMaybeLabelsNull :?List(?Text) = null;
   const defaultMaybePayloadsNull :?List(?Data) = null;
   const defaultMaybeCallbacksNull :?List(?Callback) = null;

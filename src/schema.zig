@@ -9234,18 +9234,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             if (!std.mem.eql(u8, raw, "void") and !std.mem.eql(u8, raw, "null")) return;
             try constNullPointerValue(allocator, out, indent, const_name, "?u32");
         },
-        .any_pointer => {
-            if (!std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) return;
-            try constNullPointerValue(allocator, out, indent, const_name, "?cpz.PointerReader");
-        },
-        .any_struct => {
-            if (!std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) return;
-            try constNullPointerValue(allocator, out, indent, const_name, "?cpz.StructReader");
-        },
-        .any_list => {
-            if (!std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) return;
-            try constNullPointerValue(allocator, out, indent, const_name, "?cpz.ListReader");
-        },
+        .any_pointer, .any_struct, .any_list => try emitOptionalConstValue(allocator, out, file, scope, indent, const_name, decl.ty, decl),
         .text => {
             if (std.mem.eql(u8, std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n"), "null")) {
                 try constNullPointerValue(allocator, out, indent, const_name, "?[]const u8");
