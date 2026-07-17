@@ -6075,6 +6075,8 @@ fn methodListDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
             return error.UnsupportedType;
         },
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .text => return listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, true),
+            .data => return listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator, file, scope, resolved_literal, false),
             .capability => {
                 const items = try methodListDefaultItemsAlloc(allocator, file, scope, default_literal);
                 defer allocator.free(items);
@@ -6234,6 +6236,42 @@ fn emitMethodListDefaultCapabilityGetters(allocator: std.mem.Allocator, out: *st
     });
 }
 
+fn emitMethodListDefaultOptionalBlobGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, accessor: []const u8) LayoutError!void {
+    try emitMethodListDefaultList(allocator, out, indent, ".pointer");
+    try appendFmt(allocator, out,
+        \\{s}    pub fn pointer(message_reader: *cpz.MessageReader, @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}        const @"cpz.list" = try @This().list(message_reader);
+        \\{s}        if (!@"cpz.list".hasIndex(@"cpz.index")) return error.PointerOutOfBounds;
+        \\{s}        return @"cpz.list".getPointerElement(@"cpz.index");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn elementIsNull(message_reader: *cpz.MessageReader, @"cpz.index": usize) !bool {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).isNull();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize) ![]const u8 {{
+        \\{s}        return (try @This().pointer(message_reader, @"cpz.index")).{s}();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getOrNull(message_reader: *cpz.MessageReader, @"cpz.index": usize) !?[]const u8 {{
+        \\{s}        const @"cpz.pointer" = try @This().pointer(message_reader, @"cpz.index");
+        \\{s}        if (@"cpz.pointer".isNull()) return null;
+        \\{s}        return try @"cpz.pointer".{s}();
+        \\{s}    }}
+        \\
+        \\{s}    pub fn getByteCount(message_reader: *cpz.MessageReader, @"cpz.index": usize) !usize {{
+        \\{s}        return (try @This().get(message_reader, @"cpz.index")).len;
+        \\{s}    }}
+        \\
+    , .{
+        indent,   indent,   indent, indent, indent,
+        indent,   indent,   indent, indent, indent,
+        accessor, indent,   indent, indent, indent,
+        indent,   accessor, indent, indent, indent,
+        indent,
+    });
+}
+
 fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, indent: []const u8, child: Type) LayoutError!void {
     switch (resolveTypeScoped(file, scope, child)) {
         .void => {
@@ -6358,6 +6396,8 @@ fn emitMethodListDefaultGetters(allocator: std.mem.Allocator, out: *std.ArrayLis
             }
         },
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .text => try emitMethodListDefaultOptionalBlobGetters(allocator, out, indent, "getText"),
+            .data => try emitMethodListDefaultOptionalBlobGetters(allocator, out, indent, "getData"),
             .capability => try emitMethodListDefaultCapabilityGetters(allocator, out, indent),
             .named => |type_name| if (findInterface(file, type_name) != null)
                 try emitMethodListDefaultCapabilityGetters(allocator, out, indent),
@@ -6555,6 +6595,8 @@ fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.Ar
             }
         },
         .optional => |optional_child| switch (resolveTypeScoped(file, scope, optional_child.*)) {
+            .text => try emitMethodDefaultReaderOptionalBlobElementGetters(allocator, out, indent, container_literal),
+            .data => try emitMethodDefaultReaderOptionalBlobElementGetters(allocator, out, indent, container_literal),
             .capability => try emitMethodDefaultReaderCapabilityElementGetters(allocator, out, indent, container_literal),
             .named => |type_name| if (findInterface(file, type_name) != null)
                 try emitMethodDefaultReaderCapabilityElementGetters(allocator, out, indent, container_literal),
@@ -6562,6 +6604,37 @@ fn emitMethodDefaultReaderListGetters(allocator: std.mem.Allocator, out: *std.Ar
         },
         else => {},
     }
+}
+
+fn emitMethodDefaultReaderOptionalBlobElementGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_literal: []const u8) LayoutError!void {
+    try appendFmt(allocator, out,
+        \\{s}        pub fn pointer(self: *@This(), @"cpz.index": usize) !cpz.PointerReader {{
+        \\{s}            return @{s}.pointer(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn elementIsNull(self: *@This(), @"cpz.index": usize) !bool {{
+        \\{s}            return @{s}.elementIsNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn get(self: *@This(), @"cpz.index": usize) ![]const u8 {{
+        \\{s}            return @{s}.get(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn getOrNull(self: *@This(), @"cpz.index": usize) !?[]const u8 {{
+        \\{s}            return @{s}.getOrNull(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+        \\{s}        pub fn getByteCount(self: *@This(), @"cpz.index": usize) !usize {{
+        \\{s}            return @{s}.getByteCount(&self.reader, @"cpz.index");
+        \\{s}        }}
+        \\
+    , .{
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+        indent, indent, container_literal, indent,
+    });
 }
 
 fn emitMethodDefaultReaderCapabilityElementGetters(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, container_literal: []const u8) LayoutError!void {
@@ -11324,6 +11397,41 @@ fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: 
             try inlineQuotedStringBytesAlloc(allocator, item)
         else
             try inlineDataBytesAlloc(allocator, item);
+        defer allocator.free(bytes);
+        try appendByteListPointerAtWord(allocator, &segment, 1 + index, bytes, is_text);
+    }
+
+    const segment_words = segment.items.len / @sizeOf(u64);
+    if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
+    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    errdefer allocator.free(flat);
+    std.mem.writeInt(u32, flat[0..4], 0, .little);
+    std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
+    @memcpy(flat[@sizeOf(u64)..], segment.items);
+    return flat;
+}
+
+fn listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError![]u8 {
+    const items = try parseInlineConstListElementsAlloc(allocator, literal);
+    defer allocator.free(items);
+
+    var segment = std.ArrayList(u8).empty;
+    defer segment.deinit(allocator);
+    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
+
+    for (items, 0..) |item, index| {
+        // Optional blob-list elements encode absent values as null pointer slots.
+        // Resolve const references before the null check so `List(?Text)` and
+        // `List(?Data)` defaults can reuse `?Text = null` / `?Data = null`
+        // constants without accidentally treating the spelling "null" as bytes.
+        const resolved_item = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, item), " \t\r\n");
+        if (std.mem.eql(u8, resolved_item, "null")) continue;
+
+        const bytes = (try referencedBlobBytesAlloc(allocator, file, scope, item, is_text)) orelse if (is_text)
+            try inlineQuotedStringBytesAlloc(allocator, resolved_item)
+        else
+            try inlineDataBytesAlloc(allocator, resolved_item);
         defer allocator.free(bytes);
         try appendByteListPointerAtWord(allocator, &segment, 1 + index, bytes, is_text);
     }
