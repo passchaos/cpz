@@ -10199,7 +10199,8 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
     for (fields) |const_field| {
         const field_layout = findFieldLayoutByNameOrGroupFirst(layout, const_field.name) orelse return error.UnsupportedType;
         const field = field_layout.field;
-        const const_literal = resolveScalarConstLiteral(file, layout.decl, const_field.literal);
+        const literal_scope = scope orelse layout.decl;
+        const const_literal = resolveScalarConstLiteral(file, literal_scope, const_field.literal);
         const default_literal = if (field.default_literal) |literal| resolveScalarConstLiteral(file, layout.decl, literal) else null;
         if (field.union_index) |union_index| {
             const union_layout = layout.unions[@intCast(union_index)];

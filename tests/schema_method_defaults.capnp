@@ -292,6 +292,7 @@ interface Defaults {
   const defaultItem :Item = (value = 99, label = "ninety-nine");
   const defaultItemAlias :Item = defaultItem;
   const defaultBlobItem :BlobItem = (label = defaultLabelAlias, payload = defaultPayloadAlias);
+  const defaultScalarItem :Item = (value = defaultMaybeAmount, label = defaultLabelAlias);
   const defaultMaybeItem :?Item = (value = 77, label = "seventy-seven");
   const defaultMaybeAnyItem :?AnyPointer = defaultItem;
   const defaultMaybeAnyStructItem :?AnyStruct = defaultItem;
