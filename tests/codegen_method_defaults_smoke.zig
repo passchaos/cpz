@@ -70,6 +70,19 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(u32, 77), item.value());
     try std.testing.expectEqualStrings("seventy-seven", try item.label());
 
+    var any_item_reader = generated.Defaults.defaultMaybeAnyItem.reader(.{});
+    const any_item = try (try generated.Defaults.defaultMaybeAnyItem.get(&any_item_reader)).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 99), any_item.getUInt32(0, 0));
+
+    var any_struct_item_reader = generated.Defaults.defaultMaybeAnyStructItem.reader(.{});
+    const any_struct_item = try generated.Defaults.defaultMaybeAnyStructItem.get(&any_struct_item_reader);
+    try std.testing.expectEqual(@as(u32, 99), any_struct_item.getUInt32(0, 0));
+
+    var any_list_numbers_reader = generated.Defaults.defaultMaybeAnyListNumbers.reader(.{});
+    const any_list_numbers = try generated.Defaults.defaultMaybeAnyListNumbers.get(&any_list_numbers_reader, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 7), any_list_numbers.getUInt16(0));
+    try std.testing.expectEqual(@as(u16, 8), any_list_numbers.getUInt16(1));
+
     try std.testing.expectEqual(@as(usize, 2), generated.Defaults.defaultMaybeItems.itemCount);
     var items_reader = generated.Defaults.defaultMaybeItems.reader(.{});
     const maybe_item0 = try generated.Defaults.defaultMaybeItems.get(&items_reader, 0);

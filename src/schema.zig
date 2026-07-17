@@ -8121,6 +8121,65 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                 try emitBlobFlatContainer(allocator, out, indent, const_name, bytes, false);
             }
         },
+        .any_pointer, .any_struct, .any_list => {
+            const flat = switch (resolved_child) {
+                .any_pointer => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, raw, .any),
+                .any_struct => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, raw, .struct_ptr),
+                .any_list => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, raw, .list),
+                else => unreachable,
+            } catch |err| switch (err) {
+                error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
+                else => return err,
+            };
+            defer allocator.free(flat);
+            const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+            defer allocator.free(flat_literal);
+            try appendFmt(allocator, out,
+                \\{s}pub const {s} = struct {{
+                \\{s}    pub const flatBytes: []const u8 = {s};
+                \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                \\
+                \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+                \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+                \\{s}    }}
+                \\
+                \\{s}    pub fn pointer(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+                \\{s}        return message_reader.getRootPointer();
+                \\{s}    }}
+                \\
+            , .{ indent, const_name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent });
+            switch (resolved_child) {
+                .any_pointer => try appendFmt(allocator, out,
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader) !cpz.PointerReader {{
+                    \\{s}        return @This().pointer(message_reader);
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent }),
+                .any_struct => try appendFmt(allocator, out,
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+                    \\{s}        return (try @This().pointer(message_reader)).getStruct(null);
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent }),
+                .any_list => try appendFmt(allocator, out,
+                    \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+                    \\{s}        return (try @This().pointer(message_reader)).getList(@"cpz.expected");
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent }),
+                else => unreachable,
+            }
+            try emitFlatContainerSizeHelpers(allocator, out, indent);
+            try appendFmt(allocator, out,
+                \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+                \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+                \\{s}        return @"cpz.reader".validate();
+                \\{s}    }}
+                \\{s}}};
+                \\
+            , .{ indent, indent, indent, indent, indent });
+        },
         .list => |list_child| {
             const items = decl.list_items orelse return;
             try emitListConst(allocator, out, file, scope, indent, const_name, list_child.*, items, true);
