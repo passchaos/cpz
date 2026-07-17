@@ -8181,12 +8181,21 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
             , .{ indent, indent, indent, indent, indent });
         },
         .list => |list_child| {
-            const items = if (decl.list_items) |items|
-                items
-            else if (findConstReference(file, scope, raw)) |referenced|
-                referenced.list_items orelse return
-            else
-                return;
+            const referenced = if (decl.list_items == null) findConstReference(file, scope, raw) else null;
+            if (referenced) |ref_decl| {
+                switch (resolveTypeScoped(file, scope, list_child.*)) {
+                    .named => |type_name| if (findEnum(file, type_name) == null and findInterface(file, type_name) == null and isStructLikeName(file, type_name)) {
+                        const flat = try listStructFieldDefaultFlatBytesAlloc(allocator, file, type_name, ref_decl.literal);
+                        defer allocator.free(flat);
+                        const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+                        defer allocator.free(zig_type);
+                        try emitStructListFlatContainerFromBytes(allocator, out, indent, const_name, zig_type, flat);
+                        return;
+                    },
+                    else => {},
+                }
+            }
+            const items = decl.list_items orelse if (referenced) |ref_decl| ref_decl.list_items orelse return else return;
             try emitListConst(allocator, out, file, scope, indent, const_name, list_child.*, items, true);
         },
         .named => |type_name| {

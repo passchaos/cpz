@@ -99,6 +99,11 @@ test "generated optional constants expose values and flats" {
     try std.testing.expectEqual(@as(u32, 40), maybe_item1.value());
     try std.testing.expectEqualStrings("forty", try maybe_item1.label());
 
+    var items_ref_reader = generated.Defaults.defaultMaybeItemsRefFlat.reader(.{});
+    const item_ref0 = try generated.Defaults.defaultMaybeItemsRefFlat.get(&items_ref_reader, 0);
+    try std.testing.expectEqual(@as(u32, 10), item_ref0.value());
+    try std.testing.expectEqualStrings("ten", try item_ref0.label());
+
     var maybe_caps_reader = generated.Defaults.defaultMaybeCapsFlat.reader(.{});
     const maybe_caps = try generated.Defaults.defaultMaybeCapsFlat.list(&maybe_caps_reader);
     try std.testing.expectEqual(@as(usize, 2), maybe_caps.len());
