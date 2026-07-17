@@ -85,6 +85,10 @@ struct ConstRefDefaults {
   anyList @17 :AnyList = referencedNumbers;
   capList @18 :List(Capability) = referencedCaps;
   callbackList @19 :List(TopCallback) = referencedCallbacks;
+  interfaceText @20 :Text = Defaults.defaultLabel;
+  interfaceData @21 :Data = Defaults.defaultPayload;
+  interfaceNumbers @22 :List(UInt16) = Defaults.defaultNumbers;
+  interfaceMode @23 :Defaults.LocalMode = Defaults.defaultLocalMode;
 }
 
 struct CountFieldDefaults {

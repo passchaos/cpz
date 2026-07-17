@@ -10745,6 +10745,13 @@ fn resolveScalarConstLiteral(file: *const File, scope: ?*const Struct, literal: 
             }
         }
     }
+    if (owner) |owner_name| {
+        if (findInterfaceDirect(file, owner_name)) |decl| {
+            for (decl.consts) |const_decl| {
+                if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
+            }
+        }
+    }
     for (file.consts) |const_decl| {
         if (std.mem.eql(u8, const_decl.name, name)) return const_decl.literal;
     }
@@ -10764,6 +10771,11 @@ fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const
             }
         }
         if (findStructDirect(file, owner_name)) |decl| {
+            for (decl.consts) |*const_decl| {
+                if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
+            }
+        }
+        if (findInterfaceDirect(file, owner_name)) |decl| {
             for (decl.consts) |*const_decl| {
                 if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
             }
