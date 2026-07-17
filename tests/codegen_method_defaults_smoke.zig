@@ -281,6 +281,10 @@ test "generated optional constants expose values and flats" {
     var default_payloads_reader = generated.Defaults.defaultPayloadsFlat.reader(.{});
     try std.testing.expectEqualSlices(u8, &[_]u8{ 0x0c, 0x0d }, try generated.Defaults.defaultPayloadsFlat.get(&default_payloads_reader, 0));
     try std.testing.expectEqualStrings("raw", try generated.Defaults.defaultPayloadsFlat.get(&default_payloads_reader, 1));
+    var default_groups_alias_reader = generated.Defaults.defaultGroupsAliasFlat.reader(.{});
+    const default_groups_alias0 = try generated.Defaults.defaultGroupsAliasFlat.get(&default_groups_alias_reader, 0, .two_bytes);
+    try std.testing.expectEqual(@as(u16, 1), default_groups_alias0.getUInt16(0));
+    try std.testing.expectEqual(@as(u16, 2), default_groups_alias0.getUInt16(1));
 
     try std.testing.expectEqualSlices(?bool, &[_]?bool{ true, null, true }, generated.Defaults.defaultMaybeFlags);
     try std.testing.expectEqual(@as(?u32, 1), generated.Defaults.defaultMaybeAmounts[0]);

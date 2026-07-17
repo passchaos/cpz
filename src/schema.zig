@@ -9381,6 +9381,13 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 return;
             if (referenced) |ref_decl| {
                 switch (resolveTypeScoped(file, scope, child.*)) {
+                    .list => {
+                        if (try nestedListLiteralFlatBytesAlloc(allocator, file, item_scope, ref_decl)) |flat| {
+                            defer allocator.free(flat);
+                            try emitNestedListConstFlatContainerFromBytes(allocator, out, indent, const_name, flat);
+                            return;
+                        }
+                    },
                     .named => |type_name| if (findEnum(file, type_name) == null and findInterface(file, type_name) == null and isStructLikeName(file, type_name)) {
                         const flat = try listStructFieldDefaultFlatBytesAlloc(allocator, file, item_scope, type_name, ref_decl.literal);
                         defer allocator.free(flat);
@@ -11515,6 +11522,39 @@ fn emitStructListFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.
         \\{s}    }}
         \\
     , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent });
+    try emitFlatContainerSizeHelpers(allocator, out, indent);
+    try appendFmt(allocator, out,
+        \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+        \\{s}        return @"cpz.reader".validate();
+        \\{s}    }}
+        \\{s}}};
+        \\
+    , .{ indent, indent, indent, indent, indent });
+}
+
+fn emitNestedListConstFlatContainerFromBytes(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8, name: []const u8, flat: []const u8) LayoutError!void {
+    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat);
+    defer allocator.free(flat_literal);
+    try appendFmt(allocator, out,
+        \\{s}pub const {s}Flat = struct {{
+        \\{s}    pub const flatBytes: []const u8 = {s};
+        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+        \\
+        \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+        \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+        \\{s}    }}
+        \\
+        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+        \\{s}        return message_reader.getRootList(.pointer);
+        \\{s}    }}
+        \\
+        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+        \\{s}        return (try (try @This().list(message_reader)).getPointerElement(@"cpz.index")).getList(@"cpz.expected");
+        \\{s}    }}
+        \\
+    , .{ indent, name, indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     try emitFlatContainerSizeHelpers(allocator, out, indent);
     try appendFmt(allocator, out,
         \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{

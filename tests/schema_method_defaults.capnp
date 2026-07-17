@@ -258,6 +258,7 @@ interface Defaults {
   const defaultModes :List(ModeAlias) = [stopped, running];
   const defaultModesViaConst :List(ModeAlias) = [defaultLocalMode, defaultLocalModeAlias];
   const defaultGroups :List(List(UInt16)) = [[1, 2], [3]];
+  const defaultGroupsAlias :List(List(UInt16)) = defaultGroups;
   const defaultMaybeLabels :List(?Text) = ["maybe alpha", null, defaultMaybeLabel, referencedText];
   const defaultMaybePayloads :List(?Data) = [0x"aa bb", null, defaultMaybePayload, referencedData];
   const defaultMaybeFlags :List(?Bool) = [true, null, referencedFlag];
