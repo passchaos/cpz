@@ -37,6 +37,10 @@ const referencedItemAlias :Defaults.Item = referencedItem;
 const referencedMaybeAnyValues :List(?AnyPointer) = [Defaults.defaultMaybeItem, null, Defaults.defaultMaybeNumbers];
 const referencedMaybeAnyStructs :List(?AnyStruct) = [Defaults.defaultMaybeItem, null];
 const referencedMaybeAnyLists :List(?AnyList) = [Defaults.defaultMaybeNumbers, null];
+const referencedMaybeLabels :List(?Text) = Defaults.defaultMaybeLabels;
+const referencedMaybePayloads :List(?Data) = Defaults.defaultMaybePayloads;
+const referencedMaybeModes :List(?Defaults.LocalMode) = Defaults.defaultMaybeModes;
+const referencedModeChoices :List(Defaults.LocalMode) = Defaults.defaultModesViaConst;
 
 interface TopCallback {
   ping @0 () -> ();
@@ -250,6 +254,7 @@ interface Defaults {
   const defaultLabels :List(Text) = ["alpha", "beta"];
   const defaultPayloads :List(Data) = [0x"0c 0d", "raw"];
   const defaultModes :List(ModeAlias) = [stopped, running];
+  const defaultModesViaConst :List(ModeAlias) = [defaultLocalMode, defaultLocalModeAlias];
   const defaultGroups :List(List(UInt16)) = [[1, 2], [3]];
   const defaultMaybeLabels :List(?Text) = ["maybe alpha", null, defaultMaybeLabel, referencedText];
   const defaultMaybePayloads :List(?Data) = [0x"aa bb", null, defaultMaybePayload, referencedData];

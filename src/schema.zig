@@ -8718,6 +8718,12 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
         },
         .list => |list_child| {
             const referenced = if (decl.list_items == null) findConstReference(file, scope, raw) else null;
+            var ref_scope_fields: [0]Field = .{};
+            var ref_scope_storage: Struct = undefined;
+            const item_scope = if (referenced) |ref_decl|
+                constDeclResolutionScope(file, scope, ref_decl, ref_scope_fields[0..], &ref_scope_storage)
+            else
+                scope;
             if (referenced) |ref_decl| {
                 switch (resolveTypeScoped(file, scope, list_child.*)) {
                     .named => |type_name| if (findEnum(file, type_name) == null and findInterface(file, type_name) == null and isStructLikeName(file, type_name)) {
@@ -8732,7 +8738,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                 }
             }
             const items = decl.list_items orelse if (referenced) |ref_decl| ref_decl.list_items orelse return else return;
-            try emitListConst(allocator, out, file, scope, indent, const_name, list_child.*, items, true);
+            try emitListConst(allocator, out, file, item_scope, indent, const_name, list_child.*, items, true);
         },
         .named => |type_name| {
             if (decl.is_embed) {
@@ -9356,11 +9362,18 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 try constNullPointerValue(allocator, out, indent, const_name, optional_list_type);
                 return;
             }
-            const items = decl.list_items orelse if (findConstReference(file, scope, decl.literal)) |referenced|
-                referenced.list_items orelse return
+            const referenced = if (decl.list_items == null) findConstReference(file, scope, decl.literal) else null;
+            var ref_scope_fields: [0]Field = .{};
+            var ref_scope_storage: Struct = undefined;
+            const item_scope = if (referenced) |ref_decl|
+                constDeclResolutionScope(file, scope, ref_decl, ref_scope_fields[0..], &ref_scope_storage)
+            else
+                scope;
+            const items = decl.list_items orelse if (referenced) |ref_decl|
+                ref_decl.list_items orelse return
             else
                 return;
-            try emitListConst(allocator, out, file, scope, indent, const_name, child.*, items, false);
+            try emitListConst(allocator, out, file, item_scope, indent, const_name, child.*, items, false);
         },
         .optional => |child| try emitOptionalConstValue(allocator, out, file, scope, indent, const_name, child.*, decl),
     }
@@ -10961,6 +10974,21 @@ fn constDeclOwnerName(file: *const File, decl: *const ConstDecl) ?[]const u8 {
         }
     }
     return null;
+}
+
+fn constDeclResolutionScope(file: *const File, fallback_scope: ?*const Struct, decl: *const ConstDecl, empty_fields: []Field, storage: *Struct) ?*const Struct {
+    const owner_name = constDeclOwnerName(file, decl) orelse return fallback_scope;
+    if (findStructDirect(file, owner_name)) |owner| return owner;
+    if (findInterfaceDirect(file, owner_name)) |owner| {
+        storage.* = .{
+            .name = owner.name,
+            .fields = empty_fields,
+            .consts = owner.consts,
+            .aliases = owner.aliases,
+        };
+        return storage;
+    }
+    return fallback_scope;
 }
 
 fn referencedBlobBytesFromDeclAlloc(
