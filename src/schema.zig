@@ -15382,6 +15382,18 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{}),
+            .named => |type_name| if (findInterface(file, type_name) != null) try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !u32 {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?u32 {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getCapabilityIndex();
+                \\        }}
+                \\
+            , .{}),
             .any_pointer => try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerReader {{
                 \\            return self.list.getPointerElement(@"cpz.index");
@@ -16623,6 +16635,31 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{}),
+            .named => |type_name| if (findInterface(file, type_name) != null) try appendFmt(allocator, out,
+                \\        pub fn get(self: @This(), @"cpz.index": usize) !u32 {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn getOrNull(self: @This(), @"cpz.index": usize) !?u32 {{
+                \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
+                \\            if (@"cpz.pointer".isNull()) return null;
+                \\            return try @"cpz.pointer".getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: u32) !void {{
+                \\            return (try self.list.getPointerElement(@"cpz.index")).setCapability(new_value);
+                \\        }}
+                \\
+                \\        pub fn setOrNull(self: @This(), @"cpz.index": usize, new_value: ?u32) !void {{
+                \\            if (new_value) |@"cpz.value"| return self.set(@"cpz.index", @"cpz.value");
+                \\            return self.clear(@"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn clear(self: @This(), @"cpz.index": usize) !void {{
+                \\            return self.list.clearPointerElement(@"cpz.index");
+                \\        }}
+                \\
+            , .{}),
             .any_pointer => try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerBuilder {{
                 \\            return self.list.getPointerElement(@"cpz.index");
@@ -16781,6 +16818,8 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             .data => try emitOptionalBlobSliceSetter(allocator, out, field_name, field, index, "setData"),
             .any_pointer => try emitOptionalPointerSliceSetter(allocator, out, field_name, field, index),
             .capability => try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index),
+            .named => |type_name| if (findInterface(file, type_name) != null)
+                try emitOptionalCapabilitySliceSetter(allocator, out, field_name, field, index),
             else => {},
         },
     }

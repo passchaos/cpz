@@ -210,6 +210,18 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expect(try reset_caps.elementIsNull(1));
     try std.testing.expect(try reset_caps.elementPointerIsCapability(2));
 
+    const callbacks = try root_builder.init_callbacks(3);
+    try callbacks.setOrNull(0, 70);
+    try callbacks.setOrNull(1, null);
+    try callbacks.set(2, 72);
+    try std.testing.expectEqual(@as(?u32, 70), try callbacks.getOrNull(0));
+    try std.testing.expectEqual(@as(?u32, null), try callbacks.getOrNull(1));
+    try root_builder.set_callbacks(&[_]?u32{ 80, null, 82 });
+    const reset_callbacks = try root_builder.get_callbacks();
+    try std.testing.expectEqual(@as(?u32, 80), try reset_callbacks.getOrNull(0));
+    try std.testing.expectEqual(@as(?u32, null), try reset_callbacks.getOrNull(1));
+    try std.testing.expectEqual(@as(u32, 82), try reset_callbacks.get(2));
+
     const any_values = try root_builder.init_anyValues(2);
     var builder_reader_for_any = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     try any_values.setOrNull(0, try reset_labels.elementAsReader(0, &builder_reader_for_any));
@@ -265,6 +277,10 @@ test "generated optional blob list elements expose typed nullable helpers" {
     try std.testing.expect(!try read_caps.elementIsNull(0));
     try std.testing.expect(try read_caps.elementIsNull(1));
     try std.testing.expect(try read_caps.elementPointerIsCapability(2));
+    const read_callbacks = try root.callbacks();
+    try std.testing.expectEqual(@as(?u32, 80), try read_callbacks.getOrNull(0));
+    try std.testing.expectEqual(@as(?u32, null), try read_callbacks.getOrNull(1));
+    try std.testing.expectEqual(@as(u32, 82), try read_callbacks.get(2));
     const read_any_values = try root.anyValues();
     try std.testing.expectEqualStrings("tail", try (try read_any_values.getOrNull(0)).?.getText());
     try std.testing.expect((try read_any_values.getOrNull(1)) == null);
