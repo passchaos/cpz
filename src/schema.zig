@@ -4562,6 +4562,7 @@ fn unionDeclsFromBuilders(allocator: std.mem.Allocator, builders: []const UnionB
 
 pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!LayoutFile {
     try validateFileTypeApplications(allocator, file);
+    try validateFileConstReferenceCycles(file);
     try validateFileAggregateDefaults(allocator, file);
 
     var layouts = std.ArrayList(StructLayout).empty;
@@ -4608,6 +4609,56 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
             for (method.result_fields) |field| try validateRawTypeApplicationArity(allocator, file, &interface_scope, field.ty);
         }
     }
+}
+
+fn validateFileConstReferenceCycles(file: *const File) LayoutError!void {
+    for (file.consts) |decl| {
+        try validateConstReferenceCycle(file, null, decl.name, decl.literal, 0);
+    }
+    for (file.structs) |decl| {
+        for (decl.consts) |const_decl| {
+            try validateConstReferenceCycle(file, decl.name, const_decl.name, const_decl.literal, 0);
+        }
+    }
+    for (file.interfaces) |decl| {
+        for (decl.consts) |const_decl| {
+            try validateConstReferenceCycle(file, decl.name, const_decl.name, const_decl.literal, 0);
+        }
+    }
+}
+
+fn validateConstReferenceCycle(file: *const File, owner_name: ?[]const u8, const_name: []const u8, literal: []const u8, depth: usize) LayoutError!void {
+    if (depth >= 32) return error.UnsupportedType;
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    if (!defaultLiteralCanBeReference(raw)) return;
+    const next_name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
+    const next_owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else owner_name;
+    if (next_owner == null and owner_name == null and std.mem.eql(u8, next_name, const_name)) return error.UnsupportedType;
+    if (next_owner) |owner| {
+        if (owner_name) |current_owner| {
+            if (typeNameEqualsCanonical(owner, current_owner) and std.mem.eql(u8, next_name, const_name)) return error.UnsupportedType;
+        }
+    }
+
+    var scope_storage: Struct = undefined;
+    var empty_fields: [0]Field = .{};
+    const lookup_scope = if (owner_name) |owner| blk: {
+        if (findStructDirect(file, owner)) |decl| break :blk decl;
+        if (findInterfaceDirect(file, owner)) |decl| {
+            scope_storage = .{ .name = decl.name, .fields = empty_fields[0..], .consts = decl.consts, .aliases = decl.aliases };
+            break :blk &scope_storage;
+        }
+        break :blk null;
+    } else null;
+    const next_decl = findConstReference(file, lookup_scope, raw) orelse return;
+    const resolved_owner = constDeclOwnerName(file, next_decl);
+    if (std.mem.eql(u8, next_decl.name, const_name)) {
+        if (owner_name == null and resolved_owner == null) return error.UnsupportedType;
+        if (owner_name) |current_owner| if (resolved_owner) |owner| {
+            if (typeNameEqualsCanonical(owner, current_owner)) return error.UnsupportedType;
+        };
+    }
+    try validateConstReferenceCycle(file, resolved_owner, const_name, next_decl.literal, depth + 1);
 }
 
 fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
@@ -24418,18 +24469,21 @@ test "schema code generator rejects cyclic blob const references" {
         \\const b :Text = a;
     );
     defer text_file.deinit(std.testing.allocator);
-    var text_layouts = try planLayouts(std.testing.allocator, &text_file);
-    defer text_layouts.deinit(std.testing.allocator);
-    try std.testing.expectError(error.UnsupportedType, generateZig(std.testing.allocator, &text_file, &text_layouts));
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &text_file));
 
     var data_file = try parse(std.testing.allocator,
         \\const a :Data = b;
         \\const b :Data = a;
     );
     defer data_file.deinit(std.testing.allocator);
-    var data_layouts = try planLayouts(std.testing.allocator, &data_file);
-    defer data_layouts.deinit(std.testing.allocator);
-    try std.testing.expectError(error.UnsupportedType, generateZig(std.testing.allocator, &data_file, &data_layouts));
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &data_file));
+
+    var scalar_file = try parse(std.testing.allocator,
+        \\const a :UInt32 = b;
+        \\const b :UInt32 = a;
+    );
+    defer scalar_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &scalar_file));
 }
 
 test "schema list flats resolve scalar const item references" {
