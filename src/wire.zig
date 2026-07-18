@@ -635,18 +635,33 @@ pub inline fn encodeCapability(index: u32) Word {
 }
 
 pub fn targetWordIndex(pointer_word_index: usize, offset_words: i32) Error!usize {
-    const base: isize = @intCast(pointer_word_index + 1);
-    const target = base + @as(isize, @intCast(offset_words));
-    if (target < 0) return error.PointerOutOfBounds;
-    return @intCast(target);
+    const base = std.math.add(usize, pointer_word_index, 1) catch return error.PointerOutOfBounds;
+    if (offset_words >= 0) {
+        const forward: usize = @intCast(offset_words);
+        return std.math.add(usize, base, forward) catch return error.PointerOutOfBounds;
+    }
+
+    // Keep the calculation in unsigned space so very large valid usize values
+    // return ordinary bounds errors instead of tripping @intCast/isize safety
+    // checks. i32.min cannot be negated as i32, so widen before measuring the
+    // backwards distance.
+    const backward: usize = @intCast(-@as(i64, offset_words));
+    if (backward > base) return error.PointerOutOfBounds;
+    return base - backward;
 }
 
 pub fn offsetFromPointer(pointer_word_index: usize, target_word_index: usize) Error!i32 {
-    const base: isize = @intCast(pointer_word_index + 1);
-    const target: isize = @intCast(target_word_index);
-    const offset = target - base;
-    if (offset < std.math.minInt(i30) or offset > std.math.maxInt(i30)) return error.OffsetOutOfRange;
-    return @intCast(offset);
+    const base = std.math.add(usize, pointer_word_index, 1) catch return error.OffsetOutOfRange;
+    if (target_word_index >= base) {
+        const forward = target_word_index - base;
+        if (forward > @as(usize, @intCast(std.math.maxInt(i30)))) return error.OffsetOutOfRange;
+        return @intCast(forward);
+    }
+
+    const backward = base - target_word_index;
+    const max_backward: usize = @intCast(-@as(i64, std.math.minInt(i30)));
+    if (backward > max_backward) return error.OffsetOutOfRange;
+    return @intCast(-@as(i64, @intCast(backward)));
 }
 
 pub inline fn bitsPerElement(size: ElementSize) usize {
@@ -941,6 +956,12 @@ test "wire signed offsets and far/capability pointers" {
     try testing.expectEqual(@as(u32, 9), far.landingPadSegmentId());
     try testing.expect(far.matchesLandingPadWordIndex(17));
     try testing.expect(far.matchesSegmentId(9));
+    try testing.expectEqual(@as(usize, std.math.maxInt(usize)), try targetWordIndex(std.math.maxInt(usize) - 1, 0));
+    try testing.expectError(error.PointerOutOfBounds, targetWordIndex(std.math.maxInt(usize), 0));
+    try testing.expectError(error.PointerOutOfBounds, targetWordIndex(0, std.math.minInt(i32)));
+    try testing.expectEqual(@as(i32, 0), try offsetFromPointer(std.math.maxInt(usize) - 1, std.math.maxInt(usize)));
+    try testing.expectError(error.OffsetOutOfRange, offsetFromPointer(std.math.maxInt(usize), 0));
+    try testing.expectError(error.OffsetOutOfRange, offsetFromPointer(0, @as(usize, @intCast(std.math.maxInt(i30))) + 2));
 
     const single_far = decodeFar(try encodeFar(false, 3, 2));
     try testing.expect(single_far.isSingleFar());
