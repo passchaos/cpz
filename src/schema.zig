@@ -5183,6 +5183,20 @@ test "schema layout planner rejects duplicate ordinals" {
     try std.testing.expectError(error.OrdinalCollision, planLayouts(std.testing.allocator, &file));
 }
 
+test "schema layout planner rejects anonymous union ordinal collisions" {
+    var file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  before @0 :UInt32;
+        \\  union {
+        \\    collides @0 :Text;
+        \\    other @1 :UInt32;
+        \\  }
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.OrdinalCollision, planLayouts(std.testing.allocator, &file));
+}
+
 test "schema layout planner allocates slots by ordinal not declaration order" {
     var file = try parse(std.testing.allocator,
         \\struct OutOfOrder {
