@@ -2034,6 +2034,7 @@ pub const Parser = struct {
             try parameters.append(self.allocator, name);
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
+                if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
             } else if (self.lookahead.tag != .r_paren) {
                 return error.UnexpectedToken;
             }
@@ -2192,6 +2193,8 @@ pub const Parser = struct {
             if (index >= signature.len) return error.UnexpectedToken;
             if (signature[index] == ',') {
                 index += 1;
+                while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+                if (index < signature.len and signature[index] == ']') return error.UnexpectedToken;
                 continue;
             }
             if (signature[index] == ']') {
@@ -4727,6 +4730,16 @@ test "schema parser rejects malformed declaration and method parameter lists" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Service {
         \\  call @0 [T U] () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Box(T,) {
+        \\  item @0 :T;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [T,] () -> ();
         \\}
     ));
 }
