@@ -1994,7 +1994,7 @@ pub const Parser = struct {
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         const decl_id = try self.parseOptionalDeclarationId();
-        const parameters = try self.parseDeclarationParameters();
+        const parameters = try self.parseDeclarationParameters(local_name);
         errdefer self.allocator.free(parameters);
         const superclasses = try self.parseInterfaceExtendsOrEmpty();
         errdefer {
@@ -2129,7 +2129,7 @@ pub const Parser = struct {
         return superclasses.toOwnedSlice(self.allocator);
     }
 
-    fn parseDeclarationParameters(self: *Parser) Error![]const []const u8 {
+    fn parseDeclarationParameters(self: *Parser, declaration_name: []const u8) Error![]const []const u8 {
         if (self.lookahead.tag != .l_paren) return try self.allocator.alloc([]const u8, 0);
         try self.expect(.l_paren);
         var parameters = std.ArrayList([]const u8).empty;
@@ -2140,6 +2140,7 @@ pub const Parser = struct {
         while (self.lookahead.tag != .r_paren) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             const name = try self.expectIdentifier();
+            if (std.mem.eql(u8, name, declaration_name)) return error.NameCollision;
             const entry = try names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
             try parameters.append(self.allocator, name);
@@ -2258,7 +2259,7 @@ pub const Parser = struct {
             try validateAnnotationSuffix(parts.annotations);
             try self.validateMethodEndpointType(parts.params, false);
             try self.validateMethodEndpointType(parts.results, true);
-            const parameters = try self.parseMethodSignatureParameters(signature);
+            const parameters = try self.parseMethodSignatureParameters(name, signature);
             var keep_parameters = false;
             errdefer if (!keep_parameters) self.allocator.free(parameters);
             const param_fields = try self.parseMethodFields(parts.params);
@@ -2291,7 +2292,7 @@ pub const Parser = struct {
         return methods.toOwnedSlice(self.allocator);
     }
 
-    fn parseMethodSignatureParameters(self: *Parser, signature: []const u8) Error![]const []const u8 {
+    fn parseMethodSignatureParameters(self: *Parser, method_name: []const u8, signature: []const u8) Error![]const []const u8 {
         if (signature.len == 0 or signature[0] != '[') return try self.allocator.alloc([]const u8, 0);
         var parameters = std.ArrayList([]const u8).empty;
         errdefer parameters.deinit(self.allocator);
@@ -2309,6 +2310,7 @@ pub const Parser = struct {
             index += 1;
             while (index < signature.len and isIdentContinue(signature[index])) index += 1;
             const name = signature[start..index];
+            if (std.mem.eql(u8, name, method_name)) return error.NameCollision;
             const entry = try names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
             try parameters.append(self.allocator, name);
@@ -3269,7 +3271,7 @@ pub const Parser = struct {
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         const decl_id = try self.parseOptionalDeclarationId();
-        const parameters = try self.parseDeclarationParameters();
+        const parameters = try self.parseDeclarationParameters(local_name);
         errdefer self.allocator.free(parameters);
         const annotations = try self.takeAnnotationSuffixUntilLeftBrace();
         try self.expect(.l_brace);
@@ -6190,6 +6192,16 @@ test "schema parser rejects duplicate top-level declaration names" {
 
 test "schema parser rejects duplicate declaration and method parameter names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Box(Box) {
+        \\  item @0 :Box;
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service(Service) {
+        \\  call @0 () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\struct Box(T, T) {
         \\  item @0 :T;
         \\}
@@ -6202,6 +6214,11 @@ test "schema parser rejects duplicate declaration and method parameter names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\interface Service {
         \\  call @0 [T, T] () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [call] (item :call) -> ();
         \\}
     ));
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
