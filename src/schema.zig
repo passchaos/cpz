@@ -3979,6 +3979,7 @@ pub const Parser = struct {
 
     fn expectInteger(self: *Parser) Error!u64 {
         if (self.lookahead.tag != .integer) return error.UnexpectedToken;
+        if (std.mem.startsWith(u8, self.lookahead.lexeme, "+") or std.mem.startsWith(u8, self.lookahead.lexeme, "-")) return error.UnexpectedToken;
         const value = try parseInteger(self.lookahead.lexeme);
         try self.advance();
         return value;
@@ -5902,6 +5903,10 @@ test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 :UInt32 trailing; }"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad :UInt32 = 1 trailing;"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "interface Bad { call @0 () -> () trailing; }"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "@+1;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @+1 :UInt32; }"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "enum Bad { value @+1; }"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "interface Bad { call @+1 () -> (); }"));
 }
 
 test "schema parser rejects signed identifiers" {
