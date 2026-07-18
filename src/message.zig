@@ -2554,12 +2554,18 @@ pub const MessageBuilder = struct {
         return self.const_segments_cache.items;
     }
 
-    fn writePtr(self: *MessageBuilder, segment_id: u32, word_index: usize, value: wire.Word) void {
+    fn writePtr(self: *MessageBuilder, segment_id: u32, word_index: usize, value: wire.Word) Error!void {
+        if (segment_id >= self.segments.items.len) return error.SegmentOutOfBounds;
+        const words = self.segments.items[segment_id].words.items;
+        if (word_index >= words.len) return error.SegmentOutOfBounds;
         self.segments.items[segment_id].words.items[word_index] = value;
     }
 
-    fn readWord(self: *MessageBuilder, segment_id: u32, word_index: usize) wire.Word {
-        return self.segments.items[segment_id].words.items[word_index];
+    fn readWord(self: *MessageBuilder, segment_id: u32, word_index: usize) Error!wire.Word {
+        if (segment_id >= self.segments.items.len) return error.SegmentOutOfBounds;
+        const words = self.segments.items[segment_id].words.items;
+        if (word_index >= words.len) return error.SegmentOutOfBounds;
+        return words[word_index];
     }
 
     fn allocObject(self: *MessageBuilder, preferred_segment_id: u32, word_count: usize) Error!SegmentCursor {
@@ -2580,7 +2586,7 @@ pub const MessageBuilder = struct {
     fn placePointerToObject(self: *MessageBuilder, pointer: PointerBuilder, object: SegmentCursor, object_word_count: usize, tag_for_far: wire.Word, near_raw: wire.Word) Error!void {
         if (object.id == pointer.segment_id) {
             _ = object_word_count;
-            self.writePtr(pointer.segment_id, pointer.word_index, near_raw);
+            try self.writePtr(pointer.segment_id, pointer.word_index, near_raw);
             return;
         }
 
@@ -2598,16 +2604,16 @@ pub const MessageBuilder = struct {
                 },
                 else => return error.InvalidPointerKind,
             };
-            self.writePtr(landing.id, landing.start, landing_raw);
-            self.writePtr(pointer.segment_id, pointer.word_index, try wire.encodeFar(false, landing.start, landing.id));
+            try self.writePtr(landing.id, landing.start, landing_raw);
+            try self.writePtr(pointer.segment_id, pointer.word_index, try wire.encodeFar(false, landing.start, landing.id));
             return;
         }
 
         const double = try self.allocObject(pointer.segment_id, 2);
         const far_to_content = try wire.encodeFar(false, object.start, object.id);
-        self.writePtr(double.id, double.start, far_to_content);
-        self.writePtr(double.id, double.start + 1, tag_forFarWithZeroOffset(tag_for_far));
-        self.writePtr(pointer.segment_id, pointer.word_index, try wire.encodeFar(true, double.start, double.id));
+        try self.writePtr(double.id, double.start, far_to_content);
+        try self.writePtr(double.id, double.start + 1, tag_forFarWithZeroOffset(tag_for_far));
+        try self.writePtr(pointer.segment_id, pointer.word_index, try wire.encodeFar(true, double.start, double.id));
         _ = object_word_count;
     }
 };
@@ -3114,7 +3120,7 @@ pub const PointerBuilder = struct {
     word_index: usize,
 
     pub fn raw(self: PointerBuilder) wire.Word {
-        return self.message.readWord(self.segment_id, self.word_index);
+        return self.message.readWord(self.segment_id, self.word_index) catch 0;
     }
 
     pub fn isNull(self: PointerBuilder) bool {
@@ -3219,11 +3225,11 @@ pub const PointerBuilder = struct {
     }
 
     pub fn clear(self: PointerBuilder) void {
-        self.message.writePtr(self.segment_id, self.word_index, 0);
+        self.message.writePtr(self.segment_id, self.word_index, 0) catch return;
     }
 
     pub fn disown(self: PointerBuilder) Orphan {
-        const raw_value = self.message.readWord(self.segment_id, self.word_index);
+        const raw_value = self.message.readWord(self.segment_id, self.word_index) catch 0;
         self.clear();
         return .{
             .message = self.message,
@@ -3244,7 +3250,7 @@ pub const PointerBuilder = struct {
                 const s = wire.decodeStruct(orphan.raw);
                 const total_words = @as(usize, s.data_words) + @as(usize, s.pointer_count);
                 if (total_words == 0) {
-                    self.message.writePtr(self.segment_id, self.word_index, try wire.encodeStruct(-1, 0, 0));
+                    try self.message.writePtr(self.segment_id, self.word_index, try wire.encodeStruct(-1, 0, 0));
                 } else {
                     const target = try wire.targetWordIndex(orphan.pointer_word_index, s.offset_words);
                     const object = SegmentCursor{ .id = orphan.segment_id, .start = target };
@@ -3263,7 +3269,7 @@ pub const PointerBuilder = struct {
                 else
                     try wire.wordsForList(l.element_size, l.element_count_or_words);
                 if (object_word_count == 0) {
-                    self.message.writePtr(self.segment_id, self.word_index, try wire.encodeList(0, l.element_size, l.element_count_or_words));
+                    try self.message.writePtr(self.segment_id, self.word_index, try wire.encodeList(0, l.element_size, l.element_count_or_words));
                 } else {
                     const target = try wire.targetWordIndex(orphan.pointer_word_index, l.offset_words);
                     const object = SegmentCursor{ .id = orphan.segment_id, .start = target };
@@ -3275,7 +3281,7 @@ pub const PointerBuilder = struct {
                     try self.message.placePointerToObject(self, object, object_word_count, tag, near_raw);
                 }
             },
-            .far, .other => self.message.writePtr(self.segment_id, self.word_index, orphan.raw),
+            .far, .other => try self.message.writePtr(self.segment_id, self.word_index, orphan.raw),
         }
         orphan.raw = 0;
     }
@@ -3283,7 +3289,7 @@ pub const PointerBuilder = struct {
     pub fn initStruct(self: PointerBuilder, size: wire.StructSize) Error!StructBuilder {
         const total_words = size.totalWords();
         if (total_words == 0) {
-            self.message.writePtr(self.segment_id, self.word_index, try wire.encodeStruct(-1, 0, 0));
+            try self.message.writePtr(self.segment_id, self.word_index, try wire.encodeStruct(-1, 0, 0));
             return .{
                 .message = self.message,
                 .segment_id = self.segment_id,
@@ -3333,7 +3339,7 @@ pub const PointerBuilder = struct {
         const content_words = try wire.wordsForStructList(element_count, size);
         const total_words = std.math.add(usize, 1, content_words) catch return error.MessageTooLarge;
         const object = try self.message.allocObject(self.segment_id, total_words);
-        self.message.writePtr(object.id, object.start, try wire.encodeStructListTag(element_count, size));
+        try self.message.writePtr(object.id, object.start, try wire.encodeStructListTag(element_count, size));
         const offset = try wire.offsetFromPointer(self.word_index, object.start);
         const near_raw = try wire.encodeList(offset, .composite, content_words);
         const tag = try wire.encodeList(0, .composite, content_words);
@@ -3684,7 +3690,7 @@ pub const PointerBuilder = struct {
     }
 
     pub fn setCapability(self: PointerBuilder, index: u32) void {
-        self.message.writePtr(self.segment_id, self.word_index, wire.encodeCapability(index));
+        self.message.writePtr(self.segment_id, self.word_index, wire.encodeCapability(index)) catch return;
     }
 
     pub fn getCapabilityIndex(self: PointerBuilder) Error!u32 {
@@ -3780,7 +3786,7 @@ pub const PointerBuilder = struct {
     fn copyFromMode(self: PointerBuilder, source: PointerReader, canonical: bool) Error!void {
         const resolved = try source.resolve();
         if (resolved.raw == 0) {
-            self.message.writePtr(self.segment_id, self.word_index, 0);
+            try self.message.writePtr(self.segment_id, self.word_index, 0);
             return;
         }
 
@@ -3812,7 +3818,7 @@ pub const PointerBuilder = struct {
             .far => return error.InvalidFarPointer,
             .other => {
                 _ = try wire.decodeOther(resolved.raw);
-                self.message.writePtr(self.segment_id, self.word_index, resolved.raw);
+                try self.message.writePtr(self.segment_id, self.word_index, resolved.raw);
             },
         }
     }
@@ -4556,7 +4562,7 @@ pub const StructBuilder = struct {
         const abs_bit = try checkedWordBitOffset(self.data_start, bit_offset);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
-        var word = self.message.readWord(self.segment_id, word_index);
+        var word = try self.message.readWord(self.segment_id, word_index);
         if (encoded) {
             word |= @as(u64, 1) << bit;
         } else {
@@ -4610,7 +4616,7 @@ pub const StructBuilder = struct {
         const abs_bit = try checkedWordBitOffset(self.data_start, bit_offset);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
-        const word = self.message.readWord(self.segment_id, word_index);
+        const word = try self.message.readWord(self.segment_id, word_index);
         return (((word >> bit) & 1) != 0) != default_value;
     }
 
@@ -5268,7 +5274,7 @@ pub const ListBuilder = struct {
         const abs_bit = try checkedWordBitOffset(self.start, index);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
-        var word = self.message.readWord(self.segment_id, word_index);
+        var word = try self.message.readWord(self.segment_id, word_index);
         if (value) word |= @as(u64, 1) << bit else word &= ~(@as(u64, 1) << bit);
         self.message.segments.items[self.segment_id].words.items[word_index] = word;
     }
@@ -5276,7 +5282,7 @@ pub const ListBuilder = struct {
     pub fn getBool(self: ListBuilder, index: usize) Error!bool {
         if (self.element_size != .bit or index >= self.element_count) return error.PointerOutOfBounds;
         const abs_bit = try checkedWordBitOffset(self.start, index);
-        const word = self.message.readWord(self.segment_id, abs_bit / wire.bits_per_word);
+        const word = try self.message.readWord(self.segment_id, abs_bit / wire.bits_per_word);
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         return ((word >> bit) & 1) != 0;
     }
@@ -8544,6 +8550,17 @@ test "accessors report oversized derived offsets instead of trapping" {
 
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
     defer builder.deinit();
+
+    const huge_pointer_builder = PointerBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .word_index = max,
+    };
+    try testing.expectEqual(@as(wire.Word, 0), huge_pointer_builder.raw());
+    huge_pointer_builder.clear();
+    const disowned = huge_pointer_builder.disown();
+    try testing.expect(disowned.isNull());
+    try testing.expectError(error.SegmentOutOfBounds, huge_pointer_builder.initStruct(.{ .data_words = 0, .pointer_count = 0 }));
 
     const huge_struct_builder = StructBuilder{
         .message = &builder,
