@@ -3918,6 +3918,7 @@ pub const Parser = struct {
     fn expectIdentifier(self: *Parser) Error![]const u8 {
         if (self.lookahead.tag != .identifier) return error.UnexpectedToken;
         const value = self.lookahead.lexeme;
+        if (!isSchemaIdentifier(value)) return error.UnexpectedToken;
         try self.advance();
         return value;
     }
@@ -5260,6 +5261,14 @@ fn isIdentStart(c: u8) bool {
     };
 }
 
+fn isSchemaIdentifier(name: []const u8) bool {
+    if (name.len == 0 or !isIdentStart(name[0])) return false;
+    for (name[1..]) |c| {
+        if (!isIdentContinue(c)) return false;
+    }
+    return true;
+}
+
 fn isIdentContinue(c: u8) bool {
     return switch (c) {
         'A'...'Z', 'a'...'z', '0'...'9', '_' => true,
@@ -5417,6 +5426,22 @@ test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 :UInt32 trailing; }"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad :UInt32 = 1 trailing;"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "interface Bad { call @0 () -> () trailing; }"));
+}
+
+test "schema parser rejects signed identifiers" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct +Bad {}"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct -Bad {}"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using +Alias = UInt32;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  +field @0 :UInt32;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\enum Bad {
+        \\  -value @0;
+        \\}
+    ));
 }
 
 test "schema parser rejects malformed struct field defaults" {
