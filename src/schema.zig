@@ -2426,6 +2426,10 @@ pub const Parser = struct {
                 }
                 annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
             }
+            // Method field syntax mirrors regular fields: defaults belong before
+            // annotations.  Reject `$ann = value` instead of silently treating
+            // it as an annotation followed by a default.
+            if (annotations.len != 0 and index < end and trimmed[index] == '=') return error.UnexpectedToken;
             const field_type = std.mem.trim(u8, trimmed[type_start..field_type_end], " \t\r\n");
             if (field_type.len == 0) return error.UnexpectedToken;
             var parsed_field_type = try self.parseRawTypeSyntax(field_type);
@@ -6312,6 +6316,12 @@ test "schema parser rejects empty method field defaults" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 (value :UInt32 trailing) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\annotation label(param) :Text;
+        \\interface Bad {
+        \\  call @0 (value :Text $label("bad") = "late") -> ();
         \\}
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
