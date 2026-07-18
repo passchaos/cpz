@@ -5021,6 +5021,7 @@ fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const Fi
     } else if (isBuiltinTypeApplicationBase(base)) {
         return error.UnsupportedType;
     }
+    if (isEnumTypeApplicationBase(file, scope, base)) return error.UnsupportedType;
     if (try declarationParameterCount(allocator, file, scope, trimmed)) |parameter_count| {
         if (args.len != parameter_count) return error.UnsupportedType;
     }
@@ -5046,6 +5047,26 @@ fn isBuiltinTypeApplicationBase(name: []const u8) bool {
         std.mem.eql(u8, name, "AnyStruct") or
         std.mem.eql(u8, name, "AnyList") or
         std.mem.eql(u8, name, "Capability");
+}
+
+fn isEnumTypeApplicationBase(file: *const File, scope: ?*const Struct, base: []const u8) bool {
+    if (findEnumDirect(file, base) != null) return true;
+    if (scope) |owner| {
+        for (file.enums) |decl| {
+            if (std.mem.startsWith(u8, decl.name, owner.name) and
+                decl.name.len == owner.name.len + 1 + base.len and
+                decl.name[owner.name.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.name.len + 1 ..], base))
+            {
+                return true;
+            }
+        }
+    }
+    const resolved = resolveNamedAlias(file, scope, base, 0) orelse return false;
+    return switch (resolved) {
+        .named => |name| findEnumDirect(file, name) != null,
+        else => false,
+    };
 }
 
 fn validateTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError!void {
@@ -5664,6 +5685,29 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer builtin_method_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &builtin_method_file));
+
+    var enum_file = try parse(std.testing.allocator,
+        \\enum E {
+        \\  a @0;
+        \\}
+        \\struct Bad {
+        \\  field @0 :E(Text);
+        \\}
+    );
+    defer enum_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &enum_file));
+
+    var enum_alias_file = try parse(std.testing.allocator,
+        \\enum E {
+        \\  a @0;
+        \\}
+        \\using Alias = E;
+        \\struct Bad {
+        \\  field @0 :Alias(Text);
+        \\}
+    );
+    defer enum_alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &enum_alias_file));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
