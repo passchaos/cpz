@@ -2509,7 +2509,7 @@ pub const Parser = struct {
                 else => {},
             }
         }
-        return .{ .params = std.mem.trim(u8, signature[params_start..], " \t\r\n"), .results = "", .annotations = "" };
+        return error.UnexpectedToken;
     }
 
     fn splitResultAndAnnotations(raw: []const u8) Error!struct { results: []const u8, annotations: []const u8 } {
@@ -4872,6 +4872,11 @@ test "schema parser rejects malformed method signatures" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 () -> ;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 ();
         \\}
     ));
 }
