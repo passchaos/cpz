@@ -5261,7 +5261,9 @@ fn typeApplicationOpen(raw: []const u8) ?usize {
 
 fn declarationParameterCount(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8) LayoutError!?usize {
     const open = typeApplicationOpen(type_name) orelse return null;
-    const base = std.mem.trim(u8, type_name[0..open], " \t\r\n");
+    const raw_base = std.mem.trim(u8, type_name[0..open], " \t\r\n");
+    const base = try canonicalTypeNameAlloc(allocator, raw_base);
+    defer allocator.free(base);
     const owner_name = if (scope) |owner| owner.name else null;
     if (resolveNamedAliasInOwnerScope(file, owner_name, base, 0)) |resolved| switch (resolved) {
         .named => |resolved_name| {
@@ -5321,7 +5323,9 @@ fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const Fi
         for (args) |*arg| arg.deinit(allocator);
         allocator.free(args);
     }
-    const base = std.mem.trim(u8, trimmed[0..open], " \t\r\n");
+    const raw_base = std.mem.trim(u8, trimmed[0..open], " \t\r\n");
+    const base = try canonicalTypeNameAlloc(allocator, raw_base);
+    defer allocator.free(base);
     if (std.mem.eql(u8, base, "List")) {
         if (args.len != 1) return error.UnsupportedType;
     } else if (isBuiltinTypeApplicationBase(base)) {
@@ -5961,6 +5965,17 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer field_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &field_file));
+
+    var commented_field_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T;
+        \\}
+        \\struct Bad {
+        \\  field @0 :Box /* comment before args */ (Text, Data);
+        \\}
+    );
+    defer commented_field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &commented_field_file));
 
     var nested_file = try parse(std.testing.allocator,
         \\struct Box(T) {
