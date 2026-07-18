@@ -47,6 +47,95 @@ pub const Type = union(enum) {
     }
 };
 
+fn typesEqual(lhs: Type, rhs: Type) bool {
+    return switch (lhs) {
+        .void => switch (rhs) {
+            .void => true,
+            else => false,
+        },
+        .bool => switch (rhs) {
+            .bool => true,
+            else => false,
+        },
+        .int8 => switch (rhs) {
+            .int8 => true,
+            else => false,
+        },
+        .int16 => switch (rhs) {
+            .int16 => true,
+            else => false,
+        },
+        .int32 => switch (rhs) {
+            .int32 => true,
+            else => false,
+        },
+        .int64 => switch (rhs) {
+            .int64 => true,
+            else => false,
+        },
+        .uint8 => switch (rhs) {
+            .uint8 => true,
+            else => false,
+        },
+        .uint16 => switch (rhs) {
+            .uint16 => true,
+            else => false,
+        },
+        .uint32 => switch (rhs) {
+            .uint32 => true,
+            else => false,
+        },
+        .uint64 => switch (rhs) {
+            .uint64 => true,
+            else => false,
+        },
+        .float32 => switch (rhs) {
+            .float32 => true,
+            else => false,
+        },
+        .float64 => switch (rhs) {
+            .float64 => true,
+            else => false,
+        },
+        .text => switch (rhs) {
+            .text => true,
+            else => false,
+        },
+        .data => switch (rhs) {
+            .data => true,
+            else => false,
+        },
+        .any_pointer => switch (rhs) {
+            .any_pointer => true,
+            else => false,
+        },
+        .any_struct => switch (rhs) {
+            .any_struct => true,
+            else => false,
+        },
+        .any_list => switch (rhs) {
+            .any_list => true,
+            else => false,
+        },
+        .capability => switch (rhs) {
+            .capability => true,
+            else => false,
+        },
+        .named => |name| switch (rhs) {
+            .named => |other| std.mem.eql(u8, name, other),
+            else => false,
+        },
+        .list => |child| switch (rhs) {
+            .list => |other| typesEqual(child.*, other.*),
+            else => false,
+        },
+        .optional => |child| switch (rhs) {
+            .optional => |other| typesEqual(child.*, other.*),
+            else => false,
+        },
+    };
+}
+
 pub const Field = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -2017,7 +2106,14 @@ pub const Parser = struct {
         if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
         while (self.lookahead.tag != .r_paren) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
-            try superclasses.append(self.allocator, try self.parseType());
+            var superclass = try self.parseType();
+            var keep_superclass = false;
+            errdefer if (!keep_superclass) superclass.deinit(self.allocator);
+            for (superclasses.items) |existing| {
+                if (typesEqual(existing, superclass)) return error.NameCollision;
+            }
+            try superclasses.append(self.allocator, superclass);
+            keep_superclass = true;
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
                 if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
@@ -4988,6 +5084,17 @@ test "schema parser rejects malformed interface extends list" {
         \\  call @0 () -> ();
         \\}
         \\interface Derived extends(Base,) {
+        \\  call @0 () -> ();
+        \\}
+    ));
+}
+
+test "schema parser rejects duplicate interface superclasses" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Base {
+        \\  call @0 () -> ();
+        \\}
+        \\interface Derived extends(Base, Base) {
         \\  call @0 () -> ();
         \\}
     ));
