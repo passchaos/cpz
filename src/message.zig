@@ -3588,7 +3588,7 @@ pub const PointerBuilder = struct {
     pub fn setText(self: PointerBuilder, text: []const u8) Error!void {
         if (std.mem.indexOfScalar(u8, text, 0) != null) return error.TextContainsInteriorNul;
         if (!std.unicode.utf8ValidateSlice(text)) return error.Utf8Invalid;
-        const list = try self.initList(.byte, text.len + 1);
+        const list = try self.initList(.byte, try textElementCount(text.len));
         const bytes = list.bytes();
         @memcpy(bytes[0..text.len], text);
         bytes[text.len] = 0;
@@ -6117,6 +6117,10 @@ fn structEndWord(start: usize, data_words: u16, pointer_count: u16) Error!usize 
     return std.math.add(usize, start, payload_words) catch return error.MessageTooLarge;
 }
 
+fn textElementCount(byte_len: usize) Error!usize {
+    return std.math.add(usize, byte_len, 1) catch return error.MessageTooLarge;
+}
+
 fn exactBytesForBits(bits: usize) Error!usize {
     if (bits % 8 != 0) return error.UnsupportedElementSize;
     return bits / 8;
@@ -6587,6 +6591,8 @@ test "builder rejects invalid UTF-8 text" {
     const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
     try testing.expectError(error.Utf8Invalid, root.setText(0, &[_]u8{ 0xff, 0xfe }));
     try testing.expectError(error.TextContainsInteriorNul, root.setText(0, "bad\x00text"));
+    try testing.expectEqual(@as(usize, 1), try textElementCount(0));
+    try testing.expectError(error.MessageTooLarge, textElementCount(std.math.maxInt(usize)));
 }
 
 test "pointer reader returns caller defaults for null text and data" {
