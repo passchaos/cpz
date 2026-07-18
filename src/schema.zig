@@ -2948,16 +2948,10 @@ pub const Parser = struct {
             return;
         }
         if ((try self.peekNext()).tag != .equal) {
-            var target = self.parseType() catch {
-                try self.skipRawUntilSemicolon();
-                return;
-            };
+            var target = try self.parseType();
             var keep_target = false;
             defer if (!keep_target) target.deinit(self.allocator);
-            if (self.lookahead.tag != .semicolon) {
-                try self.skipRawUntilSemicolon();
-                return;
-            }
+            if (self.lookahead.tag != .semicolon) return error.UnexpectedToken;
             try self.expect(.semicolon);
 
             const name = anonymousAliasName(target) orelse {
@@ -3011,16 +3005,10 @@ pub const Parser = struct {
             return;
         }
 
-        var target = self.parseType() catch {
-            try self.skipRawUntilSemicolon();
-            return;
-        };
+        var target = try self.parseType();
         var keep_target = false;
         defer if (!keep_target) target.deinit(self.allocator);
-        if (self.lookahead.tag != .semicolon) {
-            try self.skipRawUntilSemicolon();
-            return;
-        }
+        if (self.lookahead.tag != .semicolon) return error.UnexpectedToken;
         try self.expect(.semicolon);
 
         const entry = try decl_names.getOrPut(name);
@@ -5007,6 +4995,29 @@ test "schema parser rejects malformed type application arguments" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 (field :List(Text, Data)) -> ();
+        \\}
+    ));
+}
+
+test "schema parser rejects malformed using alias targets" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\using Bad = GenericBox();
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\using Bad = GenericBox(Text Data);
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\using GenericBox(Text Data);
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Owner {
+        \\  using Bad = GenericBox(Text Data);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Service {
+        \\  using Bad = GenericBox(Text Data);
+        \\  call @0 () -> ();
         \\}
     ));
 }
