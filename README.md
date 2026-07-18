@@ -28,6 +28,7 @@ This repository targets Zig 0.16.0.
 ## Example
 
 ```zig
+const std = @import("std");
 const cpz = @import("cpz");
 
 var builder = try cpz.MessageBuilder.init(std.heap.page_allocator, .{});
