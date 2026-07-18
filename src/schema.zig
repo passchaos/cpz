@@ -5685,6 +5685,7 @@ fn validateRawTypeReference(allocator: std.mem.Allocator, file: *const File, sco
     const trimmed = std.mem.trim(u8, raw, " \t\r\n");
     if (trimmed.len == 0) return;
     if (std.mem.startsWith(u8, trimmed, "?")) return validateRawTypeReference(allocator, file, scope, trimmed[1..]);
+    if (std.mem.startsWith(u8, trimmed, "import")) return;
     if (typeApplicationOpen(trimmed)) |open| {
         const raw_base = std.mem.trim(u8, trimmed[0..open], " \t\r\n");
         const base = try canonicalTypeNameAlloc(allocator, raw_base);
@@ -5710,6 +5711,7 @@ fn validateMethodFieldTypeReference(allocator: std.mem.Allocator, file: *const F
     const trimmed = std.mem.trim(u8, raw, " \t\r\n");
     if (trimmed.len == 0) return;
     if (std.mem.startsWith(u8, trimmed, "?")) return validateMethodFieldTypeReference(allocator, file, scope, method_parameters, trimmed[1..]);
+    if (std.mem.startsWith(u8, trimmed, "import")) return;
     if (typeApplicationOpen(trimmed)) |open| {
         const raw_base = std.mem.trim(u8, trimmed[0..open], " \t\r\n");
         const base = try canonicalTypeNameAlloc(allocator, raw_base);
@@ -7171,6 +7173,15 @@ test "schema layout planner rejects unresolved simple named types without defaul
     );
     defer dotted_field_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &dotted_field_file));
+
+    var method_import_file = try parse(std.testing.allocator,
+        \\interface Imported {
+        \\  call @0 (value :import "imported.capnp".Value) -> ();
+        \\}
+    );
+    defer method_import_file.deinit(std.testing.allocator);
+    var method_import_layouts = try planLayouts(std.testing.allocator, &method_import_file);
+    method_import_layouts.deinit(std.testing.allocator);
 }
 
 test "schema layout planner rejects scalar defaults for generic parameters" {
