@@ -4684,7 +4684,7 @@ pub const StructBuilder = struct {
     }
 
     pub fn clear(self: StructBuilder) Error!void {
-        @memset(self.dataBytes(), 0);
+        @memset(try self.dataBytesChecked(), 0);
         for (0..self.pointer_count) |i| {
             try self.clearPointer(i);
         }
@@ -8595,10 +8595,18 @@ test "accessors report oversized derived offsets instead of trapping" {
     try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.getUInt8(0, 0));
     try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.setBool(0, true, false));
     try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.getBool(0, false));
+    try testing.expectError(error.PointerOutOfBounds, (StructBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .data_start = max,
+        .pointer_start = 0,
+        .data_words = 1,
+        .pointer_count = 0,
+    }).clear());
     try testing.expectEqual(@as(usize, 3), try structEndWord(0, 1, 2));
     try testing.expectError(error.MessageTooLarge, structEndWord(max, 1, 0));
     var same_segment_reader = MessageReader.init(try builder.segmentsConst(), .{});
-    try testing.expectError(error.MessageTooLarge, huge_struct_builder.copyFromReader(.{
+    try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.copyFromReader(.{
         .message = &same_segment_reader,
         .segment_id = 0,
         .data_start = 0,
@@ -8699,7 +8707,7 @@ test "accessors report oversized derived offsets instead of trapping" {
         .data_words = 0,
         .pointer_count = 0,
     };
-    try invalid_destination.copyFromReader(.{
+    try testing.expectError(error.SegmentOutOfBounds, invalid_destination.copyFromReader(.{
         .message = &two_segment_reader,
         .segment_id = 1,
         .data_start = 0,
@@ -8707,7 +8715,7 @@ test "accessors report oversized derived offsets instead of trapping" {
         .data_words = 0,
         .pointer_count = 0,
         .nesting_left = 1,
-    });
+    }));
 
     const huge_bit_list_reader = ListReader{
         .message = &reader,
