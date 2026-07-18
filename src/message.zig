@@ -2,6 +2,14 @@ const std = @import("std");
 const wire = @import("wire.zig");
 const serialize = @import("serialize.zig");
 
+fn wordsToBytesSaturating(words: usize) usize {
+    return std.math.mul(usize, words, wire.bytes_per_word) catch std.math.maxInt(usize);
+}
+
+fn wordsToBytesChecked(words: usize) Error!usize {
+    return std.math.mul(usize, words, wire.bytes_per_word) catch return error.SerializedSizeOverflow;
+}
+
 pub const Error = wire.Error || std.mem.Allocator.Error || error{
     ReadOnly,
     NestingLimitExceeded,
@@ -24,7 +32,7 @@ pub const ReaderOptions = struct {
     }
 
     pub fn traversalLimitBytes(self: ReaderOptions) usize {
-        return self.traversal_limit_words * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.traversal_limit_words);
     }
 
     pub fn nestingLimit(self: ReaderOptions) u16 {
@@ -69,6 +77,12 @@ test "reader options helper methods" {
     try testing.expect(defaults.matchesTraversalLimitBytes(64 * 1024 * 1024));
     try testing.expect(defaults.matchesNestingLimit(64));
     try testing.expect(!defaults.matchesCapabilityCountLimit(0));
+
+    const huge = ReaderOptions{ .traversal_limit_words = std.math.maxInt(usize) };
+    try testing.expectEqual(std.math.maxInt(usize), huge.traversalLimitBytes());
+    try testing.expect(huge.matchesTraversalLimitBytes(std.math.maxInt(usize)));
+    const huge_reader = MessageReader.init(&.{}, huge);
+    try testing.expectEqual(std.math.maxInt(usize), huge_reader.traversalRemainingBytes());
 
     const custom = ReaderOptions{
         .traversal_limit_words = 10,
@@ -157,7 +171,7 @@ pub const MessageStats = struct {
     }
 
     pub fn dataByteCount(self: MessageStats) usize {
-        return self.data_words * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.data_words);
     }
 
     pub fn pointerWordCount(self: MessageStats) usize {
@@ -165,7 +179,7 @@ pub const MessageStats = struct {
     }
 
     pub fn pointerByteCount(self: MessageStats) usize {
-        return self.pointer_words * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.pointer_words);
     }
 
     pub fn wordCount(self: MessageStats) usize {
@@ -173,7 +187,7 @@ pub const MessageStats = struct {
     }
 
     pub fn byteCount(self: MessageStats) usize {
-        return self.total_words * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.total_words);
     }
 
     pub fn capabilityCount(self: MessageStats) usize {
@@ -286,6 +300,17 @@ test "message stats byte helper methods" {
     try testing.expect(stats.matchesMaxCapabilityCount(4));
     try testing.expect(!stats.matchesMaxCapabilityCount(3));
     try testing.expectEqual(@as(usize, 96), stats.size().byteCount());
+
+    const huge = MessageStats{
+        .data_words = std.math.maxInt(usize),
+        .pointer_words = std.math.maxInt(usize),
+        .total_words = std.math.maxInt(usize),
+    };
+    try testing.expectEqual(std.math.maxInt(usize), huge.dataByteCount());
+    try testing.expectEqual(std.math.maxInt(usize), huge.pointerByteCount());
+    try testing.expectEqual(std.math.maxInt(usize), huge.byteCount());
+    try testing.expect(huge.matchesBytes(std.math.maxInt(usize)));
+    try testing.expectEqual(std.math.maxInt(usize), huge.size().byteCount());
 }
 
 pub const MessageSize = struct {
@@ -297,7 +322,7 @@ pub const MessageSize = struct {
     }
 
     pub fn byteCount(self: MessageSize) usize {
-        return self.word_count * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.word_count);
     }
 
     pub fn capabilityCount(self: MessageSize) usize {
@@ -1279,7 +1304,7 @@ pub const BuilderOptions = struct {
     }
 
     pub fn firstSegmentBytes(self: BuilderOptions) usize {
-        return self.first_segment_words * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.first_segment_words);
     }
 
     pub fn nextSegmentMinWords(self: BuilderOptions) usize {
@@ -1287,7 +1312,7 @@ pub const BuilderOptions = struct {
     }
 
     pub fn nextSegmentMinBytes(self: BuilderOptions) usize {
-        return self.next_segment_min_words * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.next_segment_min_words);
     }
 
     pub fn matchesFirstSegmentWords(self: BuilderOptions, count: usize) bool {
@@ -1336,6 +1361,16 @@ test "builder options helper methods" {
     try testing.expect(!custom.matchesFirstSegmentBytes(48));
     try testing.expect(!custom.matchesNextSegmentMinWords(10));
     try testing.expect(!custom.matchesNextSegmentMinBytes(80));
+
+    const huge = BuilderOptions{
+        .first_segment_words = std.math.maxInt(usize),
+        .next_segment_min_words = std.math.maxInt(usize),
+    };
+    try testing.expectEqual(std.math.maxInt(usize), huge.firstSegmentBytes());
+    try testing.expectEqual(std.math.maxInt(usize), huge.nextSegmentMinBytes());
+    try testing.expect(huge.matchesFirstSegmentBytes(std.math.maxInt(usize)));
+    try testing.expect(huge.matchesNextSegmentMinBytes(std.math.maxInt(usize)));
+    try testing.expectError(error.SerializedSizeOverflow, wordsToBytesChecked(std.math.maxInt(usize)));
 }
 
 const SegmentBuilder = struct {
@@ -2400,7 +2435,7 @@ pub const MessageBuilder = struct {
 
     pub fn segmentByteLen(self: *MessageBuilder, index: usize) Error!usize {
         if (index >= self.segments.items.len) return error.SegmentOutOfBounds;
-        return self.segments.items[index].used * wire.bytes_per_word;
+        return wordsToBytesChecked(self.segments.items[index].used);
     }
 
     pub fn segmentWordLen(self: *MessageBuilder, index: usize) Error!usize {
@@ -2420,11 +2455,11 @@ pub const MessageBuilder = struct {
     }
 
     pub fn segmentCapacityBytes(self: *MessageBuilder, index: usize) Error!usize {
-        return (try self.segmentCapacityWords(index)) * wire.bytes_per_word;
+        return wordsToBytesChecked(try self.segmentCapacityWords(index));
     }
 
     pub fn segmentRemainingBytes(self: *MessageBuilder, index: usize) Error!usize {
-        return (try self.segmentRemainingWords(index)) * wire.bytes_per_word;
+        return wordsToBytesChecked(try self.segmentRemainingWords(index));
     }
 
     pub fn serializedSize(self: *MessageBuilder) (Error || serialize.Error)!usize {
@@ -2891,7 +2926,7 @@ pub const MessageReader = struct {
     }
 
     pub fn traversalRemainingBytes(self: *const MessageReader) usize {
-        return self.traversal_remaining * wire.bytes_per_word;
+        return wordsToBytesSaturating(self.traversal_remaining);
     }
 
     pub fn nestingLimit(self: *const MessageReader) u16 {
