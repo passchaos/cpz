@@ -205,7 +205,7 @@ pub fn build(b: *std.Build) void {
         .paths = &.{ "build.zig", "src", "examples", "tests" },
         .check = true,
     });
-    const check_step = b.step("check", "Check formatting and run tests");
+    const check_step = b.step("check", "Check formatting, compile examples, and run tests");
     check_step.dependOn(&check_fmt.step);
     check_step.dependOn(test_step);
     check_step.dependOn(&example.step);
