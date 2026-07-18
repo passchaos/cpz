@@ -9576,18 +9576,26 @@ fn resolveTypeInOwnerScope(file: *const File, owner_name: ?[]const u8, ty: Type)
 
 fn resolveNamedAliasInOwnerScope(file: *const File, owner_name: ?[]const u8, name: []const u8, depth: usize) ?Type {
     if (depth >= 32) return null;
-    if (owner_name) |owner| {
+    var current = owner_name;
+    while (current) |owner| {
         if (findStructDirect(file, owner)) |decl| {
-            if (resolveNamedAliasInList(decl.aliases, file, owner_name, name, depth)) |resolved| return resolved;
+            if (resolveNamedAliasInList(decl.aliases, file, owner, name, depth)) |resolved| return resolved;
+            if (declHasParameter(decl.parameters, name)) return null;
         }
         if (findInterfaceDirect(file, owner)) |decl| {
-            if (resolveNamedAliasInList(decl.aliases, file, owner_name, name, depth)) |resolved| return resolved;
+            if (resolveNamedAliasInList(decl.aliases, file, owner, name, depth)) |resolved| return resolved;
+            if (declHasParameter(decl.parameters, name)) return null;
         }
-        if (lastTopLevelDot(owner)) |dot| {
-            if (resolveNamedAliasInOwnerScope(file, owner[0..dot], name, depth + 1)) |resolved| return resolved;
-        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
     }
     return resolveNamedAliasInList(file.aliases, file, null, name, depth);
+}
+
+fn declHasParameter(parameters: []const []const u8, name: []const u8) bool {
+    for (parameters) |parameter| {
+        if (std.mem.eql(u8, parameter, name)) return true;
+    }
+    return false;
 }
 
 fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_name: ?[]const u8, name: []const u8, depth: usize) ?Type {
@@ -23239,9 +23247,16 @@ test "schema code generator records inline import type references" {
 
 test "schema code generator lowers generic type parameters to pointer accessors" {
     const source =
+        \\using T = UInt32;
         \\struct Box(T) {
         \\  item @0 :T;
         \\  items @1 :List(T);
+        \\}
+        \\struct Outer {
+        \\  using U = UInt32;
+        \\  struct Inner(U) {
+        \\    item @0 :U;
+        \\  }
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
@@ -23256,6 +23271,8 @@ test "schema code generator lowers generic type parameters to pointer accessors"
     try std.testing.expect(std.mem.indexOf(u8, code, "getPointerField(1).getList(.pointer)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get(self: @This(), @\"cpz.index\": usize) !cpz.PointerReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_items(self: Builder, @\"cpz.values\": []const cpz.PointerReader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.field.item.resolvedType\": []const u8 = \"T\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.field.item.resolvedType\": []const u8 = \"U\"") != null);
 }
 
 test "schema code generator can wrap declarations in a namespace" {
