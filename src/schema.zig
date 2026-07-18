@@ -473,6 +473,7 @@ fn parseConstStructFieldsAlloc(allocator: std.mem.Allocator, expression: []const
             index += 1;
         }
         const literal = std.mem.trim(u8, source[literal_start..index], " \t\r\n");
+        if (literal.len == 0) return error.UnexpectedToken;
         try fields.append(allocator, .{ .index = fields.items.len, .name = name, .literal = literal });
 
         index = try skipTriviaIndex(source, index);
@@ -2585,6 +2586,12 @@ pub const Parser = struct {
                 const list_start = self.currentTokenStart();
                 list_items = self.parseConstListItems(&list_has_aggregate_items) catch |err| switch (err) {
                     error.NameCollision => return err,
+                    error.UnexpectedToken, error.InvalidToken => {
+                        if (list_has_aggregate_items) return err;
+                        ty.deinit(self.allocator);
+                        try self.skipRawUntilSemicolon();
+                        return;
+                    },
                     else => {
                         ty.deinit(self.allocator);
                         try self.skipRawUntilSemicolon();
@@ -5214,6 +5221,21 @@ test "schema parser rejects duplicate const struct field names" {
         \\  id @0 :UInt32;
         \\}
         \\const items :List(Item) = [(id = 1, id = 2)];
+    ));
+}
+
+test "schema parser rejects empty const struct field values" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const item :Item = (id = );
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const items :List(Item) = [(id = )];
     ));
 }
 
