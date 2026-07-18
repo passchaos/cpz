@@ -31,14 +31,16 @@ This repository targets Zig 0.16.0.
 const std = @import("std");
 const cpz = @import("cpz");
 
-var builder = try cpz.MessageBuilder.init(std.heap.page_allocator, .{});
-defer builder.deinit();
-const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
-try root.setUInt32(0, 1234, 0);
-try root.setText(0, "hello");
+pub fn main() !void {
+    var builder = try cpz.MessageBuilder.init(std.heap.page_allocator, .{});
+    defer builder.deinit();
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 1 });
+    try root.setUInt32(0, 1234, 0);
+    try root.setText(0, "hello");
 
-const bytes = try cpz.messageToFlatBytes(std.heap.page_allocator, try builder.segmentsConst());
-defer std.heap.page_allocator.free(bytes);
+    const bytes = try cpz.messageToFlatBytes(std.heap.page_allocator, try builder.segmentsConst());
+    defer std.heap.page_allocator.free(bytes);
+}
 ```
 
 ## Scope
