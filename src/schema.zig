@@ -4664,6 +4664,29 @@ test "schema parser rejects duplicate field names" {
     ));
 }
 
+test "schema parser rejects duplicate group and union names" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  repeated @0 :group {
+        \\    first @0 :UInt32;
+        \\  }
+        \\  repeated @1 :group {
+        \\    second @0 :UInt32;
+        \\  }
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  repeated @0 :union {
+        \\    first @0 :UInt32;
+        \\  }
+        \\  repeated @1 :union {
+        \\    second @0 :UInt32;
+        \\  }
+        \\}
+    ));
+}
+
 test "schema parser rejects duplicate top-level declaration names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\struct Thing {
