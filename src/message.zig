@@ -5475,7 +5475,7 @@ pub const ListBuilder = struct {
                 const src_start = std.math.mul(usize, source_index, bytes_per_element) catch return error.MessageTooLarge;
                 const source_bytes = try source.rawPrimitiveBytes();
                 const dest_bytes = try self.rawPrimitiveBytes();
-                @memcpy(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
+                @memmove(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
                 return;
             },
             else => {},
@@ -7438,6 +7438,17 @@ test "builders can copy overlapping primitive list ranges" {
     try testing.expectEqual(@as(u16, 30), try backward.getUInt16(1));
     try testing.expectEqual(@as(u16, 40), try backward.getUInt16(2));
     try testing.expectEqual(@as(u16, 40), try backward.getUInt16(3));
+
+    // The generic reader path can still alias the destination when callers
+    // create a reader view over the same builder.  Treat primitive range copies
+    // like memmove rather than memcpy so this remains safe in debug/safe modes.
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const forward_reader = forward.asReader(&reader);
+    try forward.copyElementsFrom(0, forward_reader, 1, 3);
+    try testing.expectEqual(@as(u32, 1), try forward.getUInt32(0));
+    try testing.expectEqual(@as(u32, 2), try forward.getUInt32(1));
+    try testing.expectEqual(@as(u32, 3), try forward.getUInt32(2));
+    try testing.expectEqual(@as(u32, 3), try forward.getUInt32(3));
 }
 
 test "pointer builders can disown and adopt within a message" {
