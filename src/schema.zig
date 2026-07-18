@@ -2972,6 +2972,7 @@ pub const Parser = struct {
                 return;
             }
             const path = self.lookahead.lexeme;
+            if (path.len == 0) return error.UnexpectedToken;
             try self.advance();
             var member: ?[]const u8 = null;
             if (self.lookahead.tag == .dot) {
@@ -3024,6 +3025,7 @@ pub const Parser = struct {
             return;
         }
         const path = self.lookahead.lexeme;
+        if (path.len == 0) return error.UnexpectedToken;
         try self.advance();
         if (self.lookahead.tag != .dot) {
             if (self.lookahead.tag != .semicolon) {
@@ -3612,6 +3614,7 @@ pub const Parser = struct {
         try self.advance();
         if (self.lookahead.tag != .string) return error.UnexpectedToken;
         const path = self.lookahead.lexeme;
+        if (path.len == 0) return error.UnexpectedToken;
         try self.advance();
         try self.expect(.dot);
 
@@ -5450,6 +5453,16 @@ test "schema parser records imported type aliases" {
     try std.testing.expectEqualStrings("Shared", file.imports[3].member.?);
     try std.testing.expectEqualStrings("Other.External", file.structs[0].fields[0].ty.named);
     try std.testing.expectEqualStrings("Shared", file.structs[0].fields[1].ty.named);
+}
+
+test "schema parser rejects empty import paths" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using Empty = import \"\";"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using import \"\";"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :import "".Value;
+        \\}
+    ));
 }
 
 test "schema parser skips top-level annotations and interfaces" {
