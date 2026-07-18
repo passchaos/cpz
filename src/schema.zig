@@ -12112,8 +12112,13 @@ fn substituteGenericNameAlloc(allocator: std.mem.Allocator, raw: []const u8, par
     var start: usize = 0;
     var depth: usize = 0;
     var first = true;
-    for (inner, 0..) |c, index| {
-        switch (c) {
+    var index: usize = 0;
+    while (index < inner.len) {
+        if (try skipRawStringOrCommentInPostLoop(inner, &index)) {
+            index += 1;
+            continue;
+        }
+        switch (inner[index]) {
             '(' => depth += 1,
             ')' => {
                 if (depth != 0) depth -= 1;
@@ -12124,7 +12129,7 @@ fn substituteGenericNameAlloc(allocator: std.mem.Allocator, raw: []const u8, par
                 const arg = std.mem.trim(u8, inner[start..index], " \t\r\n");
                 var substituted = false;
                 for (parameters, 0..) |parameter, parameter_index| {
-                    if (parameter_index < args.len and std.mem.eql(u8, arg, parameter)) {
+                    if (parameter_index < args.len and typeNameEqualsCanonical(arg, parameter)) {
                         const arg_name = try schemaTypeNameAlloc(allocator, args[parameter_index]);
                         defer allocator.free(arg_name);
                         try out.appendSlice(allocator, arg_name);
@@ -12144,12 +12149,13 @@ fn substituteGenericNameAlloc(allocator: std.mem.Allocator, raw: []const u8, par
             },
             else => {},
         }
+        index += 1;
     }
     if (!first) try out.appendSlice(allocator, ", ");
     const arg = std.mem.trim(u8, inner[start..], " \t\r\n");
     var substituted = false;
     for (parameters, 0..) |parameter, parameter_index| {
-        if (parameter_index < args.len and std.mem.eql(u8, arg, parameter)) {
+        if (parameter_index < args.len and typeNameEqualsCanonical(arg, parameter)) {
             const arg_name = try schemaTypeNameAlloc(allocator, args[parameter_index]);
             defer allocator.free(arg_name);
             try out.appendSlice(allocator, arg_name);
@@ -12174,7 +12180,7 @@ fn substituteGenericTypeAlloc(allocator: std.mem.Allocator, owned_names: *std.Ar
     switch (ty) {
         .named => |name| {
             for (parameters, 0..) |parameter, index| {
-                if (index < args.len and std.mem.eql(u8, name, parameter)) return cloneTypeAlloc(allocator, args[index]);
+                if (index < args.len and typeNameEqualsCanonical(name, parameter)) return cloneTypeAlloc(allocator, args[index]);
             }
             if (try substituteGenericNameAlloc(allocator, name, parameters, args)) |substituted_name| {
                 try owned_names.append(allocator, substituted_name);
@@ -24057,14 +24063,18 @@ test "schema struct const flats resolve group first-field shorthand" {
 
 test "schema struct const flats bind generic type parameters" {
     const source =
+        \\struct Inner(T) {
+        \\  item @0 :T;
+        \\}
         \\struct Box(T) {
         \\  item @0 :T;
         \\  rev @1 :Box(Text);
+        \\  nested @2 :Inner(T /* comment with ), comma , */);
         \\}
         \\struct Payload {
         \\  value @0 :UInt32;
         \\}
-        \\const c :Box(Payload) = (item = (value = 7), rev = (item = "hi"));
+        \\const c :Box(Payload) = (item = (value = 7), rev = (item = "hi"), nested = (item = (value = 9)));
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
@@ -24081,6 +24091,9 @@ test "schema struct const flats bind generic type parameters" {
     try std.testing.expectEqual(@as(u32, 7), item.getUInt32(0, 0));
     const rev = try root.getPointerField(1).getStruct(null);
     try std.testing.expectEqualSlices(u8, "hi", try rev.getPointerField(0).getText());
+    const nested = try root.getPointerField(2).getStruct(null);
+    const nested_item = try nested.getPointerField(0).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 9), nested_item.getUInt32(0, 0));
 }
 
 test "schema struct const flats support implied first-field struct literals" {
