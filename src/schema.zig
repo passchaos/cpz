@@ -8627,9 +8627,12 @@ fn validateListFieldWrapperZigNames(allocator: std.mem.Allocator, file: *const F
     defer allocator.free(reader_name);
     const builder_name = try std.fmt.allocPrint(allocator, "{s}_{s}_BuilderList", .{ owner_name, field_name });
     defer allocator.free(builder_name);
+    const orphan_name = try std.fmt.allocPrint(allocator, "{s}_{s}_Orphan", .{ owner_name, field_name });
+    defer allocator.free(orphan_name);
 
     try validateGeneratedStructMemberZigName(allocator, decl, field, reader_name);
     try validateGeneratedStructMemberZigName(allocator, decl, field, builder_name);
+    try validateGeneratedStructMemberZigName(allocator, decl, field, orphan_name);
 }
 
 fn validatePointerFieldHelperZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct, field: *const Field) LayoutError!void {
@@ -25744,6 +25747,11 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\struct ListWrappers {
         \\  foo @0 :List(UInt16);
         \\  ListWrappers_foo_BuilderList @1 :UInt32;
+        \\}
+        ,
+        \\struct ListWrappers {
+        \\  foo @0 :List(UInt16);
+        \\  ListWrappers_foo_Orphan @1 :UInt32;
         \\}
         ,
         \\struct ListWrappers {
