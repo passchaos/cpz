@@ -2014,6 +2014,7 @@ pub const Parser = struct {
         }
         var member_names = std.StringHashMap(void).init(self.allocator);
         defer member_names.deinit();
+        try reserveParameterNames(parameters, &member_names);
 
         const methods = try self.parseInterfaceBody(qualified.name, &aliases, &consts, &member_names);
         errdefer self.allocator.free(methods);
@@ -2153,6 +2154,13 @@ pub const Parser = struct {
         return parameters.toOwnedSlice(self.allocator);
     }
 
+    fn reserveParameterNames(parameters: []const []const u8, names: *std.StringHashMap(void)) Error!void {
+        for (parameters) |parameter| {
+            const entry = try names.getOrPut(parameter);
+            if (entry.found_existing) return error.NameCollision;
+        }
+    }
+
     fn parseInterfaceBody(self: *Parser, interface_name: []const u8, aliases: *std.ArrayList(AliasDecl), consts: *std.ArrayList(ConstDecl), member_names: *std.StringHashMap(void)) Error![]InterfaceMethod {
         try self.skipUntil(.l_brace);
         try self.expect(.l_brace);
@@ -2256,9 +2264,11 @@ pub const Parser = struct {
             const param_fields = try self.parseMethodFields(parts.params);
             var keep_param_fields = false;
             errdefer if (!keep_param_fields) self.allocator.free(param_fields);
+            try validateMethodParameterFieldNames(parameters, param_fields);
             const result_fields = try self.parseMethodFields(parts.results);
             var keep_result_fields = false;
             errdefer if (!keep_result_fields) self.allocator.free(result_fields);
+            try validateMethodParameterFieldNames(parameters, result_fields);
             try methods.append(self.allocator, .{
                 .name = name,
                 .ordinal = ordinal,
@@ -2660,6 +2670,14 @@ pub const Parser = struct {
                 for (items) |item| try self.validateInlineAggregateDefaultSyntax(item);
             },
             else => {},
+        }
+    }
+
+    fn validateMethodParameterFieldNames(parameters: []const []const u8, fields: []const MethodField) Error!void {
+        for (fields) |field| {
+            for (parameters) |parameter| {
+                if (std.mem.eql(u8, parameter, field.name)) return error.NameCollision;
+            }
         }
     }
 
@@ -3264,6 +3282,7 @@ pub const Parser = struct {
         defer field_names.deinit();
         var member_names = std.StringHashMap(void).init(self.allocator);
         defer member_names.deinit();
+        try reserveParameterNames(parameters, &member_names);
         var unions = std.ArrayList(UnionBuilder).empty;
         errdefer {
             for (unions.items) |*u| u.deinit(self.allocator);
@@ -5951,6 +5970,28 @@ test "schema parser rejects duplicate declaration and method parameter names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\interface Service {
         \\  call @0 [T, T] () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  using T = Text;
+        \\  item @0 :Text;
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  T @0 :Text;
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service(T) {
+        \\  using T = Text;
+        \\  call @0 () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [T] (T :UInt32) -> ();
         \\}
     ));
 }
