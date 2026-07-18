@@ -1959,7 +1959,7 @@ pub const Parser = struct {
                 try self.appendParsedAnnotation(decl);
                 keep = true;
             } else if (self.lookahead.tag == .dollar) {
-                try raw_file_annotations.append(self.allocator, try self.takeRawUntilSemicolon());
+                try raw_file_annotations.append(self.allocator, try self.takeAnnotationSuffixUntilSemicolon());
             } else if (self.lookahead.tag == .at) {
                 if (file_id != null) return error.OrdinalCollision;
                 file_id = try self.parseFileId();
@@ -1999,7 +1999,7 @@ pub const Parser = struct {
             for (superclasses) |*superclass| superclass.deinit(self.allocator);
             self.allocator.free(superclasses);
         }
-        const annotations = try self.takeRawUntilLeftBrace();
+        const annotations = try self.takeAnnotationSuffixUntilLeftBrace();
         var aliases = std.ArrayList(AliasDecl).empty;
         errdefer {
             for (aliases.items) |*a| a.deinit(self.allocator);
@@ -2037,7 +2037,7 @@ pub const Parser = struct {
         try self.expect(.colon);
         var ty = try self.parseType();
         errdefer ty.deinit(self.allocator);
-        const annotations = try self.takeRawUntilSemicolon();
+        const annotations = try self.takeAnnotationSuffixUntilSemicolon();
         return .{ .name = qualified.name, .owns_name = qualified.owns_name, .id = decl_id, .annotations = annotations, .ty = ty, .targets = targets };
     }
 
@@ -2244,6 +2244,7 @@ pub const Parser = struct {
             if (ordinal_entry.found_existing) return error.OrdinalCollision;
             const signature = try self.takeRawUntilSemicolon();
             const parts = try splitMethodSignature(signature);
+            try validateAnnotationSuffix(parts.annotations);
             try self.validateMethodEndpointType(parts.params);
             try self.validateMethodEndpointType(parts.results);
             const parameters = try self.parseMethodSignatureParameters(signature);
@@ -2671,6 +2672,7 @@ pub const Parser = struct {
             try self.expect(.equal);
             const raw_tail = try self.takeRawUntilSemicolon();
             const split = splitDefaultExpressionAndAnnotations(raw_tail);
+            try validateAnnotationSuffix(split.annotations);
             const is_embed = std.mem.startsWith(u8, split.default_expression, "embed");
             const embed_path = if (is_embed) embedPathFromExpression(split.default_expression) orelse "" else "";
             const is_struct_literal = std.mem.startsWith(u8, split.default_expression, "(");
@@ -2736,7 +2738,7 @@ pub const Parser = struct {
             try self.skipRawUntilSemicolon();
             return;
         }
-        const const_annotations = try self.takeRawUntilSemicolon();
+        const const_annotations = try self.takeAnnotationSuffixUntilSemicolon();
 
         const entry = try decl_names.getOrPut(name);
         if (entry.found_existing) {
@@ -2786,6 +2788,7 @@ pub const Parser = struct {
                 const raw_item = try self.takeRawUntilConstListItemEnd();
                 const split = splitDefaultExpressionAndAnnotations(raw_item);
                 annotations = split.annotations;
+                try validateAnnotationSuffix(annotations);
                 if (std.mem.startsWith(u8, split.default_expression, "(")) {
                     struct_fields = try parseConstStructFieldsAlloc(self.allocator, split.default_expression);
                 }
@@ -2798,6 +2801,7 @@ pub const Parser = struct {
             if (annotations.len == 0 and self.lookahead.tag == .dollar) {
                 annotations = try self.takeRawUntilConstListItemEnd();
             }
+            try validateAnnotationSuffix(annotations);
             try items.append(self.allocator, .{
                 .index = items.items.len,
                 .literal = literal,
@@ -3050,7 +3054,7 @@ pub const Parser = struct {
         const decl_id = try self.parseOptionalDeclarationId();
         const parameters = try self.parseDeclarationParameters();
         errdefer self.allocator.free(parameters);
-        const annotations = try self.takeRawUntilLeftBrace();
+        const annotations = try self.takeAnnotationSuffixUntilLeftBrace();
         try self.expect(.l_brace);
 
         var fields = std.ArrayList(Field).empty;
@@ -3180,7 +3184,7 @@ pub const Parser = struct {
     fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
         union_builder.name = "";
         union_builder.ordinal = null;
-        union_builder.annotations = try self.takeRawUntilLeftBrace();
+        union_builder.annotations = try self.takeAnnotationSuffixUntilLeftBrace();
         try self.expect(.l_brace);
         try self.parseAnonymousUnionBody(union_builder, union_index);
     }
@@ -3206,7 +3210,7 @@ pub const Parser = struct {
             else
                 try self.allocator.dupe(u8, name);
             defer self.allocator.free(group_prefix);
-            const group_annotations = try self.takeRawUntilLeftBrace();
+            const group_annotations = try self.takeAnnotationSuffixUntilLeftBrace();
             try groups.append(self.allocator, .{
                 .index = groups.items.len,
                 .name = name,
@@ -3228,7 +3232,7 @@ pub const Parser = struct {
             try unions.append(self.allocator, UnionBuilder.init(self.allocator));
             unions.items[union_index].name = name;
             unions.items[union_index].ordinal = ordinal;
-            unions.items[union_index].annotations = try self.takeRawUntilLeftBrace();
+            unions.items[union_index].annotations = try self.takeAnnotationSuffixUntilLeftBrace();
             try self.parseNamedUnionBody(union_prefix, &unions.items[union_index], union_index);
             return;
         }
@@ -3290,7 +3294,7 @@ pub const Parser = struct {
             }
             if (try self.isAnonymousUnionStart()) {
                 try self.advance();
-                _ = try self.takeRawUntilLeftBrace();
+                _ = try self.takeAnnotationSuffixUntilLeftBrace();
                 try self.skipCurrentBracedBody();
                 continue;
             }
@@ -3391,7 +3395,7 @@ pub const Parser = struct {
         const qualified = try self.qualifiedDeclName(name_prefix, local_name);
         errdefer if (qualified.owns_name) self.allocator.free(qualified.name);
         const decl_id = try self.parseOptionalDeclarationId();
-        const annotations = try self.takeRawUntilLeftBrace();
+        const annotations = try self.takeAnnotationSuffixUntilLeftBrace();
         try self.expect(.l_brace);
 
         var values = std.ArrayList(EnumValue).empty;
@@ -3413,7 +3417,7 @@ pub const Parser = struct {
             const ordinal: u16 = @intCast(ordinal_u64);
             const entry = try occupied_ordinals.getOrPut(ordinal);
             if (entry.found_existing) return error.OrdinalCollision;
-            const value_annotations = try self.takeRawUntilSemicolon();
+            const value_annotations = try self.takeAnnotationSuffixUntilSemicolon();
             try values.append(self.allocator, .{ .index = values.items.len, .name = value_name, .ordinal = ordinal, .annotations = value_annotations });
         }
         try self.expect(.r_brace);
@@ -3447,7 +3451,7 @@ pub const Parser = struct {
                 const literal = try self.parseBlockTextLiteralAfterEqual();
                 default_literal = literal;
                 default_expression = literal;
-                annotations = try self.takeRawUntilSemicolon();
+                annotations = try self.takeAnnotationSuffixUntilSemicolon();
             } else {
                 try self.expect(.equal);
                 if (self.lookahead.tag == .l_paren or self.lookahead.tag == .l_bracket) {
@@ -3455,6 +3459,7 @@ pub const Parser = struct {
                     const split = splitDefaultExpressionAndAnnotations(raw_tail);
                     default_expression = split.default_expression;
                     annotations = split.annotations;
+                    try validateAnnotationSuffix(annotations);
                     try self.validateInlineAggregateDefaultSyntax(default_expression);
                 } else {
                     const default_start = self.currentTokenStart();
@@ -3470,11 +3475,11 @@ pub const Parser = struct {
                     }
                     const default_end = self.currentTokenStart();
                     default_expression = std.mem.trim(u8, self.lexer.source[default_start..default_end], " \t\r\n");
-                    annotations = try self.takeRawUntilSemicolon();
+                    annotations = try self.takeAnnotationSuffixUntilSemicolon();
                 }
             }
         } else {
-            annotations = try self.takeRawUntilSemicolon();
+            annotations = try self.takeAnnotationSuffixUntilSemicolon();
         }
 
         if (owns_default_literal) _ = self.takeOwnedLiteral(default_literal.?);
@@ -3818,6 +3823,62 @@ pub const Parser = struct {
             }
         }
         return .{ .default_expression = std.mem.trim(u8, raw, " \t\r\n"), .annotations = "" };
+    }
+
+    fn validateAnnotationSuffix(raw: []const u8) Error!void {
+        var index = try skipTriviaIndex(raw, 0);
+        while (index < raw.len) {
+            if (raw[index] != '$') return error.UnexpectedToken;
+            index += 1;
+
+            if (index >= raw.len or !isIdentStart(raw[index])) return error.UnexpectedToken;
+            index += 1;
+            while (index < raw.len and isIdentContinue(raw[index])) index += 1;
+            while (index < raw.len and raw[index] == '.') {
+                index += 1;
+                if (index >= raw.len or !isIdentStart(raw[index])) return error.UnexpectedToken;
+                index += 1;
+                while (index < raw.len and isIdentContinue(raw[index])) index += 1;
+            }
+
+            index = try skipTriviaIndex(raw, index);
+            if (index < raw.len and raw[index] == '(') {
+                var paren_depth: usize = 0;
+                while (index < raw.len) {
+                    if (try skipRawStringOrCommentIndex(raw, index)) |next| {
+                        index = next;
+                        continue;
+                    }
+                    switch (raw[index]) {
+                        '(' => paren_depth += 1,
+                        ')' => {
+                            if (paren_depth == 0) return error.UnexpectedToken;
+                            paren_depth -= 1;
+                            index += 1;
+                            if (paren_depth == 0) break;
+                            continue;
+                        },
+                        else => {},
+                    }
+                    index += 1;
+                }
+                if (paren_depth != 0) return error.UnexpectedToken;
+            }
+
+            index = try skipTriviaIndex(raw, index);
+        }
+    }
+
+    fn takeAnnotationSuffixUntilSemicolon(self: *Parser) Error![]const u8 {
+        const annotations = try self.takeRawUntilSemicolon();
+        try validateAnnotationSuffix(annotations);
+        return annotations;
+    }
+
+    fn takeAnnotationSuffixUntilLeftBrace(self: *Parser) Error![]const u8 {
+        const annotations = try self.takeRawUntilLeftBrace();
+        try validateAnnotationSuffix(annotations);
+        return annotations;
     }
 
     fn skipUntilSemicolon(self: *Parser) Error!void {
@@ -4895,6 +4956,11 @@ test "schema parser rejects duplicate declaration ids" {
 test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 UInt32; }"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "@!;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad trailing { field @0 :UInt32; }"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "enum Bad { a @0 trailing; }"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 :UInt32 trailing; }"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad :UInt32 = 1 trailing;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "interface Bad { call @0 () -> () trailing; }"));
 }
 
 test "schema parser rejects malformed struct field defaults" {
