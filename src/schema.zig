@@ -2332,6 +2332,7 @@ pub const Parser = struct {
                     }
                 }
                 default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
+                if (default_literal.?.len == 0) return error.UnexpectedToken;
                 if (std.mem.eql(u8, field_type, "Data")) {
                     if (default_literal) |literal| {
                         default_is_hex_data = std.mem.startsWith(u8, literal, "0x\"");
@@ -4828,6 +4829,24 @@ test "schema parser rejects empty method field types" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 (value := 1) -> ();
+        \\}
+    ));
+}
+
+test "schema parser rejects empty method field defaults" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :UInt32 =) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :UInt32 =, other :UInt32) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> (value :UInt32 =);
         \\}
     ));
 }
