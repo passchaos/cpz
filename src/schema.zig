@@ -2318,6 +2318,9 @@ pub const Parser = struct {
             if (member_names.contains(name)) return error.NameCollision;
             const entry = try names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
+            for (parameters.items) |existing| {
+                if (try zigNamesEqual(self.allocator, existing, name)) return error.NameCollision;
+            }
             try parameters.append(self.allocator, name);
             index = try skipTriviaIndex(signature, index);
             if (index >= signature.len) return error.UnexpectedToken;
@@ -7174,6 +7177,11 @@ test "schema parser rejects duplicate declaration and method parameter names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\interface Service {
         \\  call @0 [T] (T :UInt32) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [error, error_] () -> ();
         \\}
     ));
 }
