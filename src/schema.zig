@@ -3070,7 +3070,9 @@ pub const Parser = struct {
     fn parseOptionalDeclarationId(self: *Parser) Error!?u64 {
         if (self.lookahead.tag != .at) return null;
         try self.expect(.at);
-        return try self.expectInteger();
+        const value = try self.expectInteger();
+        if (self.lookahead.tag == .at) return error.UnexpectedToken;
+        return value;
     }
 
     fn parseStruct(self: *Parser, name_prefix: ?[]const u8) Error!Struct {
@@ -4865,6 +4867,14 @@ test "schema parser rejects duplicate declaration ids" {
         \\  }
         \\  const value @0xbbbb :UInt32 = 1;
         \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Thing @0xaaaa @0xbbbb {
+        \\  field @0 :UInt32;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\annotation bad @0xaaaa @0xbbbb (field) :Text;
     ));
 }
 
