@@ -5,13 +5,14 @@ pub const Error = error{
     PackedInputTruncated,
     PackedOutputLengthMismatch,
     PackedOutputTooSmall,
+    PackedSizeOverflow,
     UnpackedInputNotWordAligned,
 } || std.mem.Allocator.Error;
 
 pub fn maxPackedSize(unpacked_len: usize) Error!usize {
     if (unpacked_len % wire.bytes_per_word != 0) return error.UnpackedInputNotWordAligned;
     const words = unpacked_len / wire.bytes_per_word;
-    return std.math.mul(usize, words, wire.bytes_per_word + 2) catch return error.OutOfMemory;
+    return std.math.mul(usize, words, wire.bytes_per_word + 2) catch return error.PackedSizeOverflow;
 }
 
 pub fn packedSize(unpacked_bytes: []const u8) Error!usize {
@@ -29,7 +30,7 @@ pub fn packedSize(unpacked_bytes: []const u8) Error!usize {
                 payload_len += 1;
             }
         }
-        packed_len = std.math.add(usize, packed_len, 1 + payload_len) catch return error.OutOfMemory;
+        packed_len = std.math.add(usize, packed_len, 1 + payload_len) catch return error.PackedSizeOverflow;
         i += wire.bytes_per_word;
 
         if (tag == 0x00) {
@@ -38,14 +39,14 @@ pub fn packedSize(unpacked_bytes: []const u8) Error!usize {
                 i += wire.bytes_per_word;
                 run_words += 1;
             }
-            packed_len = std.math.add(usize, packed_len, 1) catch return error.OutOfMemory;
+            packed_len = std.math.add(usize, packed_len, 1) catch return error.PackedSizeOverflow;
         } else if (tag == 0xff) {
             var run_words: usize = 0;
             while (i < unpacked_bytes.len and run_words < 255 and shouldCopyRaw(unpacked_bytes[i..][0..wire.bytes_per_word])) {
                 i += wire.bytes_per_word;
                 run_words += 1;
             }
-            packed_len = std.math.add(usize, packed_len, 1 + run_words * wire.bytes_per_word) catch return error.OutOfMemory;
+            packed_len = std.math.add(usize, packed_len, 1 + run_words * wire.bytes_per_word) catch return error.PackedSizeOverflow;
         }
     }
     return packed_len;
@@ -57,7 +58,7 @@ pub fn unpackedSize(packed_bytes: []const u8) Error!usize {
     while (i < packed_bytes.len) {
         const tag = packed_bytes[i];
         i += 1;
-        out_len = std.math.add(usize, out_len, wire.bytes_per_word) catch return error.OutOfMemory;
+        out_len = std.math.add(usize, out_len, wire.bytes_per_word) catch return error.PackedSizeOverflow;
         inline for (0..wire.bytes_per_word) |j| {
             if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
                 if (i >= packed_bytes.len) return error.PackedInputTruncated;
@@ -68,14 +69,14 @@ pub fn unpackedSize(packed_bytes: []const u8) Error!usize {
             if (i >= packed_bytes.len) return error.PackedInputTruncated;
             const additional_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
             i += 1;
-            out_len = std.math.add(usize, out_len, additional_bytes) catch return error.OutOfMemory;
+            out_len = std.math.add(usize, out_len, additional_bytes) catch return error.PackedSizeOverflow;
         } else if (tag == 0xff) {
             if (i >= packed_bytes.len) return error.PackedInputTruncated;
             const raw_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
             i += 1;
             if (packed_bytes.len - i < raw_bytes) return error.PackedInputTruncated;
             i += raw_bytes;
-            out_len = std.math.add(usize, out_len, raw_bytes) catch return error.OutOfMemory;
+            out_len = std.math.add(usize, out_len, raw_bytes) catch return error.PackedSizeOverflow;
         }
     }
     return out_len;
@@ -562,6 +563,8 @@ test "packInto matches allocating encoder and reports small buffers" {
     try testing.expectError(error.UnpackedInputNotWordAligned, maxPackedSize(unpacked.len - 1));
     try testing.expectError(error.UnpackedInputNotWordAligned, packedSize(unpacked[0 .. unpacked.len - 1]));
     try testing.expectError(error.PackedInputTruncated, unpackedSize(expected[0 .. expected.len - 1]));
+    const huge_aligned_len = std.math.maxInt(usize) - (std.math.maxInt(usize) % wire.bytes_per_word);
+    try testing.expectError(error.PackedSizeOverflow, maxPackedSize(huge_aligned_len));
 }
 
 test "packToWriter matches allocating encoder" {
