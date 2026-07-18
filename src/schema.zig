@@ -2697,7 +2697,10 @@ pub const Parser = struct {
             var struct_fields: ?[]ConstStructField = null;
             errdefer if (struct_fields) |fields| self.allocator.free(fields);
             if (is_struct_literal) {
+                try self.validateDefaultLiteralSyntax(split.default_expression);
                 struct_fields = try parseConstStructFieldsAlloc(self.allocator, split.default_expression);
+            } else if (std.mem.startsWith(u8, split.default_expression, "[")) {
+                try self.validateDefaultLiteralSyntax(split.default_expression);
             }
             const entry = try decl_names.getOrPut(name);
             if (entry.found_existing) {
@@ -2807,6 +2810,7 @@ pub const Parser = struct {
                 const split = splitDefaultExpressionAndAnnotations(raw_item);
                 annotations = split.annotations;
                 try validateAnnotationSuffix(annotations);
+                try self.validateDefaultLiteralSyntax(split.default_expression);
                 if (std.mem.startsWith(u8, split.default_expression, "(")) {
                     struct_fields = try parseConstStructFieldsAlloc(self.allocator, split.default_expression);
                 }
@@ -5035,6 +5039,18 @@ test "schema parser rejects malformed struct field defaults" {
         \\struct Bad {
         \\  items @0 :List(Item) = [(id = 1 trailing)];
         \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const bad :Item = (id = 1 trailing);
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const bad :List(Item) = [(id = 1 trailing)];
     ));
 }
 
