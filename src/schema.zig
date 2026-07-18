@@ -4232,6 +4232,8 @@ fn unionDeclsFromBuilders(allocator: std.mem.Allocator, builders: []const UnionB
 }
 
 pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!LayoutFile {
+    try validateFileTypeApplications(allocator, file);
+
     var layouts = std.ArrayList(StructLayout).empty;
     errdefer {
         for (layouts.items) |*layout| layout.deinit(allocator);
@@ -4242,6 +4244,28 @@ pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!
         try layouts.append(allocator, try planStructLayout(allocator, file, decl));
     }
     return .{ .structs = try layouts.toOwnedSlice(allocator) };
+}
+
+fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    for (file.aliases) |alias| try validateTypeApplicationArity(allocator, file, alias.target);
+    for (file.consts) |decl| try validateTypeApplicationArity(allocator, file, decl.ty);
+    for (file.annotations) |decl| try validateTypeApplicationArity(allocator, file, decl.ty);
+    for (file.structs) |decl| {
+        for (decl.fields) |field| try validateTypeApplicationArity(allocator, file, field.ty);
+        for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, alias.target);
+        for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, const_decl.ty);
+    }
+    for (file.interfaces) |decl| {
+        for (decl.superclasses) |superclass| try validateTypeApplicationArity(allocator, file, superclass);
+        for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, alias.target);
+        for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, const_decl.ty);
+        for (decl.methods) |method| {
+            try validateRawTypeApplicationArity(allocator, file, method.params_type);
+            try validateRawTypeApplicationArity(allocator, file, method.results_type);
+            for (method.param_fields) |field| try validateRawTypeApplicationArity(allocator, file, field.ty);
+            for (method.result_fields) |field| try validateRawTypeApplicationArity(allocator, file, field.ty);
+        }
+    }
 }
 
 pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!StructLayout {
@@ -4528,6 +4552,55 @@ fn typeNameEqualsCanonical(raw: []const u8, canonical: []const u8) bool {
         canonical_index += 1;
     }
     return depth == 0 and canonical_index == canonical.len;
+}
+
+fn typeApplicationOpen(raw: []const u8) ?usize {
+    var depth: usize = 0;
+    for (raw, 0..) |c, index| {
+        switch (c) {
+            '(' => {
+                if (depth == 0) return index;
+                depth += 1;
+            },
+            ')' => {
+                if (depth != 0) depth -= 1;
+            },
+            else => {},
+        }
+    }
+    return null;
+}
+
+fn declarationParameterCount(file: *const File, type_name: []const u8) ?usize {
+    const open = typeApplicationOpen(type_name) orelse return null;
+    const base = type_name[0..open];
+    for (file.structs) |decl| {
+        if (std.mem.eql(u8, base, decl.name)) return decl.parameters.len;
+    }
+    for (file.interfaces) |decl| {
+        if (std.mem.eql(u8, base, decl.name)) return decl.parameters.len;
+    }
+    return null;
+}
+
+fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, raw: []const u8) LayoutError!void {
+    if (raw.len == 0) return;
+    if (declarationParameterCount(file, raw)) |parameter_count| {
+        const args = (try splitTypeApplicationArgsAlloc(allocator, raw)) orelse return error.UnsupportedType;
+        defer {
+            for (args) |*arg| arg.deinit(allocator);
+            allocator.free(args);
+        }
+        if (args.len != parameter_count) return error.UnsupportedType;
+    }
+}
+
+fn validateTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, ty: Type) LayoutError!void {
+    switch (ty) {
+        .named => |name| try validateRawTypeApplicationArity(allocator, file, name),
+        .list, .optional => |child| try validateTypeApplicationArity(allocator, file, child.*),
+        else => {},
+    }
 }
 
 fn canonicalTypeNameAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
@@ -4833,6 +4906,30 @@ test "schema parser rejects malformed type application arguments" {
         \\  field @0 :GenericBox(Text,, Data);
         \\}
     ));
+}
+
+test "schema layout planner rejects generic arity mismatches" {
+    var field_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T;
+        \\}
+        \\struct Bad {
+        \\  field @0 :Box(Text, Data);
+        \\}
+    );
+    defer field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &field_file));
+
+    var method_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T;
+        \\}
+        \\interface Bad {
+        \\  call @0 Box(Text, Data) -> ();
+        \\}
+    );
+    defer method_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &method_file));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
@@ -10042,8 +10139,8 @@ fn cloneTypeAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError!Type {
 
 fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []const u8) LayoutError!?[]Type {
     const open = std.mem.indexOfScalar(u8, type_name, '(') orelse return null;
-    if (type_name.len == 0 or type_name[type_name.len - 1] != ')') return null;
-    const raw_args = type_name[open + 1 .. type_name.len - 1];
+    const close = matchingParen(type_name, open) orelse return null;
+    const raw_args = type_name[open + 1 .. close];
     var args = std.ArrayList(Type).empty;
     errdefer {
         for (args.items) |*arg| arg.deinit(allocator);
@@ -10058,6 +10155,7 @@ fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []cons
                 if (depth != 0) depth -= 1;
             },
             ',' => if (depth == 0) {
+                if (std.mem.trim(u8, raw_args[start..index], " \t\r\n").len == 0) return error.UnexpectedToken;
                 try args.append(allocator, try parseTypeArgAlloc(allocator, raw_args[start..index]));
                 start = index + 1;
             },
