@@ -2049,6 +2049,7 @@ pub const Parser = struct {
         while (self.lookahead.tag != .r_paren) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             if (self.lookahead.tag == .star) {
+                if (saw_wildcard) return error.UnexpectedToken;
                 if (saw_target) return error.UnexpectedToken;
                 try self.expect(.star);
                 targets = allAnnotationTargets();
@@ -5312,6 +5313,7 @@ test "schema parser accepts wildcard annotation targets" {
 test "schema parser rejects wildcard annotation target mixed with explicit targets" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(*, field) :Void;"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(field, *) :Void;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(*, *) :Void;"));
 }
 
 test "schema parser rejects duplicate annotation targets" {
