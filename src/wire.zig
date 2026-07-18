@@ -673,7 +673,7 @@ pub inline fn bytesPerElement(size: ElementSize) Error!usize {
 }
 
 pub inline fn wordsForBits(bits: usize) usize {
-    return (bits + bits_per_word - 1) / bits_per_word;
+    return bits / bits_per_word + @intFromBool(bits % bits_per_word != 0);
 }
 
 pub inline fn wordsForList(size: ElementSize, element_count: usize) Error!usize {
@@ -762,6 +762,7 @@ test "element size helper methods" {
     try testing.expectEqual(@as(usize, 2), try ElementSize.two_bytes.wordsForElements(5));
     try testing.expectEqual(@as(usize, 5), try ElementSize.eight_bytes.wordsForElements(5));
     try testing.expectError(error.UnsupportedElementSize, ElementSize.composite.wordsForElements(1));
+    try testing.expectEqual(std.math.maxInt(usize) / bits_per_word + 1, wordsForBits(std.math.maxInt(usize)));
 }
 
 test "struct size byte helper methods" {
