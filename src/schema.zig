@@ -8382,6 +8382,7 @@ fn appendRawSchemaComment(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 
 fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
     try validateImportZigNames(allocator, file.imports);
+    try validateTopLevelFixedHelperZigNames(allocator, file);
     try validateTopLevelConstFlatZigNames(allocator, file);
     try validateTopLevelConstStructMemberZigNames(allocator, file);
 
@@ -8462,6 +8463,27 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.annotations[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+    }
+}
+
+fn validateTopLevelFixedHelperZigNames(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    const fixed_names = [_][]const u8{
+        "initRoot",
+        "getRoot",
+        "getRootTyped",
+        "newOrphan",
+        "newOrphanIn",
+        "newOrphanCopy",
+        "newOrphanCopyCanonical",
+        "newOrphanCopyFromBuilder",
+        "newOrphanCopyCanonicalFromBuilder",
+        "newOrphanCopyIn",
+        "newOrphanCopyCanonicalIn",
+        "newOrphanCopyFromBuilderIn",
+        "newOrphanCopyCanonicalFromBuilderIn",
+    };
+    for (fixed_names) |name| {
+        try validateGeneratedTopLevelZigName(allocator, file, name);
     }
 }
 
@@ -25975,6 +25997,26 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\struct PointerHelpers {
         \\  foo @0 :Text;
         \\  fooPointerKind @1 :Bool;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct getRoot {
+        \\  id @0 :UInt32;
+        \\}
+        ,
+        \\struct initRoot {
+        \\  id @0 :UInt32;
+        \\}
+        ,
+        \\struct newOrphanCopy {
+        \\  id @0 :UInt32;
         \\}
         ,
     }) |source| {
