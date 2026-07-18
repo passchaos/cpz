@@ -14198,7 +14198,7 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
             for (items, 0..) |item, index| {
                 const value = parseSignedLiteral(i64, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
-                std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
+                std.mem.writeInt(u64, data[try wordByteOffset(index)..][0..@sizeOf(u64)], @bitCast(value), .little);
             }
         },
         .uint8 => {
@@ -14225,7 +14225,7 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
             for (items, 0..) |item, index| {
                 const value = parseUnsignedLiteral(u64, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
-                std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], value, .little);
+                std.mem.writeInt(u64, data[try wordByteOffset(index)..][0..@sizeOf(u64)], value, .little);
             }
         },
         .float32 => {
@@ -14239,7 +14239,7 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
             const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .eight_bytes, items.len);
             for (items, 0..) |item, index| {
                 const value = parseFloatLiteral(f64, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
-                std.mem.writeInt(u64, data[index * @sizeOf(u64) ..][0..@sizeOf(u64)], @bitCast(value), .little);
+                std.mem.writeInt(u64, data[try wordByteOffset(index)..][0..@sizeOf(u64)], @bitCast(value), .little);
             }
         },
         .text => try appendPointerListOfByteLists(allocator, file, scope, segment, pointer_index, data_words, object_start_words, items, true),
