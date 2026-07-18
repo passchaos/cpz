@@ -5032,7 +5032,7 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
     switch (resolveTypeScoped(file, scope, ty)) {
         .optional => |child| {
             if (std.mem.eql(u8, raw, "null")) return;
-            try validateTypeAggregateDefault(allocator, file, scope, child.*, raw);
+            try validateTypeAggregateDefault(allocator, file, scope, child.*, if (const_ref != null) literal_raw else raw);
         },
         .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try validateReferenceLikeDefaultLiteral(file, scope, ty, raw),
         .text, .data => {},
@@ -5122,8 +5122,45 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 try validateTypeAggregateDefault(allocator, file, struct_decl, validation_ty, const_field.literal);
             }
         },
-        .any_pointer, .any_struct, .any_list, .capability => {},
+        .any_pointer => try validateAnyPointerLikeDefault(file, scope, raw, const_ref, .any),
+        .any_struct => try validateAnyPointerLikeDefault(file, scope, raw, const_ref, .struct_ptr),
+        .any_list => try validateAnyPointerLikeDefault(file, scope, raw, const_ref, .list),
+        .capability => try validateAnyPointerLikeDefault(file, scope, raw, const_ref, .capability),
     }
+}
+
+fn validateAnyPointerLikeDefault(file: *const File, scope: ?*const Struct, raw: []const u8, const_ref: ?*const ConstDecl, comptime want: enum { any, struct_ptr, list, capability }) LayoutError!void {
+    if (std.mem.eql(u8, raw, "null")) return;
+    if (std.mem.eql(u8, raw, "void") and want != .list and want != .struct_ptr) return;
+
+    const decl = const_ref orelse return error.UnexpectedToken;
+    const const_owner = constDeclOwnerName(file, decl);
+    const resolved_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
+    switch (want) {
+        .any => switch (resolved_ty) {
+            .any_pointer, .any_struct, .any_list, .capability, .list => return,
+            .named => |type_name| if (findEnum(file, type_name) == null) return,
+            else => {},
+        },
+        .struct_ptr => switch (resolved_ty) {
+            .any_struct => return,
+            .named => |type_name| if (findEnum(file, type_name) == null and
+                findInterface(file, type_name) == null and
+                (isStructLikeName(file, type_name) or (const_owner != null and isStructLikeNameRelative(file, const_owner, type_name)))) return,
+            else => {},
+        },
+        .list => switch (resolved_ty) {
+            .any_list, .list => return,
+            else => {},
+        },
+        .capability => switch (resolved_ty) {
+            .capability => return,
+            .named => |type_name| if (findInterface(file, type_name) != null or
+                (const_owner != null and isInterfaceLikeNameRelative(file, const_owner, type_name))) return,
+            else => {},
+        },
+    }
+    return error.UnexpectedToken;
 }
 
 fn parameterNameInScope(file: *const File, scope: ?*const Struct, name: []const u8) bool {
@@ -7065,6 +7102,33 @@ test "schema layout planner rejects mismatched aggregate default item types" {
     );
     defer list_ref_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &list_ref_file));
+
+    var any_struct_scalar_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :AnyStruct = 1;
+        \\}
+    );
+    defer any_struct_scalar_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &any_struct_scalar_file));
+
+    var any_list_struct_file = try parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  value @0 :AnyList = (id = 1);
+        \\}
+    );
+    defer any_list_struct_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &any_list_struct_file));
+
+    var capability_scalar_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :Capability = 1;
+        \\}
+    );
+    defer capability_scalar_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &capability_scalar_file));
 
     var scalar_field_ref_file = try parse(std.testing.allocator,
         \\const text :Text = "x";
