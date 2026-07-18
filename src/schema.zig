@@ -5155,30 +5155,14 @@ fn resolveType(file: *const File, ty: Type) Type {
 
 fn resolveTypeScoped(file: *const File, scope: ?*const Struct, ty: Type) Type {
     return switch (ty) {
-        .named => |name| resolveNamedAlias(file, scope, name, 0) orelse ty,
+        .named => resolveTypeInOwnerScope(file, if (scope) |decl| decl.name else null, ty),
         else => ty,
     };
 }
 
 fn resolveNamedAlias(file: *const File, scope: ?*const Struct, name: []const u8, depth: usize) ?Type {
-    if (depth >= 32) return null;
-    if (scope) |decl| {
-        for (decl.aliases) |alias| {
-            if (!std.mem.eql(u8, alias.name, name)) continue;
-            return switch (alias.target) {
-                .named => |target_name| resolveNamedAlias(file, scope, target_name, depth + 1) orelse alias.target,
-                else => alias.target,
-            };
-        }
-    }
-    for (file.aliases) |alias| {
-        if (!std.mem.eql(u8, alias.name, name)) continue;
-        return switch (alias.target) {
-            .named => |target_name| resolveNamedAlias(file, null, target_name, depth + 1) orelse alias.target,
-            else => alias.target,
-        };
-    }
-    return null;
+    const owner_name = if (scope) |decl| decl.name else null;
+    return resolveNamedAliasInOwnerScope(file, owner_name, name, depth);
 }
 
 fn isSimpleConstType(ty: Type) bool {
@@ -6851,6 +6835,33 @@ test "schema parser tolerates nested declarations and dotted type names" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 2 }, layouts.structs[1].fields[3].slot);
     try std.testing.expectEqual(FieldSlot{ .pointer = 3 }, layouts.structs[1].fields[4].slot);
     try std.testing.expectEqual(FieldSlot{ .pointer = 4 }, layouts.structs[1].fields[5].slot);
+}
+
+test "schema resolver inherits aliases from ancestor declaration scopes" {
+    var file = try parse(std.testing.allocator,
+        \\struct Parent {
+        \\  using Id = UInt32;
+        \\  struct Child {
+        \\    id @0 :Id;
+        \\  }
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 2), file.structs.len);
+    try std.testing.expectEqualStrings("Parent.Child", file.structs[0].name);
+    try std.testing.expectEqualStrings("Parent", file.structs[1].name);
+    try std.testing.expectEqualStrings("Id", file.structs[0].fields[0].ty.named);
+    try std.testing.expectEqual(Type.uint32, resolveTypeScoped(&file, &file.structs[0], file.structs[0].fields[0].ty));
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 0 }, layouts.structs[0].fields[0].slot);
+
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn id(self: @This()) u32") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.field.id.resolvedType\": []const u8 = \"UInt32\"") != null);
 }
 
 test "schema layout planner assigns data and pointer slots" {
