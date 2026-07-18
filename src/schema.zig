@@ -4898,7 +4898,28 @@ fn findAliasTargetInList(aliases: []const AliasDecl, name: []const u8) ?Type {
 
 fn validateConstAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: ConstDecl) LayoutError!void {
     if (decl.is_embed) return;
+    try validateScalarConstReferenceDefault(file, scope, decl);
     try validateTypeAggregateDefault(allocator, file, scope, decl.ty, decl.literal);
+}
+
+fn validateScalarConstReferenceDefault(file: *const File, scope: ?*const Struct, decl: ConstDecl) LayoutError!void {
+    const literal = std.mem.trim(u8, decl.literal, " \t\r\n");
+    if (literal.len == 0) return;
+    const resolved_ty = nonNullResolvedDefaultType(file, scope, decl.ty);
+    switch (resolved_ty) {
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => {},
+        .named => |type_name| if (findEnum(file, type_name) == null) return,
+        else => return,
+    }
+    if (defaultLiteralIsValidBareLiteral(file, scope, decl.ty, literal)) return;
+    if (findConstReference(file, scope, literal)) |referenced_decl| {
+        const const_ty = nonNullDefaultType(resolved_ty);
+        const referenced_ty = nonNullDefaultType(resolveConstDeclType(file, scope, referenced_decl));
+        const const_owner = if (scope) |owner| owner.name else null;
+        if (!defaultConstTypeCompatibleScoped(file, const_owner, constDeclOwnerName(file, referenced_decl), const_ty, referenced_ty)) return error.UnexpectedToken;
+        return;
+    }
+    if (defaultLiteralCanBeReference(literal)) return error.UnexpectedToken;
 }
 
 fn validateMethodFieldDefaultValue(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: MethodField) LayoutError!void {
@@ -6839,6 +6860,18 @@ test "schema layout planner rejects defaults for unresolved named types" {
     );
     defer const_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &const_file));
+
+    var scalar_const_ref_file = try parse(std.testing.allocator,
+        \\const value :UInt32 = missing;
+    );
+    defer scalar_const_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &scalar_const_ref_file));
+
+    var bool_const_ref_file = try parse(std.testing.allocator,
+        \\const value :Bool = missing;
+    );
+    defer bool_const_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &bool_const_ref_file));
 
     var method_file = try parse(std.testing.allocator,
         \\interface Bad {
