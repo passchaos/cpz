@@ -8125,7 +8125,7 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.annotations) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
-        try validateFieldZigNames(allocator, &lhs);
+        try validateFieldZigNames(allocator, file, &lhs);
     }
     for (file.enums, 0..) |lhs, i| {
         for (file.enums[i + 1 ..]) |rhs| {
@@ -8194,8 +8194,8 @@ fn validateImportZigNames(allocator: std.mem.Allocator, imports: []const ImportD
     }
 }
 
-fn validateFieldZigNames(allocator: std.mem.Allocator, decl: *const Struct) LayoutError!void {
-    for (decl.fields, 0..) |lhs, i| {
+fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!void {
+    for (decl.fields, 0..) |*lhs, i| {
         for (decl.fields[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
@@ -8205,7 +8205,8 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, decl: *const Struct) Layo
         for (decl.aliases) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
-        try validateFieldDefaultHelperZigName(allocator, decl, &lhs);
+        try validateFieldDefaultHelperZigName(allocator, decl, lhs);
+        try validatePointerFieldHelperZigNames(allocator, file, decl, lhs);
     }
     for (decl.consts, 0..) |lhs, i| {
         for (decl.consts[i + 1 ..]) |rhs| {
@@ -8231,21 +8232,182 @@ fn validateFieldDefaultHelperZigName(allocator: std.mem.Allocator, decl: *const 
     const default_flat_name = try std.fmt.allocPrint(allocator, "{s}DefaultFlat", .{field_name});
     defer allocator.free(default_flat_name);
 
-    for (decl.fields) |other| {
-        if (field == &other) continue;
+    try validateGeneratedStructMemberZigName(allocator, decl, field, default_name);
+    try validateGeneratedStructMemberZigName(allocator, decl, field, default_flat_name);
+}
+
+fn validatePointerFieldHelperZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct, field: *const Field) LayoutError!void {
+    if (!fieldEmitsPointerHelpers(file, decl, field)) return;
+
+    const field_name = try zigIdentAlloc(allocator, field.name);
+    defer allocator.free(field_name);
+
+    // Keep this list aligned with the reader-side helpers emitted
+    // unconditionally near the top of emitPointerGetter().  These helper names
+    // share the same generated struct namespace as field accessors, nested
+    // constants, and aliases, so accepting a schema-visible member with the
+    // same sanitized Zig name would only defer the failure until Zig compiles
+    // the generated source.
+    try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "has_{s}", .{field_name});
+    const common_suffixes = [_][]const u8{
+        "AsPointer",
+        "PointerKind",
+        "PointerSegmentId",
+        "PointerWordIndex",
+        "PointerMatchesLocation",
+        "MatchesPointerKind",
+        "PointerIsStruct",
+        "PointerIsList",
+        "PointerIsFar",
+        "PointerIsOther",
+        "PointerIsCapability",
+        "PointerIsNear",
+        "RawPointer",
+        "DecodedPointer",
+        "MaxCapabilityCount",
+        "MatchesMaxCapabilityCount",
+        "Stats",
+        "StatsWithOptions",
+        "TotalSize",
+        "TotalSizeWithOptions",
+        "StructSize",
+        "StructDataWordCount",
+        "StructPointerCount",
+        "StructTotalWords",
+        "StructDataByteCount",
+        "StructPointerByteCount",
+        "StructTotalByteCount",
+        "StructMatchesSize",
+        "StructMatchesDataWords",
+        "StructMatchesPointerCount",
+        "StructMatchesTotalWords",
+        "StructMatchesTotalBytes",
+        "ListLen",
+        "ListMatchesLen",
+        "ListElementSize",
+        "ListMatchesElementSize",
+        "ListElementBitCount",
+        "ListElementByteCount",
+        "ListElementWordCount",
+        "ListContentBitCount",
+        "ListContentByteCount",
+        "ListContentWordCount",
+        "ListMatchesContentBytes",
+        "ListStructElementSize",
+        "ListMatchesStructElementSize",
+        "ListIsEmpty",
+        "ListHasIndex",
+        "ListFirstIndex",
+        "ListLastIndex",
+        "ListMatchesElementBits",
+        "ListMatchesElementBytes",
+        "ListMatchesElementWords",
+        "ListMatchesContentBits",
+        "ListMatchesContentWords",
+        "ListStructElementDataWordCount",
+        "ListStructElementPointerCount",
+        "ListStructElementTotalWords",
+        "ListStructElementDataByteCount",
+        "ListStructElementPointerByteCount",
+        "ListStructElementTotalByteCount",
+        "ListMatchesStructElementDataWords",
+        "ListMatchesStructElementPointerCount",
+        "ListMatchesStructElementTotalWords",
+        "ListMatchesStructElementDataBytes",
+        "ListMatchesStructElementPointerBytes",
+        "ListMatchesStructElementTotalBytes",
+    };
+    for (common_suffixes) |suffix| {
+        try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}{s}", .{ field_name, suffix });
+    }
+
+    const field_is_optional = field.ty == .optional;
+    switch (pointerFieldPayloadType(file, decl, field)) {
+        .text, .data => {
+            const suffixes = [_][]const u8{ "OrNull", "ByteCount", "MatchesBytes" };
+            for (suffixes) |suffix| {
+                try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}{s}", .{ field_name, suffix });
+            }
+        },
+        .any_pointer => {
+            const suffixes = [_][]const u8{
+                "PointerType",
+                "AsStruct",
+                "AsList",
+                "AsText",
+                "AsTextByteCount",
+                "AsTextMatchesBytes",
+                "AsData",
+                "AsDataByteCount",
+                "AsDataMatchesBytes",
+                "AsCapability",
+            };
+            for (suffixes) |suffix| {
+                try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}{s}", .{ field_name, suffix });
+            }
+            if (field_is_optional) try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
+        },
+        .any_struct => {
+            const suffixes = [_][]const u8{ "PointerSection", "DataSection" };
+            for (suffixes) |suffix| {
+                try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}{s}", .{ field_name, suffix });
+            }
+            if (field_is_optional) try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
+        },
+        .any_list, .list => if (field_is_optional) {
+            try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
+        },
+        .capability => try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name}),
+        .named => |type_name| {
+            if (findInterface(file, type_name) != null) {
+                try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
+            } else if (field_is_optional and isStructLikeName(file, type_name)) {
+                try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
+            }
+        },
+        else => {},
+    }
+}
+
+fn fieldEmitsPointerHelpers(file: *const File, decl: *const Struct, field: *const Field) bool {
+    return switch (resolveTypeScoped(file, decl, field.ty)) {
+        .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list, .optional => true,
+        .named => |name| findEnum(file, name) == null,
+        else => false,
+    };
+}
+
+fn pointerFieldPayloadType(file: *const File, decl: *const Struct, field: *const Field) Type {
+    return if (field.ty == .optional)
+        resolveTypeScoped(file, decl, field.ty.optional.*)
+    else
+        resolveTypeScoped(file, decl, field.ty);
+}
+
+fn validatePointerFieldHelperZigNameFmt(allocator: std.mem.Allocator, decl: *const Struct, field: *const Field, comptime fmt: []const u8, args: anytype) LayoutError!void {
+    const name = try std.fmt.allocPrint(allocator, fmt, args);
+    defer allocator.free(name);
+    try validateGeneratedStructMemberZigName(allocator, decl, field, name);
+}
+
+fn validateGeneratedStructMemberZigName(allocator: std.mem.Allocator, decl: *const Struct, source_field: ?*const Field, generated_name: []const u8) LayoutError!void {
+    for (decl.fields) |*other| {
+        if (source_field) |source| {
+            if (source == other) continue;
+        }
         const other_name = try zigIdentAlloc(allocator, other.name);
         defer allocator.free(other_name);
-        if (std.mem.eql(u8, default_name, other_name) or std.mem.eql(u8, default_flat_name, other_name)) return error.NameCollision;
+        if (std.mem.eql(u8, generated_name, other_name)) return error.NameCollision;
     }
     for (decl.consts) |constant| {
         const const_name = try zigIdentAlloc(allocator, constant.name);
         defer allocator.free(const_name);
-        if (std.mem.eql(u8, default_name, const_name) or std.mem.eql(u8, default_flat_name, const_name)) return error.NameCollision;
+        if (std.mem.eql(u8, generated_name, const_name)) return error.NameCollision;
     }
     for (decl.aliases) |alias| {
         const alias_name = try zigIdentAlloc(allocator, alias.name);
         defer allocator.free(alias_name);
-        if (std.mem.eql(u8, default_name, alias_name) or std.mem.eql(u8, default_flat_name, alias_name)) return error.NameCollision;
+        if (std.mem.eql(u8, generated_name, alias_name)) return error.NameCollision;
     }
 }
 
@@ -24983,6 +25145,29 @@ test "schema code generator rejects sanitized Zig name collisions" {
             \\  valueDefaultFlat @1 :UInt32;
             \\}
         );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct PointerHelpers {
+        \\  foo @0 :Text;
+        \\  has_foo @1 :Bool;
+        \\}
+        ,
+        \\struct PointerHelpers {
+        \\  foo @0 :Text;
+        \\  fooAsPointer @1 :Bool;
+        \\}
+        ,
+        \\struct PointerHelpers {
+        \\  foo @0 :Text;
+        \\  fooPointerKind @1 :Bool;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
         defer file.deinit(std.testing.allocator);
         var layouts = try planLayouts(std.testing.allocator, &file);
         defer layouts.deinit(std.testing.allocator);
