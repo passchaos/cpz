@@ -2865,7 +2865,6 @@ pub const Parser = struct {
             }
             const entry = try decl_names.getOrPut(name);
             if (entry.found_existing) {
-                ty.deinit(self.allocator);
                 return error.NameCollision;
             }
             try self.registerDeclarationId(decl_id);
@@ -2944,7 +2943,6 @@ pub const Parser = struct {
 
         const entry = try decl_names.getOrPut(name);
         if (entry.found_existing) {
-            ty.deinit(self.allocator);
             return error.NameCollision;
         }
         try self.registerDeclarationId(decl_id);
@@ -5978,6 +5976,14 @@ test "schema parser rejects duplicate top-level declaration names" {
         \\enum Thing {
         \\  value @0;
         \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\using import "foo.capnp";
+        \\const Foo :UInt32 = 1;
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\using import "foo.capnp";
+        \\const Foo :List(UInt32) = [1, 2];
     ));
 }
 
