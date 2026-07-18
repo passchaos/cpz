@@ -3,7 +3,7 @@ const cpz = @import("cpz");
 
 pub fn main() !void {
     var gpa_state = std.heap.DebugAllocator(.{}){};
-    defer _ = gpa_state.deinit();
+    defer std.debug.assert(gpa_state.deinit() == .ok);
     const allocator = gpa_state.allocator();
 
     var builder = try cpz.MessageBuilder.init(allocator, .{ .first_segment_words = 32 });
