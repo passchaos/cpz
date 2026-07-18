@@ -6986,6 +6986,32 @@ test "schema parser rejects empty group and union bodies" {
     ));
 }
 
+test "schema code generator avoids cpz member shadowing" {
+    var file = try parse(std.testing.allocator,
+        \\struct S {
+        \\  const cpz :UInt32 = 1;
+        \\  using cpzAlias = UInt32;
+        \\  annotation cpzNote(field) :Text;
+        \\  f @0 :UInt32;
+        \\}
+        \\interface I {
+        \\  const cpz :UInt32 = 1;
+        \\  using cpzAlias = UInt32;
+        \\  annotation cpzNote(method) :Text;
+        \\  m @0 () -> ();
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const cpz_: u32 = 1;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const cpzAlias = u32;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const cpzNote = @\"cpz.schema\".S_cpzNote;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const cpzNote = @\"cpz.schema\".I_cpzNote;") != null);
+}
+
 test "schema parser rejects duplicate top-level declaration names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\struct Thing {
@@ -23694,7 +23720,7 @@ fn isZigKeyword(name: []const u8) bool {
         "i16",       "i32",       "i64",         "i128",           "u0",             "u1",           "u2",
         "u3",        "u4",        "u5",          "u6",             "u7",             "u8",           "u16",
         "u32",       "u64",       "u128",        "reader",         "size",           "new_value",    "orphan",
-        "validate",  "totalSize", "Orphan",      "Builder",        "fromReader",
+        "validate",  "totalSize", "Orphan",      "Builder",        "fromReader",     "cpz",
     };
     for (keywords) |keyword| {
         if (std.mem.eql(u8, name, keyword)) return true;
