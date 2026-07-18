@@ -17,6 +17,7 @@ The long-term target is to grow into a full schema/compiler/RPC stack while keep
 ## Build
 
 ```sh
+zig build check
 zig build test
 zig build run
 zig build cpzc -- --check schema.capnp
