@@ -6051,14 +6051,16 @@ fn addStat(target: *usize, amount: usize) Error!void {
 fn canonicalStructSize(s: StructReader) Error!wire.StructSize {
     var data_words: usize = s.data_words;
     while (data_words > 0) {
-        const word = try s.message.readWord(s.segment_id, s.data_start + data_words - 1);
+        const word_index = std.math.add(usize, s.data_start, data_words - 1) catch return error.MessageTooLarge;
+        const word = try s.message.readWord(s.segment_id, word_index);
         if (word != 0) break;
         data_words -= 1;
     }
 
     var pointer_count: usize = s.pointer_count;
     while (pointer_count > 0) {
-        const word = try s.message.readWord(s.segment_id, s.pointer_start + pointer_count - 1);
+        const word_index = std.math.add(usize, s.pointer_start, pointer_count - 1) catch return error.MessageTooLarge;
+        const word = try s.message.readWord(s.segment_id, word_index);
         if (word != 0) break;
         pointer_count -= 1;
     }
@@ -6076,7 +6078,8 @@ fn canonicalStructListSize(list: ListReader) Error!wire.StructSize {
         var all_zero = true;
         for (0..list.element_count) |i| {
             const element = try list.getStructElement(i);
-            const word = try element.message.readWord(element.segment_id, element.data_start + word_index);
+            const element_word_index = std.math.add(usize, element.data_start, word_index) catch return error.MessageTooLarge;
+            const word = try element.message.readWord(element.segment_id, element_word_index);
             if (word != 0) {
                 all_zero = false;
                 break;
@@ -6092,7 +6095,8 @@ fn canonicalStructListSize(list: ListReader) Error!wire.StructSize {
         var all_zero = true;
         for (0..list.element_count) |i| {
             const element = try list.getStructElement(i);
-            const word = try element.message.readWord(element.segment_id, element.pointer_start + pointer_index);
+            const element_word_index = std.math.add(usize, element.pointer_start, pointer_index) catch return error.MessageTooLarge;
+            const word = try element.message.readWord(element.segment_id, element_word_index);
             if (word != 0) {
                 all_zero = false;
                 break;
@@ -8681,6 +8685,9 @@ test "accessors report oversized derived offsets instead of trapping" {
     try testing.expectError(error.MessageTooLarge, huge_bit_list_builder.getBool(0));
     try testing.expectError(error.MessageTooLarge, huge_bit_list_builder.setBool(0, true));
 
+    const segment = [_]u8{0} ** wire.bytes_per_word;
+    var reader = MessageReader.init(&.{&segment}, .{});
+
     var empty_reader = MessageReader.init(&.{}, .{});
     const huge_struct_reader = StructReader{
         .message = &empty_reader,
@@ -8696,8 +8703,41 @@ test "accessors report oversized derived offsets instead of trapping" {
     try testing.expectEqual(@as(usize, 0), huge_struct_reader.dataSectionBytes().len);
     try testing.expect(huge_struct_reader.getPointerField(1).isNull());
 
-    const segment = [_]u8{0} ** wire.bytes_per_word;
-    var reader = MessageReader.init(&.{&segment}, .{});
+    const overflowing_data_canonical_struct_reader = StructReader{
+        .message = &reader,
+        .segment_id = 0,
+        .data_start = max,
+        .pointer_start = 0,
+        .data_words = 2,
+        .pointer_count = 0,
+        .nesting_left = 1,
+    };
+    try testing.expectError(error.MessageTooLarge, canonicalStructSize(overflowing_data_canonical_struct_reader));
+
+    const overflowing_pointer_canonical_struct_reader = StructReader{
+        .message = &reader,
+        .segment_id = 0,
+        .data_start = 0,
+        .pointer_start = max,
+        .data_words = 0,
+        .pointer_count = 2,
+        .nesting_left = 1,
+    };
+    try testing.expectError(error.MessageTooLarge, canonicalStructSize(overflowing_pointer_canonical_struct_reader));
+
+    const overflowing_pointer_canonical_struct_list_reader = ListReader{
+        .message = &reader,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 1,
+        .element_size = .composite,
+        .data_words = 0,
+        .pointer_count = 2,
+        .step_bits = wire.bits_per_word * 2,
+        .nesting_left = 1,
+    };
+    try testing.expectError(error.MessageTooLarge, canonicalStructListSize(overflowing_pointer_canonical_struct_list_reader));
+
     var two_segment_reader = MessageReader.init(&.{ &segment, &segment }, .{});
     const invalid_destination = StructBuilder{
         .message = &builder,
