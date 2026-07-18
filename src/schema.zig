@@ -8302,6 +8302,8 @@ test "schema layout planner assigns data and pointer slots" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, layout.fields[2].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[3].slot);
     try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, layout.fields[4].slot);
+    const missing_field = Field{ .name = "missing", .ordinal = 99, .ty = .void };
+    try std.testing.expectError(error.UnsupportedType, fieldIndex(&layout, &missing_field));
 }
 
 test "schema parser rejects duplicate struct field ordinals" {
@@ -13045,10 +13047,10 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                 defer allocator.free(flat_bytes);
                 const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
                 defer allocator.free(flat_literal);
-                const child = constListChildTypeOrNull(file, scope, decl.ty) orelse unreachable;
+                const child = constListChildTypeOrNull(file, scope, decl.ty) orelse return error.UnsupportedType;
                 const item_type_name = switch (resolveTypeScoped(file, scope, child)) {
                     .named => |name| try zigTypeRefAlloc(allocator, file, name),
-                    else => unreachable,
+                    else => return error.UnsupportedType,
                 };
                 defer allocator.free(item_type_name);
                 try appendFmt(allocator, out,
@@ -17067,11 +17069,11 @@ fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
     );
 }
 
-fn fieldIndex(layout: *const StructLayout, target: *const Field) usize {
+fn fieldIndex(layout: *const StructLayout, target: *const Field) LayoutError!usize {
     for (layout.fields, 0..) |field_layout, index| {
         if (field_layout.field == target) return index;
     }
-    unreachable;
+    return error.UnsupportedType;
 }
 
 fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
@@ -19536,7 +19538,7 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     defer allocator.free(field_name);
     const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
     defer allocator.free(field_name_literal);
-    const field_index = fieldIndex(layout, field);
+    const field_index = try fieldIndex(layout, field);
     const slot = fieldSlotMetadata(field_layout.slot);
     const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
     defer allocator.free(slot_literal);
