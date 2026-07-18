@@ -8690,7 +8690,21 @@ fn validateConstStructMemberZigNames(allocator: std.mem.Allocator, decl: *const 
         owned_names.deinit(allocator);
     }
 
-    const fixed_names = [_][]const u8{ "fieldCount", "fields", "fieldByIndex", "fieldByName", "fieldByLiteral" };
+    const fixed_names = [_][]const u8{
+        "fieldCount",
+        "fields",
+        "flatBytes",
+        "segment0",
+        "segments",
+        "reader",
+        "root",
+        "typedRoot",
+        "validate",
+        "totalSize",
+        "fieldByIndex",
+        "fieldByName",
+        "fieldByLiteral",
+    };
     for (fixed_names) |name| try addUniqueGeneratedName(allocator, &names, &owned_names, name);
 
     for (fields) |field| {
@@ -26003,6 +26017,11 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\  fieldCount @0 :UInt32;
         \\}
         \\const structFieldNames :StructFieldNames = (fieldCount = 1);
+        ,
+        \\struct StructFieldNames {
+        \\  flatBytes @0 :UInt32;
+        \\}
+        \\const structFieldNames :StructFieldNames = (flatBytes = 1);
         ,
         \\struct StructFieldNames {
         \\  error @0 :UInt32;
