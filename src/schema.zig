@@ -4595,6 +4595,7 @@ fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const Fi
         for (args) |*arg| arg.deinit(allocator);
         allocator.free(args);
     }
+    if (std.mem.startsWith(u8, trimmed, "List(") and args.len != 1) return error.UnsupportedType;
     if (declarationParameterCount(file, trimmed)) |parameter_count| {
         if (args.len != parameter_count) return error.UnsupportedType;
     }
@@ -4936,6 +4937,14 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer nested_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &nested_file));
+
+    var list_file = try parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (field :List(Text, Data)) -> ();
+        \\}
+    );
+    defer list_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &list_file));
 
     var method_file = try parse(std.testing.allocator,
         \\struct Box(T) {
