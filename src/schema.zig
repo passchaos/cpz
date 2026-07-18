@@ -1915,6 +1915,7 @@ pub const Parser = struct {
         var decl_ids = std.AutoHashMap(u64, void).init(self.allocator);
         defer decl_ids.deinit();
         var file_id: ?u64 = null;
+        var saw_top_level_item = false;
         self.parsed_structs = &structs;
         self.parsed_enums = &enums;
         self.parsed_interfaces = &interfaces;
@@ -1934,36 +1935,44 @@ pub const Parser = struct {
 
         while (self.lookahead.tag != .eof) {
             if (self.eatKeyword("struct")) {
+                saw_top_level_item = true;
                 var decl = try self.parseStruct(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedStruct(decl);
                 keep = true;
             } else if (self.eatKeyword("enum")) {
+                saw_top_level_item = true;
                 var decl = try self.parseEnum(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedEnum(decl);
                 keep = true;
             } else if (self.eatKeyword("interface")) {
+                saw_top_level_item = true;
                 var decl = try self.parseInterfaceDeclaration(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedInterface(decl);
                 keep = true;
             } else if (self.eatKeyword("using")) {
+                saw_top_level_item = true;
                 try self.parseUsingOrSkip(&aliases, &imports, &decl_names);
             } else if (self.eatKeyword("const")) {
+                saw_top_level_item = true;
                 try self.parseConstOrSkip(&consts, &decl_names);
             } else if (self.eatKeyword("annotation")) {
+                saw_top_level_item = true;
                 var decl = try self.parseAnnotationDeclaration(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedAnnotation(decl);
                 keep = true;
             } else if (self.lookahead.tag == .dollar) {
+                saw_top_level_item = true;
                 try raw_file_annotations.append(self.allocator, try self.takeAnnotationSuffixUntilSemicolon());
             } else if (self.lookahead.tag == .at) {
+                if (saw_top_level_item) return error.UnexpectedToken;
                 if (file_id != null) return error.OrdinalCollision;
                 file_id = try self.parseFileId();
                 try self.registerDeclarationId(file_id);
@@ -6041,6 +6050,16 @@ test "schema parser rejects duplicate file ids" {
         \\struct Thing {
         \\  field @0 :UInt32;
         \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Thing {
+        \\  field @0 :UInt32;
+        \\}
+        \\@0xaaaa;
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\$unknown("file-annotation");
+        \\@0xaaaa;
     ));
 }
 
