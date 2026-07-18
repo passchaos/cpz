@@ -8197,6 +8197,7 @@ fn validateImportZigNames(allocator: std.mem.Allocator, imports: []const ImportD
 
 fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!void {
     try validateStructFixedMemberZigNames(allocator, decl);
+    try validateBuilderFieldHelperZigNames(allocator, file, decl);
     for (decl.fields, 0..) |*lhs, i| {
         for (decl.fields[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
@@ -8226,6 +8227,211 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: 
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
     }
+}
+
+fn validateBuilderFieldHelperZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!void {
+    var names = std.StringHashMap(void).init(allocator);
+    var owned_names = std.ArrayList([]const u8).empty;
+    defer names.deinit();
+    defer {
+        for (owned_names.items) |name| allocator.free(name);
+        owned_names.deinit(allocator);
+    }
+
+    for (decl.fields) |*field| {
+        try appendBuilderFieldHelperZigNames(allocator, file, decl, field, &names, &owned_names);
+    }
+}
+
+fn appendBuilderFieldHelperZigNames(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    decl: *const Struct,
+    field: *const Field,
+    names: *std.StringHashMap(void),
+    owned_names: *std.ArrayList([]const u8),
+) LayoutError!void {
+    const field_name = try zigIdentAlloc(allocator, field.name);
+    defer allocator.free(field_name);
+
+    switch (resolveTypeScoped(file, decl, field.ty)) {
+        .void => {
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}", .{field_name});
+            return;
+        },
+        .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => {
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}", .{field_name});
+            return;
+        },
+        .named => |type_name| if (findEnum(file, type_name) != null) {
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}_raw", .{field_name});
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}", .{field_name});
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}_raw", .{field_name});
+            return;
+        },
+        else => {},
+    }
+
+    if (!fieldEmitsPointerHelpers(file, decl, field)) return;
+    try appendCommonPointerBuilderHelperNames(allocator, field_name, names, owned_names);
+    try appendTypedPointerBuilderHelperNames(allocator, file, decl, field, field_name, names, owned_names);
+}
+
+fn addBuilderHelperNameFmt(
+    allocator: std.mem.Allocator,
+    names: *std.StringHashMap(void),
+    owned_names: *std.ArrayList([]const u8),
+    comptime fmt: []const u8,
+    args: anytype,
+) LayoutError!void {
+    const name = try std.fmt.allocPrint(allocator, fmt, args);
+    errdefer allocator.free(name);
+    const entry = try names.getOrPut(name);
+    if (entry.found_existing) return error.NameCollision;
+    errdefer _ = names.remove(name);
+    try owned_names.append(allocator, name);
+}
+
+fn appendCommonPointerBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "has_{s}", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "clear_{s}", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "disown_{s}", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "adopt_{s}", .{field_name});
+
+    const suffixes = [_][]const u8{
+        "AsPointer",
+        "AsReader",
+        "PointerKind",
+        "PointerSegmentId",
+        "PointerWordIndex",
+        "PointerMatchesLocation",
+        "MatchesPointerKind",
+        "PointerIsStruct",
+        "PointerIsList",
+        "PointerIsFar",
+        "PointerIsOther",
+        "PointerIsCapability",
+        "PointerIsNear",
+        "RawPointer",
+        "DecodedPointer",
+        "MaxCapabilityCount",
+        "MatchesMaxCapabilityCount",
+        "Stats",
+        "StatsWithOptions",
+        "TotalSize",
+        "TotalSizeWithOptions",
+    };
+    for (suffixes) |suffix| {
+        try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}{s}", .{ field_name, suffix });
+    }
+}
+
+fn appendTypedPointerBuilderHelperNames(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    decl: *const Struct,
+    field: *const Field,
+    field_name: []const u8,
+    names: *std.StringHashMap(void),
+    owned_names: *std.ArrayList([]const u8),
+) LayoutError!void {
+    const field_is_optional = field.ty == .optional;
+    switch (pointerFieldPayloadType(file, decl, field)) {
+        .text, .data => {
+            try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{ "", "OrNull", "ByteCount", "MatchesBytes" });
+            try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "", "OrNull" });
+            try addBuilderHelperNameFmt(allocator, names, owned_names, "new_{s}_orphan", .{field_name});
+        },
+        .list => try appendListBuilderHelperNames(allocator, field_name, field_is_optional, names, owned_names),
+        .any_pointer => try appendAnyPointerBuilderHelperNames(allocator, field_name, field_is_optional, names, owned_names),
+        .any_struct => try appendAnyStructBuilderHelperNames(allocator, field_name, field_is_optional, names, owned_names),
+        .any_list => try appendAnyListBuilderHelperNames(allocator, field_name, field_is_optional, names, owned_names),
+        .capability => try appendCapabilityBuilderHelperNames(allocator, field_name, names, owned_names),
+        .named => |type_name| {
+            if (findInterface(file, type_name) != null) {
+                try appendCapabilityBuilderHelperNames(allocator, field_name, names, owned_names);
+            } else if (!isStructLikeName(file, type_name)) {
+                try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+                try appendPointerCopyBuilderHelperNames(allocator, field_name, names, owned_names);
+            } else {
+                try appendStructBuilderHelperNames(allocator, field_name, field_is_optional, names, owned_names);
+            }
+        },
+        else => {},
+    }
+}
+
+fn appendBuilderGetSuffixes(allocator: std.mem.Allocator, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8), field_name: []const u8, suffixes: []const []const u8) LayoutError!void {
+    for (suffixes) |suffix| try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}{s}", .{ field_name, suffix });
+}
+
+fn appendBuilderSetSuffixes(allocator: std.mem.Allocator, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8), field_name: []const u8, suffixes: []const []const u8) LayoutError!void {
+    for (suffixes) |suffix| try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}{s}", .{ field_name, suffix });
+}
+
+fn appendPointerCopyBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "_from", "_canonicalFrom", "_fromBuilder", "_canonicalFromBuilder" });
+    const new_suffixes = [_][]const u8{ "_copyOrphan", "_copyOrphanCanonical", "_copyOrphanFromBuilder", "_copyOrphanCanonicalFromBuilder" };
+    for (new_suffixes) |suffix| try addBuilderHelperNameFmt(allocator, names, owned_names, "new_{s}{s}", .{ field_name, suffix });
+}
+
+fn appendListBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, field_is_optional: bool, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+    if (field_is_optional) try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{"OrNull"});
+    if (field_is_optional) try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{"OrNull"});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "init_{s}", .{field_name});
+    try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "_from", "_canonicalFrom", "_fromBuilder", "_canonicalFromBuilder" });
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "disown_{s}_typed", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "adopt_{s}_typed", .{field_name});
+}
+
+fn appendAnyPointerBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, field_is_optional: bool, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+    if (field_is_optional) try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{"OrNull"});
+    if (field_is_optional) try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "OrNull", "OrNullFromBuilder" });
+    try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{ "PointerType", "AsStruct", "AsList", "AsText", "AsTextByteCount", "AsTextMatchesBytes", "AsData", "AsDataByteCount", "AsDataMatchesBytes", "AsCapability" });
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}", .{field_name});
+    try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "_canonicalFrom", "_fromBuilder", "_canonicalFromBuilder", "_text", "_data", "_capability" });
+    const init_suffixes = [_][]const u8{ "_struct", "_list", "_structList" };
+    for (init_suffixes) |suffix| try addBuilderHelperNameFmt(allocator, names, owned_names, "init_{s}{s}", .{ field_name, suffix });
+}
+
+fn appendAnyStructBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, field_is_optional: bool, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+    if (field_is_optional) try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{"OrNull"});
+    if (field_is_optional) try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "OrNullFrom", "OrNullFromBuilder" });
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "init_{s}", .{field_name});
+    try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "_from", "_canonicalFrom", "_fromBuilder", "_canonicalFromBuilder" });
+    try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{ "PointerSection", "DataSection" });
+}
+
+fn appendAnyListBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, field_is_optional: bool, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+    if (field_is_optional) try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{"OrNull"});
+    if (field_is_optional) try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "OrNullFrom", "OrNullFromBuilder" });
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "init_{s}", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "init_{s}_structList", .{field_name});
+    try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "_from", "_canonicalFrom", "_fromBuilder", "_canonicalFromBuilder" });
+}
+
+fn appendCapabilityBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}OrNull", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}OrNull", .{field_name});
+}
+
+fn appendStructBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, field_is_optional: bool, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
+    if (field_is_optional) try appendBuilderGetSuffixes(allocator, names, owned_names, field_name, &.{"OrNull"});
+    if (field_is_optional) try appendBuilderSetSuffixes(allocator, names, owned_names, field_name, &.{ "OrNull", "OrNullFromBuilder" });
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "init_{s}", .{field_name});
+    try appendPointerCopyBuilderHelperNames(allocator, field_name, names, owned_names);
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "new_{s}_orphan", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "disown_{s}_typed", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "adopt_{s}_typed", .{field_name});
 }
 
 fn validateTopLevelConstFlatZigNames(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
@@ -25458,6 +25664,32 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\struct EnumRawHelpers {
         \\  mode @0 :RawMode;
         \\  using mode_raw = UInt16;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct BuilderTarget {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct BuilderHelpers {
+        \\  foo @0 :BuilderTarget;
+        \\  foo_from @1 :UInt32;
+        \\}
+        ,
+        \\struct BuilderHelpers {
+        \\  foo @0 :Text;
+        \\  fooAsReader @1 :UInt32;
+        \\}
+        ,
+        \\struct BuilderHelpers {
+        \\  foo @0 :List(UInt16);
+        \\  foo_fromBuilder @1 :UInt32;
         \\}
         ,
     }) |source| {
