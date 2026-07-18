@@ -5215,8 +5215,13 @@ fn typeNameEqualsCanonical(raw: []const u8, canonical: []const u8) bool {
 
 fn typeApplicationOpen(raw: []const u8) ?usize {
     var depth: usize = 0;
-    for (raw, 0..) |c, index| {
-        switch (c) {
+    var index: usize = 0;
+    while (index < raw.len) {
+        if (skipRawStringOrCommentInPostLoop(raw, &index) catch return null) {
+            index += 1;
+            continue;
+        }
+        switch (raw[index]) {
             '(' => {
                 if (depth == 0) return index;
                 depth += 1;
@@ -5226,6 +5231,7 @@ fn typeApplicationOpen(raw: []const u8) ?usize {
             },
             else => {},
         }
+        index += 1;
     }
     return null;
 }
@@ -5823,6 +5829,7 @@ test "schema parser rejects malformed type application arguments" {
         \\}
         \\struct UsesCommentedArgs {
         \\  value @0 :Box(Text /* comment with ), comma , */, UInt32);
+        \\  delayed @1 :Box /* comment with ( ) */ (Text, UInt32);
         \\}
     );
     defer commented_file.deinit(std.testing.allocator);
@@ -12009,7 +12016,7 @@ fn cloneTypeAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError!Type {
 }
 
 fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []const u8) LayoutError!?[]Type {
-    const open = std.mem.indexOfScalar(u8, type_name, '(') orelse return null;
+    const open = typeApplicationOpen(type_name) orelse return null;
     const close = (try matchingParen(type_name, open)) orelse return null;
     const raw_args = type_name[open + 1 .. close];
     var args = std.ArrayList(Type).empty;
@@ -12065,7 +12072,7 @@ fn matchingParen(raw: []const u8, open_index: usize) Error!?usize {
 }
 
 fn substituteGenericNameAlloc(allocator: std.mem.Allocator, raw: []const u8, parameters: []const []const u8, args: []const Type) LayoutError!?[]const u8 {
-    const open = std.mem.indexOfScalar(u8, raw, '(') orelse return null;
+    const open = typeApplicationOpen(raw) orelse return null;
     const close = (try matchingParen(raw, open)) orelse return null;
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
