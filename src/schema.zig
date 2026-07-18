@@ -2014,6 +2014,7 @@ pub const Parser = struct {
             for (superclasses.items) |*superclass| superclass.deinit(self.allocator);
             superclasses.deinit(self.allocator);
         }
+        if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
         while (self.lookahead.tag != .r_paren) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             try superclasses.append(self.allocator, try self.parseType());
@@ -4946,6 +4947,11 @@ test "schema parser rejects malformed declaration and method parameter lists" {
 }
 
 test "schema parser rejects malformed interface extends list" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Derived extends() {
+        \\  call @0 () -> ();
+        \\}
+    ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Base {
         \\  call @0 () -> ();
