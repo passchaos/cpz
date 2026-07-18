@@ -545,7 +545,7 @@ pub const DecodedPointer = union(PointerType) {
 };
 
 pub inline fn readWord(bytes: []const u8, word_index: usize) Error!Word {
-    const byte_index = word_index * bytes_per_word;
+    const byte_index = std.math.mul(usize, word_index, bytes_per_word) catch return error.SegmentOutOfBounds;
     if (byte_index > bytes.len or bytes.len - byte_index < bytes_per_word) return error.SegmentOutOfBounds;
     return readWordAt(bytes[byte_index..][0..bytes_per_word]);
 }
@@ -905,6 +905,8 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expect(composite_ptr.matchesCompositeWordCount(7));
     try testing.expect(!composite_ptr.matchesCompositeWordCount(8));
     try testing.expect(composite_ptr.matchesPayloadWords(7));
+
+    try testing.expectError(error.SegmentOutOfBounds, readWord(&[_]u8{}, std.math.maxInt(usize)));
 }
 
 test "wire signed offsets and far/capability pointers" {
