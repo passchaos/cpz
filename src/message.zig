@@ -5231,7 +5231,7 @@ pub const ListBuilder = struct {
 
     pub fn setBool(self: ListBuilder, index: usize, value: bool) Error!void {
         if (self.element_size != .bit or index >= self.element_count) return error.PointerOutOfBounds;
-        const abs_bit = self.start * wire.bits_per_word + index;
+        const abs_bit = try checkedWordBitOffset(self.start, index);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         var word = self.message.readWord(self.segment_id, word_index);
@@ -5241,7 +5241,7 @@ pub const ListBuilder = struct {
 
     pub fn getBool(self: ListBuilder, index: usize) Error!bool {
         if (self.element_size != .bit or index >= self.element_count) return error.PointerOutOfBounds;
-        const abs_bit = self.start * wire.bits_per_word + index;
+        const abs_bit = try checkedWordBitOffset(self.start, index);
         const word = self.message.readWord(self.segment_id, abs_bit / wire.bits_per_word);
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         return ((word >> bit) & 1) != 0;
@@ -8552,6 +8552,19 @@ test "accessors report oversized derived offsets instead of trapping" {
     const overflowing_u64_index = max / @sizeOf(u64) + 1;
     try testing.expectError(error.MessageTooLarge, huge_primitive_list_builder.getUInt64(overflowing_u64_index));
     try testing.expectError(error.MessageTooLarge, huge_primitive_list_builder.setUInt64(overflowing_u64_index, 1));
+
+    const huge_bit_list_builder = ListBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 1,
+        .element_size = .bit,
+        .data_words = 0,
+        .pointer_count = 0,
+        .step_bits = 1,
+    };
+    try testing.expectError(error.MessageTooLarge, huge_bit_list_builder.getBool(0));
+    try testing.expectError(error.MessageTooLarge, huge_bit_list_builder.setBool(0, true));
 
     var empty_reader = MessageReader.init(&.{}, .{});
     const huge_struct_reader = StructReader{
