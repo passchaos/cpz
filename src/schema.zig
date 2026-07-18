@@ -8207,6 +8207,7 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: 
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
         try validateFieldDefaultHelperZigName(allocator, decl, lhs);
+        try validateEnumFieldRawHelperZigName(allocator, file, decl, lhs);
         try validatePointerFieldHelperZigNames(allocator, file, decl, lhs);
         try validateListFieldWrapperZigNames(allocator, file, decl, lhs);
     }
@@ -8307,6 +8308,21 @@ fn validateFieldDefaultHelperZigName(allocator: std.mem.Allocator, decl: *const 
 
     try validateGeneratedStructMemberZigName(allocator, decl, field, default_name);
     try validateGeneratedStructMemberZigName(allocator, decl, field, default_flat_name);
+}
+
+fn validateEnumFieldRawHelperZigName(allocator: std.mem.Allocator, file: *const File, decl: *const Struct, field: *const Field) LayoutError!void {
+    const type_name = switch (resolveTypeScoped(file, decl, field.ty)) {
+        .named => |name| name,
+        else => return,
+    };
+    if (findEnum(file, type_name) == null) return;
+
+    const field_name = try zigIdentAlloc(allocator, field.name);
+    defer allocator.free(field_name);
+    const raw_name = try std.fmt.allocPrint(allocator, "{s}_raw", .{field_name});
+    defer allocator.free(raw_name);
+
+    try validateGeneratedStructMemberZigName(allocator, decl, field, raw_name);
 }
 
 fn validateListFieldWrapperZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct, field: *const Field) LayoutError!void {
@@ -25292,6 +25308,41 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\struct PointerHelpers {
         \\  foo @0 :Text;
         \\  fooPointerKind @1 :Bool;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\enum RawMode {
+        \\  off @0;
+        \\  on @1;
+        \\}
+        \\struct EnumRawHelpers {
+        \\  mode @0 :RawMode;
+        \\  mode_raw @1 :UInt16;
+        \\}
+        ,
+        \\enum RawMode {
+        \\  off @0;
+        \\  on @1;
+        \\}
+        \\struct EnumRawHelpers {
+        \\  mode @0 :RawMode;
+        \\  const mode_raw :UInt16 = 1;
+        \\}
+        ,
+        \\enum RawMode {
+        \\  off @0;
+        \\  on @1;
+        \\}
+        \\struct EnumRawHelpers {
+        \\  mode @0 :RawMode;
+        \\  using mode_raw = UInt16;
         \\}
         ,
     }) |source| {
