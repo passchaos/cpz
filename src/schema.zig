@@ -2901,10 +2901,7 @@ pub const Parser = struct {
             if (imports) |imports_list| try self.parseAnonymousImport(imports_list, decl_names) else try self.skipRawUntilSemicolon();
             return;
         }
-        if (self.lookahead.tag != .identifier) {
-            try self.skipRawUntilSemicolon();
-            return;
-        }
+        if (self.lookahead.tag != .identifier) return error.UnexpectedToken;
         if ((try self.peekNext()).tag != .equal) {
             var target = try self.parseType();
             var keep_target = false;
@@ -4943,6 +4940,9 @@ test "schema parser rejects malformed type application arguments" {
 }
 
 test "schema parser rejects malformed using alias targets" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\using ;
+    ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\using Bad = GenericBox();
     ));
