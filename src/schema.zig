@@ -12782,31 +12782,12 @@ fn resolveScalarConstLiteral(file: *const File, scope: ?*const Struct, literal: 
 fn resolveScalarConstLiteralDepth(file: *const File, scope: ?*const Struct, literal: []const u8, depth: usize) []const u8 {
     if (depth >= 32) return literal;
     const raw = std.mem.trim(u8, literal, " \t\r\n");
-    const name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
-    const owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else null;
-    if (scope) |decl| {
-        if (owner == null or typeNameEqualsCanonical(owner.?, decl.name)) {
-            for (decl.consts) |const_decl| {
-                if (std.mem.eql(u8, const_decl.name, name)) {
-                    if (std.mem.eql(u8, std.mem.trim(u8, const_decl.literal, " \t\r\n"), raw)) return const_decl.literal;
-                    return resolveScalarConstLiteralDepth(file, scope, const_decl.literal, depth + 1);
-                }
-            }
-        }
+    const decl = findConstReference(file, scope, raw) orelse return literal;
+    if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), raw)) return decl.literal;
+    if (constDeclOwnerName(file, decl)) |owner_name| {
+        return resolveScalarConstLiteralInOwnerDepth(file, scope, owner_name, decl.literal, depth + 1);
     }
-    if (owner) |owner_name| {
-        if (findConstInOwner(file, scope, owner_name, name)) |decl| {
-            if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), raw)) return decl.literal;
-            return resolveScalarConstLiteralInOwnerDepth(file, scope, constDeclOwnerName(file, decl) orelse owner_name, decl.literal, depth + 1);
-        }
-    }
-    for (file.consts) |const_decl| {
-        if (std.mem.eql(u8, const_decl.name, name)) {
-            if (std.mem.eql(u8, std.mem.trim(u8, const_decl.literal, " \t\r\n"), raw)) return const_decl.literal;
-            return resolveScalarConstLiteralDepth(file, scope, const_decl.literal, depth + 1);
-        }
-    }
-    return literal;
+    return resolveScalarConstLiteralDepth(file, scope, decl.literal, depth + 1);
 }
 
 fn resolveScalarConstLiteralInOwnerDepth(file: *const File, scope: ?*const Struct, owner_name: []const u8, literal: []const u8, depth: usize) []const u8 {
@@ -12837,12 +12818,19 @@ fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const
             return decl;
         }
     } else if (scope) |decl| {
-        for (decl.consts) |*const_decl| {
-            if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
-        }
+        if (findConstInOwnerScope(file, scope, decl.name, name)) |const_decl| return const_decl;
     }
     for (file.consts) |*const_decl| {
         if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
+    }
+    return null;
+}
+
+fn findConstInOwnerScope(file: *const File, scope: ?*const Struct, owner_name: []const u8, const_name: []const u8) ?*const ConstDecl {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        if (findConstInOwner(file, scope, owner, const_name)) |decl| return decl;
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
     }
     return null;
 }
@@ -23661,6 +23649,28 @@ test "schema code generator resolves const reference scalar defaults for flats" 
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const discriminantValueDefaultFlat = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "\\xFF\\xFF\\x00\\x00\\x00\\x00\\x00\\x00") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try @This().root(message_reader)).getUInt16(0, 0);") != null);
+}
+
+test "schema code generator resolves ancestor const references" {
+    const source =
+        \\struct Parent {
+        \\  const defaultId :UInt32 = 7;
+        \\  struct Child {
+        \\    const childId :UInt32 = defaultId;
+        \\    id @0 :UInt32 = defaultId;
+        \\  }
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const childId: u32 = 7;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt32(0, 7);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.builder.getUInt32(0, 7);") != null);
 }
 
 test "schema code generator converts C-style escaped string defaults to Zig literals" {
