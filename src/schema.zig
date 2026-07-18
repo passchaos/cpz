@@ -8105,6 +8105,7 @@ fn appendRawSchemaComment(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 
 fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
     try validateImportZigNames(allocator, file.imports);
+    try validateTopLevelConstFlatZigNames(allocator, file);
 
     for (file.structs, 0..) |lhs, i| {
         for (file.structs[i + 1 ..]) |rhs| {
@@ -8177,7 +8178,7 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
         for (file.annotations) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
-        try validateInterfaceMethodZigNames(allocator, &lhs);
+        try validateInterfaceMethodZigNames(allocator, file, &lhs);
     }
     for (file.annotations, 0..) |lhs, i| {
         for (file.annotations[i + 1 ..]) |rhs| {
@@ -8211,6 +8212,7 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: 
         try validatePointerFieldHelperZigNames(allocator, file, decl, lhs);
         try validateListFieldWrapperZigNames(allocator, file, decl, lhs);
     }
+    try validateStructConstFlatZigNames(allocator, file, decl);
     for (decl.consts, 0..) |lhs, i| {
         for (decl.consts[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
@@ -8223,6 +8225,55 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: 
         for (decl.aliases[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+    }
+}
+
+fn validateTopLevelConstFlatZigNames(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    for (file.consts) |*decl| {
+        const generated_name = (try constFlatContainerNameAlloc(allocator, file, null, decl)) orelse continue;
+        defer allocator.free(generated_name);
+        try validateGeneratedTopLevelZigName(allocator, file, generated_name);
+    }
+}
+
+fn validateStructConstFlatZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!void {
+    for (decl.consts) |*constant| {
+        const generated_name = (try constFlatContainerNameAlloc(allocator, file, decl, constant)) orelse continue;
+        defer allocator.free(generated_name);
+        try validateGeneratedStructMemberZigName(allocator, decl, null, generated_name);
+    }
+}
+
+fn validateGeneratedTopLevelZigName(allocator: std.mem.Allocator, file: *const File, generated_name: []const u8) LayoutError!void {
+    for (file.structs) |decl| {
+        const name = try zigIdentAlloc(allocator, decl.name);
+        defer allocator.free(name);
+        if (std.mem.eql(u8, generated_name, name)) return error.NameCollision;
+    }
+    for (file.enums) |decl| {
+        const name = try zigIdentAlloc(allocator, decl.name);
+        defer allocator.free(name);
+        if (std.mem.eql(u8, generated_name, name)) return error.NameCollision;
+    }
+    for (file.consts) |decl| {
+        const name = try zigIdentAlloc(allocator, decl.name);
+        defer allocator.free(name);
+        if (std.mem.eql(u8, generated_name, name)) return error.NameCollision;
+    }
+    for (file.aliases) |decl| {
+        const name = try zigIdentAlloc(allocator, decl.name);
+        defer allocator.free(name);
+        if (std.mem.eql(u8, generated_name, name)) return error.NameCollision;
+    }
+    for (file.interfaces) |decl| {
+        const name = try zigIdentAlloc(allocator, decl.name);
+        defer allocator.free(name);
+        if (std.mem.eql(u8, generated_name, name)) return error.NameCollision;
+    }
+    for (file.annotations) |decl| {
+        const name = try zigIdentAlloc(allocator, decl.name);
+        defer allocator.free(name);
+        if (std.mem.eql(u8, generated_name, name)) return error.NameCollision;
     }
 }
 
@@ -8295,6 +8346,39 @@ fn validateStructFixedMemberZigNames(allocator: std.mem.Allocator, decl: *const 
             try validateGeneratedStructMemberZigName(allocator, decl, null, name);
         }
     }
+}
+
+fn constFlatContainerNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl) LayoutError!?[]u8 {
+    if (!constEmitsFlatContainer(file, scope, decl)) return null;
+    const const_name = try zigIdentAlloc(allocator, decl.name);
+    defer allocator.free(const_name);
+    return try std.fmt.allocPrint(allocator, "{s}Flat", .{const_name});
+}
+
+fn constEmitsFlatContainer(file: *const File, scope: ?*const Struct, decl: *const ConstDecl) bool {
+    if (!decl.emit_value) return false;
+    return constTypeEmitsFlatContainer(file, scope, decl, resolveTypeScoped(file, scope, decl.ty));
+}
+
+fn constTypeEmitsFlatContainer(file: *const File, scope: ?*const Struct, decl: *const ConstDecl, ty: Type) bool {
+    const raw = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, decl.literal), " \t\r\n");
+    return switch (ty) {
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => true,
+        .text, .data, .list => true,
+        .capability, .any_pointer, .any_struct, .any_list => methodDefaultIsVoidOrNull(file, scope, raw),
+        .named => |type_name| if (findEnum(file, type_name) != null)
+            true
+        else if (findInterface(file, type_name) != null)
+            methodDefaultIsVoidOrNull(file, scope, raw)
+        else if (isStructLikeName(file, type_name))
+            methodDefaultIsNull(file, scope, raw)
+        else
+            false,
+        .optional => |child| if (std.mem.eql(u8, raw, "null") or (std.mem.eql(u8, raw, "void") and typeAcceptsVoidPointerDefault(file, resolveTypeScoped(file, scope, child.*))))
+            true
+        else
+            constTypeEmitsFlatContainer(file, scope, decl, resolveTypeScoped(file, scope, child.*)),
+    };
 }
 
 fn validateFieldDefaultHelperZigName(allocator: std.mem.Allocator, decl: *const Struct, field: *const Field) LayoutError!void {
@@ -8539,8 +8623,9 @@ fn validateEnumValueZigNames(allocator: std.mem.Allocator, decl: *const EnumDecl
     }
 }
 
-fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, decl: *const InterfaceDecl) LayoutError!void {
+fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const InterfaceDecl) LayoutError!void {
     try validateInterfaceSuperclassZigNames(allocator, decl);
+    try validateInterfaceConstFlatZigNames(allocator, file, decl);
     for (decl.methods, 0..) |lhs, i| {
         for (decl.methods[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
@@ -8563,6 +8648,36 @@ fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, decl: *const In
     for (decl.aliases, 0..) |lhs, i| {
         for (decl.aliases[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
+fn validateInterfaceConstFlatZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const InterfaceDecl) LayoutError!void {
+    var empty_fields: [0]Field = .{};
+    const scope = Struct{
+        .name = decl.name,
+        .fields = empty_fields[0..],
+        .consts = decl.consts,
+        .aliases = decl.aliases,
+    };
+    for (decl.consts) |*constant| {
+        const generated_name = (try constFlatContainerNameAlloc(allocator, file, &scope, constant)) orelse continue;
+        defer allocator.free(generated_name);
+
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            if (std.mem.eql(u8, generated_name, method_name)) return error.NameCollision;
+        }
+        for (decl.consts) |other| {
+            const const_name = try zigIdentAlloc(allocator, other.name);
+            defer allocator.free(const_name);
+            if (std.mem.eql(u8, generated_name, const_name)) return error.NameCollision;
+        }
+        for (decl.aliases) |alias| {
+            const alias_name = try zigIdentAlloc(allocator, alias.name);
+            defer allocator.free(alias_name);
+            if (std.mem.eql(u8, generated_name, alias_name)) return error.NameCollision;
         }
     }
 }
@@ -25343,6 +25458,42 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\struct EnumRawHelpers {
         \\  mode @0 :RawMode;
         \\  using mode_raw = UInt16;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\const flatName :Text = "x";
+        \\struct flatNameFlat {
+        \\  id @0 :UInt32;
+        \\}
+        ,
+        \\const flatName :UInt32 = 1;
+        \\const flatNameFlat :UInt32 = 2;
+        ,
+        \\struct ConstFlatHelpers {
+        \\  const value :Text = "x";
+        \\  valueFlat @0 :UInt32;
+        \\}
+        ,
+        \\struct ConstFlatHelpers {
+        \\  const value :UInt32 = 1;
+        \\  using valueFlat = UInt16;
+        \\}
+        ,
+        \\interface ConstFlatHelpers {
+        \\  const value :Text = "x";
+        \\  valueFlat @0 () -> ();
+        \\}
+        ,
+        \\interface ConstFlatHelpers {
+        \\  const value :Text = "x";
+        \\  using valueFlat = UInt16;
         \\}
         ,
     }) |source| {
