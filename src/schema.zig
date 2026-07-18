@@ -3209,8 +3209,7 @@ pub const Parser = struct {
             try self.expect(.semicolon);
             const name = importNameFromPath(path);
             if (name.len == 0) return error.UnexpectedToken;
-            const entry = try decl_names.getOrPut(name);
-            if (entry.found_existing) return error.NameCollision;
+            try self.reserveBareImportName(decl_names, name);
             try imports.append(self.allocator, .{ .name = name, .path = path });
             return;
         }
@@ -3234,6 +3233,22 @@ pub const Parser = struct {
         const entry = try decl_names.getOrPut(name);
         if (entry.found_existing) return error.NameCollision;
         try imports.append(self.allocator, .{ .name = name, .path = path, .member = member });
+    }
+
+    fn reserveBareImportName(self: *Parser, decl_names: *std.StringHashMap(void), name: []const u8) Error!void {
+        const entry = try decl_names.getOrPut(name);
+        if (entry.found_existing) return error.NameCollision;
+
+        // Bare imports use the file stem as a schema-visible namespace.  File
+        // stems are often lower-case (`foo.capnp`) while declarations normally
+        // use UpperCamelCase (`Foo`), so reserve the leading-capital spelling as
+        // well to prevent an imported namespace and a declaration from claiming
+        // the same natural schema name in either declaration order.
+        const capitalized = try capitalizedImportNameAlloc(self.allocator, name) orelse return;
+        errdefer self.allocator.free(capitalized);
+        const capitalized_entry = try decl_names.getOrPut(capitalized);
+        if (capitalized_entry.found_existing) return error.NameCollision;
+        try self.literal_scratch.append(self.allocator, capitalized);
     }
 
     fn parseFileId(self: *Parser) Error!u64 {
@@ -5129,6 +5144,13 @@ fn importNameFromPath(path: []const u8) []const u8 {
     return if (std.mem.endsWith(u8, base, ".capnp")) base[0 .. base.len - ".capnp".len] else base;
 }
 
+fn capitalizedImportNameAlloc(allocator: std.mem.Allocator, name: []const u8) std.mem.Allocator.Error!?[]u8 {
+    if (name.len == 0 or name[0] < 'a' or name[0] > 'z') return null;
+    const capitalized = try allocator.dupe(u8, name);
+    capitalized[0] = capitalized[0] - 'a' + 'A';
+    return capitalized;
+}
+
 fn isGroupType(ty: Type) bool {
     return switch (ty) {
         .named => |name| std.mem.eql(u8, name, "group"),
@@ -6249,6 +6271,19 @@ test "schema parser records imported type aliases" {
     try std.testing.expectEqualStrings("Generic", file.structs[0].fields[2].ty.named);
     try std.testing.expectEqualStrings("Box", file.structs[0].fields[3].ty.named);
     try std.testing.expectEqualStrings("Inner", file.structs[0].fields[4].ty.named);
+}
+
+test "schema parser rejects bare anonymous import declaration name collisions" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Foo {
+        \\}
+        \\using import "foo.capnp";
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\using import "foo.capnp";
+        \\struct Foo {
+        \\}
+    ));
 }
 
 test "schema parser rejects empty import paths" {
