@@ -4615,7 +4615,10 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
         try validateTypeApplicationArity(allocator, file, annotation_scope, decl.ty);
     }
     for (file.structs) |decl| {
-        for (decl.fields) |field| try validateTypeApplicationArity(allocator, file, &decl, field.ty);
+        for (decl.fields) |field| {
+            try validateTypeApplicationArity(allocator, file, &decl, field.ty);
+            try validateFieldOptionalPointerType(file, &decl, field.ty);
+        }
         for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, &decl, alias.target);
         for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, &decl, const_decl.ty);
     }
@@ -4671,6 +4674,22 @@ fn validateFileSimpleNamedTypes(allocator: std.mem.Allocator, file: *const File)
             for (method.result_fields) |field| try validateMethodFieldTypeReference(allocator, file, &interface_scope, method.parameters, field.ty);
         }
     }
+}
+
+fn validateFieldOptionalPointerType(file: *const File, scope: ?*const Struct, ty: Type) LayoutError!void {
+    switch (resolveTypeScoped(file, scope, ty)) {
+        .optional => |child| if (!typeCanBeOptionalPointerField(file, scope, child.*)) return error.UnsupportedType,
+        .list => |child| try validateFieldOptionalPointerType(file, scope, child.*),
+        else => {},
+    }
+}
+
+fn typeCanBeOptionalPointerField(file: *const File, scope: ?*const Struct, ty: Type) bool {
+    return switch (resolveTypeScoped(file, scope, ty)) {
+        .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => true,
+        .named => |name| findEnum(file, name) == null,
+        else => false,
+    };
 }
 
 fn validateFileConstReferenceCycles(file: *const File) LayoutError!void {
@@ -8011,6 +8030,27 @@ test "schema parser and codegen accept optional pointer types" {
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn name(self: @This()) ![]const u8") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_friend(self: Builder) !@\"cpz.schema\".Maybe.Builder") != null);
+}
+
+test "schema layout planner rejects optional scalar fields" {
+    var scalar_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :?UInt32;
+        \\}
+    );
+    defer scalar_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &scalar_file));
+
+    var enum_file = try parse(std.testing.allocator,
+        \\enum Mode {
+        \\  off @0;
+        \\}
+        \\struct Bad {
+        \\  mode @0 :?Mode;
+        \\}
+    );
+    defer enum_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &enum_file));
 }
 
 test "schema parser lowers anonymous unions and tolerates group blocks inside structs" {
