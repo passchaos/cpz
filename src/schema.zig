@@ -4578,6 +4578,7 @@ pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!
     try validateFileTypeApplications(allocator, file);
     try validateFileConstReferenceCycles(file);
     try validateFileAggregateDefaults(allocator, file);
+    try validateFileSimpleNamedTypes(allocator, file);
 
     var layouts = std.ArrayList(StructLayout).empty;
     errdefer {
@@ -4596,7 +4597,12 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
 
     for (file.aliases) |alias| try validateTypeApplicationArity(allocator, file, null, alias.target);
     for (file.consts) |decl| try validateTypeApplicationArity(allocator, file, null, decl.ty);
-    for (file.annotations) |decl| try validateTypeApplicationArity(allocator, file, null, decl.ty);
+    for (file.annotations) |decl| {
+        var empty_fields: [0]Field = .{};
+        var annotation_scope_storage: Struct = undefined;
+        const annotation_scope = ownerNameScope(file, annotationOwnerName(decl.name), empty_fields[0..], &annotation_scope_storage);
+        try validateTypeApplicationArity(allocator, file, annotation_scope, decl.ty);
+    }
     for (file.structs) |decl| {
         for (decl.fields) |field| try validateTypeApplicationArity(allocator, file, &decl, field.ty);
         for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, &decl, alias.target);
@@ -4621,6 +4627,37 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
             try validateRawTypeApplicationArity(allocator, file, &interface_scope, method.results_type);
             for (method.param_fields) |field| try validateRawTypeApplicationArity(allocator, file, &interface_scope, field.ty);
             for (method.result_fields) |field| try validateRawTypeApplicationArity(allocator, file, &interface_scope, field.ty);
+        }
+    }
+}
+
+fn validateFileSimpleNamedTypes(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    for (file.aliases) |alias| try validateTypeReference(allocator, file, null, alias.target);
+    for (file.consts) |decl| try validateTypeReference(allocator, file, null, decl.ty);
+    for (file.annotations) |decl| {
+        var empty_fields: [0]Field = .{};
+        var annotation_scope_storage: Struct = undefined;
+        const annotation_scope = ownerNameScope(file, annotationOwnerName(decl.name), empty_fields[0..], &annotation_scope_storage);
+        try validateTypeReference(allocator, file, annotation_scope, decl.ty);
+    }
+    for (file.structs) |decl| {
+        for (decl.fields) |field| try validateTypeReference(allocator, file, &decl, field.ty);
+        for (decl.aliases) |alias| try validateTypeReference(allocator, file, &decl, alias.target);
+        for (decl.consts) |const_decl| try validateTypeReference(allocator, file, &decl, const_decl.ty);
+    }
+    for (file.interfaces) |decl| {
+        var empty_fields: [0]Field = .{};
+        var interface_scope = Struct{
+            .name = decl.name,
+            .fields = empty_fields[0..],
+            .consts = decl.consts,
+            .aliases = decl.aliases,
+        };
+        for (decl.aliases) |alias| try validateTypeReference(allocator, file, &interface_scope, alias.target);
+        for (decl.consts) |const_decl| try validateTypeReference(allocator, file, &interface_scope, const_decl.ty);
+        for (decl.methods) |method| {
+            for (method.param_fields) |field| try validateMethodFieldTypeReference(allocator, file, &interface_scope, method.parameters, field.ty);
+            for (method.result_fields) |field| try validateMethodFieldTypeReference(allocator, file, &interface_scope, method.parameters, field.ty);
         }
     }
 }
@@ -5603,12 +5640,105 @@ fn isInterfaceDirectInOwnerScope(file: *const File, owner_name: []const u8, base
     return false;
 }
 
+fn validateTypeReference(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError!void {
+    switch (ty) {
+        .named => |name| try validateRawTypeReference(allocator, file, scope, name),
+        .list, .optional => |child| try validateTypeReference(allocator, file, scope, child.*),
+        else => {},
+    }
+}
+
 fn validateTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError!void {
     switch (ty) {
         .named => |name| try validateRawTypeApplicationArity(allocator, file, scope, name),
         .list, .optional => |child| try validateTypeApplicationArity(allocator, file, scope, child.*),
         else => {},
     }
+}
+
+fn validateRawTypeReference(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, raw: []const u8) LayoutError!void {
+    try validateRawTypeApplicationArity(allocator, file, scope, raw);
+    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+    if (trimmed.len == 0) return;
+    if (std.mem.startsWith(u8, trimmed, "?")) return validateRawTypeReference(allocator, file, scope, trimmed[1..]);
+    if (typeApplicationOpen(trimmed)) |open| {
+        const raw_base = std.mem.trim(u8, trimmed[0..open], " \t\r\n");
+        const base = try canonicalTypeNameAlloc(allocator, raw_base);
+        defer allocator.free(base);
+        if (!std.mem.eql(u8, base, "List") and !isBuiltinTypeApplicationBase(base) and !isEnumTypeApplicationBase(file, scope, base)) {
+            try validateSimpleNamedTypeExists(file, scope, base);
+        }
+        const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return error.UnsupportedType;
+        defer {
+            for (args) |*arg| arg.deinit(allocator);
+            allocator.free(args);
+        }
+        for (args) |arg| try validateTypeReference(allocator, file, scope, arg);
+        return;
+    }
+    const canonical = try canonicalTypeNameAlloc(allocator, trimmed);
+    defer allocator.free(canonical);
+    try validateSimpleNamedTypeExists(file, scope, canonical);
+}
+
+fn validateMethodFieldTypeReference(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, method_parameters: []const []const u8, raw: []const u8) LayoutError!void {
+    try validateRawTypeApplicationArity(allocator, file, scope, raw);
+    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+    if (trimmed.len == 0) return;
+    if (std.mem.startsWith(u8, trimmed, "?")) return validateMethodFieldTypeReference(allocator, file, scope, method_parameters, trimmed[1..]);
+    if (typeApplicationOpen(trimmed)) |open| {
+        const raw_base = std.mem.trim(u8, trimmed[0..open], " \t\r\n");
+        const base = try canonicalTypeNameAlloc(allocator, raw_base);
+        defer allocator.free(base);
+        if (!std.mem.eql(u8, base, "List") and !isBuiltinTypeApplicationBase(base) and !isEnumTypeApplicationBase(file, scope, base)) {
+            try validateSimpleNamedTypeExists(file, scope, base);
+        }
+        const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return error.UnsupportedType;
+        defer {
+            for (args) |*arg| arg.deinit(allocator);
+            allocator.free(args);
+        }
+        for (args) |arg| try validateMethodTypeReference(allocator, file, scope, method_parameters, arg);
+        return;
+    }
+    const canonical = try canonicalTypeNameAlloc(allocator, trimmed);
+    defer allocator.free(canonical);
+    for (method_parameters) |parameter| {
+        if (std.mem.eql(u8, parameter, canonical)) return;
+    }
+    try validateSimpleNamedTypeExists(file, scope, canonical);
+}
+
+fn validateMethodTypeReference(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, method_parameters: []const []const u8, ty: Type) LayoutError!void {
+    switch (ty) {
+        .named => |name| try validateMethodFieldTypeReference(allocator, file, scope, method_parameters, name),
+        .list, .optional => |child| try validateMethodTypeReference(allocator, file, scope, method_parameters, child.*),
+        else => {},
+    }
+}
+
+fn validateSimpleNamedTypeExists(file: *const File, scope: ?*const Struct, name: []const u8) LayoutError!void {
+    if (isBuiltinSchemaTypeName(name)) return;
+    if (std.mem.indexOfScalar(u8, name, '.') != null) return;
+    if (isImportedTypeName(file, name)) return;
+    if (scope) |owner| {
+        if (declHasParameter(owner.parameters, name)) return;
+        if (findStructDirect(file, owner.name) != null) {
+            if (isStructDirectInOwnerScope(file, owner.name, name)) return;
+            if (isEnumDirectInOwnerScope(file, owner.name, name)) return;
+            if (isInterfaceDirectInOwnerScope(file, owner.name, name)) return;
+        }
+        if (findInterfaceDirect(file, owner.name) != null) {
+            if (isStructDirectInOwnerScope(file, owner.name, name)) return;
+            if (isEnumDirectInOwnerScope(file, owner.name, name)) return;
+            if (isInterfaceDirectInOwnerScope(file, owner.name, name)) return;
+        }
+    }
+    if (findStructDirect(file, name) != null) return;
+    if (findEnumDirect(file, name) != null) return;
+    if (findInterfaceDirect(file, name) != null) return;
+    if (resolveNamedAlias(file, scope, name, 0) != null) return;
+    return error.UnsupportedType;
 }
 
 fn canonicalTypeNameAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
@@ -6964,6 +7094,49 @@ test "schema layout planner rejects defaults for unresolved named types" {
     );
     defer method_const_ref_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &method_const_ref_file));
+}
+
+test "schema layout planner rejects unresolved simple named types without defaults" {
+    var field_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :Missing;
+        \\}
+    );
+    defer field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &field_file));
+
+    var list_field_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  values @0 :List(Missing);
+        \\}
+    );
+    defer list_field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &list_field_file));
+
+    var alias_file = try parse(std.testing.allocator,
+        \\using Alias = Missing;
+        \\struct Bad {
+        \\  value @0 :Alias;
+        \\}
+    );
+    defer alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &alias_file));
+
+    var method_file = try parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :Missing) -> ();
+        \\}
+    );
+    defer method_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &method_file));
+
+    var method_list_file = try parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :List(Missing)) -> ();
+        \\}
+    );
+    defer method_list_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &method_list_file));
 }
 
 test "schema layout planner rejects scalar defaults for generic parameters" {
