@@ -5157,8 +5157,13 @@ fn findInterfaceDirect(file: *const File, name: []const u8) ?*const InterfaceDec
 
 fn firstTopLevelDot(raw: []const u8) ?usize {
     var depth: usize = 0;
-    for (raw, 0..) |c, index| {
-        switch (c) {
+    var index: usize = 0;
+    while (index < raw.len) {
+        if (skipRawStringOrCommentInPostLoop(raw, &index) catch false) {
+            index += 1;
+            continue;
+        }
+        switch (raw[index]) {
             '(' => depth += 1,
             ')' => {
                 if (depth != 0) depth -= 1;
@@ -5168,6 +5173,7 @@ fn firstTopLevelDot(raw: []const u8) ?usize {
             },
             else => {},
         }
+        index += 1;
     }
     return null;
 }
@@ -5175,8 +5181,13 @@ fn firstTopLevelDot(raw: []const u8) ?usize {
 fn lastTopLevelDot(raw: []const u8) ?usize {
     var depth: usize = 0;
     var found: ?usize = null;
-    for (raw, 0..) |c, index| {
-        switch (c) {
+    var index: usize = 0;
+    while (index < raw.len) {
+        if (skipRawStringOrCommentInPostLoop(raw, &index) catch false) {
+            index += 1;
+            continue;
+        }
+        switch (raw[index]) {
             '(' => depth += 1,
             ')' => {
                 if (depth != 0) depth -= 1;
@@ -5186,6 +5197,7 @@ fn lastTopLevelDot(raw: []const u8) ?usize {
             },
             else => {},
         }
+        index += 1;
     }
     return found;
 }
@@ -5193,22 +5205,33 @@ fn lastTopLevelDot(raw: []const u8) ?usize {
 fn typeNameEqualsCanonical(raw: []const u8, canonical: []const u8) bool {
     var canonical_index: usize = 0;
     var depth: usize = 0;
-    for (raw) |c| {
-        switch (c) {
+    var index: usize = 0;
+    while (index < raw.len) {
+        if (skipRawStringOrCommentInPostLoop(raw, &index) catch false) {
+            index += 1;
+            continue;
+        }
+        switch (raw[index]) {
             '(' => {
                 depth += 1;
+                index += 1;
                 continue;
             },
             ')' => {
                 if (depth == 0) return false;
                 depth -= 1;
+                index += 1;
                 continue;
             },
             else => {},
         }
-        if (depth != 0) continue;
-        if (canonical_index >= canonical.len or canonical[canonical_index] != c) return false;
+        if (depth != 0 or std.ascii.isWhitespace(raw[index])) {
+            index += 1;
+            continue;
+        }
+        if (canonical_index >= canonical.len or canonical[canonical_index] != raw[index]) return false;
         canonical_index += 1;
+        index += 1;
     }
     return depth == 0 and canonical_index == canonical.len;
 }
@@ -5378,19 +5401,27 @@ fn canonicalTypeNameAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
     var depth: usize = 0;
-    for (raw) |c| {
-        switch (c) {
+    var index: usize = 0;
+    while (index < raw.len) {
+        if (skipRawStringOrCommentInPostLoop(raw, &index) catch false) {
+            index += 1;
+            continue;
+        }
+        switch (raw[index]) {
             '(' => {
                 depth += 1;
+                index += 1;
                 continue;
             },
             ')' => {
                 if (depth != 0) depth -= 1;
+                index += 1;
                 continue;
             },
             else => {},
         }
-        if (depth == 0) try out.append(allocator, c);
+        if (depth == 0 and !std.ascii.isWhitespace(raw[index])) try out.append(allocator, raw[index]);
+        index += 1;
     }
     return try out.toOwnedSlice(allocator);
 }
