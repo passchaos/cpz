@@ -2515,6 +2515,8 @@ pub const Parser = struct {
     fn parseRawTypeSyntax(self: *Parser, raw: []const u8) Error!Type {
         var parser = try Parser.init(self.allocator, raw);
         defer parser.deinitLiteralScratch();
+        parser.parsed_imports = self.parsed_imports;
+        parser.parsed_decl_names = self.parsed_decl_names;
         var ty = try parser.parseType();
         errdefer ty.deinit(self.allocator);
         if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
@@ -5746,6 +5748,7 @@ fn validateMethodTypeReference(allocator: std.mem.Allocator, file: *const File, 
 fn validateSimpleNamedTypeExists(file: *const File, scope: ?*const Struct, name: []const u8) LayoutError!void {
     if (isBuiltinSchemaTypeName(name)) return;
     if (isImportedTypeName(file, name)) return;
+    if (isImportedAliasName(file, name)) return;
     if (scope) |owner| {
         if (declHasParameter(owner.parameters, name)) return;
         if (findStructDirect(file, owner.name) != null) {
@@ -5806,6 +5809,13 @@ fn isImportedTypeName(file: *const File, name: []const u8) bool {
         if (!typeNameEqualsCanonical(head, import_decl.name)) continue;
         if (import_decl.member != null) return true;
         return has_tail;
+    }
+    return false;
+}
+
+fn isImportedAliasName(file: *const File, name: []const u8) bool {
+    for (file.imports) |import_decl| {
+        if (typeNameEqualsCanonical(name, import_decl.name)) return true;
     }
     return false;
 }
@@ -7182,6 +7192,15 @@ test "schema layout planner rejects unresolved simple named types without defaul
     defer method_import_file.deinit(std.testing.allocator);
     var method_import_layouts = try planLayouts(std.testing.allocator, &method_import_file);
     method_import_layouts.deinit(std.testing.allocator);
+
+    var method_list_import_file = try parse(std.testing.allocator,
+        \\interface Imported {
+        \\  call @0 (value :List(import "imported.capnp".Value)) -> ();
+        \\}
+    );
+    defer method_list_import_file.deinit(std.testing.allocator);
+    var method_list_import_layouts = try planLayouts(std.testing.allocator, &method_list_import_file);
+    method_list_import_layouts.deinit(std.testing.allocator);
 }
 
 test "schema layout planner rejects scalar defaults for generic parameters" {
