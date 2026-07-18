@@ -2728,7 +2728,7 @@ pub const Parser = struct {
                     else => {},
                 }
             }
-            while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+            index = try skipTriviaIndex(signature, index);
         }
         const params_start = index;
         var paren_depth: usize = 0;
@@ -2742,7 +2742,7 @@ pub const Parser = struct {
                 '-' => if (paren_depth == 0 and index + 1 < signature.len and signature[index + 1] == '>') {
                     const params = std.mem.trim(u8, signature[params_start..index], " \t\r\n");
                     if (params.len == 0) return error.UnexpectedToken;
-                    const result_parts = try splitResultAndAnnotations(std.mem.trim(u8, signature[index + 2 ..], " \t\r\n"));
+                    const result_parts = try splitResultAndAnnotations(signature[index + 2 ..]);
                     if (result_parts.results.len == 0) return error.UnexpectedToken;
                     return .{ .params = params, .results = result_parts.results, .annotations = result_parts.annotations };
                 },
@@ -2753,11 +2753,12 @@ pub const Parser = struct {
     }
 
     fn splitResultAndAnnotations(raw: []const u8) Error!struct { results: []const u8, annotations: []const u8 } {
-        if (raw.len == 0) return .{ .results = "", .annotations = "" };
-        var index: usize = 0;
-        if (raw[0] == '(') {
+        const start = try skipTriviaIndex(raw, 0);
+        if (start >= raw.len) return .{ .results = "", .annotations = "" };
+        var index: usize = start;
+        if (raw[index] == '(') {
             var paren_depth: usize = 1;
-            index = 1;
+            index += 1;
             while (index < raw.len and paren_depth != 0) : (index += 1) {
                 if (try skipRawStringOrCommentInPostLoop(raw, &index)) continue;
                 switch (raw[index]) {
@@ -2768,7 +2769,7 @@ pub const Parser = struct {
             }
             const result_end = index;
             return .{
-                .results = std.mem.trim(u8, raw[0..result_end], " \t\r\n"),
+                .results = std.mem.trim(u8, raw[start..result_end], " \t\r\n"),
                 .annotations = std.mem.trim(u8, raw[result_end..], " \t\r\n"),
             };
         }
@@ -2785,7 +2786,7 @@ pub const Parser = struct {
             }
         }
         return .{
-            .results = std.mem.trim(u8, raw[0..index], " \t\r\n"),
+            .results = std.mem.trim(u8, raw[start..index], " \t\r\n"),
             .annotations = std.mem.trim(u8, raw[index..], " \t\r\n"),
         };
     }
@@ -6249,6 +6250,24 @@ test "schema parser accepts comments between method field tokens" {
     try std.testing.expectEqual(@as(usize, 1), method.result_fields.len);
     try std.testing.expectEqualStrings("result", method.result_fields[0].name);
     try std.testing.expectEqualStrings("U", method.result_fields[0].ty);
+}
+
+test "schema parser accepts comments between method signature sections" {
+    var file = try parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [T] /* params follow */ (item :T) -> /* results follow */ ();
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces.len);
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces[0].methods.len);
+    const method = file.interfaces[0].methods[0];
+    try std.testing.expectEqual(@as(usize, 1), method.parameters.len);
+    try std.testing.expectEqualStrings("T", method.parameters[0]);
+    try std.testing.expectEqual(@as(usize, 1), method.param_fields.len);
+    try std.testing.expectEqualStrings("item", method.param_fields[0].name);
+    try std.testing.expectEqual(@as(usize, 0), method.result_fields.len);
 }
 
 test "schema parser rejects malformed method field commas" {
