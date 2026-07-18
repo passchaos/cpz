@@ -4911,11 +4911,16 @@ fn validateConstReferenceDefaultValue(file: *const File, scope: ?*const Struct, 
     if (decl.is_hex_data and resolved_ty == .data) return;
     if (std.mem.eql(u8, literal, "null") and typeAcceptsNullPointerDefault(file, resolved_ty)) return;
     if (std.mem.eql(u8, literal, "void") and typeAcceptsVoidPointerDefault(file, resolved_ty)) return;
-    if (defaultLiteralIsValidBareLiteral(file, scope, decl.ty, literal)) return;
+    try validateReferenceLikeDefaultLiteral(file, scope, decl.ty, literal);
+}
+
+fn validateReferenceLikeDefaultLiteral(file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) LayoutError!void {
+    if (defaultLiteralIsValidBareLiteral(file, scope, ty, literal)) return;
+    const resolved_ty = nonNullResolvedDefaultType(file, scope, ty);
     if (findConstReference(file, scope, literal)) |referenced_decl| {
         const referenced_ty = nonNullDefaultType(resolveConstDeclType(file, scope, referenced_decl));
-        const const_owner = if (scope) |owner| owner.name else null;
-        if (!defaultConstTypeCompatibleScoped(file, const_owner, constDeclOwnerName(file, referenced_decl), resolved_ty, referenced_ty)) return error.UnexpectedToken;
+        const owner_name = if (scope) |owner| owner.name else null;
+        if (!defaultConstTypeCompatibleScoped(file, owner_name, constDeclOwnerName(file, referenced_decl), resolved_ty, referenced_ty)) return error.UnexpectedToken;
         return;
     }
     if (defaultLiteralCanBeReference(literal)) return error.UnexpectedToken;
@@ -4952,7 +4957,8 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
             if (std.mem.eql(u8, raw, "null")) return;
             try validateTypeAggregateDefault(allocator, file, scope, child.*, raw);
         },
-        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data => {},
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => try validateReferenceLikeDefaultLiteral(file, scope, ty, raw),
+        .text, .data => {},
         .list => |child| {
             if (raw[0] != '[') {
                 if (const_ref) |decl| {
@@ -6792,6 +6798,21 @@ test "schema layout planner rejects mismatched aggregate default item types" {
     );
     defer enum_method_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &enum_method_file));
+
+    var scalar_list_const_file = try parse(std.testing.allocator,
+        \\const values :List(UInt32) = [missing];
+    );
+    defer scalar_list_const_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &scalar_list_const_file));
+
+    var scalar_struct_const_file = try parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const item :Item = (id = missing);
+    );
+    defer scalar_struct_const_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &scalar_struct_const_file));
 
     var struct_ref_file = try parse(std.testing.allocator,
         \\const scalar :UInt32 = 1;
