@@ -3194,6 +3194,10 @@ pub const Parser = struct {
         }
         try self.expect(.r_brace);
         for (unions.items) |*u| try appendUnionFields(self.allocator, &fields, &field_names, u);
+        // Group and union lowering appends synthetic fields after their bodies are
+        // parsed.  Validate ordinals once the flattened field list is complete so
+        // every layout-visible field shares the same collision rules.
+        try validateFieldOrdinals(self.allocator, fields.items);
         const union_decls = try unionDeclsFromBuilders(self.allocator, unions.items);
         errdefer self.allocator.free(union_decls);
         for (unions.items) |*u| u.deinit(self.allocator);
@@ -4232,6 +4236,15 @@ fn appendUnionFields(allocator: std.mem.Allocator, fields: *std.ArrayList(Field)
         appended += 1;
     }
     union_builder.fields.clearRetainingCapacity();
+}
+
+fn validateFieldOrdinals(allocator: std.mem.Allocator, fields: []const Field) Error!void {
+    var occupied = std.AutoHashMap(u32, void).init(allocator);
+    defer occupied.deinit();
+    for (fields) |field| {
+        const entry = try occupied.getOrPut(field.ordinal);
+        if (entry.found_existing) return error.OrdinalCollision;
+    }
 }
 
 fn unionDeclsFromBuilders(allocator: std.mem.Allocator, builders: []const UnionBuilder) std.mem.Allocator.Error![]UnionDecl {
@@ -5840,19 +5853,17 @@ test "schema layout planner assigns data and pointer slots" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, layout.fields[4].slot);
 }
 
-test "schema layout planner rejects duplicate ordinals" {
-    var file = try parse(std.testing.allocator,
+test "schema parser rejects duplicate struct field ordinals" {
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
         \\struct Bad {
         \\  a @0 :UInt32;
         \\  b @0 :UInt32;
         \\}
-    );
-    defer file.deinit(std.testing.allocator);
-    try std.testing.expectError(error.OrdinalCollision, planLayouts(std.testing.allocator, &file));
+    ));
 }
 
-test "schema layout planner rejects anonymous union ordinal collisions" {
-    var file = try parse(std.testing.allocator,
+test "schema parser rejects flattened group and union ordinal collisions" {
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
         \\struct Bad {
         \\  before @0 :UInt32;
         \\  union {
@@ -5860,9 +5871,23 @@ test "schema layout planner rejects anonymous union ordinal collisions" {
         \\    other @1 :UInt32;
         \\  }
         \\}
-    );
-    defer file.deinit(std.testing.allocator);
-    try std.testing.expectError(error.OrdinalCollision, planLayouts(std.testing.allocator, &file));
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  before @0 :UInt32;
+        \\  details @1 :group {
+        \\    collides @0 :Text;
+        \\  }
+        \\}
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  before @0 :UInt32;
+        \\  selected @1 :union {
+        \\    collides @0 :Text;
+        \\  }
+        \\}
+    ));
 }
 
 test "schema layout planner allocates slots by ordinal not declaration order" {
