@@ -2465,7 +2465,7 @@ pub const Parser = struct {
                 default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
                 if (default_literal.?.len == 0) return error.UnexpectedToken;
                 try self.validateDefaultLiteralForTypeSyntax(parsed_field_type, default_literal.?);
-                if (std.mem.eql(u8, field_type, "Data")) {
+                if (parsed_field_type == .data) {
                     if (default_literal) |literal| {
                         default_is_hex_data = std.mem.startsWith(u8, literal, "0x\"");
                     }
@@ -6251,7 +6251,8 @@ test "schema parser accepts comments between method field tokens" {
         \\  ] (
         \\    item /* name/type separator */ : /* type */ T,
         \\    # default expression follows
-        \\    label :Text = /* default */ "commented"
+        \\    label :Text = /* default */ "commented",
+        \\    payload :Data /* keep hex classification */ = 0x"aa bb"
         \\  ) -> (
         \\    result :U
         \\  );
@@ -6265,11 +6266,14 @@ test "schema parser accepts comments between method field tokens" {
     try std.testing.expectEqual(@as(usize, 2), method.parameters.len);
     try std.testing.expectEqualStrings("T", method.parameters[0]);
     try std.testing.expectEqualStrings("U", method.parameters[1]);
-    try std.testing.expectEqual(@as(usize, 2), method.param_fields.len);
+    try std.testing.expectEqual(@as(usize, 3), method.param_fields.len);
     try std.testing.expectEqualStrings("item", method.param_fields[0].name);
     try std.testing.expectEqualStrings("T", method.param_fields[0].ty);
     try std.testing.expectEqualStrings("label", method.param_fields[1].name);
     try std.testing.expectEqualStrings("\"commented\"", method.param_fields[1].default_literal.?);
+    try std.testing.expectEqualStrings("payload", method.param_fields[2].name);
+    try std.testing.expectEqualStrings("Data /* keep hex classification */", method.param_fields[2].ty);
+    try std.testing.expect(method.param_fields[2].default_is_hex_data);
     try std.testing.expectEqual(@as(usize, 1), method.result_fields.len);
     try std.testing.expectEqualStrings("result", method.result_fields[0].name);
     try std.testing.expectEqualStrings("U", method.result_fields[0].ty);
