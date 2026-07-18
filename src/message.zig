@@ -252,7 +252,9 @@ pub const MessageStats = struct {
 
     pub fn maxCapabilityCount(self: MessageStats) usize {
         if (self.max_capability_index) |index| {
-            return @as(usize, index) + 1;
+            // Saturate for consistency with CapabilityPointer.maxCapabilityCount()
+            // on 32-bit targets, where u32.max + 1 exceeds usize.
+            return std.math.add(usize, @intCast(index), 1) catch std.math.maxInt(usize);
         }
         return 0;
     }
@@ -300,6 +302,11 @@ test "message stats byte helper methods" {
     try testing.expect(stats.matchesMaxCapabilityCount(4));
     try testing.expect(!stats.matchesMaxCapabilityCount(3));
     try testing.expectEqual(@as(usize, 96), stats.size().byteCount());
+    const max_u32_capability_count = if (@bitSizeOf(usize) > 32)
+        @as(usize, std.math.maxInt(u32)) + 1
+    else
+        std.math.maxInt(usize);
+    try testing.expectEqual(max_u32_capability_count, (MessageStats{ .max_capability_index = std.math.maxInt(u32) }).maxCapabilityCount());
 
     const huge = MessageStats{
         .data_words = std.math.maxInt(usize),

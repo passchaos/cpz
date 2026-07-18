@@ -456,7 +456,10 @@ pub const CapabilityPointer = struct {
     }
 
     pub fn maxCapabilityCount(self: CapabilityPointer) usize {
-        return @as(usize, self.index) + 1;
+        // Capability indexes are stored as u32, while public count helpers
+        // return usize. Saturating keeps this helper total on 32-bit targets
+        // where u32.max + 1 cannot be represented as usize.
+        return std.math.add(usize, @intCast(self.index), 1) catch std.math.maxInt(usize);
     }
 
     pub fn matchesMaxCapabilityCount(self: CapabilityPointer, count: usize) bool {
@@ -985,6 +988,11 @@ test "wire signed offsets and far/capability pointers" {
     try testing.expectEqual(@as(usize, 1235), decoded_cap.asCapability().?.maxCapabilityCount());
     try testing.expect(decoded_cap.asCapability().?.matchesMaxCapabilityCount(1235));
     try testing.expect(!decoded_cap.asCapability().?.matchesMaxCapabilityCount(1234));
+    const max_u32_capability_count = if (@bitSizeOf(usize) > 32)
+        @as(usize, std.math.maxInt(u32)) + 1
+    else
+        std.math.maxInt(usize);
+    try testing.expectEqual(max_u32_capability_count, (CapabilityPointer{ .index = std.math.maxInt(u32) }).maxCapabilityCount());
     try testing.expect(decoded_cap.asFar() == null);
     const cap = try decodeOther(cap_raw);
     try testing.expectEqual(@as(u32, 1234), cap.index);
