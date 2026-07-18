@@ -2632,28 +2632,15 @@ pub const Parser = struct {
     }
 
     fn parseConstOrSkip(self: *Parser, consts: *std.ArrayList(ConstDecl), decl_names: *std.StringHashMap(void)) Error!void {
-        if (self.lookahead.tag != .identifier) {
-            try self.skipRawUntilSemicolon();
-            return;
-        }
+        if (self.lookahead.tag != .identifier) return error.UnexpectedToken;
         const name = try self.expectIdentifier();
         const decl_id = try self.parseOptionalDeclarationId();
-        if (self.lookahead.tag != .colon) {
-            try self.skipRawUntilSemicolon();
-            return;
-        }
+        if (self.lookahead.tag != .colon) return error.UnexpectedToken;
         try self.expect(.colon);
-        var ty = self.parseType() catch {
-            try self.skipRawUntilSemicolon();
-            return;
-        };
+        var ty = try self.parseType();
         errdefer ty.deinit(self.allocator);
 
-        if (self.lookahead.tag != .equal) {
-            ty.deinit(self.allocator);
-            try self.skipRawUntilSemicolon();
-            return;
-        }
+        if (self.lookahead.tag != .equal) return error.UnexpectedToken;
         const block_text_literal = typeAcceptsTextLiteral(ty) and self.constLiteralFirstByte() == '`';
         const list_literal = !block_text_literal and self.constLiteralStartsList();
         if (!block_text_literal and self.constLiteralStartsUnsupported(list_literal)) {
@@ -2698,52 +2685,23 @@ pub const Parser = struct {
         };
         var owns_literal = false;
         const literal: []const u8 = if (block_text_literal) blk: {
-            break :blk self.parseBlockTextLiteralAfterEqual() catch {
-                ty.deinit(self.allocator);
-                try self.skipRawUntilSemicolon();
-                return;
-            };
+            break :blk try self.parseBlockTextLiteralAfterEqual();
         } else blk: {
             try self.expect(.equal);
             break :blk if (list_literal) list_blk: {
                 const list_start = self.currentTokenStart();
-                list_items = self.parseConstListItems(&list_has_aggregate_items) catch |err| switch (err) {
-                    error.NameCollision => return err,
-                    error.UnexpectedToken, error.InvalidToken => {
-                        if (list_has_aggregate_items) return err;
-                        ty.deinit(self.allocator);
-                        try self.skipRawUntilSemicolon();
-                        return;
-                    },
-                    else => {
-                        ty.deinit(self.allocator);
-                        try self.skipRawUntilSemicolon();
-                        return;
-                    },
-                };
+                list_items = try self.parseConstListItems(&list_has_aggregate_items);
                 const list_end = self.currentTokenStart();
                 break :list_blk std.mem.trim(u8, self.lexer.source[list_start..list_end], " \t\r\n");
             } else if (typeAcceptsDataLiteral(ty) and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) data_blk: {
                 try self.expect(.integer);
-                if (self.lookahead.tag != .string) {
-                    ty.deinit(self.allocator);
-                    try self.skipRawUntilSemicolon();
-                    return;
-                }
+                if (self.lookahead.tag != .string) return error.UnexpectedToken;
                 const value = self.lookahead.lexeme;
                 try self.advance();
                 is_hex_data = true;
                 break :data_blk value;
             } else value_blk: {
-                const value = (self.expectDefaultLiteral() catch {
-                    ty.deinit(self.allocator);
-                    try self.skipRawUntilSemicolon();
-                    return;
-                }) orelse {
-                    ty.deinit(self.allocator);
-                    try self.skipRawUntilSemicolon();
-                    return;
-                };
+                const value = (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
                 owns_literal = self.ownsScratchLiteral(value);
                 break :value_blk value;
             };
@@ -5410,6 +5368,26 @@ test "schema parser skips common top-level using and const declarations" {
     try std.testing.expectEqualStrings("name", file.consts[3].struct_fields.?[0].name);
     try std.testing.expectEqualStrings("\"Raw\"", file.consts[3].struct_fields.?[0].literal);
     try std.testing.expectEqualStrings("blockText", file.consts[4].name);
+}
+
+test "schema parser rejects malformed const declarations" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const :UInt32 = 1;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad UInt32 = 1;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad : = 1;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad :UInt32;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad :UInt32 = ;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "const bad :Data = 0x;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Owner {
+        \\  const bad :UInt32;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Service {
+        \\  const bad :UInt32 = ;
+        \\  call @0 () -> ();
+        \\}
+    ));
 }
 
 test "schema parser tolerates imports and annotations" {
