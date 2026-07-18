@@ -6157,10 +6157,6 @@ fn emptyMutableBytes() []u8 {
     return empty_mutable_bytes[0..];
 }
 
-fn listByteLen(element_count: usize, step_bits: usize) usize {
-    return checkedListByteLen(element_count, step_bits) catch @panic("list byte length overflow");
-}
-
 test "builder and reader round-trip struct with text" {
     const testing = std.testing;
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
