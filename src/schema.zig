@@ -2354,6 +2354,11 @@ pub const Parser = struct {
             }
         }
         if (list_depth != 0) return error.UnexpectedToken;
+        // `splitMethodSignature()` hands us the whole endpoint slice before the
+        // arrow.  Once the outer field-list parens close, only trivia may
+        // remain; otherwise syntax like `(value :UInt32) junk -> ()` would be
+        // accepted after silently ignoring `junk`.
+        if (try skipTriviaIndex(trimmed, end + 1) != trimmed.len) return error.UnexpectedToken;
         var index: usize = 1;
         var fields = std.ArrayList(MethodField).empty;
         errdefer fields.deinit(self.allocator);
@@ -6152,7 +6157,17 @@ test "schema parser rejects malformed method signatures" {
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
+        \\  call @0 (value :UInt32) trailing -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
         \\  call @0 () -> GenericBox();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> (result :UInt32) trailing;
         \\}
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
