@@ -4730,6 +4730,7 @@ pub const StructBuilder = struct {
 
     fn overlapsSource(self: StructBuilder, source: StructReader) bool {
         if (self.segment_id != source.segment_id) return false;
+        if (self.segment_id >= self.message.segments.items.len) return false;
         if (source.segment_id >= source.message.segments.len) return false;
         const dst_segment = std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items);
         const src_segment = source.message.segments[source.segment_id];
@@ -8670,6 +8671,25 @@ test "accessors report oversized derived offsets instead of trapping" {
 
     const segment = [_]u8{0} ** wire.bytes_per_word;
     var reader = MessageReader.init(&.{&segment}, .{});
+    var two_segment_reader = MessageReader.init(&.{ &segment, &segment }, .{});
+    const invalid_destination = StructBuilder{
+        .message = &builder,
+        .segment_id = 1,
+        .data_start = 0,
+        .pointer_start = 0,
+        .data_words = 0,
+        .pointer_count = 0,
+    };
+    try invalid_destination.copyFromReader(.{
+        .message = &two_segment_reader,
+        .segment_id = 1,
+        .data_start = 0,
+        .pointer_start = 0,
+        .data_words = 0,
+        .pointer_count = 0,
+        .nesting_left = 1,
+    });
+
     const huge_bit_list_reader = ListReader{
         .message = &reader,
         .segment_id = 0,
