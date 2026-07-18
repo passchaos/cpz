@@ -1378,6 +1378,11 @@ test "builder options helper methods" {
     try testing.expect(huge.matchesFirstSegmentBytes(std.math.maxInt(usize)));
     try testing.expect(huge.matchesNextSegmentMinBytes(std.math.maxInt(usize)));
     try testing.expectError(error.SerializedSizeOverflow, wordsToBytesChecked(std.math.maxInt(usize)));
+    try testing.expectEqual(@as(u32, 0), try segmentIdFromIndex(0));
+    try testing.expectEqual(std.math.maxInt(u32), try segmentIdFromIndex(std.math.maxInt(u32)));
+    if (@bitSizeOf(usize) > @bitSizeOf(u32)) {
+        try testing.expectError(error.MessageTooLarge, segmentIdFromIndex(@as(usize, std.math.maxInt(u32)) + 1));
+    }
 }
 
 const SegmentBuilder = struct {
@@ -2579,8 +2584,9 @@ pub const MessageBuilder = struct {
         var segment = try SegmentBuilder.init(self.allocator, min_words);
         errdefer segment.deinit(self.allocator);
         const start = segment.alloc(word_count).?;
+        const segment_id = try segmentIdFromIndex(self.segments.items.len);
         try self.segments.append(self.allocator, segment);
-        return .{ .id = @intCast(self.segments.items.len - 1), .start = start };
+        return .{ .id = segment_id, .start = start };
     }
 
     fn placePointerToObject(self: *MessageBuilder, pointer: PointerBuilder, object: SegmentCursor, object_word_count: usize, tag_for_far: wire.Word, near_raw: wire.Word) Error!void {
@@ -6137,6 +6143,11 @@ fn checkedWordBitOffset(word_index: usize, bit_offset: usize) Error!usize {
 fn checkedWordByteOffset(word_index: usize, bit_offset: usize) Error!usize {
     const word_bytes = std.math.mul(usize, word_index, wire.bytes_per_word) catch return error.MessageTooLarge;
     return std.math.add(usize, word_bytes, bit_offset / 8) catch return error.MessageTooLarge;
+}
+
+fn segmentIdFromIndex(index: usize) Error!u32 {
+    if (index > std.math.maxInt(u32)) return error.MessageTooLarge;
+    return @intCast(index);
 }
 
 var empty_mutable_bytes: [0]u8 = .{};
