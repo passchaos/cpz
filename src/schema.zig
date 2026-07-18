@@ -4729,6 +4729,17 @@ test "schema parser rejects malformed declaration and method parameter lists" {
     ));
 }
 
+test "schema parser rejects malformed interface extends list" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Base {
+        \\  call @0 () -> ();
+        \\}
+        \\interface Derived extends(Base Base) {
+        \\  call @0 () -> ();
+        \\}
+    ));
+}
+
 test "schema parser skips common top-level using and const declarations" {
     const source =
         \\using Go = import "go.capnp";
