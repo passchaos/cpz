@@ -2233,8 +2233,9 @@ pub const Parser = struct {
         defer names.deinit();
 
         while (index < end) {
-            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n' or trimmed[index] == ',')) index += 1;
+            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
             if (index >= end) break;
+            if (trimmed[index] == ',') return error.UnexpectedToken;
             if (!isIdentStart(trimmed[index])) return error.UnexpectedToken;
             const name_start = index;
             index += 1;
@@ -2349,7 +2350,13 @@ pub const Parser = struct {
                 annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
             }
             try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .default_is_hex_data = default_is_hex_data, .has_explicit_default = has_explicit_default, .annotations = annotations });
-            if (index < end and trimmed[index] == ',') index += 1;
+            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+            if (index < end) {
+                if (trimmed[index] != ',') return error.UnexpectedToken;
+                index += 1;
+                while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+                if (index >= end or trimmed[index] == ',') return error.UnexpectedToken;
+            }
         }
         return fields.toOwnedSlice(self.allocator);
     }
@@ -4658,6 +4665,29 @@ test "schema parser keeps separators inside quoted method defaults" {
     try std.testing.expectEqualStrings("\"raw,bytes\"", method.param_fields[1].default_literal.?);
     try std.testing.expectEqualStrings("\"contains $ marker\"", method.param_fields[2].default_literal.?);
     try std.testing.expectEqualStrings("\"ok, result\"", method.result_fields[0].default_literal.?);
+}
+
+test "schema parser rejects malformed method field commas" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :UInt32,) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (, value :UInt32) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (first :UInt32,, second :UInt32) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> (value :UInt32,);
+        \\}
+    ));
 }
 
 test "schema parser rejects duplicate field names" {
