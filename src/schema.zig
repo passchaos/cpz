@@ -3316,6 +3316,7 @@ pub const Parser = struct {
         var value_names = std.StringHashMap(void).init(self.allocator);
         defer value_names.deinit();
 
+        if (self.lookahead.tag == .r_brace) return error.UnexpectedToken;
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             const value_name = try self.expectIdentifier();
@@ -4738,6 +4739,13 @@ test "schema parser rejects duplicate enum value names" {
         \\enum Bad {
         \\  value @0;
         \\  value @1;
+        \\}
+    ));
+}
+
+test "schema parser rejects empty enums" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\enum Bad {
         \\}
     ));
 }
