@@ -22,6 +22,7 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqual(@as(usize, 12), generated.@"cpz.structCount");
     try std.testing.expectEqual(@as(usize, 2), generated.@"cpz.enumCount");
     try std.testing.expectEqual(@as(usize, 3), generated.@"cpz.interfaceCount");
+    try std.testing.expectEqual(@as(usize, 11), generated.@"cpz.annotationDeclCount");
     try std.testing.expectEqual(@as(usize, 28), generated.@"cpz.declarationCount");
     try std.testing.expectEqual(@as(usize, 28), generated.@"cpz.declarations".len);
     try std.testing.expectEqualStrings("Person", generated.@"cpz.declarations"[0].name);

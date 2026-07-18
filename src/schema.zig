@@ -8109,8 +8109,9 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\{s}pub const @"cpz.structCount": usize = {};
         \\{s}pub const @"cpz.enumCount": usize = {};
         \\{s}pub const @"cpz.interfaceCount": usize = {};
+        \\{s}pub const @"cpz.annotationDeclCount": usize = {};
         \\
-    , .{ indent, file.structs.len, indent, file.enums.len, indent, file.interfaces.len });
+    , .{ indent, file.structs.len, indent, file.enums.len, indent, file.interfaces.len, indent, file.annotations.len });
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.declarationCount": usize = {};
         \\
