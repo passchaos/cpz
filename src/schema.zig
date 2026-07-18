@@ -1751,6 +1751,7 @@ pub const Parser = struct {
     parsed_annotations: ?*std.ArrayList(AnnotationDecl) = null,
     parsed_imports: ?*std.ArrayList(ImportDecl) = null,
     parsed_decl_names: ?*std.StringHashMap(void) = null,
+    parsed_decl_ids: ?*std.AutoHashMap(u64, void) = null,
     literal_scratch: std.ArrayList([]u8) = .empty,
 
     pub fn init(allocator: std.mem.Allocator, source: []const u8) Error!Parser {
@@ -1818,6 +1819,8 @@ pub const Parser = struct {
         errdefer raw_file_annotations.deinit(self.allocator);
         var decl_names = std.StringHashMap(void).init(self.allocator);
         defer decl_names.deinit();
+        var decl_ids = std.AutoHashMap(u64, void).init(self.allocator);
+        defer decl_ids.deinit();
         var file_id: ?u64 = null;
         self.parsed_structs = &structs;
         self.parsed_enums = &enums;
@@ -1825,6 +1828,7 @@ pub const Parser = struct {
         self.parsed_annotations = &annotations;
         self.parsed_imports = &imports;
         self.parsed_decl_names = &decl_names;
+        self.parsed_decl_ids = &decl_ids;
         defer {
             self.parsed_structs = null;
             self.parsed_enums = null;
@@ -1832,6 +1836,7 @@ pub const Parser = struct {
             self.parsed_annotations = null;
             self.parsed_imports = null;
             self.parsed_decl_names = null;
+            self.parsed_decl_ids = null;
         }
 
         while (self.lookahead.tag != .eof) {
@@ -1868,6 +1873,7 @@ pub const Parser = struct {
             } else if (self.lookahead.tag == .at) {
                 if (file_id != null) return error.OrdinalCollision;
                 file_id = try self.parseFileId();
+                try self.registerDeclarationId(file_id);
             } else {
                 return error.UnexpectedToken;
             }
@@ -2456,6 +2462,7 @@ pub const Parser = struct {
         const decl_names = self.parsed_decl_names.?;
         const entry = try decl_names.getOrPut(decl.name);
         if (entry.found_existing) return error.NameCollision;
+        try self.registerDeclarationId(decl.id);
         try structs.append(self.allocator, decl);
     }
 
@@ -2464,6 +2471,7 @@ pub const Parser = struct {
         const decl_names = self.parsed_decl_names.?;
         const entry = try decl_names.getOrPut(decl.name);
         if (entry.found_existing) return error.NameCollision;
+        try self.registerDeclarationId(decl.id);
         try enums.append(self.allocator, decl);
     }
 
@@ -2472,6 +2480,7 @@ pub const Parser = struct {
         const decl_names = self.parsed_decl_names.?;
         const entry = try decl_names.getOrPut(decl.name);
         if (entry.found_existing) return error.NameCollision;
+        try self.registerDeclarationId(decl.id);
         try interfaces.append(self.allocator, decl);
     }
 
@@ -2480,7 +2489,15 @@ pub const Parser = struct {
         const decl_names = self.parsed_decl_names.?;
         const entry = try decl_names.getOrPut(decl.name);
         if (entry.found_existing) return error.NameCollision;
+        try self.registerDeclarationId(decl.id);
         try annotations.append(self.allocator, decl);
+    }
+
+    fn registerDeclarationId(self: *Parser, id: ?u64) Error!void {
+        const value = id orelse return;
+        const decl_ids = self.parsed_decl_ids orelse return;
+        const entry = try decl_ids.getOrPut(value);
+        if (entry.found_existing) return error.OrdinalCollision;
     }
 
     fn addLocalTypeAlias(self: *Parser, aliases: *std.ArrayList(AliasDecl), decl_names: *std.StringHashMap(void), local_name: []const u8, target_name: []const u8) Error!void {
@@ -2531,6 +2548,7 @@ pub const Parser = struct {
                 ty.deinit(self.allocator);
                 return error.NameCollision;
             }
+            try self.registerDeclarationId(decl_id);
             try consts.append(self.allocator, .{
                 .name = name,
                 .id = decl_id,
@@ -2612,6 +2630,7 @@ pub const Parser = struct {
             ty.deinit(self.allocator);
             return error.NameCollision;
         }
+        try self.registerDeclarationId(decl_id);
         try consts.append(self.allocator, .{
             .name = name,
             .id = decl_id,
@@ -4612,6 +4631,33 @@ test "schema parser rejects duplicate file ids" {
         \\@0xbbbb;
         \\struct Thing {
         \\  field @0 :UInt32;
+        \\}
+    ));
+}
+
+test "schema parser rejects duplicate declaration ids" {
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\@0xaaaa;
+        \\struct Thing @0xaaaa {
+        \\  field @0 :UInt32;
+        \\}
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\struct First @0xaaaa {
+        \\}
+        \\enum Second @0xaaaa {
+        \\  value @0;
+        \\}
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\const first @0xaaaa :UInt32 = 1;
+        \\const second @0xaaaa :UInt32 = 2;
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\struct Outer @0xaaaa {
+        \\  struct Inner @0xbbbb {
+        \\  }
+        \\  const value @0xbbbb :UInt32 = 1;
         \\}
     ));
 }
