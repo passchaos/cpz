@@ -4635,7 +4635,21 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 if (std.mem.indexOfScalar(u8, type_name, '.') != null) return;
                 return error.UnexpectedToken;
             }
-            const struct_decl = findStructDirect(file, type_name) orelse return;
+            const struct_decl = findStructDirect(file, type_name) orelse {
+                if (parameterNameInScope(file, scope, type_name)) return;
+                if (std.mem.eql(u8, raw, "null") or std.mem.eql(u8, raw, "void")) return;
+                if (const_ref) |decl| {
+                    const resolved_decl_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
+                    if (resolved_decl_ty == .any_pointer or
+                        resolved_decl_ty == .any_struct or
+                        resolved_decl_ty == .any_list or
+                        resolved_decl_ty == .capability)
+                    {
+                        return;
+                    }
+                }
+                return error.UnexpectedToken;
+            };
             if (std.mem.eql(u8, raw, "null")) return;
             if (raw[0] != '(') {
                 if (const_ref) |decl| {
@@ -4655,6 +4669,19 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
             }
         },
         .any_pointer, .any_struct, .any_list, .capability => {},
+    }
+}
+
+fn parameterNameInScope(file: *const File, scope: ?*const Struct, name: []const u8) bool {
+    var current = if (scope) |decl| decl.name else return false;
+    while (true) {
+        if (findStructDirect(file, current)) |decl| {
+            if (declHasParameter(decl.parameters, name)) return true;
+        }
+        if (findInterfaceDirect(file, current)) |decl| {
+            if (declHasParameter(decl.parameters, name)) return true;
+        }
+        current = if (lastTopLevelDot(current)) |dot| current[0..dot] else return false;
     }
 }
 
@@ -6144,6 +6171,38 @@ test "schema layout planner rejects mismatched aggregate default item types" {
     );
     defer list_ref_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &list_ref_file));
+}
+
+test "schema layout planner rejects defaults for unresolved named types" {
+    var field_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :Missing = 1;
+        \\}
+    );
+    defer field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &field_file));
+
+    var list_field_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  values @0 :List(Missing) = [1];
+        \\}
+    );
+    defer list_field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &list_field_file));
+
+    var const_file = try parse(std.testing.allocator,
+        \\const value :Missing = 1;
+    );
+    defer const_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &const_file));
+
+    var method_file = try parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :Missing = 1) -> ();
+        \\}
+    );
+    defer method_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &method_file));
 }
 
 test "schema parser rejects duplicate field names" {
