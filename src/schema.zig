@@ -13773,17 +13773,20 @@ fn listStructItemsFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File
     defer layout.deinit(allocator);
     const element_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
     if (element_words == 0) return error.UnsupportedType;
-    const content_words = try std.math.mul(usize, element_words, items.len);
+    const content_words = std.math.mul(usize, element_words, items.len) catch return error.SerializedSizeOverflow;
 
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
-    const total_words = 1 + 1 + content_words;
-    try segment.appendNTimes(allocator, 0, total_words * @sizeOf(u64));
+    const total_words = std.math.add(usize, content_words, 2) catch return error.SerializedSizeOverflow;
+    const total_bytes = std.math.mul(usize, total_words, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
+    try segment.appendNTimes(allocator, 0, total_bytes);
     writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .composite, content_words));
     writeWordBytes(segment.items[@sizeOf(u64)..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = layout.data_words, .pointer_count = layout.pointer_count }));
 
     for (items) |item| {
-        try writeStructListItemIntoSegment(allocator, file, scope, struct_decl, &layout, item, &segment, 2 + item.index * element_words, 0);
+        const element_offset = std.math.mul(usize, item.index, element_words) catch return error.SerializedSizeOverflow;
+        const element_target = std.math.add(usize, 2, element_offset) catch return error.SerializedSizeOverflow;
+        try writeStructListItemIntoSegment(allocator, file, scope, struct_decl, &layout, item, &segment, element_target, 0);
     }
 
     const segment_words = segment.items.len / @sizeOf(u64);
@@ -14110,11 +14113,13 @@ fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, scop
     }
     const element_words = @as(usize, element_layout.data_words) + @as(usize, element_layout.pointer_count);
     if (element_words == 0) return error.UnsupportedType;
-    const content_words = try std.math.mul(usize, element_words, items.len);
+    const content_words = std.math.mul(usize, element_words, items.len) catch return error.SerializedSizeOverflow;
 
     const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
     const target_word_index = segment.items.len / @sizeOf(u64);
-    try segment.appendNTimes(allocator, 0, (1 + content_words) * @sizeOf(u64));
+    const appended_words = std.math.add(usize, content_words, 1) catch return error.SerializedSizeOverflow;
+    const appended_bytes = std.math.mul(usize, appended_words, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
+    try segment.appendNTimes(allocator, 0, appended_bytes);
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeList(offset, .composite, content_words));
     writeWordBytes(segment.items[target_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = element_layout.data_words, .pointer_count = element_layout.pointer_count }));
@@ -14122,7 +14127,10 @@ fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, scop
     for (items, 0..) |item, index| {
         const fields = try parseStructLiteralOrImpliedFirstFieldAlloc(allocator, struct_decl, item);
         defer allocator.free(fields);
-        try writeStructLiteralFieldsIntoSegment(allocator, file, scope, &element_layout, fields, segment, target_word_index + 1 + index * element_words);
+        const element_offset = std.math.mul(usize, index, element_words) catch return error.SerializedSizeOverflow;
+        const elements_start = std.math.add(usize, target_word_index, 1) catch return error.SerializedSizeOverflow;
+        const element_target = std.math.add(usize, elements_start, element_offset) catch return error.SerializedSizeOverflow;
+        try writeStructLiteralFieldsIntoSegment(allocator, file, scope, &element_layout, fields, segment, element_target);
     }
 }
 
