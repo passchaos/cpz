@@ -6901,6 +6901,8 @@ fn appendRawSchemaComment(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 }
 
 fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    try validateImportZigNames(allocator, file.imports);
+
     for (file.structs, 0..) |lhs, i| {
         for (file.structs[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
@@ -6976,6 +6978,14 @@ fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) La
     }
     for (file.annotations, 0..) |lhs, i| {
         for (file.annotations[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
+fn validateImportZigNames(allocator: std.mem.Allocator, imports: []const ImportDecl) LayoutError!void {
+    for (imports, 0..) |lhs, i| {
+        for (imports[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
     }
@@ -23534,6 +23544,16 @@ test "schema code generator rejects sanitized Zig name collisions" {
             \\  test @0;
             \\  test_ @1;
             \\}
+        );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    {
+        var file = try parse(std.testing.allocator,
+            \\using import "foo-bar.capnp";
+            \\using import "foo_bar.capnp";
         );
         defer file.deinit(std.testing.allocator);
         var layouts = try planLayouts(std.testing.allocator, &file);
