@@ -2970,10 +2970,7 @@ pub const Parser = struct {
         try self.expect(.equal);
         if (self.isKeyword("import")) {
             try self.advance();
-            if (self.lookahead.tag != .string) {
-                try self.skipRawUntilSemicolon();
-                return;
-            }
+            if (self.lookahead.tag != .string) return error.UnexpectedToken;
             const path = self.lookahead.lexeme;
             if (path.len == 0) return error.UnexpectedToken;
             try self.advance();
@@ -2993,10 +2990,7 @@ pub const Parser = struct {
                 }
                 member = self.lexer.source[first.start..end];
             }
-            if (self.lookahead.tag != .semicolon) {
-                try self.skipRawUntilSemicolon();
-                return;
-            }
+            if (self.lookahead.tag != .semicolon) return error.UnexpectedToken;
             try self.expect(.semicolon);
 
             const entry = try decl_names.getOrPut(name);
@@ -3019,18 +3013,12 @@ pub const Parser = struct {
 
     fn parseAnonymousImport(self: *Parser, imports: *std.ArrayList(ImportDecl), decl_names: *std.StringHashMap(void)) Error!void {
         try self.advance();
-        if (self.lookahead.tag != .string) {
-            try self.skipRawUntilSemicolon();
-            return;
-        }
+        if (self.lookahead.tag != .string) return error.UnexpectedToken;
         const path = self.lookahead.lexeme;
         if (path.len == 0) return error.UnexpectedToken;
         try self.advance();
         if (self.lookahead.tag != .dot) {
-            if (self.lookahead.tag != .semicolon) {
-                try self.skipRawUntilSemicolon();
-                return;
-            }
+            if (self.lookahead.tag != .semicolon) return error.UnexpectedToken;
             try self.expect(.semicolon);
             const name = importNameFromPath(path);
             if (name.len == 0) return error.UnexpectedToken;
@@ -3051,10 +3039,7 @@ pub const Parser = struct {
             end = part.end;
             if (try self.skipTypeApplications()) |app_end| end = app_end;
         }
-        if (self.lookahead.tag != .semicolon) {
-            try self.skipRawUntilSemicolon();
-            return;
-        }
+        if (self.lookahead.tag != .semicolon) return error.UnexpectedToken;
         try self.expect(.semicolon);
 
         const member = self.lexer.source[first.start..end];
@@ -5542,6 +5527,20 @@ test "schema parser rejects empty import paths" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\struct Bad {
         \\  value @0 :import "".Value;
+        \\}
+    ));
+}
+
+test "schema parser rejects malformed import declarations" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using Bad = import;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using import;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using Bad = import \"bad.capnp\" trailing;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using import \"bad.capnp\" trailing;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using Bad = import \"bad.capnp\".;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using import \"bad.capnp\".;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Owner {
+        \\  using Bad = import "bad.capnp" trailing;
         \\}
     ));
 }
