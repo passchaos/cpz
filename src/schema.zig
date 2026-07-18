@@ -3196,8 +3196,8 @@ pub const Parser = struct {
         for (unions.items) |*u| try appendUnionFields(self.allocator, &fields, &field_names, u);
         // Group and union lowering appends synthetic fields after their bodies are
         // parsed.  Validate ordinals once the flattened field list is complete so
-        // every layout-visible field shares the same collision rules.
-        try validateFieldOrdinals(self.allocator, fields.items);
+        // every schema-visible struct member shares the same collision rules.
+        try validateStructMemberOrdinals(self.allocator, fields.items, groups.items, unions.items);
         const union_decls = try unionDeclsFromBuilders(self.allocator, unions.items);
         errdefer self.allocator.free(union_decls);
         for (unions.items) |*u| u.deinit(self.allocator);
@@ -4238,11 +4238,21 @@ fn appendUnionFields(allocator: std.mem.Allocator, fields: *std.ArrayList(Field)
     union_builder.fields.clearRetainingCapacity();
 }
 
-fn validateFieldOrdinals(allocator: std.mem.Allocator, fields: []const Field) Error!void {
+fn validateStructMemberOrdinals(allocator: std.mem.Allocator, fields: []const Field, groups: []const GroupDecl, unions: []const UnionBuilder) Error!void {
     var occupied = std.AutoHashMap(u32, void).init(allocator);
     defer occupied.deinit();
     for (fields) |field| {
         const entry = try occupied.getOrPut(field.ordinal);
+        if (entry.found_existing) return error.OrdinalCollision;
+    }
+    for (groups) |group| {
+        const ordinal = group.ordinal orelse continue;
+        const entry = try occupied.getOrPut(ordinal);
+        if (entry.found_existing) return error.OrdinalCollision;
+    }
+    for (unions) |union_builder| {
+        const ordinal = union_builder.ordinal orelse continue;
+        const entry = try occupied.getOrPut(ordinal);
         if (entry.found_existing) return error.OrdinalCollision;
     }
 }
@@ -5885,6 +5895,35 @@ test "schema parser rejects flattened group and union ordinal collisions" {
         \\  before @0 :UInt32;
         \\  selected @1 :union {
         \\    collides @0 :Text;
+        \\  }
+        \\}
+    ));
+}
+
+test "schema parser rejects named group and union member ordinal collisions" {
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  before @0 :UInt32;
+        \\  details @0 :group {
+        \\    value @1 :Text;
+        \\  }
+        \\}
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  before @0 :UInt32;
+        \\  selected @0 :union {
+        \\    value @1 :Text;
+        \\  }
+        \\}
+    ));
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  details @0 :group {
+        \\    value @1 :Text;
+        \\  }
+        \\  selected @0 :union {
+        \\    other @2 :Text;
         \\  }
         \\}
     ));
