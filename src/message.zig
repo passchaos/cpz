@@ -2618,7 +2618,7 @@ pub const MessageBuilder = struct {
         const double = try self.allocObject(pointer.segment_id, 2);
         const far_to_content = try wire.encodeFar(false, object.start, object.id);
         try self.writePtr(double.id, double.start, far_to_content);
-        try self.writePtr(double.id, double.start + 1, tag_forFarWithZeroOffset(tag_for_far));
+        try self.writePtr(double.id, double.start + 1, try tag_forFarWithZeroOffset(tag_for_far));
         try self.writePtr(pointer.segment_id, pointer.word_index, try wire.encodeFar(true, double.start, double.id));
         _ = object_word_count;
     }
@@ -5928,15 +5928,15 @@ pub const ListReader = struct {
     }
 };
 
-fn tag_forFarWithZeroOffset(tag: wire.Word) wire.Word {
+fn tag_forFarWithZeroOffset(tag: wire.Word) Error!wire.Word {
     return switch (wire.pointerType(tag)) {
         .struct_ptr => blk: {
             const s = wire.decodeStruct(tag);
-            break :blk wire.encodeStruct(0, s.data_words, s.pointer_count) catch unreachable;
+            break :blk try wire.encodeStruct(0, s.data_words, s.pointer_count);
         },
         .list => blk: {
-            const l = wire.decodeList(tag) catch unreachable;
-            break :blk wire.encodeList(0, l.element_size, l.element_count_or_words) catch unreachable;
+            const l = try wire.decodeList(tag);
+            break :blk try wire.encodeList(0, l.element_size, l.element_count_or_words);
         },
         else => tag,
     };
