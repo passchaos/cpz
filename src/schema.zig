@@ -2243,6 +2243,8 @@ pub const Parser = struct {
             if (ordinal_entry.found_existing) return error.OrdinalCollision;
             const signature = try self.takeRawUntilSemicolon();
             const parts = try splitMethodSignature(signature);
+            try self.validateMethodEndpointType(parts.params);
+            try self.validateMethodEndpointType(parts.results);
             const parameters = try self.parseMethodSignatureParameters(signature);
             var keep_parameters = false;
             errdefer if (!keep_parameters) self.allocator.free(parameters);
@@ -2473,6 +2475,16 @@ pub const Parser = struct {
         const trimmed = std.mem.trim(u8, raw, " \t\r\n");
         if (trimmed.len == 0 or trimmed[0] == '(' or std.mem.eql(u8, trimmed, "stream")) return "";
         return trimmed;
+    }
+
+    fn validateMethodEndpointType(self: *Parser, raw: []const u8) Error!void {
+        const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+        if (trimmed.len == 0 or trimmed[0] == '(' or std.mem.eql(u8, trimmed, "stream")) return;
+        var parser = try Parser.init(self.allocator, trimmed);
+        defer parser.deinitLiteralScratch();
+        var ty = try parser.parseType();
+        defer ty.deinit(self.allocator);
+        if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
     }
 
     fn splitMethodSignature(signature: []const u8) Error!struct { params: []const u8, results: []const u8, annotations: []const u8 } {
@@ -4877,6 +4889,16 @@ test "schema parser rejects malformed method signatures" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 GenericBox() -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> GenericBox();
         \\}
     ));
 }
