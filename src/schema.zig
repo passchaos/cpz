@@ -2010,6 +2010,7 @@ pub const Parser = struct {
             try superclasses.append(self.allocator, try self.parseType());
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
+                if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
             } else if (self.lookahead.tag != .r_paren) {
                 return error.UnexpectedToken;
             }
@@ -4736,6 +4737,14 @@ test "schema parser rejects malformed interface extends list" {
         \\  call @0 () -> ();
         \\}
         \\interface Derived extends(Base Base) {
+        \\  call @0 () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Base {
+        \\  call @0 () -> ();
+        \\}
+        \\interface Derived extends(Base,) {
         \\  call @0 () -> ();
         \\}
     ));
