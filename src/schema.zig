@@ -4956,6 +4956,19 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer method_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &method_file));
+
+    var dotted_file = try parse(std.testing.allocator,
+        \\struct Parent {
+        \\  struct Box(T) {
+        \\    value @0 :T;
+        \\  }
+        \\}
+        \\struct Bad {
+        \\  field @0 :Parent.Box(Text, Data);
+        \\}
+    );
+    defer dotted_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &dotted_file));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
@@ -10124,26 +10137,13 @@ fn scalarOrNamedType(name: []const u8) Type {
 
 fn parseTypeArgAlloc(allocator: std.mem.Allocator, raw_arg: []const u8) LayoutError!Type {
     const raw = std.mem.trim(u8, raw_arg, " \t\r\n");
-    if (std.mem.startsWith(u8, raw, "List(") and raw.len >= 6 and raw[raw.len - 1] == ')') {
-        const child = try allocator.create(Type);
-        errdefer allocator.destroy(child);
-        child.* = try parseTypeArgAlloc(allocator, raw[5 .. raw.len - 1]);
-        return .{ .list = child };
-    }
-    if (std.mem.startsWith(u8, raw, "?")) {
-        const child = try allocator.create(Type);
-        errdefer allocator.destroy(child);
-        child.* = try parseTypeArgAlloc(allocator, raw[1..]);
-        return .{ .optional = child };
-    }
-    if (std.mem.eql(u8, raw, "AnyList")) return .any_list;
-    if (std.mem.endsWith(u8, raw, "List") and raw.len > "List".len) {
-        const child = try allocator.create(Type);
-        errdefer allocator.destroy(child);
-        child.* = scalarOrNamedType(raw[0 .. raw.len - "List".len]);
-        return .{ .list = child };
-    }
-    return scalarOrNamedType(raw);
+    if (raw.len == 0) return error.UnexpectedToken;
+    var parser = try Parser.init(allocator, raw);
+    defer parser.deinitLiteralScratch();
+    var ty = try parser.parseType();
+    errdefer ty.deinit(allocator);
+    if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
+    return ty;
 }
 
 fn cloneTypeAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError!Type {
