@@ -4698,6 +4698,24 @@ test "schema parser rejects duplicate top-level declaration names" {
     ));
 }
 
+test "schema parser rejects duplicate declaration and method parameter names" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Box(T, T) {
+        \\  item @0 :T;
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service(Req, Req) {
+        \\  call @0 () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [T, T] () -> ();
+        \\}
+    ));
+}
+
 test "schema parser skips common top-level using and const declarations" {
     const source =
         \\using Go = import "go.capnp";
