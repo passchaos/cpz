@@ -4726,7 +4726,8 @@ fn aliasTargetReferencesAlias(allocator: std.mem.Allocator, file: *const File, o
     switch (target) {
         .named => |raw| {
             const trimmed = std.mem.trim(u8, raw, " \t\r\n");
-            const head = aliasReferenceHead(trimmed);
+            const head = try aliasReferenceHeadAlloc(allocator, trimmed);
+            defer allocator.free(head);
             if (std.mem.eql(u8, head, alias_name)) return true;
 
             if (typeApplicationOpen(trimmed) != null) {
@@ -4750,10 +4751,11 @@ fn aliasTargetReferencesAlias(allocator: std.mem.Allocator, file: *const File, o
     return false;
 }
 
-fn aliasReferenceHead(raw: []const u8) []const u8 {
+fn aliasReferenceHeadAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
     const absolute = if (std.mem.startsWith(u8, raw, ".")) raw[1..] else raw;
     const without_args = if (typeApplicationOpen(absolute)) |open| absolute[0..open] else absolute;
-    return if (firstTopLevelDot(without_args)) |dot| without_args[0..dot] else without_args;
+    const head = if (firstTopLevelDot(without_args)) |dot| without_args[0..dot] else without_args;
+    return canonicalTypeNameAlloc(allocator, head);
 }
 
 fn findAliasTargetInOwnerScope(file: *const File, owner_name: ?[]const u8, name: []const u8) ?Type {
@@ -6158,6 +6160,15 @@ test "schema layout planner rejects recursive aliases" {
     );
     defer top_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &top_file));
+
+    var commented_application_file = try parse(std.testing.allocator,
+        \\using A = A /* comment before args */ (Text);
+        \\struct Holder {
+        \\  value @0 :A;
+        \\}
+    );
+    defer commented_application_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &commented_application_file));
 
     var local_file = try parse(std.testing.allocator,
         \\struct Holder {
