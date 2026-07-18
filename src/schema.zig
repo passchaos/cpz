@@ -8239,6 +8239,7 @@ fn validateImportZigNames(allocator: std.mem.Allocator, imports: []const ImportD
 fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!void {
     try validateStructFixedMemberZigNames(allocator, decl);
     try validateBuilderFieldHelperZigNames(allocator, file, decl);
+    try validateStructGroupZigNames(allocator, decl);
     for (decl.fields, 0..) |*lhs, i| {
         for (decl.fields[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
@@ -8265,6 +8266,14 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: 
     }
     for (decl.aliases, 0..) |lhs, i| {
         for (decl.aliases[i + 1 ..]) |rhs| {
+            if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
+fn validateStructGroupZigNames(allocator: std.mem.Allocator, decl: *const Struct) LayoutError!void {
+    for (decl.groups, 0..) |lhs, i| {
+        for (decl.groups[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
     }
@@ -25919,6 +25928,23 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\    first @0 :Void;
         \\  }
         \\  which @1 :UInt32;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct GroupHelpers {
+        \\  error :group {
+        \\    a @0 :UInt32;
+        \\  }
+        \\  error_ :group {
+        \\    b @1 :UInt32;
+        \\  }
         \\}
         ,
     }) |source| {
