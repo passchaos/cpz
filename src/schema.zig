@@ -3036,6 +3036,7 @@ pub const Parser = struct {
             }
             try self.expect(.semicolon);
             const name = importNameFromPath(path);
+            if (name.len == 0) return error.UnexpectedToken;
             const entry = try decl_names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
             try imports.append(self.allocator, .{ .name = name, .path = path });
@@ -5474,6 +5475,7 @@ test "schema parser records imported type aliases" {
 test "schema parser rejects empty import paths" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using Empty = import \"\";"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using import \"\";"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "using import \".capnp\";"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\struct Bad {
         \\  value @0 :import "".Value;
