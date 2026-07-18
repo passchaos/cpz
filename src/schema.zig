@@ -4577,7 +4577,7 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
 fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
     for (file.consts) |decl| try validateConstAggregateDefault(allocator, file, null, decl);
     for (file.structs) |decl| {
-        for (decl.fields) |field| try validateTypeAggregateDefault(allocator, file, &decl, field.ty, field.default_expression);
+        for (decl.fields) |field| try validateFieldDefaultValue(allocator, file, &decl, field);
         for (decl.consts) |const_decl| try validateConstAggregateDefault(allocator, file, &decl, const_decl);
     }
     for (file.interfaces) |decl| {
@@ -4594,6 +4594,70 @@ fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File
             for (method.result_fields) |field| try validateMethodFieldAggregateDefault(allocator, file, &interface_scope, field);
         }
     }
+}
+
+fn validateFieldDefaultValue(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: Field) LayoutError!void {
+    const literal = std.mem.trim(u8, field.default_expression, " \t\r\n");
+    if (literal.len == 0) return;
+    if (defaultLiteralIsValidBareLiteral(file, scope, field.ty, literal)) {
+        // Bare enum value names share the same namespace as const references in
+        // generated defaults.  Prefer the literal interpretation so a const
+        // named `blue` does not shadow enum value `blue` for a `Color` field.
+    } else if (findConstReference(file, scope, literal)) |decl| {
+        const field_ty = nonNullDefaultType(resolveTypeScoped(file, scope, field.ty));
+        const const_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
+        if (!defaultConstTypeCompatible(file, field_ty, const_ty)) return error.UnexpectedToken;
+    } else if (defaultLiteralCanBeReference(literal)) {
+        return error.UnexpectedToken;
+    }
+    try validateTypeAggregateDefault(allocator, file, scope, field.ty, field.default_expression);
+}
+
+fn defaultLiteralIsValidBareLiteral(file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) bool {
+    const resolved_ty = nonNullDefaultType(resolveTypeScoped(file, scope, ty));
+    if (std.mem.eql(u8, literal, "null") and typeAcceptsNullPointerDefault(file, resolved_ty)) return true;
+    if (std.mem.eql(u8, literal, "void") and typeAcceptsVoidPointerDefault(file, resolved_ty)) return true;
+    return switch (resolved_ty) {
+        .void => std.mem.eql(u8, literal, "void"),
+        .bool => parseBoolLiteral(literal) != null,
+        .float32 => parseFloatLiteral(f32, literal) != null,
+        .float64 => parseFloatLiteral(f64, literal) != null,
+        .named => |type_name| if (findEnum(file, type_name)) |enum_decl| enumLiteralOrdinal(enum_decl, literal) != null else false,
+        else => false,
+    };
+}
+
+fn defaultConstTypeCompatible(file: *const File, field_ty: Type, const_ty: Type) bool {
+    if (typesEqual(field_ty, const_ty)) return true;
+    return switch (field_ty) {
+        .named => |field_name| switch (const_ty) {
+            .named => |const_name| blk: {
+                if (findEnum(file, field_name) != null and findEnum(file, const_name) != null) break :blk true;
+                if (findInterface(file, field_name) != null and findInterface(file, const_name) != null) break :blk true;
+                if (isStructLikeName(file, field_name) and isStructLikeName(file, const_name)) break :blk true;
+                break :blk false;
+            },
+            .capability => findInterface(file, field_name) != null,
+            .any_pointer, .any_struct, .any_list => isStructLikeName(file, field_name) or findInterface(file, field_name) != null,
+            else => false,
+        },
+        .any_pointer => true,
+        .any_struct => switch (const_ty) {
+            .any_struct => true,
+            .named => |name| isStructLikeName(file, name),
+            else => false,
+        },
+        .any_list => switch (const_ty) {
+            .any_list, .list => true,
+            else => false,
+        },
+        .capability => switch (const_ty) {
+            .capability => true,
+            .named => |name| findInterface(file, name) != null,
+            else => false,
+        },
+        else => false,
+    };
 }
 
 fn validateInterfaceSuperclass(file: *const File, scope: *const Struct, superclass: Type) LayoutError!void {
@@ -6325,6 +6389,32 @@ test "schema layout planner rejects mismatched aggregate default item types" {
     );
     defer list_ref_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &list_ref_file));
+
+    var scalar_field_ref_file = try parse(std.testing.allocator,
+        \\const text :Text = "x";
+        \\struct Bad {
+        \\  value @0 :UInt32 = text;
+        \\}
+    );
+    defer scalar_field_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &scalar_field_ref_file));
+
+    var text_field_ref_file = try parse(std.testing.allocator,
+        \\const value :UInt32 = 1;
+        \\struct Bad {
+        \\  text @0 :Text = value;
+        \\}
+    );
+    defer text_field_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &text_field_ref_file));
+
+    var unknown_ref_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :UInt32 = missing;
+        \\}
+    );
+    defer unknown_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &unknown_ref_file));
 }
 
 test "schema layout planner rejects defaults for unresolved named types" {
