@@ -2436,7 +2436,7 @@ pub const Parser = struct {
                 }
                 default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
                 if (default_literal.?.len == 0) return error.UnexpectedToken;
-                try self.validateInlineAggregateDefaultSyntax(default_literal.?);
+                try self.validateDefaultLiteralSyntax(default_literal.?);
                 if (std.mem.eql(u8, field_type, "Data")) {
                     if (default_literal) |literal| {
                         default_is_hex_data = std.mem.startsWith(u8, literal, "0x\"");
@@ -2464,6 +2464,7 @@ pub const Parser = struct {
                 }
                 annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
             }
+            try validateAnnotationSuffix(annotations);
             try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .default_is_hex_data = default_is_hex_data, .has_explicit_default = has_explicit_default, .annotations = annotations });
             while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
             if (index < end) {
@@ -2481,6 +2482,22 @@ pub const Parser = struct {
         defer parser.deinitLiteralScratch();
         var ty = try parser.parseType();
         defer ty.deinit(self.allocator);
+        if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
+    }
+
+    fn validateDefaultLiteralSyntax(self: *Parser, expression: []const u8) Error!void {
+        const raw = std.mem.trim(u8, expression, " \t\r\n");
+        if (raw.len == 0) return error.UnexpectedToken;
+        if (raw[0] == '(' or raw[0] == '[') return self.validateInlineAggregateDefaultSyntax(raw);
+        if (std.mem.startsWith(u8, raw, "0x\"")) {
+            const next = try skipRawStringIndex(raw, 2);
+            if (next != raw.len) return error.UnexpectedToken;
+            return;
+        }
+
+        var parser = try Parser.init(self.allocator, raw);
+        defer parser.deinitLiteralScratch();
+        _ = (try parser.expectDefaultLiteral()) orelse return error.UnexpectedToken;
         if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
     }
 
@@ -5329,6 +5346,21 @@ test "schema parser rejects empty method field defaults" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 () -> (value :UInt32 =);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :UInt32 = 1 trailing) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :UInt32 trailing) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (payload :Data = 0x"01" "junk") -> ();
         \\}
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
