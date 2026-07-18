@@ -5198,13 +5198,15 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     if (options.raw_schema_comment) |source| {
         try appendRawSchemaComment(allocator, &out, source);
     }
+    const runtime_import_literal = try zigRawStringLiteralAlloc(allocator, options.runtime_import_name);
+    defer allocator.free(runtime_import_literal);
     try appendFmt(allocator, &out,
         \\const std = @import("std");
-        \\const cpz = @import("{s}");
+        \\const cpz = @import({s});
         \\const @"cpz.schema" = @This();
         \\
         \\
-    , .{options.runtime_import_name});
+    , .{runtime_import_literal});
     if (options.namespace) |raw_namespace| {
         const namespace = try zigIdentAlloc(allocator, raw_namespace);
         defer allocator.free(namespace);
@@ -21403,6 +21405,12 @@ test "schema code generator supports custom runtime import names" {
     });
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "const cpz = @import(\"my_cpz\");") != null);
+
+    const escaped = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{
+        .runtime_import_name = "my\\runtime\"name",
+    });
+    defer std.testing.allocator.free(escaped);
+    try std.testing.expect(std.mem.indexOf(u8, escaped, "const cpz = @import(\"my\\\\runtime\\\"name\");") != null);
 }
 
 test "schema flat containers qualify helper calls to avoid list name ambiguity" {
