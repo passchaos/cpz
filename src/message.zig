@@ -3897,6 +3897,34 @@ fn copyPrimitiveBuilderList(dst: ListBuilder, source: ListBuilder, start_index: 
     }
 }
 
+fn listRangeShouldCopyBackward(dst: ListBuilder, dst_index: usize, source: ListReader, source_index: usize, count: usize) Error!bool {
+    if (count <= 1) return false;
+    if (dst.segment_id != source.segment_id) return false;
+    if (dst.segment_id >= dst.message.segments.items.len) return error.SegmentOutOfBounds;
+    if (source.segment_id >= source.message.segments.len) return error.SegmentOutOfBounds;
+    const dst_segment = std.mem.sliceAsBytes(dst.message.segments.items[dst.segment_id].words.items);
+    const src_segment = source.message.segments[source.segment_id];
+    if (dst_segment.ptr != src_segment.ptr) return false;
+
+    const dst_bits = try listElementBitRange(dst.start, 0, dst.step_bits, dst_index, count);
+    const src_bits = try listElementBitRange(source.start, source.bit_offset, source.step_bits, source_index, count);
+    return dst_bits.start > src_bits.start and dst_bits.start < src_bits.end;
+}
+
+fn listElementBitRange(base_word: usize, base_bit_offset: usize, step_bits: usize, index: usize, count: usize) Error!struct { start: usize, end: usize } {
+    const start_offset = std.math.add(
+        usize,
+        base_bit_offset,
+        std.math.mul(usize, index, step_bits) catch return error.MessageTooLarge,
+    ) catch return error.MessageTooLarge;
+    const start = try checkedWordBitOffset(base_word, start_offset);
+    const bit_len = std.math.mul(usize, count, step_bits) catch return error.MessageTooLarge;
+    return .{
+        .start = start,
+        .end = std.math.add(usize, start, bit_len) catch return error.MessageTooLarge,
+    };
+}
+
 pub const PointerReader = struct {
     message: *MessageReader,
     segment_id: u32,
@@ -5480,8 +5508,16 @@ pub const ListBuilder = struct {
             },
             else => {},
         }
-        for (0..count) |offset| {
-            try self.copyElementFrom(index + offset, source, source_index + offset);
+        if (try listRangeShouldCopyBackward(self, index, source, source_index, count)) {
+            var remaining = count;
+            while (remaining != 0) {
+                remaining -= 1;
+                try self.copyElementFrom(index + remaining, source, source_index + remaining);
+            }
+        } else {
+            for (0..count) |offset| {
+                try self.copyElementFrom(index + offset, source, source_index + offset);
+            }
         }
     }
 
@@ -5495,8 +5531,16 @@ pub const ListBuilder = struct {
             },
             else => {},
         }
-        for (0..count) |offset| {
-            try self.copyElementFromCanonical(index + offset, source, source_index + offset);
+        if (try listRangeShouldCopyBackward(self, index, source, source_index, count)) {
+            var remaining = count;
+            while (remaining != 0) {
+                remaining -= 1;
+                try self.copyElementFromCanonical(index + remaining, source, source_index + remaining);
+            }
+        } else {
+            for (0..count) |offset| {
+                try self.copyElementFromCanonical(index + offset, source, source_index + offset);
+            }
         }
     }
 
@@ -7416,7 +7460,7 @@ test "builders can copy overlapping primitive list ranges" {
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
 
-    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 3 });
     const forward = try (try root.getPointerField(0)).initList(.four_bytes, 4);
     try forward.setUInt32(0, 1);
     try forward.setUInt32(1, 2);
@@ -7438,6 +7482,17 @@ test "builders can copy overlapping primitive list ranges" {
     try testing.expectEqual(@as(u16, 30), try backward.getUInt16(1));
     try testing.expectEqual(@as(u16, 40), try backward.getUInt16(2));
     try testing.expectEqual(@as(u16, 40), try backward.getUInt16(3));
+
+    const bits = try (try root.getPointerField(2)).initList(.bit, 4);
+    try bits.setBool(0, true);
+    try bits.setBool(1, false);
+    try bits.setBool(2, true);
+    try bits.setBool(3, false);
+    try bits.copyElementsFromBuilder(1, bits, 0, 3);
+    try testing.expect(try bits.getBool(0));
+    try testing.expect(try bits.getBool(1));
+    try testing.expect(!try bits.getBool(2));
+    try testing.expect(try bits.getBool(3));
 
     // The generic reader path can still alias the destination when callers
     // create a reader view over the same builder.  Treat primitive range copies
