@@ -2027,6 +2027,7 @@ pub const Parser = struct {
         errdefer parameters.deinit(self.allocator);
         var names = std.StringHashMap(void).init(self.allocator);
         defer names.deinit();
+        if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
         while (self.lookahead.tag != .r_paren) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             const name = try self.expectIdentifier();
@@ -2179,9 +2180,8 @@ pub const Parser = struct {
         while (true) {
             while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
             if (index >= signature.len) return error.UnexpectedToken;
-            if (signature[index] == ']') {
-                return parameters.toOwnedSlice(self.allocator);
-            }
+            if (signature[index] == ']' and parameters.items.len == 0) return error.UnexpectedToken;
+            if (signature[index] == ']') return parameters.toOwnedSlice(self.allocator);
             if (!isIdentStart(signature[index])) return error.UnexpectedToken;
             const start = index;
             index += 1;
@@ -4781,6 +4781,16 @@ test "schema parser rejects malformed declaration and method parameter lists" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Service {
         \\  call @0 [T,] () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Box() {
+        \\  item @0 :UInt32;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [] () -> ();
         \\}
     ));
 }
