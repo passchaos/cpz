@@ -2260,7 +2260,7 @@ pub const Parser = struct {
             try validateAnnotationSuffix(parts.annotations);
             try self.validateMethodEndpointType(parts.params, false);
             try self.validateMethodEndpointType(parts.results, true);
-            const parameters = try self.parseMethodSignatureParameters(name, signature);
+            const parameters = try self.parseMethodSignatureParameters(name, member_names, signature);
             var keep_parameters = false;
             errdefer if (!keep_parameters) self.allocator.free(parameters);
             const param_fields = try self.parseMethodFields(parts.params);
@@ -2293,7 +2293,7 @@ pub const Parser = struct {
         return methods.toOwnedSlice(self.allocator);
     }
 
-    fn parseMethodSignatureParameters(self: *Parser, method_name: []const u8, signature: []const u8) Error![]const []const u8 {
+    fn parseMethodSignatureParameters(self: *Parser, method_name: []const u8, member_names: *const std.StringHashMap(void), signature: []const u8) Error![]const []const u8 {
         if (signature.len == 0 or signature[0] != '[') return try self.allocator.alloc([]const u8, 0);
         var parameters = std.ArrayList([]const u8).empty;
         errdefer parameters.deinit(self.allocator);
@@ -2313,6 +2313,7 @@ pub const Parser = struct {
             const name = signature[start..index];
             if (std.mem.eql(u8, name, method_name)) return error.NameCollision;
             if (isBuiltinSchemaTypeName(name)) return error.NameCollision;
+            if (member_names.contains(name)) return error.NameCollision;
             const entry = try names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
             try parameters.append(self.allocator, name);
@@ -6235,6 +6236,23 @@ test "schema parser rejects duplicate declaration and method parameter names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\interface Service {
         \\  call @0 [UInt32] (item :UInt32) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service(T) {
+        \\  call @0 [T] (item :T) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service {
+        \\  using T = UInt32;
+        \\  call @0 [T] (item :T) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service {
+        \\  const T :UInt32 = 1;
+        \\  call @0 [T] (item :T) -> ();
         \\}
     ));
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
