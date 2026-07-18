@@ -4977,29 +4977,51 @@ fn typeApplicationOpen(raw: []const u8) ?usize {
 
 fn declarationParameterCount(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8) LayoutError!?usize {
     const open = typeApplicationOpen(type_name) orelse return null;
-    const base = type_name[0..open];
-    if (scope) |owner| {
-        if (resolveNamedAlias(file, owner, base, 0)) |resolved| switch (resolved) {
-            .named => |resolved_name| {
-                const suffix = type_name[open..];
-                const expanded = try std.fmt.allocPrint(allocator, "{s}{s}", .{ resolved_name, suffix });
-                defer allocator.free(expanded);
-                if (try declarationParameterCount(allocator, file, null, expanded)) |count| return count;
-            },
-            else => {},
-        };
+    const base = std.mem.trim(u8, type_name[0..open], " \t\r\n");
+    const owner_name = if (scope) |owner| owner.name else null;
+    if (resolveNamedAliasInOwnerScope(file, owner_name, base, 0)) |resolved| switch (resolved) {
+        .named => |resolved_name| {
+            const suffix = type_name[open..];
+            const expanded = try std.fmt.allocPrint(allocator, "{s}{s}", .{ resolved_name, suffix });
+            defer allocator.free(expanded);
+            if (try declarationParameterCount(allocator, file, scope, expanded)) |count| return count;
+        },
+        else => return 0,
+    };
+    if (owner_name) |owner| {
+        if (declarationParameterCountInOwnerScope(file, owner, base)) |count| return count;
     }
     for (file.structs) |decl| {
         if (std.mem.eql(u8, base, decl.name)) return decl.parameters.len;
-        if (scope) |owner| {
-            if (std.mem.startsWith(u8, decl.name, owner.name) and decl.name.len == owner.name.len + 1 + base.len and decl.name[owner.name.len] == '.' and std.mem.eql(u8, decl.name[owner.name.len + 1 ..], base)) return decl.parameters.len;
-        }
     }
     for (file.interfaces) |decl| {
         if (std.mem.eql(u8, base, decl.name)) return decl.parameters.len;
-        if (scope) |owner| {
-            if (std.mem.startsWith(u8, decl.name, owner.name) and decl.name.len == owner.name.len + 1 + base.len and decl.name[owner.name.len] == '.' and std.mem.eql(u8, decl.name[owner.name.len + 1 ..], base)) return decl.parameters.len;
+    }
+    return null;
+}
+
+fn declarationParameterCountInOwnerScope(file: *const File, owner_name: []const u8, base: []const u8) ?usize {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        for (file.structs) |decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + base.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], base))
+            {
+                return decl.parameters.len;
+            }
         }
+        for (file.interfaces) |decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + base.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], base))
+            {
+                return decl.parameters.len;
+            }
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
     }
     return null;
 }
@@ -5679,6 +5701,53 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer alias_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &alias_file));
+
+    var nested_box_file = try parse(std.testing.allocator,
+        \\struct Parent {
+        \\  struct Box(T) {
+        \\    value @0 :T;
+        \\  }
+        \\  struct Bad {
+        \\    field @0 :Box(Text, Data);
+        \\  }
+        \\}
+    );
+    defer nested_box_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &nested_box_file));
+
+    var nested_box_alias_file = try parse(std.testing.allocator,
+        \\struct Parent {
+        \\  struct Box(T) {
+        \\    value @0 :T;
+        \\  }
+        \\  using Alias = Box;
+        \\  struct Bad {
+        \\    field @0 :Alias(Text, Data);
+        \\  }
+        \\}
+    );
+    defer nested_box_alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &nested_box_alias_file));
+
+    var builtin_alias_file = try parse(std.testing.allocator,
+        \\using Alias = Text;
+        \\struct Bad {
+        \\  field @0 :Alias(UInt32);
+        \\}
+    );
+    defer builtin_alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &builtin_alias_file));
+
+    var nested_builtin_alias_file = try parse(std.testing.allocator,
+        \\struct Parent {
+        \\  using Alias = Text;
+        \\  struct Bad {
+        \\    field @0 :Alias(UInt32);
+        \\  }
+        \\}
+    );
+    defer nested_builtin_alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &nested_builtin_alias_file));
 
     var builtin_file = try parse(std.testing.allocator,
         \\struct Bad {
