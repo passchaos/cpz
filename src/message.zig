@@ -4726,27 +4726,46 @@ pub const StructBuilder = struct {
     fn setInt(self: StructBuilder, comptime T: type, byte_offset: usize, value: T, default_value: T) Error!void {
         try self.checkDataBytes(byte_offset, @sizeOf(T));
         const encoded = value ^ default_value;
-        const bytes = self.dataBytes()[byte_offset..][0..@sizeOf(T)];
+        const data = try self.dataBytesChecked();
+        const bytes = data[byte_offset..][0..@sizeOf(T)];
         std.mem.writeInt(T, bytes, encoded, .little);
     }
 
     fn getInt(self: StructBuilder, comptime T: type, byte_offset: usize, default_value: T) Error!T {
         try self.checkDataBytes(byte_offset, @sizeOf(T));
-        const bytes = self.dataBytes()[byte_offset..][0..@sizeOf(T)];
+        const data = try self.dataBytesChecked();
+        const bytes = data[byte_offset..][0..@sizeOf(T)];
         return std.mem.readInt(T, bytes, .little) ^ default_value;
     }
 
     fn dataBytes(self: StructBuilder) []u8 {
-        return std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items[self.data_start .. self.data_start + self.data_words]);
+        return self.dataBytesChecked() catch emptyMutableBytes();
+    }
+
+    fn dataBytesChecked(self: StructBuilder) Error![]u8 {
+        const bounds = try self.dataWordBounds();
+        return std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items[bounds.start..bounds.end]);
+    }
+
+    fn dataWordBounds(self: StructBuilder) Error!struct { start: usize, end: usize } {
+        if (self.segment_id >= self.message.segments.items.len) return error.SegmentOutOfBounds;
+        const words = self.message.segments.items[self.segment_id].words.items;
+        if (self.data_start > words.len or words.len - self.data_start < self.data_words) return error.PointerOutOfBounds;
+        return .{
+            .start = self.data_start,
+            .end = self.data_start + @as(usize, self.data_words),
+        };
     }
 
     fn checkDataBit(self: StructBuilder, bit_offset: usize) Error!void {
         if (bit_offset >= @as(usize, self.data_words) * wire.bits_per_word) return error.PointerOutOfBounds;
+        _ = try self.dataWordBounds();
     }
 
     fn checkDataBytes(self: StructBuilder, byte_offset: usize, len: usize) Error!void {
         const data_len = @as(usize, self.data_words) * wire.bytes_per_word;
         if (byte_offset > data_len or data_len - byte_offset < len) return error.PointerOutOfBounds;
+        _ = try self.dataWordBounds();
     }
 };
 
@@ -6095,6 +6114,12 @@ fn checkedWordBitOffset(word_index: usize, bit_offset: usize) Error!usize {
 fn checkedWordByteOffset(word_index: usize, bit_offset: usize) Error!usize {
     const word_bytes = std.math.mul(usize, word_index, wire.bytes_per_word) catch return error.MessageTooLarge;
     return std.math.add(usize, word_bytes, bit_offset / 8) catch return error.MessageTooLarge;
+}
+
+var empty_mutable_bytes: [0]u8 = .{};
+
+fn emptyMutableBytes() []u8 {
+    return empty_mutable_bytes[0..];
 }
 
 fn listByteLen(element_count: usize, step_bits: usize) usize {
@@ -8512,8 +8537,11 @@ test "accessors report oversized derived offsets instead of trapping" {
         .pointer_count = 2,
     };
     try testing.expectError(error.MessageTooLarge, huge_struct_builder.getPointerField(1));
-    try testing.expectError(error.MessageTooLarge, huge_struct_builder.setBool(0, true, false));
-    try testing.expectError(error.MessageTooLarge, huge_struct_builder.getBool(0, false));
+    try testing.expectEqual(@as(usize, 0), huge_struct_builder.dataSectionBytes().len);
+    try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.setUInt8(0, 1, 0));
+    try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.getUInt8(0, 0));
+    try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.setBool(0, true, false));
+    try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.getBool(0, false));
 
     const huge_pointer_list_builder = ListBuilder{
         .message = &builder,
