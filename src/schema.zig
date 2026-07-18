@@ -4553,15 +4553,26 @@ fn validateMethodFieldAggregateDefault(allocator: std.mem.Allocator, file: *cons
 }
 
 fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) LayoutError!void {
-    const raw = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, literal), " \t\r\n");
+    const literal_raw = std.mem.trim(u8, literal, " \t\r\n");
+    if (literal_raw.len == 0) return;
+    const const_ref = findConstReference(file, scope, literal_raw);
+    const raw = std.mem.trim(u8, if (const_ref != null) resolveConstReferenceLiteral(file, scope, literal_raw) else literal_raw, " \t\r\n");
     if (raw.len == 0) return;
+
     switch (resolveTypeScoped(file, scope, ty)) {
         .optional => |child| {
             if (std.mem.eql(u8, raw, "null")) return;
             try validateTypeAggregateDefault(allocator, file, scope, child.*, raw);
         },
+        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64, .text, .data => {},
         .list => |child| {
-            if (raw[0] != '[') return;
+            if (raw[0] != '[') {
+                if (const_ref) |decl| {
+                    const resolved_decl_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
+                    if (resolved_decl_ty != .list) return error.UnexpectedToken;
+                }
+                return;
+            }
             const items = parseInlineConstListElementsAlloc(allocator, raw) catch |err| switch (err) {
                 error.UnexpectedToken, error.InvalidToken => return error.UnexpectedToken,
                 else => return err,
@@ -4574,8 +4585,27 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
             }
         },
         .named => |type_name| {
-            if (raw[0] != '(') return;
+            if (findEnum(file, type_name)) |enum_decl| {
+                if (enumLiteralOrdinal(enum_decl, raw) != null or enumLiteralOrdinal(enum_decl, literal_raw) != null) return;
+                if (const_ref) |decl| {
+                    const resolved_decl_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
+                    if (resolved_decl_ty == .named and findEnum(file, resolved_decl_ty.named) != null) return;
+                }
+                if (std.mem.indexOfScalar(u8, type_name, '.') != null) return;
+                return error.UnexpectedToken;
+            }
             const struct_decl = findStructDirect(file, type_name) orelse return;
+            if (std.mem.eql(u8, raw, "null")) return;
+            if (raw[0] != '(') {
+                if (const_ref) |decl| {
+                    const resolved_decl_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
+                    if (resolved_decl_ty != .named or findStructDirect(file, resolved_decl_ty.named) == null) return error.UnexpectedToken;
+                    return;
+                }
+                if (struct_decl.fields.len == 0) return error.UnexpectedToken;
+                try validateTypeAggregateDefault(allocator, file, struct_decl, struct_decl.fields[0].ty, raw);
+                return;
+            }
             const fields = try parseConstStructFieldsAlloc(allocator, raw);
             defer allocator.free(fields);
             for (fields) |const_field| {
@@ -4583,8 +4613,15 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 try validateTypeAggregateDefault(allocator, file, struct_decl, schema_field.ty, const_field.literal);
             }
         },
-        else => {},
+        .any_pointer, .any_struct, .any_list, .capability => {},
     }
+}
+
+fn nonNullDefaultType(ty: Type) Type {
+    return switch (ty) {
+        .optional => |child| child.*,
+        else => ty,
+    };
 }
 
 fn findStructFieldByNameOrGroupFirst(decl: *const Struct, name: []const u8) ?*const Field {
@@ -5810,6 +5847,51 @@ test "schema layout planner rejects unknown struct literal fields" {
     );
     defer method_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &method_file));
+}
+
+test "schema layout planner rejects mismatched aggregate default item types" {
+    var enum_field_file = try parse(std.testing.allocator,
+        \\enum E {
+        \\  a @0;
+        \\}
+        \\struct Bad {
+        \\  values @0 :List(E) = [missing];
+        \\}
+    );
+    defer enum_field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &enum_field_file));
+
+    var enum_method_file = try parse(std.testing.allocator,
+        \\enum E {
+        \\  a @0;
+        \\}
+        \\interface Bad {
+        \\  call @0 (values :List(E) = [missing]) -> ();
+        \\}
+    );
+    defer enum_method_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &enum_method_file));
+
+    var struct_ref_file = try parse(std.testing.allocator,
+        \\const scalar :UInt32 = 1;
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  item @0 :Item = scalar;
+        \\}
+    );
+    defer struct_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &struct_ref_file));
+
+    var list_ref_file = try parse(std.testing.allocator,
+        \\const scalar :UInt32 = 1;
+        \\struct Bad {
+        \\  values @0 :List(UInt32) = scalar;
+        \\}
+    );
+    defer list_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &list_ref_file));
 }
 
 test "schema parser rejects duplicate field names" {
