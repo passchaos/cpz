@@ -3831,7 +3831,10 @@ pub const Parser = struct {
 
     fn skipTypeApplications(self: *Parser) Error!?usize {
         var last_end: ?usize = null;
+        var saw_application = false;
         while (self.lookahead.tag == .l_paren) {
+            if (saw_application) return error.UnexpectedToken;
+            saw_application = true;
             try self.expect(.l_paren);
             if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
             while (true) {
@@ -6067,6 +6070,15 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer field_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &field_file));
+
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T;
+        \\}
+        \\struct Bad {
+        \\  field @0 :Box(Text)(UInt32);
+        \\}
+    ));
 
     var commented_field_file = try parse(std.testing.allocator,
         \\struct Box(T) {
