@@ -2405,7 +2405,9 @@ pub const Parser = struct {
                 },
                 '-' => if (paren_depth == 0 and index + 1 < signature.len and signature[index + 1] == '>') {
                     const params = std.mem.trim(u8, signature[params_start..index], " \t\r\n");
+                    if (params.len == 0) return error.UnexpectedToken;
                     const result_parts = try splitResultAndAnnotations(std.mem.trim(u8, signature[index + 2 ..], " \t\r\n"));
+                    if (result_parts.results.len == 0) return error.UnexpectedToken;
                     return .{ .params = params, .results = result_parts.results, .annotations = result_parts.annotations };
                 },
                 else => {},
@@ -4761,6 +4763,19 @@ test "schema parser rejects duplicate interface method names and ordinals" {
         \\interface Bad {
         \\  first @0 () -> ();
         \\  second @0 () -> ();
+        \\}
+    ));
+}
+
+test "schema parser rejects malformed method signatures" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> ;
         \\}
     ));
 }
