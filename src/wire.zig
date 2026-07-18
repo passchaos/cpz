@@ -343,7 +343,7 @@ pub const ListPointer = struct {
     }
 
     pub fn payloadByteCount(self: ListPointer) Error!usize {
-        return std.math.divCeil(usize, try self.payloadBitCount(), 8) catch unreachable;
+        return std.math.divCeil(usize, try self.payloadBitCount(), 8) catch return error.MessageTooLarge;
     }
 
     pub fn payloadWordCount(self: ListPointer) Error!usize {
@@ -923,6 +923,13 @@ test "wire pointer encoding matches Cap'n Proto spec examples" {
     try testing.expect(composite_ptr.matchesCompositeWordCount(7));
     try testing.expect(!composite_ptr.matchesCompositeWordCount(8));
     try testing.expect(composite_ptr.matchesPayloadWords(7));
+
+    const huge_bit_list = ListPointer{
+        .offset_words = 0,
+        .element_size = .bit,
+        .element_count_or_words = std.math.maxInt(u29),
+    };
+    try testing.expectEqual((@as(usize, std.math.maxInt(u29)) + 7) / 8, try huge_bit_list.payloadByteCount());
 
     try testing.expectError(error.SegmentOutOfBounds, readWord(&[_]u8{}, std.math.maxInt(usize)));
 }
