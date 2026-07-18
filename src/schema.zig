@@ -13827,7 +13827,7 @@ fn appendStructListItemPointer(
     defer layout.deinit(allocator);
     const object_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
     if (object_words == 0) return error.UnsupportedType;
-    try item_segment.appendNTimes(allocator, 0, object_words * @sizeOf(u64));
+    try item_segment.appendNTimes(allocator, 0, try wordByteLen(object_words));
     try writeStructListItemIntoSegment(allocator, file, scope, struct_decl, &layout, item, &item_segment, 0, 0);
 
     const pointer_word_index = list_start_words + element_index;
@@ -13989,11 +13989,11 @@ fn appendInlineListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList
     const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
     const target_word_index = segment.items.len / @sizeOf(u64);
     const list_words = try wire.wordsForList(element_size, element_count);
-    try segment.appendNTimes(allocator, 0, list_words * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(list_words));
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     const raw = try wire.encodeList(offset, element_size, element_count);
     writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
-    return segment.items[target_word_index * @sizeOf(u64) ..][0 .. list_words * @sizeOf(u64)];
+    return segment.items[target_word_index * @sizeOf(u64) ..][0..try wordByteLen(list_words)];
 }
 
 fn inlineQuotedStringBytesAlloc(allocator: std.mem.Allocator, expression: []const u8) LayoutError![]u8 {
@@ -14042,7 +14042,7 @@ fn appendPointerListPointer(allocator: std.mem.Allocator, segment: *std.ArrayLis
     const pointer_word_index = object_start_words + @as(usize, data_words) + pointer_index;
     const target_word_index = segment.items.len / @sizeOf(u64);
     const list_words = try wire.wordsForList(.pointer, element_count);
-    try segment.appendNTimes(allocator, 0, list_words * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(list_words));
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     const raw = try wire.encodeList(offset, .pointer, element_count);
     writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
@@ -14100,7 +14100,7 @@ fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, s
     }
 
     const target_word_index = segment.items.len / @sizeOf(u64);
-    try segment.appendNTimes(allocator, 0, object_words * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(object_words));
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(offset, nested_layout.data_words, nested_layout.pointer_count));
     try writeStructLiteralFieldsIntoSegment(allocator, file, scope, &nested_layout, fields, segment, target_word_index);
@@ -14447,7 +14447,7 @@ fn structLiteralObjectBytesAlloc(allocator: std.mem.Allocator, file: *const File
     defer segment.deinit(allocator);
     const object_words = @as(usize, layout.data_words) + @as(usize, layout.pointer_count);
     const object_start_words: usize = if (include_root_pointer) 1 else 0;
-    try segment.appendNTimes(allocator, 0, (object_start_words + object_words) * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(try std.math.add(usize, object_start_words, object_words)));
     if (include_root_pointer) {
         writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeStruct(0, layout.data_words, layout.pointer_count));
     }
@@ -14555,12 +14555,15 @@ fn setBit(bytes: []u8, bit_offset: usize) void {
 }
 
 fn flatByteLenForSegmentWords(segment_words: usize) LayoutError!usize {
-    const segment_bytes = std.math.mul(usize, segment_words, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
-    return flatByteLenForSegmentBytes(segment_bytes);
+    return flatByteLenForSegmentBytes(try wordByteLen(segment_words));
 }
 
 fn flatByteLenForSegmentBytes(segment_bytes: usize) LayoutError!usize {
     return std.math.add(usize, @sizeOf(u64), segment_bytes) catch return error.SerializedSizeOverflow;
+}
+
+fn wordByteLen(word_count: usize) LayoutError!usize {
+    return std.math.mul(usize, word_count, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
 }
 
 fn byteListPaddedLen(list_len: usize) LayoutError!usize {
@@ -14935,7 +14938,7 @@ fn decodedStringBytesAlloc(allocator: std.mem.Allocator, raw: []const u8) Layout
 fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, comptime nul_terminated: bool) LayoutError![]u8 {
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
-    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(try std.math.add(usize, items.len, 1)));
     writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
 
     for (items) |item| {
@@ -15966,7 +15969,7 @@ fn optionalBlobConstItem(allocator: std.mem.Allocator, file: *const File, scope:
 fn listOptionalTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, comptime is_text: bool) LayoutError![]u8 {
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
-    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(try std.math.add(usize, items.len, 1)));
     writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
 
     for (items) |item| {
@@ -16492,7 +16495,7 @@ fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: 
 
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
-    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(try std.math.add(usize, items.len, 1)));
     writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
 
     for (items, 0..) |item, index| {
@@ -16520,7 +16523,7 @@ fn listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator
 
     var segment = std.ArrayList(u8).empty;
     defer segment.deinit(allocator);
-    try segment.appendNTimes(allocator, 0, (1 + items.len) * @sizeOf(u64));
+    try segment.appendNTimes(allocator, 0, try wordByteLen(try std.math.add(usize, items.len, 1)));
     writeWordBytes(segment.items[0..@sizeOf(u64)], try wire.encodeList(0, .pointer, items.len));
 
     for (items, 0..) |item, index| {
