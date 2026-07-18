@@ -93,14 +93,14 @@ fn parseCliArgs(raw_args: []const []const u8) CliParseResult {
             options.runtime_import_name = optionValue(arg, "--runtime-import").?;
         } else if (parse_options and std.mem.eql(u8, arg, "--runtime-import")) {
             if (index >= raw_args.len) return .usage_error;
-            if (looksLikeOption(raw_args[index])) return .usage_error;
+            if (raw_args[index].len == 0 or looksLikeOption(raw_args[index])) return .usage_error;
             options.runtime_import_name = raw_args[index];
             index += 1;
         } else if (parse_options and optionValue(arg, "--namespace") != null) {
             options.namespace = optionValue(arg, "--namespace").?;
         } else if (parse_options and std.mem.eql(u8, arg, "--namespace")) {
             if (index >= raw_args.len) return .usage_error;
-            if (looksLikeOption(raw_args[index])) return .usage_error;
+            if (raw_args[index].len == 0 or looksLikeOption(raw_args[index])) return .usage_error;
             options.namespace = raw_args[index];
             index += 1;
         } else if (parse_options and std.mem.eql(u8, arg, "--check")) {
@@ -182,6 +182,14 @@ test "cpzc CLI parser rejects bad options and honors terminator" {
         else => false,
     });
     try std.testing.expect(switch (parseCliArgs(&.{ "--namespace=", "schema.capnp" })) {
+        .usage_error => true,
+        else => false,
+    });
+    try std.testing.expect(switch (parseCliArgs(&.{ "--runtime-import", "", "schema.capnp" })) {
+        .usage_error => true,
+        else => false,
+    });
+    try std.testing.expect(switch (parseCliArgs(&.{ "--namespace", "", "schema.capnp" })) {
         .usage_error => true,
         else => false,
     });
