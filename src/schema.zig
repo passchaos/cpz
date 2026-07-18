@@ -2980,11 +2980,13 @@ pub const Parser = struct {
                 const first = self.lookahead;
                 _ = try self.expectIdentifier();
                 var end = first.end;
+                if (try self.skipTypeApplications()) |app_end| end = app_end;
                 while (self.lookahead.tag == .dot) {
                     try self.expect(.dot);
                     const part = self.lookahead;
                     _ = try self.expectIdentifier();
                     end = part.end;
+                    if (try self.skipTypeApplications()) |app_end| end = app_end;
                 }
                 member = self.lexer.source[first.start..end];
             }
@@ -3043,11 +3045,13 @@ pub const Parser = struct {
         const first = self.lookahead;
         _ = try self.expectIdentifier();
         var end = first.end;
+        if (try self.skipTypeApplications()) |app_end| end = app_end;
         while (self.lookahead.tag == .dot) {
             try self.expect(.dot);
             const part = self.lookahead;
             _ = try self.expectIdentifier();
             end = part.end;
+            if (try self.skipTypeApplications()) |app_end| end = app_end;
         }
         if (self.lookahead.tag != .semicolon) {
             try self.skipRawUntilSemicolon();
@@ -5431,14 +5435,18 @@ test "schema parser records imported type aliases" {
         \\using import "whole.capnp";
         \\using import "/path/to/common.capnp";
         \\using import "common.capnp".Shared;
+        \\using Generic = import "generic.capnp".Box(Text);
+        \\using import "generic.capnp".Outer.Box(Text).Inner;
         \\struct Holder {
         \\  external @0 :Other.External;
         \\  shared @1 :Shared;
+        \\  generic @2 :Generic;
+        \\  inner @3 :Inner;
         \\}
     ;
     var file = try parse(std.testing.allocator, source);
     defer file.deinit(std.testing.allocator);
-    try std.testing.expectEqual(@as(usize, 4), file.imports.len);
+    try std.testing.expectEqual(@as(usize, 6), file.imports.len);
     try std.testing.expectEqualStrings("Other", file.imports[0].name);
     try std.testing.expectEqualStrings("other.capnp", file.imports[0].path);
     try std.testing.expect(file.imports[0].member == null);
@@ -5451,8 +5459,16 @@ test "schema parser records imported type aliases" {
     try std.testing.expectEqualStrings("Shared", file.imports[3].name);
     try std.testing.expectEqualStrings("common.capnp", file.imports[3].path);
     try std.testing.expectEqualStrings("Shared", file.imports[3].member.?);
+    try std.testing.expectEqualStrings("Generic", file.imports[4].name);
+    try std.testing.expectEqualStrings("generic.capnp", file.imports[4].path);
+    try std.testing.expectEqualStrings("Box(Text)", file.imports[4].member.?);
+    try std.testing.expectEqualStrings("Inner", file.imports[5].name);
+    try std.testing.expectEqualStrings("generic.capnp", file.imports[5].path);
+    try std.testing.expectEqualStrings("Outer.Box(Text).Inner", file.imports[5].member.?);
     try std.testing.expectEqualStrings("Other.External", file.structs[0].fields[0].ty.named);
     try std.testing.expectEqualStrings("Shared", file.structs[0].fields[1].ty.named);
+    try std.testing.expectEqualStrings("Generic", file.structs[0].fields[2].ty.named);
+    try std.testing.expectEqualStrings("Inner", file.structs[0].fields[3].ty.named);
 }
 
 test "schema parser rejects empty import paths" {
