@@ -3431,16 +3431,28 @@ pub const Parser = struct {
         var last_end: ?usize = null;
         while (self.lookahead.tag == .l_paren) {
             try self.expect(.l_paren);
+            if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
             var depth: usize = 1;
+            var expecting_arg = true;
             while (depth != 0) {
                 if (self.lookahead.tag == .eof) return error.UnexpectedToken;
                 switch (self.lookahead.tag) {
-                    .l_paren => depth += 1,
+                    .l_paren => {
+                        if (depth == 1 and expecting_arg) return error.UnexpectedToken;
+                        depth += 1;
+                    },
                     .r_paren => {
+                        if (depth == 1 and expecting_arg) return error.UnexpectedToken;
                         depth -= 1;
                         last_end = self.lexer.index;
                     },
-                    else => {},
+                    .comma => if (depth == 1) {
+                        if (expecting_arg) return error.UnexpectedToken;
+                        expecting_arg = true;
+                    },
+                    else => if (depth == 1) {
+                        expecting_arg = false;
+                    },
                 }
                 try self.advance();
             }
@@ -4607,6 +4619,29 @@ test "schema parser rejects duplicate file ids" {
 test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 UInt32; }"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "@!;"));
+}
+
+test "schema parser rejects malformed type application arguments" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :GenericBox();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :GenericBox(, Text);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :GenericBox(Text,);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :GenericBox(Text,, Data);
+        \\}
+    ));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
