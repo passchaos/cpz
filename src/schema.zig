@@ -14485,8 +14485,8 @@ fn appendByteListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList(u
 
 fn appendByteListPointerAtWord(allocator: std.mem.Allocator, segment: *std.ArrayList(u8), pointer_word_index: usize, bytes: []const u8, nul_terminated: bool) LayoutError!void {
     const target_word_index = segment.items.len / @sizeOf(u64);
-    const list_len = bytes.len + @intFromBool(nul_terminated);
-    const padded_len = ((list_len + @sizeOf(u64) - 1) / @sizeOf(u64)) * @sizeOf(u64);
+    const list_len = std.math.add(usize, bytes.len, @intFromBool(nul_terminated)) catch return error.SerializedSizeOverflow;
+    const padded_len = try byteListPaddedLen(list_len);
     try segment.appendNTimes(allocator, 0, padded_len);
     const data_start = target_word_index * @sizeOf(u64);
     @memcpy(segment.items[data_start..][0..bytes.len], bytes);
@@ -14561,6 +14561,11 @@ fn flatByteLenForSegmentWords(segment_words: usize) LayoutError!usize {
 
 fn flatByteLenForSegmentBytes(segment_bytes: usize) LayoutError!usize {
     return std.math.add(usize, @sizeOf(u64), segment_bytes) catch return error.SerializedSizeOverflow;
+}
+
+fn byteListPaddedLen(list_len: usize) LayoutError!usize {
+    const padded_words = std.math.divCeil(usize, list_len, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
+    return std.math.mul(usize, padded_words, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
 }
 
 fn simpleQuotedTextLiteralAlloc(allocator: std.mem.Allocator, literal: []const u8) LayoutError!?[]u8 {
@@ -25783,6 +25788,8 @@ test "schema list flats resolve scalar const item references" {
     try std.testing.expectEqual(@as(usize, 16), try flatByteLenForSegmentBytes(8));
     try std.testing.expectError(error.SerializedSizeOverflow, flatByteLenForSegmentWords(std.math.maxInt(usize)));
     try std.testing.expectError(error.SerializedSizeOverflow, flatByteLenForSegmentBytes(std.math.maxInt(usize)));
+    try std.testing.expectEqual(@as(usize, 8), try byteListPaddedLen(1));
+    try std.testing.expectError(error.SerializedSizeOverflow, byteListPaddedLen(std.math.maxInt(usize)));
 
     const source =
         \\const one :UInt32 = 1;
