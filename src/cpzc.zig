@@ -93,12 +93,14 @@ fn parseCliArgs(raw_args: []const []const u8) CliParseResult {
             options.runtime_import_name = optionValue(arg, "--runtime-import").?;
         } else if (parse_options and std.mem.eql(u8, arg, "--runtime-import")) {
             if (index >= raw_args.len) return .usage_error;
+            if (looksLikeOption(raw_args[index])) return .usage_error;
             options.runtime_import_name = raw_args[index];
             index += 1;
         } else if (parse_options and optionValue(arg, "--namespace") != null) {
             options.namespace = optionValue(arg, "--namespace").?;
         } else if (parse_options and std.mem.eql(u8, arg, "--namespace")) {
             if (index >= raw_args.len) return .usage_error;
+            if (looksLikeOption(raw_args[index])) return .usage_error;
             options.namespace = raw_args[index];
             index += 1;
         } else if (parse_options and std.mem.eql(u8, arg, "--check")) {
@@ -125,6 +127,10 @@ fn optionValue(arg: []const u8, name: []const u8) ?[]const u8 {
     if (!std.mem.startsWith(u8, arg, name) or arg.len <= name.len or arg[name.len] != '=') return null;
     const value = arg[name.len + 1 ..];
     return if (value.len == 0) null else value;
+}
+
+fn looksLikeOption(value: []const u8) bool {
+    return std.mem.startsWith(u8, value, "-");
 }
 
 test "cpzc CLI parser handles help and option values" {
@@ -164,6 +170,14 @@ test "cpzc CLI parser rejects bad options and honors terminator" {
         else => false,
     });
     try std.testing.expect(switch (parseCliArgs(&.{"--namespace"})) {
+        .usage_error => true,
+        else => false,
+    });
+    try std.testing.expect(switch (parseCliArgs(&.{ "--runtime-import", "--check", "schema.capnp" })) {
+        .usage_error => true,
+        else => false,
+    });
+    try std.testing.expect(switch (parseCliArgs(&.{ "--namespace", "--check", "schema.capnp" })) {
         .usage_error => true,
         else => false,
     });
