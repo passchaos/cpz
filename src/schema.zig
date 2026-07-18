@@ -5816,6 +5816,19 @@ test "schema parser rejects malformed struct field defaults" {
 }
 
 test "schema parser rejects malformed type application arguments" {
+    var commented_file = try parse(std.testing.allocator,
+        \\struct Box(T, U) {
+        \\  first @0 :T;
+        \\  second @1 :U;
+        \\}
+        \\struct UsesCommentedArgs {
+        \\  value @0 :Box(Text /* comment with ), comma , */, UInt32);
+        \\}
+    );
+    defer commented_file.deinit(std.testing.allocator);
+    var commented_layouts = try planLayouts(std.testing.allocator, &commented_file);
+    commented_layouts.deinit(std.testing.allocator);
+
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\struct Bad {
         \\  field @0 :GenericBox();
@@ -11997,7 +12010,7 @@ fn cloneTypeAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError!Type {
 
 fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []const u8) LayoutError!?[]Type {
     const open = std.mem.indexOfScalar(u8, type_name, '(') orelse return null;
-    const close = matchingParen(type_name, open) orelse return null;
+    const close = (try matchingParen(type_name, open)) orelse return null;
     const raw_args = type_name[open + 1 .. close];
     var args = std.ArrayList(Type).empty;
     errdefer {
@@ -12006,8 +12019,13 @@ fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []cons
     }
     var start: usize = 0;
     var depth: usize = 0;
-    for (raw_args, 0..) |c, index| {
-        switch (c) {
+    var index: usize = 0;
+    while (index < raw_args.len) {
+        if (try skipRawStringOrCommentInPostLoop(raw_args, &index)) {
+            index += 1;
+            continue;
+        }
+        switch (raw_args[index]) {
             '(' => depth += 1,
             ')' => {
                 if (depth != 0) depth -= 1;
@@ -12019,6 +12037,7 @@ fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []cons
             },
             else => {},
         }
+        index += 1;
     }
     if (std.mem.trim(u8, raw_args[start..], " \t\r\n").len != 0) {
         try args.append(allocator, try parseTypeArgAlloc(allocator, raw_args[start..]));
@@ -12026,22 +12045,28 @@ fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []cons
     return try args.toOwnedSlice(allocator);
 }
 
-fn matchingParen(raw: []const u8, open_index: usize) ?usize {
+fn matchingParen(raw: []const u8, open_index: usize) Error!?usize {
     var depth: usize = 0;
-    for (raw[open_index..], open_index..) |c, index| {
-        if (c == '(') depth += 1;
-        if (c == ')') {
+    var index = open_index;
+    while (index < raw.len) {
+        if (try skipRawStringOrCommentInPostLoop(raw, &index)) {
+            index += 1;
+            continue;
+        }
+        if (raw[index] == '(') depth += 1;
+        if (raw[index] == ')') {
             if (depth == 0) return null;
             depth -= 1;
             if (depth == 0) return index;
         }
+        index += 1;
     }
     return null;
 }
 
 fn substituteGenericNameAlloc(allocator: std.mem.Allocator, raw: []const u8, parameters: []const []const u8, args: []const Type) LayoutError!?[]const u8 {
     const open = std.mem.indexOfScalar(u8, raw, '(') orelse return null;
-    const close = matchingParen(raw, open) orelse return null;
+    const close = (try matchingParen(raw, open)) orelse return null;
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
     try out.appendSlice(allocator, raw[0 .. open + 1]);
