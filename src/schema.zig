@@ -4541,6 +4541,8 @@ pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!
 }
 
 fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    try validateFileAliasCycles(allocator, file);
+
     for (file.aliases) |alias| try validateTypeApplicationArity(allocator, file, null, alias.target);
     for (file.consts) |decl| try validateTypeApplicationArity(allocator, file, null, decl.ty);
     for (file.annotations) |decl| try validateTypeApplicationArity(allocator, file, null, decl.ty);
@@ -4589,6 +4591,80 @@ fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File
             for (method.result_fields) |field| try validateMethodFieldAggregateDefault(allocator, file, &interface_scope, field);
         }
     }
+}
+
+fn validateFileAliasCycles(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    for (file.aliases) |alias| {
+        if (try aliasTargetReferencesAlias(allocator, file, null, alias.name, alias.target, 0)) return error.UnsupportedType;
+    }
+    for (file.structs) |decl| {
+        for (decl.aliases) |alias| {
+            if (try aliasTargetReferencesAlias(allocator, file, decl.name, alias.name, alias.target, 0)) return error.UnsupportedType;
+        }
+    }
+    for (file.interfaces) |decl| {
+        for (decl.aliases) |alias| {
+            if (try aliasTargetReferencesAlias(allocator, file, decl.name, alias.name, alias.target, 0)) return error.UnsupportedType;
+        }
+    }
+}
+
+fn aliasTargetReferencesAlias(allocator: std.mem.Allocator, file: *const File, owner_name: ?[]const u8, alias_name: []const u8, target: Type, depth: usize) LayoutError!bool {
+    if (depth >= 32) return error.UnsupportedType;
+    switch (target) {
+        .named => |raw| {
+            const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+            const head = aliasReferenceHead(trimmed);
+            if (std.mem.eql(u8, head, alias_name)) return true;
+
+            if (typeApplicationOpen(trimmed) != null) {
+                const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return false;
+                defer {
+                    for (args) |*arg| arg.deinit(allocator);
+                    allocator.free(args);
+                }
+                for (args) |arg| {
+                    if (try aliasTargetReferencesAlias(allocator, file, owner_name, alias_name, arg, depth + 1)) return true;
+                }
+            }
+
+            if (findAliasTargetInOwnerScope(file, owner_name, head)) |next_target| {
+                return aliasTargetReferencesAlias(allocator, file, owner_name, alias_name, next_target, depth + 1);
+            }
+        },
+        .list, .optional => |child| return aliasTargetReferencesAlias(allocator, file, owner_name, alias_name, child.*, depth + 1),
+        else => {},
+    }
+    return false;
+}
+
+fn aliasReferenceHead(raw: []const u8) []const u8 {
+    const absolute = if (std.mem.startsWith(u8, raw, ".")) raw[1..] else raw;
+    const without_args = if (typeApplicationOpen(absolute)) |open| absolute[0..open] else absolute;
+    return if (firstTopLevelDot(without_args)) |dot| without_args[0..dot] else without_args;
+}
+
+fn findAliasTargetInOwnerScope(file: *const File, owner_name: ?[]const u8, name: []const u8) ?Type {
+    var current = owner_name;
+    while (current) |owner| {
+        if (findStructDirect(file, owner)) |decl| {
+            if (declHasParameter(decl.parameters, name)) return null;
+            if (findAliasTargetInList(decl.aliases, name)) |target| return target;
+        }
+        if (findInterfaceDirect(file, owner)) |decl| {
+            if (declHasParameter(decl.parameters, name)) return null;
+            if (findAliasTargetInList(decl.aliases, name)) |target| return target;
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
+    }
+    return findAliasTargetInList(file.aliases, name);
+}
+
+fn findAliasTargetInList(aliases: []const AliasDecl, name: []const u8) ?Type {
+    for (aliases) |alias| {
+        if (std.mem.eql(u8, alias.name, name)) return alias.target;
+    }
+    return null;
 }
 
 fn validateConstAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: ConstDecl) LayoutError!void {
@@ -5893,6 +5969,35 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer nested_enum_alias_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &nested_enum_alias_file));
+}
+
+test "schema layout planner rejects recursive aliases" {
+    var top_file = try parse(std.testing.allocator,
+        \\using A = List(A);
+        \\struct Holder {
+        \\  value @0 :A;
+        \\}
+    );
+    defer top_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &top_file));
+
+    var local_file = try parse(std.testing.allocator,
+        \\struct Holder {
+        \\  using A = List(A);
+        \\  value @0 :A;
+        \\}
+    );
+    defer local_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &local_file));
+
+    var interface_file = try parse(std.testing.allocator,
+        \\interface Holder {
+        \\  using A = List(A);
+        \\  call @0 (value :A) -> ();
+        \\}
+    );
+    defer interface_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &interface_file));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
