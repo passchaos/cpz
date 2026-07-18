@@ -4898,25 +4898,23 @@ fn findAliasTargetInList(aliases: []const AliasDecl, name: []const u8) ?Type {
 
 fn validateConstAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: ConstDecl) LayoutError!void {
     if (decl.is_embed) return;
-    try validateScalarConstReferenceDefault(file, scope, decl);
+    try validateConstReferenceDefaultValue(file, scope, decl);
     try validateTypeAggregateDefault(allocator, file, scope, decl.ty, decl.literal);
 }
 
-fn validateScalarConstReferenceDefault(file: *const File, scope: ?*const Struct, decl: ConstDecl) LayoutError!void {
+fn validateConstReferenceDefaultValue(file: *const File, scope: ?*const Struct, decl: ConstDecl) LayoutError!void {
     const literal = std.mem.trim(u8, decl.literal, " \t\r\n");
     if (literal.len == 0) return;
     const resolved_ty = nonNullResolvedDefaultType(file, scope, decl.ty);
-    switch (resolved_ty) {
-        .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => {},
-        .named => |type_name| if (findEnum(file, type_name) == null) return,
-        else => return,
-    }
+    if (decl.literal_is_string and (resolved_ty == .text or resolved_ty == .data)) return;
+    if (decl.is_hex_data and resolved_ty == .data) return;
+    if (std.mem.eql(u8, literal, "null") and typeAcceptsNullPointerDefault(file, resolved_ty)) return;
+    if (std.mem.eql(u8, literal, "void") and typeAcceptsVoidPointerDefault(file, resolved_ty)) return;
     if (defaultLiteralIsValidBareLiteral(file, scope, decl.ty, literal)) return;
     if (findConstReference(file, scope, literal)) |referenced_decl| {
-        const const_ty = nonNullDefaultType(resolved_ty);
         const referenced_ty = nonNullDefaultType(resolveConstDeclType(file, scope, referenced_decl));
         const const_owner = if (scope) |owner| owner.name else null;
-        if (!defaultConstTypeCompatibleScoped(file, const_owner, constDeclOwnerName(file, referenced_decl), const_ty, referenced_ty)) return error.UnexpectedToken;
+        if (!defaultConstTypeCompatibleScoped(file, const_owner, constDeclOwnerName(file, referenced_decl), resolved_ty, referenced_ty)) return error.UnexpectedToken;
         return;
     }
     if (defaultLiteralCanBeReference(literal)) return error.UnexpectedToken;
@@ -6872,6 +6870,30 @@ test "schema layout planner rejects defaults for unresolved named types" {
     );
     defer bool_const_ref_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &bool_const_ref_file));
+
+    var text_const_ref_file = try parse(std.testing.allocator,
+        \\const value :Text = missing;
+    );
+    defer text_const_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &text_const_ref_file));
+
+    var data_const_ref_file = try parse(std.testing.allocator,
+        \\const value :Data = missing;
+    );
+    defer data_const_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &data_const_ref_file));
+
+    var list_const_ref_file = try parse(std.testing.allocator,
+        \\const value :List(UInt32) = missing;
+    );
+    defer list_const_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &list_const_ref_file));
+
+    var any_const_ref_file = try parse(std.testing.allocator,
+        \\const value :AnyPointer = missing;
+    );
+    defer any_const_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &any_const_ref_file));
 
     var method_file = try parse(std.testing.allocator,
         \\interface Bad {
