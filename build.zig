@@ -208,4 +208,6 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step("check", "Check formatting and run tests");
     check_step.dependOn(&check_fmt.step);
     check_step.dependOn(test_step);
+    check_step.dependOn(&example.step);
+    check_step.dependOn(&bench.step);
 }
