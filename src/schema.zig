@@ -4619,6 +4619,19 @@ test "schema parser rejects duplicate interface method names and ordinals" {
     ));
 }
 
+test "schema parser rejects duplicate interface method field names" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :UInt32, value :Text) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> (value :UInt32, value :Text);
+        \\}
+    ));
+}
+
 test "schema parser keeps separators inside quoted method defaults" {
     var file = try parse(std.testing.allocator,
         \\interface Service {
