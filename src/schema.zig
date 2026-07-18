@@ -13109,8 +13109,13 @@ fn resolveConstReferenceLiteralInOwnerDepth(file: *const File, scope: ?*const St
 }
 
 fn referencedBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool) LayoutError!?[]u8 {
+    return referencedBlobBytesAllocDepth(allocator, file, scope, literal, is_text, 0);
+}
+
+fn referencedBlobBytesAllocDepth(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, literal: []const u8, comptime is_text: bool, depth: usize) LayoutError!?[]u8 {
+    if (depth >= 32) return error.UnsupportedType;
     const decl = findConstReference(file, scope, literal) orelse return null;
-    return referencedBlobBytesFromDeclAlloc(allocator, file, scope, decl, literal, constDeclOwnerName(file, decl), is_text);
+    return referencedBlobBytesFromDeclAlloc(allocator, file, scope, decl, literal, constDeclOwnerName(file, decl), is_text, depth);
 }
 
 fn constBlobBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: *const ConstDecl, comptime is_text: bool) LayoutError![]u8 {
@@ -13159,7 +13164,9 @@ fn referencedBlobBytesFromDeclAlloc(
     original_literal: []const u8,
     owner_name: ?[]const u8,
     comptime is_text: bool,
+    depth: usize,
 ) LayoutError!?[]u8 {
+    if (depth >= 32) return error.UnsupportedType;
     const resolved_ty = switch (resolveConstDeclType(file, scope, decl)) {
         .optional => |child| resolveConstDeclChildType(file, scope, decl, child.*),
         else => |resolved| resolved,
@@ -13167,12 +13174,12 @@ fn referencedBlobBytesFromDeclAlloc(
     if (is_text) {
         if (resolved_ty != .text) return null;
         if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
-        if (try referencedBlobBytesFromNestedConstAlloc(allocator, file, scope, decl, original_literal, owner_name, true)) |bytes| return bytes;
+        if (try referencedBlobBytesFromNestedConstAlloc(allocator, file, scope, decl, original_literal, owner_name, true, depth + 1)) |bytes| return bytes;
         return try decodedStringBytesAlloc(allocator, decl.literal);
     }
     if (resolved_ty != .data) return null;
     if (decl.is_embed) return try allocator.dupe(u8, decl.embed_bytes orelse return error.UnsupportedType);
-    if (try referencedBlobBytesFromNestedConstAlloc(allocator, file, scope, decl, original_literal, owner_name, false)) |bytes| return bytes;
+    if (try referencedBlobBytesFromNestedConstAlloc(allocator, file, scope, decl, original_literal, owner_name, false, depth + 1)) |bytes| return bytes;
     return if (decl.is_hex_data)
         try hexBytesAlloc(allocator, decl.literal)
     else
@@ -13187,19 +13194,21 @@ fn referencedBlobBytesFromNestedConstAlloc(
     original_literal: []const u8,
     owner_name: ?[]const u8,
     comptime is_text: bool,
+    depth: usize,
 ) LayoutError!?[]u8 {
+    if (depth >= 32) return error.UnsupportedType;
     const raw_literal = std.mem.trim(u8, decl.literal, " \t\r\n");
     if (std.mem.eql(u8, raw_literal, std.mem.trim(u8, original_literal, " \t\r\n"))) return null;
     if (lastTopLevelDot(raw_literal) == null) {
         if (owner_name) |owner| {
             if (findConstInOwner(file, scope, owner, raw_literal)) |nested_decl| {
                 if (nested_decl != decl) {
-                    if (try referencedBlobBytesFromDeclAlloc(allocator, file, scope, nested_decl, decl.literal, constDeclOwnerName(file, nested_decl) orelse owner, is_text)) |bytes| return bytes;
+                    if (try referencedBlobBytesFromDeclAlloc(allocator, file, scope, nested_decl, decl.literal, constDeclOwnerName(file, nested_decl) orelse owner, is_text, depth + 1)) |bytes| return bytes;
                 }
             }
         }
     }
-    return try referencedBlobBytesAlloc(allocator, file, scope, decl.literal, is_text);
+    return try referencedBlobBytesAllocDepth(allocator, file, scope, decl.literal, is_text, depth + 1);
 }
 
 fn fieldBlobDefaultBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: *const Field, comptime is_text: bool) LayoutError!?[]u8 {
@@ -23755,6 +23764,26 @@ test "schema text and data list flats resolve const item references" {
     const defaults = try default_reader.getRootList(.pointer);
     try std.testing.expectEqualSlices(u8, "local", try (try defaults.getPointerElement(0)).getText());
     try std.testing.expectEqualSlices(u8, "hi", try (try defaults.getPointerElement(1)).getText());
+}
+
+test "schema code generator rejects cyclic blob const references" {
+    var text_file = try parse(std.testing.allocator,
+        \\const a :Text = b;
+        \\const b :Text = a;
+    );
+    defer text_file.deinit(std.testing.allocator);
+    var text_layouts = try planLayouts(std.testing.allocator, &text_file);
+    defer text_layouts.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, generateZig(std.testing.allocator, &text_file, &text_layouts));
+
+    var data_file = try parse(std.testing.allocator,
+        \\const a :Data = b;
+        \\const b :Data = a;
+    );
+    defer data_file.deinit(std.testing.allocator);
+    var data_layouts = try planLayouts(std.testing.allocator, &data_file);
+    defer data_layouts.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, generateZig(std.testing.allocator, &data_file, &data_layouts));
 }
 
 test "schema list flats resolve scalar const item references" {
