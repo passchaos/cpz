@@ -569,6 +569,8 @@ fn parseConstStructFieldsAlloc(allocator: std.mem.Allocator, expression: []const
         if (index >= source.len) return error.UnexpectedToken;
         if (source[index] == ',') {
             index += 1;
+            index = try skipTriviaIndex(source, index);
+            if (index >= source.len or source[index] == ')') return error.UnexpectedToken;
             continue;
         }
         if (source[index] == ')') {
@@ -2843,6 +2845,7 @@ pub const Parser = struct {
 
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
+                if (self.lookahead.tag == .r_bracket) return error.UnexpectedToken;
             } else if (self.lookahead.tag != .r_bracket) {
                 return error.UnexpectedToken;
             }
@@ -5048,6 +5051,19 @@ test "schema parser rejects malformed struct field defaults" {
         \\struct Item {
         \\  id @0 :UInt32;
         \\}
+        \\struct Bad {
+        \\  item @0 :Item = (id = 1,);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  values @0 :List(UInt32) = [1,];
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
         \\const bad :Item = (id = 1 trailing);
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
@@ -5055,6 +5071,15 @@ test "schema parser rejects malformed struct field defaults" {
         \\  id @0 :UInt32;
         \\}
         \\const bad :List(Item) = [(id = 1 trailing)];
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const bad :Item = (id = 1,);
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\const bad :List(UInt32) = [1,];
     ));
 }
 
@@ -5412,6 +5437,19 @@ test "schema parser rejects empty method field defaults" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 (values :List(UInt32) = [1, 2) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (values :List(UInt32) = [1,]) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (item :Item = (id = 1,)) -> ();
+        \\}
+        \\struct Item {
+        \\  id @0 :UInt32;
         \\}
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
@@ -10973,6 +11011,8 @@ fn parseInlineConstListElementsAlloc(allocator: std.mem.Allocator, expression: [
         if (index >= source.len) return error.UnexpectedToken;
         if (source[index] == ',') {
             index += 1;
+            index = try skipTriviaIndex(source, index);
+            if (index >= source.len or source[index] == ']') return error.UnexpectedToken;
             continue;
         }
         if (source[index] == ']') {
