@@ -13845,7 +13845,7 @@ fn appendStructListItemPointer(
     const target_word_index = segment.items.len / @sizeOf(u64);
     try segment.appendSlice(allocator, item_segment.items);
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
-    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(offset, layout.data_words, layout.pointer_count));
+    writeWordBytes(segment.items[try wordByteOffset(pointer_word_index)..][0..@sizeOf(u64)], try wire.encodeStruct(offset, layout.data_words, layout.pointer_count));
 }
 
 fn structLiteralTypeName(file: *const File, scope: ?*const Struct, ty: Type) ?[]const u8 {
@@ -14003,8 +14003,8 @@ fn appendInlineListPointer(allocator: std.mem.Allocator, segment: *std.ArrayList
     try segment.appendNTimes(allocator, 0, try wordByteLen(list_words));
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     const raw = try wire.encodeList(offset, element_size, element_count);
-    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
-    return segment.items[target_word_index * @sizeOf(u64) ..][0..try wordByteLen(list_words)];
+    writeWordBytes(segment.items[try wordByteOffset(pointer_word_index)..][0..@sizeOf(u64)], raw);
+    return segment.items[try wordByteOffset(target_word_index)..][0..try wordByteLen(list_words)];
 }
 
 fn inlineQuotedStringBytesAlloc(allocator: std.mem.Allocator, expression: []const u8) LayoutError![]u8 {
@@ -14056,7 +14056,7 @@ fn appendPointerListPointer(allocator: std.mem.Allocator, segment: *std.ArrayLis
     try segment.appendNTimes(allocator, 0, try wordByteLen(list_words));
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     const raw = try wire.encodeList(offset, .pointer, element_count);
-    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
+    writeWordBytes(segment.items[try wordByteOffset(pointer_word_index)..][0..@sizeOf(u64)], raw);
     return target_word_index;
 }
 
@@ -14106,14 +14106,14 @@ fn appendStructLiteralPointer(allocator: std.mem.Allocator, file: *const File, s
     const object_words = @as(usize, nested_layout.data_words) + @as(usize, nested_layout.pointer_count);
     if (object_words == 0) {
         if (fields.len != 0) return error.UnsupportedType;
-        writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(-1, 0, 0));
+        writeWordBytes(segment.items[try wordByteOffset(pointer_word_index)..][0..@sizeOf(u64)], try wire.encodeStruct(-1, 0, 0));
         return;
     }
 
     const target_word_index = segment.items.len / @sizeOf(u64);
     try segment.appendNTimes(allocator, 0, try wordByteLen(object_words));
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
-    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStruct(offset, nested_layout.data_words, nested_layout.pointer_count));
+    writeWordBytes(segment.items[try wordByteOffset(pointer_word_index)..][0..@sizeOf(u64)], try wire.encodeStruct(offset, nested_layout.data_words, nested_layout.pointer_count));
     try writeStructLiteralFieldsIntoSegment(allocator, file, scope, &nested_layout, fields, segment, target_word_index);
 }
 
@@ -14142,8 +14142,8 @@ fn appendStructListPointer(allocator: std.mem.Allocator, file: *const File, scop
     const appended_bytes = std.math.mul(usize, appended_words, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
     try segment.appendNTimes(allocator, 0, appended_bytes);
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
-    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeList(offset, .composite, content_words));
-    writeWordBytes(segment.items[target_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = element_layout.data_words, .pointer_count = element_layout.pointer_count }));
+    writeWordBytes(segment.items[try wordByteOffset(pointer_word_index)..][0..@sizeOf(u64)], try wire.encodeList(offset, .composite, content_words));
+    writeWordBytes(segment.items[try wordByteOffset(target_word_index)..][0..@sizeOf(u64)], try wire.encodeStructListTag(items.len, .{ .data_words = element_layout.data_words, .pointer_count = element_layout.pointer_count }));
 
     for (items, 0..) |item, index| {
         const fields = try parseStructLiteralOrImpliedFirstFieldAlloc(allocator, struct_decl, item);
@@ -14499,12 +14499,12 @@ fn appendByteListPointerAtWord(allocator: std.mem.Allocator, segment: *std.Array
     const list_len = std.math.add(usize, bytes.len, @intFromBool(nul_terminated)) catch return error.SerializedSizeOverflow;
     const padded_len = try byteListPaddedLen(list_len);
     try segment.appendNTimes(allocator, 0, padded_len);
-    const data_start = target_word_index * @sizeOf(u64);
+    const data_start = try wordByteOffset(target_word_index);
     @memcpy(segment.items[data_start..][0..bytes.len], bytes);
     if (nul_terminated) segment.items[data_start + bytes.len] = 0;
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
     const raw = try wire.encodeList(offset, .byte, list_len);
-    writeWordBytes(segment.items[pointer_word_index * @sizeOf(u64) ..][0..@sizeOf(u64)], raw);
+    writeWordBytes(segment.items[try wordByteOffset(pointer_word_index)..][0..@sizeOf(u64)], raw);
 }
 
 fn parseSignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
@@ -14575,6 +14575,10 @@ fn flatByteLenForSegmentBytes(segment_bytes: usize) LayoutError!usize {
 
 fn wordByteLen(word_count: usize) LayoutError!usize {
     return std.math.mul(usize, word_count, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
+}
+
+fn wordByteOffset(word_index: usize) LayoutError!usize {
+    return wordByteLen(word_index);
 }
 
 fn byteListPaddedLen(list_len: usize) LayoutError!usize {
@@ -25806,6 +25810,8 @@ test "schema list flats resolve scalar const item references" {
     try std.testing.expectError(error.SerializedSizeOverflow, byteListPaddedLen(std.math.maxInt(usize)));
     try std.testing.expectEqual(@as(usize, 8), try wordByteLen(1));
     try std.testing.expectError(error.SerializedSizeOverflow, wordByteLen(std.math.maxInt(usize)));
+    try std.testing.expectEqual(@as(usize, 8), try wordByteOffset(1));
+    try std.testing.expectError(error.SerializedSizeOverflow, wordByteOffset(std.math.maxInt(usize)));
 
     const source =
         \\const one :UInt32 = 1;
