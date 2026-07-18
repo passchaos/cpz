@@ -4585,15 +4585,20 @@ fn declarationParameterCount(file: *const File, type_name: []const u8) ?usize {
 }
 
 fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, raw: []const u8) LayoutError!void {
-    if (raw.len == 0) return;
-    if (declarationParameterCount(file, raw)) |parameter_count| {
-        const args = (try splitTypeApplicationArgsAlloc(allocator, raw)) orelse return error.UnsupportedType;
-        defer {
-            for (args) |*arg| arg.deinit(allocator);
-            allocator.free(args);
-        }
+    const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+    if (trimmed.len == 0) return;
+    if (std.mem.startsWith(u8, trimmed, "?")) return validateRawTypeApplicationArity(allocator, file, trimmed[1..]);
+    if (typeApplicationOpen(trimmed) == null) return;
+
+    const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return error.UnsupportedType;
+    defer {
+        for (args) |*arg| arg.deinit(allocator);
+        allocator.free(args);
+    }
+    if (declarationParameterCount(file, trimmed)) |parameter_count| {
         if (args.len != parameter_count) return error.UnsupportedType;
     }
+    for (args) |arg| try validateTypeApplicationArity(allocator, file, arg);
 }
 
 fn validateTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, ty: Type) LayoutError!void {
@@ -4920,6 +4925,17 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer field_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &field_file));
+
+    var nested_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T;
+        \\}
+        \\struct Bad {
+        \\  field @0 :List(Box(Text, Data));
+        \\}
+    );
+    defer nested_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &nested_file));
 
     var method_file = try parse(std.testing.allocator,
         \\struct Box(T) {
