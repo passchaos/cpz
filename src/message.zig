@@ -4539,13 +4539,14 @@ pub const StructBuilder = struct {
 
     pub fn getPointerField(self: StructBuilder, index: usize) Error!PointerBuilder {
         if (index >= self.pointer_count) return error.PointerOutOfBounds;
-        return .{ .message = self.message, .segment_id = self.segment_id, .word_index = self.pointer_start + index };
+        const word_index = std.math.add(usize, self.pointer_start, index) catch return error.MessageTooLarge;
+        return .{ .message = self.message, .segment_id = self.segment_id, .word_index = word_index };
     }
 
     pub fn setBool(self: StructBuilder, bit_offset: usize, value: bool, default_value: bool) Error!void {
         try self.checkDataBit(bit_offset);
         const encoded = value != default_value;
-        const abs_bit = self.data_start * wire.bits_per_word + bit_offset;
+        const abs_bit = try checkedWordBitOffset(self.data_start, bit_offset);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         var word = self.message.readWord(self.segment_id, word_index);
@@ -4599,7 +4600,7 @@ pub const StructBuilder = struct {
 
     pub fn getBool(self: StructBuilder, bit_offset: usize, default_value: bool) Error!bool {
         try self.checkDataBit(bit_offset);
-        const abs_bit = self.data_start * wire.bits_per_word + bit_offset;
+        const abs_bit = try checkedWordBitOffset(self.data_start, bit_offset);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         const word = self.message.readWord(self.segment_id, word_index);
@@ -4764,7 +4765,10 @@ pub const StructReader = struct {
         if (index >= self.pointer_count) {
             return .{ .message = self.message, .segment_id = self.segment_id, .word_index = 0, .nesting_left = self.nesting_left, .null_override = true };
         }
-        return .{ .message = self.message, .segment_id = self.segment_id, .word_index = self.pointer_start + index, .nesting_left = self.nesting_left };
+        const word_index = std.math.add(usize, self.pointer_start, index) catch {
+            return .{ .message = self.message, .segment_id = self.segment_id, .word_index = 0, .nesting_left = self.nesting_left, .null_override = true };
+        };
+        return .{ .message = self.message, .segment_id = self.segment_id, .word_index = word_index, .nesting_left = self.nesting_left };
     }
 
     pub fn pointerSectionAsList(self: StructReader) ListReader {
@@ -4787,7 +4791,8 @@ pub const StructReader = struct {
 
     pub fn getBool(self: StructReader, bit_offset: usize, default_value: bool) bool {
         if (bit_offset >= self.effectiveDataBits()) return default_value;
-        const abs_bit = self.data_start * wire.bits_per_word + self.data_bit_offset + bit_offset;
+        const relative_bit_offset = std.math.add(usize, self.data_bit_offset, bit_offset) catch return default_value;
+        const abs_bit = checkedWordBitOffset(self.data_start, relative_bit_offset) catch return default_value;
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         const word = self.message.readWord(self.segment_id, word_index) catch return default_value;
@@ -4837,11 +4842,11 @@ pub const StructReader = struct {
     fn getInt(self: StructReader, comptime T: type, byte_offset: usize, default_value: T) T {
         const data_bits = self.effectiveDataBits();
         const value_bits = @sizeOf(T) * 8;
-        const field_bit_offset = byte_offset * 8;
+        const field_bit_offset = std.math.mul(usize, byte_offset, 8) catch return default_value;
         if (field_bit_offset > data_bits or data_bits - field_bit_offset < value_bits) return default_value;
-        const absolute_bit_offset = self.data_bit_offset + field_bit_offset;
+        const absolute_bit_offset = std.math.add(usize, self.data_bit_offset, field_bit_offset) catch return default_value;
         if (absolute_bit_offset % 8 != 0) return default_value;
-        const byte_start = self.data_start * wire.bytes_per_word + absolute_bit_offset / 8;
+        const byte_start = checkedWordByteOffset(self.data_start, absolute_bit_offset) catch return default_value;
         if (self.segment_id >= self.message.segments.len) return default_value;
         const segment = self.message.segments[self.segment_id];
         if (byte_start > segment.len or segment.len - byte_start < @sizeOf(T)) return default_value;
@@ -4851,7 +4856,7 @@ pub const StructReader = struct {
     fn dataBytes(self: StructReader) []const u8 {
         if (self.segment_id >= self.message.segments.len) return &.{};
         if (self.data_bit_offset % 8 != 0) return &.{};
-        const byte_start = self.data_start * wire.bytes_per_word + self.data_bit_offset / 8;
+        const byte_start = checkedWordByteOffset(self.data_start, self.data_bit_offset) catch return &.{};
         const byte_len = self.effectiveDataBits() / 8;
         const segment = self.message.segments[self.segment_id];
         if (byte_start > segment.len or segment.len - byte_start < byte_len) return &.{};
@@ -5123,10 +5128,11 @@ pub const ListBuilder = struct {
         const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
         if (start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
         const start_words = start_bits / wire.bits_per_word;
+        const start = std.math.add(usize, self.start, start_words) catch return error.MessageTooLarge;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
-            .start = self.start + start_words,
+            .start = start,
             .element_count = count,
             .element_size = self.element_size,
             .data_words = self.data_words,
@@ -5283,10 +5289,11 @@ pub const ListBuilder = struct {
 
     pub fn getPointerElement(self: ListBuilder, index: usize) Error!PointerBuilder {
         if (self.element_size != .pointer or index >= self.element_count) return error.PointerOutOfBounds;
+        const word_index = std.math.add(usize, self.start, index) catch return error.MessageTooLarge;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
-            .word_index = self.start + index,
+            .word_index = word_index,
         };
     }
 
@@ -5333,12 +5340,14 @@ pub const ListBuilder = struct {
     pub fn getStructElement(self: ListBuilder, index: usize) Error!StructBuilder {
         if (self.element_size != .composite or index >= self.element_count) return error.PointerOutOfBounds;
         const step_words = @as(usize, self.data_words) + @as(usize, self.pointer_count);
-        const start = self.start + index * step_words;
+        const relative_words = std.math.mul(usize, index, step_words) catch return error.MessageTooLarge;
+        const start = std.math.add(usize, self.start, relative_words) catch return error.MessageTooLarge;
+        const pointer_start = std.math.add(usize, start, self.data_words) catch return error.MessageTooLarge;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
             .data_start = start,
-            .pointer_start = start + self.data_words,
+            .pointer_start = pointer_start,
             .data_words = self.data_words,
             .pointer_count = self.pointer_count,
         };
@@ -5492,7 +5501,7 @@ pub const ListBuilder = struct {
     fn setPrimitive(self: ListBuilder, comptime T: type, index: usize, value: T) Error!void {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
-        const byte_offset = index * @sizeOf(T);
+        const byte_offset = std.math.mul(usize, index, @sizeOf(T)) catch return error.MessageTooLarge;
         const target_bytes = self.bytes()[byte_offset..][0..@sizeOf(T)];
         std.mem.writeInt(T, target_bytes, value, .little);
     }
@@ -5500,7 +5509,7 @@ pub const ListBuilder = struct {
     fn getPrimitive(self: ListBuilder, comptime T: type, index: usize) Error!T {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
-        const byte_offset = index * @sizeOf(T);
+        const byte_offset = std.math.mul(usize, index, @sizeOf(T)) catch return error.MessageTooLarge;
         const source_bytes = self.bytes()[byte_offset..][0..@sizeOf(T)];
         return std.mem.readInt(T, source_bytes, .little);
     }
@@ -5664,10 +5673,11 @@ pub const ListReader = struct {
         const start_bits = std.math.add(usize, self.bit_offset, relative_start_bits) catch return error.MessageTooLarge;
         if ((self.element_size == .pointer or self.element_size == .composite) and start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
         const start_words = start_bits / wire.bits_per_word;
+        const start = std.math.add(usize, self.start, start_words) catch return error.MessageTooLarge;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
-            .start = self.start + start_words,
+            .start = start,
             .element_count = count,
             .element_size = self.element_size,
             .data_words = self.data_words,
@@ -5684,8 +5694,8 @@ pub const ListReader = struct {
         if (self.segment_id >= self.message.segments.len) return &.{};
         if (self.bit_offset % 8 != 0) return &.{};
         const bit_len = std.math.mul(usize, self.element_count, self.step_bits) catch return &.{};
-        const byte_len = (bit_len + 7) / 8;
-        const byte_start = (std.math.mul(usize, self.start, wire.bytes_per_word) catch return &.{}) + self.bit_offset / 8;
+        const byte_len = std.math.divCeil(usize, bit_len, 8) catch return &.{};
+        const byte_start = checkedWordByteOffset(self.start, self.bit_offset) catch return &.{};
         const segment = self.message.segments[self.segment_id];
         if (byte_start > segment.len or segment.len - byte_start < byte_len) return &.{};
         return segment[byte_start..][0..byte_len];
@@ -5702,7 +5712,7 @@ pub const ListReader = struct {
         const element_bits = std.math.mul(usize, index, self.step_bits) catch return false;
         const relative_bit = std.math.add(usize, self.bit_offset, element_bits) catch return false;
         if (self.limit_element_data_bits and self.element_data_bits == 0) return false;
-        const abs_bit = self.start * wire.bits_per_word + relative_bit;
+        const abs_bit = checkedWordBitOffset(self.start, relative_bit) catch return false;
         const word = self.message.readWord(self.segment_id, abs_bit / wire.bits_per_word) catch return false;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         return ((word >> bit) & 1) != 0;
@@ -5751,10 +5761,11 @@ pub const ListReader = struct {
     pub fn getPointerElement(self: ListReader, index: usize) Error!PointerReader {
         if (self.element_size != .pointer or index >= self.element_count) return error.PointerOutOfBounds;
         if (self.pointer_count == 0 and self.data_words == 0 and self.step_bits == wire.bits_per_word and self.bit_offset == 0) {
+            const word_index = std.math.add(usize, self.start, index) catch return error.MessageTooLarge;
             return .{
                 .message = self.message,
                 .segment_id = self.segment_id,
-                .word_index = self.start + index,
+                .word_index = word_index,
                 .nesting_left = self.nesting_left,
             };
         }
@@ -5763,10 +5774,12 @@ pub const ListReader = struct {
         }
         const element_bits = std.math.add(usize, self.bit_offset, std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge) catch return error.MessageTooLarge;
         if (element_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+        const element_word = std.math.add(usize, self.start, element_bits / wire.bits_per_word) catch return error.MessageTooLarge;
+        const pointer_word = std.math.add(usize, element_word, self.data_words) catch return error.MessageTooLarge;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
-            .word_index = self.start + element_bits / wire.bits_per_word + self.data_words,
+            .word_index = pointer_word,
             .nesting_left = self.nesting_left,
         };
     }
@@ -5803,13 +5816,14 @@ pub const ListReader = struct {
         if (self.element_size == .bit or index >= self.element_count) return error.PointerOutOfBounds;
         const start_bits = std.math.add(usize, self.bit_offset, std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge) catch return error.MessageTooLarge;
         if (self.pointer_count != 0 and start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
-        const start = self.start + start_bits / wire.bits_per_word;
+        const start = std.math.add(usize, self.start, start_bits / wire.bits_per_word) catch return error.MessageTooLarge;
+        const pointer_start = std.math.add(usize, start, self.data_words) catch return error.MessageTooLarge;
         const data_bit_offset = start_bits % wire.bits_per_word;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
             .data_start = start,
-            .pointer_start = start + self.data_words,
+            .pointer_start = pointer_start,
             .data_words = self.data_words,
             .pointer_count = self.pointer_count,
             .nesting_left = self.nesting_left,
@@ -6071,6 +6085,16 @@ fn checkedListByteLen(element_count: usize, step_bits: usize) Error!usize {
 fn checkedListWordLen(element_count: usize, step_bits: usize) Error!usize {
     const bits = try checkedListBitLen(element_count, step_bits);
     return bits / wire.bits_per_word + @intFromBool(bits % wire.bits_per_word != 0);
+}
+
+fn checkedWordBitOffset(word_index: usize, bit_offset: usize) Error!usize {
+    const word_bits = std.math.mul(usize, word_index, wire.bits_per_word) catch return error.MessageTooLarge;
+    return std.math.add(usize, word_bits, bit_offset) catch return error.MessageTooLarge;
+}
+
+fn checkedWordByteOffset(word_index: usize, bit_offset: usize) Error!usize {
+    const word_bytes = std.math.mul(usize, word_index, wire.bytes_per_word) catch return error.MessageTooLarge;
+    return std.math.add(usize, word_bytes, bit_offset / 8) catch return error.MessageTooLarge;
 }
 
 fn listByteLen(element_count: usize, step_bits: usize) usize {
@@ -8470,6 +8494,121 @@ test "struct builder scalar getters reflect in-progress writes" {
     try testing.expectEqual(@as(i16, -321), try root.getInt16(6, 7));
     try testing.expectEqual(@as(f64, 12.5), try root.getFloat64(16, 1.5));
     try testing.expectError(error.PointerOutOfBounds, root.getUInt64(64, 0));
+}
+
+test "accessors report oversized derived offsets instead of trapping" {
+    const testing = std.testing;
+    const max = std.math.maxInt(usize);
+
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer builder.deinit();
+
+    const huge_struct_builder = StructBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .data_start = max,
+        .pointer_start = max,
+        .data_words = 1,
+        .pointer_count = 2,
+    };
+    try testing.expectError(error.MessageTooLarge, huge_struct_builder.getPointerField(1));
+    try testing.expectError(error.MessageTooLarge, huge_struct_builder.setBool(0, true, false));
+    try testing.expectError(error.MessageTooLarge, huge_struct_builder.getBool(0, false));
+
+    const huge_pointer_list_builder = ListBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 2,
+        .element_size = .pointer,
+        .data_words = 0,
+        .pointer_count = 1,
+        .step_bits = wire.bits_per_word,
+    };
+    try testing.expectError(error.MessageTooLarge, huge_pointer_list_builder.getPointerElement(1));
+
+    const huge_struct_list_builder = ListBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 1,
+        .element_size = .composite,
+        .data_words = 1,
+        .pointer_count = 0,
+        .step_bits = wire.bits_per_word,
+    };
+    try testing.expectError(error.MessageTooLarge, huge_struct_list_builder.getStructElement(0));
+
+    const huge_primitive_list_builder = ListBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .start = 0,
+        .element_count = max,
+        .element_size = .eight_bytes,
+        .data_words = 0,
+        .pointer_count = 0,
+        .step_bits = wire.bits_per_word,
+    };
+    const overflowing_u64_index = max / @sizeOf(u64) + 1;
+    try testing.expectError(error.MessageTooLarge, huge_primitive_list_builder.getUInt64(overflowing_u64_index));
+    try testing.expectError(error.MessageTooLarge, huge_primitive_list_builder.setUInt64(overflowing_u64_index, 1));
+
+    var empty_reader = MessageReader.init(&.{}, .{});
+    const huge_struct_reader = StructReader{
+        .message = &empty_reader,
+        .segment_id = 0,
+        .data_start = max,
+        .pointer_start = max,
+        .data_words = 1,
+        .pointer_count = 2,
+        .nesting_left = 1,
+    };
+    try testing.expectEqual(true, huge_struct_reader.getBool(0, true));
+    try testing.expectEqual(@as(u8, 77), huge_struct_reader.getUInt8(0, 77));
+    try testing.expectEqual(@as(usize, 0), huge_struct_reader.dataSectionBytes().len);
+    try testing.expect(huge_struct_reader.getPointerField(1).isNull());
+
+    const segment = [_]u8{0} ** wire.bytes_per_word;
+    var reader = MessageReader.init(&.{&segment}, .{});
+    const huge_bit_list_reader = ListReader{
+        .message = &reader,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 1,
+        .element_size = .bit,
+        .data_words = 0,
+        .pointer_count = 0,
+        .step_bits = 1,
+        .nesting_left = 1,
+    };
+    try testing.expect(!huge_bit_list_reader.getBool(0));
+    try testing.expectEqual(@as(usize, 0), huge_bit_list_reader.bytes().len);
+
+    const huge_pointer_list_reader = ListReader{
+        .message = &reader,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 2,
+        .element_size = .pointer,
+        .data_words = 0,
+        .pointer_count = 1,
+        .step_bits = wire.bits_per_word,
+        .nesting_left = 1,
+    };
+    try testing.expectError(error.MessageTooLarge, huge_pointer_list_reader.getPointerElement(1));
+
+    const huge_struct_list_reader = ListReader{
+        .message = &reader,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 1,
+        .element_size = .composite,
+        .data_words = 1,
+        .pointer_count = 0,
+        .step_bits = wire.bits_per_word,
+        .nesting_left = 1,
+    };
+    try testing.expectError(error.MessageTooLarge, huge_struct_list_reader.getStructElement(0));
 }
 
 test "single-segment normalization removes far pointers while preserving data" {
