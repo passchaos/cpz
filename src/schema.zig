@@ -7562,7 +7562,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.paramsType": []const u8 = {s};
             \\
         , .{ method_name, params_type_literal });
-        const resolved_params_type = if (method.params_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, decl, method.params_type) else try allocator.dupe(u8, "");
+        const resolved_params_type = if (method.params_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, decl, method.parameters, method.params_type) else try allocator.dupe(u8, "");
         defer allocator.free(resolved_params_type);
         const resolved_params_type_literal = try zigStringLiteralAlloc(allocator, resolved_params_type);
         defer allocator.free(resolved_params_type_literal);
@@ -7582,7 +7582,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.resultsType": []const u8 = {s};
             \\
         , .{ method_name, results_type_literal });
-        const resolved_results_type = if (method.results_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, decl, method.results_type) else try allocator.dupe(u8, "");
+        const resolved_results_type = if (method.results_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, decl, method.parameters, method.results_type) else try allocator.dupe(u8, "");
         defer allocator.free(resolved_results_type);
         const resolved_results_type_literal = try zigStringLiteralAlloc(allocator, resolved_results_type);
         defer allocator.free(resolved_results_type_literal);
@@ -7601,8 +7601,8 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\
         , .{ method_name, method.is_streaming });
         try appendMethodParameterMetadata(allocator, out, method_name, method.parameters, "    ");
-        try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "params", method.param_fields, "    ");
-        try appendMethodFieldMetadata(allocator, out, file, decl, method_name, "results", method.result_fields, "    ");
+        try appendMethodFieldMetadata(allocator, out, file, decl, method_name, method.parameters, "params", method.param_fields, "    ");
+        try appendMethodFieldMetadata(allocator, out, file, decl, method_name, method.parameters, "results", method.result_fields, "    ");
         for (method.param_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, &alias_scope, method_name, "params", field, "    ");
         for (method.result_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, &alias_scope, method_name, "results", field, "    ");
     }
@@ -7691,11 +7691,11 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         defer allocator.free(params_type_literal);
         const results_type_literal = try zigStringLiteralAlloc(allocator, method.results_type);
         defer allocator.free(results_type_literal);
-        const resolved_params_type = if (method.params_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method.params_type) else try allocator.dupe(u8, "");
+        const resolved_params_type = if (method.params_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method.parameters, method.params_type) else try allocator.dupe(u8, "");
         defer allocator.free(resolved_params_type);
         const resolved_params_type_literal = try zigStringLiteralAlloc(allocator, resolved_params_type);
         defer allocator.free(resolved_params_type_literal);
-        const resolved_results_type = if (method.results_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method.results_type) else try allocator.dupe(u8, "");
+        const resolved_results_type = if (method.results_type.len != 0) try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method.parameters, method.results_type) else try allocator.dupe(u8, "");
         defer allocator.free(resolved_results_type);
         const resolved_results_type_literal = try zigStringLiteralAlloc(allocator, resolved_results_type);
         defer allocator.free(resolved_results_type_literal);
@@ -7732,11 +7732,11 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         }
         if (method.param_fields.len != 0) {
             try out.appendSlice(allocator, ", .param_fields = ");
-            try appendMethodFieldListLiteral(allocator, out, file, scope, method.param_fields);
+            try appendMethodFieldListLiteral(allocator, out, file, scope, method.parameters, method.param_fields);
         }
         if (method.result_fields.len != 0) {
             try out.appendSlice(allocator, ", .result_fields = ");
-            try appendMethodFieldListLiteral(allocator, out, file, scope, method.result_fields);
+            try appendMethodFieldListLiteral(allocator, out, file, scope, method.parameters, method.result_fields);
         }
         try out.appendSlice(allocator, " }");
     }
@@ -9281,7 +9281,17 @@ fn emitMethodFieldDefaultFlatContainer(allocator: std.mem.Allocator, out: *std.A
     , .{ indent, indent, indent, indent, indent });
 }
 
-fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, method_name: []const u8, kind: []const u8, fields: []const MethodField, indent: []const u8) LayoutError!void {
+fn appendMethodFieldMetadata(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    file: *const File,
+    scope: ?*const InterfaceDecl,
+    method_name: []const u8,
+    method_parameters: []const []const u8,
+    kind: []const u8,
+    fields: []const MethodField,
+    indent: []const u8,
+) LayoutError!void {
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.method.{s}.{s}.fieldCount": usize = {};
         \\
@@ -9293,7 +9303,7 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         defer allocator.free(name_literal);
         const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
         defer allocator.free(type_literal);
-        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, field.ty);
+        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method_parameters, field.ty);
         defer allocator.free(resolved_type_name);
         const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
         defer allocator.free(resolved_type_literal);
@@ -9328,7 +9338,7 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
         defer allocator.free(name_literal);
         const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
         defer allocator.free(type_literal);
-        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, field.ty);
+        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method_parameters, field.ty);
         defer allocator.free(resolved_type_name);
         const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
         defer allocator.free(resolved_type_literal);
@@ -9350,7 +9360,14 @@ fn appendMethodFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u
     try emitMethodFieldLookupHelpers(allocator, out, metadata_name, indent);
 }
 
-fn appendMethodFieldListLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, fields: []const MethodField) LayoutError!void {
+fn appendMethodFieldListLiteral(
+    allocator: std.mem.Allocator,
+    out: *std.ArrayList(u8),
+    file: *const File,
+    scope: ?*const InterfaceDecl,
+    method_parameters: []const []const u8,
+    fields: []const MethodField,
+) LayoutError!void {
     try out.appendSlice(allocator, "&[_]cpz.schema.MethodField{");
     for (fields, 0..) |field, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
@@ -9358,7 +9375,7 @@ fn appendMethodFieldListLiteral(allocator: std.mem.Allocator, out: *std.ArrayLis
         defer allocator.free(name_literal);
         const type_literal = try zigStringLiteralAlloc(allocator, field.ty);
         defer allocator.free(type_literal);
-        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, field.ty);
+        const resolved_type_name = try methodFieldResolvedTypeNameAlloc(allocator, file, scope, method_parameters, field.ty);
         defer allocator.free(resolved_type_name);
         const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
         defer allocator.free(resolved_type_literal);
@@ -9510,14 +9527,27 @@ fn emitAnnotation(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
     });
 }
 
-fn methodFieldResolvedTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const InterfaceDecl, raw: []const u8) LayoutError![]u8 {
+fn methodFieldResolvedTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const InterfaceDecl, method_parameters: []const []const u8, raw: []const u8) LayoutError![]u8 {
     const source = try std.fmt.allocPrint(allocator, "struct T {{ f @0 :{s}; }}", .{raw});
     defer allocator.free(source);
     var parsed = try parse(allocator, source);
     defer parsed.deinit(allocator);
     if (parsed.structs.len == 0 or parsed.structs[0].fields.len == 0) return error.UnexpectedToken;
+    if (methodParametersContain(method_parameters, parsed.structs[0].fields[0].ty)) {
+        return schemaTypeNameAlloc(allocator, parsed.structs[0].fields[0].ty);
+    }
     const owner_name = if (scope) |decl| decl.name else null;
     return schemaResolvedTypeNameInOwnerScopeAlloc(allocator, file, owner_name, parsed.structs[0].fields[0].ty);
+}
+
+fn methodParametersContain(parameters: []const []const u8, ty: Type) bool {
+    return switch (ty) {
+        .named => |name| for (parameters) |parameter| {
+            if (typeNameEqualsCanonical(name, parameter)) break true;
+        } else false,
+        .list, .optional => |child| methodParametersContain(parameters, child.*),
+        else => false,
+    };
 }
 
 fn annotationOwnerName(annotation_name: []const u8) ?[]const u8 {
@@ -23708,6 +23738,24 @@ test "schema method default flats expose typed enum getters" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.method.choose.params.field.color.defaultFlat\" = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn getRaw(message_reader: *cpz.MessageReader) !u16") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "std.enums.fromInt") != null);
+}
+
+test "schema method metadata keeps method generic parameters unresolved" {
+    const source =
+        \\using T = UInt32;
+        \\interface Service {
+        \\  call @0 [T] (value :T) -> (result :List(T));
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.method.call.params.field.value.resolvedType\": []const u8 = \"T\"") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.method.call.results.field.result.resolvedType\": []const u8 = \"List(T)\"") != null);
 }
 
 test "schema code generator resolves const reference scalar defaults for flats" {
