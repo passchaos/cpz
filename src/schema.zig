@@ -5269,6 +5269,10 @@ fn declarationParameterCount(allocator: std.mem.Allocator, file: *const File, sc
     const owner_name = if (scope) |owner| owner.name else null;
     if (resolveNamedAliasInOwnerScope(file, owner_name, base, 0)) |resolved| switch (resolved) {
         .named => |resolved_name| {
+            // Aliases that already include type arguments are fully bound.  A
+            // later `Alias(...)` application would otherwise append a second
+            // argument list and silently use the original binding.
+            if (typeApplicationOpen(resolved_name) != null) return 0;
             const suffix = type_name[open..];
             const expanded = try std.fmt.allocPrint(allocator, "{s}{s}", .{ resolved_name, suffix });
             defer allocator.free(expanded);
@@ -6036,6 +6040,18 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer alias_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &alias_file));
+
+    var bound_alias_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T;
+        \\}
+        \\using BoundBox = Box(Text);
+        \\struct Bad {
+        \\  field @0 :BoundBox(UInt32);
+        \\}
+    );
+    defer bound_alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &bound_alias_file));
 
     var nested_box_file = try parse(std.testing.allocator,
         \\struct Parent {
