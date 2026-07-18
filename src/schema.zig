@@ -1977,6 +1977,7 @@ pub const Parser = struct {
                 return error.UnexpectedToken;
             }
         }
+        if (!saw_target and !saw_wildcard) return error.UnexpectedToken;
         try self.expect(.r_paren);
         return targets;
     }
@@ -4993,6 +4994,7 @@ test "schema parser rejects duplicate annotation targets" {
 test "schema parser rejects malformed annotation target lists" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(field,) :Void;"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(,) :Void;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad() :Void;"));
 }
 
 test "schema parser records imported type aliases" {
