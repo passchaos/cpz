@@ -8524,6 +8524,7 @@ fn validateEnumValueZigNames(allocator: std.mem.Allocator, decl: *const EnumDecl
 }
 
 fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, decl: *const InterfaceDecl) LayoutError!void {
+    try validateInterfaceSuperclassZigNames(allocator, decl);
     for (decl.methods, 0..) |lhs, i| {
         for (decl.methods[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
@@ -8546,6 +8547,29 @@ fn validateInterfaceMethodZigNames(allocator: std.mem.Allocator, decl: *const In
     for (decl.aliases, 0..) |lhs, i| {
         for (decl.aliases[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
+fn validateInterfaceSuperclassZigNames(allocator: std.mem.Allocator, decl: *const InterfaceDecl) LayoutError!void {
+    for (decl.superclasses, 0..) |_, index| {
+        const generated_name = try std.fmt.allocPrint(allocator, "Superclass{}", .{index});
+        defer allocator.free(generated_name);
+
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            if (std.mem.eql(u8, generated_name, method_name)) return error.NameCollision;
+        }
+        for (decl.consts) |constant| {
+            const const_name = try zigIdentAlloc(allocator, constant.name);
+            defer allocator.free(const_name);
+            if (std.mem.eql(u8, generated_name, const_name)) return error.NameCollision;
+        }
+        for (decl.aliases) |alias| {
+            const alias_name = try zigIdentAlloc(allocator, alias.name);
+            defer allocator.free(alias_name);
+            if (std.mem.eql(u8, generated_name, alias_name)) return error.NameCollision;
         }
     }
 }
@@ -25349,6 +25373,29 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\    first @0 :Void;
         \\  }
         \\  which @1 :UInt32;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\interface SuperBase {}
+        \\interface SuperHelpers extends (SuperBase) {
+        \\  Superclass0 @0 () -> ();
+        \\}
+        ,
+        \\interface SuperBase {}
+        \\interface SuperHelpers extends (SuperBase) {
+        \\  const Superclass0 :UInt32 = 1;
+        \\}
+        ,
+        \\interface SuperBase {}
+        \\interface SuperHelpers extends (SuperBase) {
+        \\  using Superclass0 = UInt32;
         \\}
         ,
     }) |source| {
