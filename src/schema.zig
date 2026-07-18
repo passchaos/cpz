@@ -2246,8 +2246,8 @@ pub const Parser = struct {
             const signature = try self.takeRawUntilSemicolon();
             const parts = try splitMethodSignature(signature);
             try validateAnnotationSuffix(parts.annotations);
-            try self.validateMethodEndpointType(parts.params);
-            try self.validateMethodEndpointType(parts.results);
+            try self.validateMethodEndpointType(parts.params, false);
+            try self.validateMethodEndpointType(parts.results, true);
             const parameters = try self.parseMethodSignatureParameters(signature);
             var keep_parameters = false;
             errdefer if (!keep_parameters) self.allocator.free(parameters);
@@ -2530,9 +2530,13 @@ pub const Parser = struct {
         return trimmed;
     }
 
-    fn validateMethodEndpointType(self: *Parser, raw: []const u8) Error!void {
+    fn validateMethodEndpointType(self: *Parser, raw: []const u8, allow_stream: bool) Error!void {
         const trimmed = std.mem.trim(u8, raw, " \t\r\n");
-        if (trimmed.len == 0 or trimmed[0] == '(' or std.mem.eql(u8, trimmed, "stream")) return;
+        if (trimmed.len == 0 or trimmed[0] == '(') return;
+        if (std.mem.eql(u8, trimmed, "stream")) {
+            if (allow_stream) return;
+            return error.UnexpectedToken;
+        }
         var parser = try Parser.init(self.allocator, trimmed);
         defer parser.deinitLiteralScratch();
         var ty = try parser.parseType();
@@ -5283,6 +5287,11 @@ test "schema parser rejects malformed method signatures" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 () -> GenericBox();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 stream -> ();
         \\}
     ));
 }
