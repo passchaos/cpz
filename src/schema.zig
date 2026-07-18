@@ -3338,7 +3338,7 @@ pub const Parser = struct {
                 try self.advance();
                 const union_index: u32 = @intCast(unions.items.len);
                 try unions.append(self.allocator, UnionBuilder.init(self.allocator));
-                try self.parseAnonymousUnion(&unions.items[union_index], union_index);
+                try self.parseAnonymousUnion(&unions.items[union_index], &member_names, union_index);
                 continue;
             }
             if (self.eatKeyword("const")) {
@@ -3386,12 +3386,12 @@ pub const Parser = struct {
         };
     }
 
-    fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
+    fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
         union_builder.name = "";
         union_builder.ordinal = null;
         union_builder.annotations = try self.takeAnnotationSuffixUntilLeftBrace();
         try self.expect(.l_brace);
-        try self.parseAnonymousUnionBody(union_builder, union_index);
+        try self.parseAnonymousUnionBody(union_builder, member_names, union_index);
     }
 
     fn parseNamedAggregate(
@@ -3438,13 +3438,13 @@ pub const Parser = struct {
             unions.items[union_index].name = name;
             unions.items[union_index].ordinal = ordinal;
             unions.items[union_index].annotations = try self.takeAnnotationSuffixUntilLeftBrace();
-            try self.parseNamedUnionBody(union_prefix, &unions.items[union_index], union_index);
+            try self.parseNamedUnionBody(union_prefix, &unions.items[union_index], member_names, union_index);
             return;
         }
         return error.UnexpectedToken;
     }
 
-    fn parseNamedUnionBody(self: *Parser, union_prefix: []const u8, union_builder: *UnionBuilder, union_index: u32) Error!void {
+    fn parseNamedUnionBody(self: *Parser, union_prefix: []const u8, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
         try self.expect(.l_brace);
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
@@ -3464,6 +3464,7 @@ pub const Parser = struct {
             var field = try self.parseField();
             var keep_field = false;
             errdefer if (!keep_field) field.deinit(self.allocator);
+            if (union_builder.field_names.contains(field.name) or member_names.contains(field.name)) return error.NameCollision;
             const synthetic_name = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ union_prefix, field.name });
             field.name = synthetic_name;
             field.owns_name = true;
@@ -3510,6 +3511,7 @@ pub const Parser = struct {
             var field = try self.parseField();
             var keep_field = false;
             errdefer if (!keep_field) field.deinit(self.allocator);
+            if (member_names.contains(field.name)) return error.NameCollision;
             const synthetic_name = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ group_prefix, field.name });
             field.name = synthetic_name;
             field.owns_name = true;
@@ -3555,7 +3557,7 @@ pub const Parser = struct {
         return @intCast(ordinal_u64);
     }
 
-    fn parseAnonymousUnionBody(self: *Parser, union_builder: *UnionBuilder, union_index: u32) Error!void {
+    fn parseAnonymousUnionBody(self: *Parser, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
@@ -3574,6 +3576,7 @@ pub const Parser = struct {
             var field = try self.parseField();
             var keep_field = false;
             errdefer if (!keep_field) field.deinit(self.allocator);
+            if (union_builder.field_names.contains(field.name) or member_names.contains(field.name)) return error.NameCollision;
             field.union_index = union_index;
             if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
             try union_builder.fields.append(self.allocator, field);
@@ -5981,6 +5984,20 @@ test "schema parser rejects duplicate declaration and method parameter names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\struct Box(T) {
         \\  T @0 :Text;
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  union {
+        \\    T @0 :UInt32;
+        \\  }
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  group :group {
+        \\    T @0 :UInt32;
+        \\  }
         \\}
     ));
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
