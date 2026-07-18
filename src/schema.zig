@@ -3464,6 +3464,7 @@ pub const Parser = struct {
 
     fn parseNamedUnionBody(self: *Parser, union_prefix: []const u8, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
         try self.expect(.l_brace);
+        var saw_field = false;
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
@@ -3490,7 +3491,9 @@ pub const Parser = struct {
             if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
             try union_builder.fields.append(self.allocator, field);
             keep_field = true;
+            saw_field = true;
         }
+        if (!saw_field) return error.UnexpectedToken;
         try self.expect(.r_brace);
         try self.assignUnionDiscriminants(union_builder.fields.items);
     }
@@ -3505,6 +3508,7 @@ pub const Parser = struct {
         groups: *std.ArrayList(GroupDecl),
     ) Error!void {
         try self.expect(.l_brace);
+        var saw_field = false;
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
@@ -3514,6 +3518,7 @@ pub const Parser = struct {
             }
             if (try self.isNamedAggregateStart()) {
                 try self.parseNamedAggregate(fields, field_names, member_names, unions, groups, group_prefix);
+                saw_field = true;
                 continue;
             }
             if (try self.isAnonymousUnionStart()) {
@@ -3538,7 +3543,9 @@ pub const Parser = struct {
             if (member_entry.found_existing) return error.NameCollision;
             try fields.append(self.allocator, field);
             keep_field = true;
+            saw_field = true;
         }
+        if (!saw_field) return error.UnexpectedToken;
         try self.expect(.r_brace);
     }
 
@@ -3576,6 +3583,7 @@ pub const Parser = struct {
     }
 
     fn parseAnonymousUnionBody(self: *Parser, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
+        var saw_field = false;
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
@@ -3599,7 +3607,9 @@ pub const Parser = struct {
             if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
             try union_builder.fields.append(self.allocator, field);
             keep_field = true;
+            saw_field = true;
         }
+        if (!saw_field) return error.UnexpectedToken;
         try self.expect(.r_brace);
         try self.assignUnionDiscriminants(union_builder.fields.items);
     }
@@ -6274,6 +6284,27 @@ test "schema parser rejects duplicate group and union names" {
         \\  }
         \\  repeated @1 :union {
         \\    second @0 :UInt32;
+        \\  }
+        \\}
+    ));
+}
+
+test "schema parser rejects empty group and union bodies" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  union {
+        \\  }
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  choice @0 :union {
+        \\  }
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  group @0 :group {
         \\  }
         \\}
     ));
