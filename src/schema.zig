@@ -2294,13 +2294,14 @@ pub const Parser = struct {
     }
 
     fn parseMethodSignatureParameters(self: *Parser, method_name: []const u8, member_names: *const std.StringHashMap(void), signature: []const u8) Error![]const []const u8 {
-        if (signature.len == 0 or signature[0] != '[') return try self.allocator.alloc([]const u8, 0);
+        var index = try skipTriviaIndex(signature, 0);
+        if (index >= signature.len or signature[index] != '[') return try self.allocator.alloc([]const u8, 0);
         var parameters = std.ArrayList([]const u8).empty;
         errdefer parameters.deinit(self.allocator);
         var names = std.StringHashMap(void).init(self.allocator);
         defer names.deinit();
 
-        var index: usize = 1;
+        index += 1;
         while (true) {
             index = try skipTriviaIndex(signature, index);
             if (index >= signature.len) return error.UnexpectedToken;
@@ -2716,10 +2717,10 @@ pub const Parser = struct {
     }
 
     fn splitMethodSignature(signature: []const u8) Error!struct { params: []const u8, results: []const u8, annotations: []const u8 } {
-        var index: usize = 0;
-        if (signature.len != 0 and signature[0] == '[') {
+        var index = try skipTriviaIndex(signature, 0);
+        if (index < signature.len and signature[index] == '[') {
             var bracket_depth: usize = 1;
-            index = 1;
+            index += 1;
             while (index < signature.len and bracket_depth != 0) : (index += 1) {
                 if (try skipRawStringOrCommentInPostLoop(signature, &index)) continue;
                 switch (signature[index]) {
@@ -6277,7 +6278,7 @@ test "schema parser accepts comments between method field tokens" {
 test "schema parser accepts comments between method signature sections" {
     var file = try parse(std.testing.allocator,
         \\interface Service {
-        \\  call @0 [T] /* params follow */ (item :T) -> /* results follow */ ();
+        \\  call @0 /* generics follow */ [T] /* params follow */ (item :T) -> /* results follow */ ();
         \\}
     );
     defer file.deinit(std.testing.allocator);
