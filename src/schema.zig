@@ -3529,6 +3529,7 @@ pub const Parser = struct {
             const child = try self.allocator.create(Type);
             errdefer self.allocator.destroy(child);
             child.* = try self.parseType();
+            errdefer child.deinit(self.allocator);
             try self.expect(.r_paren);
             return .{ .list = child };
         }
@@ -3536,7 +3537,10 @@ pub const Parser = struct {
         if (std.mem.endsWith(u8, name, "List") and name.len > "List".len) {
             const base_name = name[0 .. name.len - "List".len];
             const child = try self.allocator.create(Type);
-            errdefer self.allocator.destroy(child);
+            errdefer {
+                child.deinit(self.allocator);
+                self.allocator.destroy(child);
+            }
             child.* = scalarOrNamed(base_name);
             return .{ .list = child };
         }
@@ -5028,6 +5032,11 @@ test "schema parser rejects malformed type application arguments" {
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\struct Bad {
+        \\  field @0 :List(List(Text), Data);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
         \\  field @0 :GenericBox(Text Data);
         \\}
     ));
@@ -5044,6 +5053,11 @@ test "schema parser rejects malformed type application arguments" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 (field :List(Text, Data)) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (field :List(List(Text), Data)) -> ();
         \\}
     ));
 }
