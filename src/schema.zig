@@ -4250,23 +4250,30 @@ pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!
 }
 
 fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
-    for (file.aliases) |alias| try validateTypeApplicationArity(allocator, file, alias.target);
-    for (file.consts) |decl| try validateTypeApplicationArity(allocator, file, decl.ty);
-    for (file.annotations) |decl| try validateTypeApplicationArity(allocator, file, decl.ty);
+    for (file.aliases) |alias| try validateTypeApplicationArity(allocator, file, null, alias.target);
+    for (file.consts) |decl| try validateTypeApplicationArity(allocator, file, null, decl.ty);
+    for (file.annotations) |decl| try validateTypeApplicationArity(allocator, file, null, decl.ty);
     for (file.structs) |decl| {
-        for (decl.fields) |field| try validateTypeApplicationArity(allocator, file, field.ty);
-        for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, alias.target);
-        for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, const_decl.ty);
+        for (decl.fields) |field| try validateTypeApplicationArity(allocator, file, &decl, field.ty);
+        for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, &decl, alias.target);
+        for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, &decl, const_decl.ty);
     }
     for (file.interfaces) |decl| {
-        for (decl.superclasses) |superclass| try validateTypeApplicationArity(allocator, file, superclass);
-        for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, alias.target);
-        for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, const_decl.ty);
+        var empty_fields: [0]Field = .{};
+        var interface_scope = Struct{
+            .name = decl.name,
+            .fields = empty_fields[0..],
+            .consts = decl.consts,
+            .aliases = decl.aliases,
+        };
+        for (decl.superclasses) |superclass| try validateTypeApplicationArity(allocator, file, &interface_scope, superclass);
+        for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, &interface_scope, alias.target);
+        for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, &interface_scope, const_decl.ty);
         for (decl.methods) |method| {
-            try validateRawTypeApplicationArity(allocator, file, method.params_type);
-            try validateRawTypeApplicationArity(allocator, file, method.results_type);
-            for (method.param_fields) |field| try validateRawTypeApplicationArity(allocator, file, field.ty);
-            for (method.result_fields) |field| try validateRawTypeApplicationArity(allocator, file, field.ty);
+            try validateRawTypeApplicationArity(allocator, file, &interface_scope, method.params_type);
+            try validateRawTypeApplicationArity(allocator, file, &interface_scope, method.results_type);
+            for (method.param_fields) |field| try validateRawTypeApplicationArity(allocator, file, &interface_scope, field.ty);
+            for (method.result_fields) |field| try validateRawTypeApplicationArity(allocator, file, &interface_scope, field.ty);
         }
     }
 }
@@ -4574,22 +4581,39 @@ fn typeApplicationOpen(raw: []const u8) ?usize {
     return null;
 }
 
-fn declarationParameterCount(file: *const File, type_name: []const u8) ?usize {
+fn declarationParameterCount(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8) LayoutError!?usize {
     const open = typeApplicationOpen(type_name) orelse return null;
     const base = type_name[0..open];
+    if (scope) |owner| {
+        if (resolveNamedAlias(file, owner, base, 0)) |resolved| switch (resolved) {
+            .named => |resolved_name| {
+                const suffix = type_name[open..];
+                const expanded = try std.fmt.allocPrint(allocator, "{s}{s}", .{ resolved_name, suffix });
+                defer allocator.free(expanded);
+                if (try declarationParameterCount(allocator, file, null, expanded)) |count| return count;
+            },
+            else => {},
+        };
+    }
     for (file.structs) |decl| {
         if (std.mem.eql(u8, base, decl.name)) return decl.parameters.len;
+        if (scope) |owner| {
+            if (std.mem.startsWith(u8, decl.name, owner.name) and decl.name.len == owner.name.len + 1 + base.len and decl.name[owner.name.len] == '.' and std.mem.eql(u8, decl.name[owner.name.len + 1 ..], base)) return decl.parameters.len;
+        }
     }
     for (file.interfaces) |decl| {
         if (std.mem.eql(u8, base, decl.name)) return decl.parameters.len;
+        if (scope) |owner| {
+            if (std.mem.startsWith(u8, decl.name, owner.name) and decl.name.len == owner.name.len + 1 + base.len and decl.name[owner.name.len] == '.' and std.mem.eql(u8, decl.name[owner.name.len + 1 ..], base)) return decl.parameters.len;
+        }
     }
     return null;
 }
 
-fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, raw: []const u8) LayoutError!void {
+fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, raw: []const u8) LayoutError!void {
     const trimmed = std.mem.trim(u8, raw, " \t\r\n");
     if (trimmed.len == 0) return;
-    if (std.mem.startsWith(u8, trimmed, "?")) return validateRawTypeApplicationArity(allocator, file, trimmed[1..]);
+    if (std.mem.startsWith(u8, trimmed, "?")) return validateRawTypeApplicationArity(allocator, file, scope, trimmed[1..]);
     if (typeApplicationOpen(trimmed) == null) return;
 
     const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return error.UnsupportedType;
@@ -4598,16 +4622,16 @@ fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const Fi
         allocator.free(args);
     }
     if (std.mem.startsWith(u8, trimmed, "List(") and args.len != 1) return error.UnsupportedType;
-    if (declarationParameterCount(file, trimmed)) |parameter_count| {
+    if (try declarationParameterCount(allocator, file, scope, trimmed)) |parameter_count| {
         if (args.len != parameter_count) return error.UnsupportedType;
     }
-    for (args) |arg| try validateTypeApplicationArity(allocator, file, arg);
+    for (args) |arg| try validateTypeApplicationArity(allocator, file, scope, arg);
 }
 
-fn validateTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, ty: Type) LayoutError!void {
+fn validateTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError!void {
     switch (ty) {
-        .named => |name| try validateRawTypeApplicationArity(allocator, file, name),
-        .list, .optional => |child| try validateTypeApplicationArity(allocator, file, child.*),
+        .named => |name| try validateRawTypeApplicationArity(allocator, file, scope, name),
+        .list, .optional => |child| try validateTypeApplicationArity(allocator, file, scope, child.*),
         else => {},
     }
 }
@@ -4979,6 +5003,29 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer dotted_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &dotted_file));
+
+    var local_file = try parse(std.testing.allocator,
+        \\struct Parent {
+        \\  struct Box(T) {
+        \\    value @0 :T;
+        \\  }
+        \\  field @0 :Box(Text, Data);
+        \\}
+    );
+    defer local_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &local_file));
+
+    var alias_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T;
+        \\}
+        \\struct Bad {
+        \\  using LocalBox = Box;
+        \\  field @0 :LocalBox(Text, Data);
+        \\}
+    );
+    defer alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &alias_file));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
