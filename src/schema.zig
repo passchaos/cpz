@@ -2768,22 +2768,44 @@ pub const Parser = struct {
                 }
             }
             const result_end = index;
+            const annotations_start = try skipTriviaIndex(raw, result_end);
             return .{
                 .results = std.mem.trim(u8, raw[start..result_end], " \t\r\n"),
-                .annotations = std.mem.trim(u8, raw[result_end..], " \t\r\n"),
+                .annotations = std.mem.trim(u8, raw[annotations_start..], " \t\r\n"),
             };
         }
         var paren_depth: usize = 0;
-        while (index < raw.len) : (index += 1) {
-            if (try skipRawStringOrCommentInPostLoop(raw, &index)) continue;
+        while (index < raw.len) {
+            if (paren_depth == 0) {
+                const next = try skipTriviaIndex(raw, index);
+                if (next != index) {
+                    if (next >= raw.len or raw[next] == '$') {
+                        return .{
+                            .results = std.mem.trim(u8, raw[start..index], " \t\r\n"),
+                            .annotations = if (next >= raw.len) "" else std.mem.trim(u8, raw[next..], " \t\r\n"),
+                        };
+                    }
+                    index = next;
+                    continue;
+                }
+            } else if (try skipRawStringOrCommentInPostLoop(raw, &index)) {
+                index += 1;
+                continue;
+            }
             switch (raw[index]) {
                 '(' => paren_depth += 1,
                 ')' => {
                     if (paren_depth != 0) paren_depth -= 1;
                 },
-                ' ', '\t', '\r', '\n' => if (paren_depth == 0) break,
+                '$' => if (paren_depth == 0) {
+                    return .{
+                        .results = std.mem.trim(u8, raw[start..index], " \t\r\n"),
+                        .annotations = std.mem.trim(u8, raw[index..], " \t\r\n"),
+                    };
+                },
                 else => {},
             }
+            index += 1;
         }
         return .{
             .results = std.mem.trim(u8, raw[start..index], " \t\r\n"),
@@ -6268,6 +6290,31 @@ test "schema parser accepts comments between method signature sections" {
     try std.testing.expectEqual(@as(usize, 1), method.param_fields.len);
     try std.testing.expectEqualStrings("item", method.param_fields[0].name);
     try std.testing.expectEqual(@as(usize, 0), method.result_fields.len);
+}
+
+test "schema parser accepts comments before method annotations" {
+    var file = try parse(std.testing.allocator,
+        \\annotation marker(method) :Void;
+        \\interface Result {
+        \\  done @0 () -> ();
+        \\}
+        \\interface Service {
+        \\  call @0 () -> Result /* result annotation follows */ $marker;
+        \\  list @1 () -> List /* type application */ (Text) /* annotation follows */ $marker;
+        \\  stream @2 () -> stream /* stream annotation follows */ $marker;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 2), file.interfaces.len);
+    const service = &file.interfaces[1];
+    try std.testing.expectEqual(@as(usize, 3), service.methods.len);
+    try std.testing.expectEqualStrings("Result", service.methods[0].results_type);
+    try std.testing.expectEqualStrings("$marker", service.methods[0].annotation_signature);
+    try std.testing.expectEqualStrings("$marker", service.methods[1].annotation_signature);
+    try std.testing.expectEqualStrings("stream", service.methods[2].results_signature);
+    try std.testing.expect(service.methods[2].is_streaming);
+    try std.testing.expectEqualStrings("$marker", service.methods[2].annotation_signature);
 }
 
 test "schema parser rejects malformed method field commas" {
