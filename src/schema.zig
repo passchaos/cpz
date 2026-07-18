@@ -8502,7 +8502,11 @@ fn validateTopLevelFixedHelperZigNames(allocator: std.mem.Allocator, file: *cons
         "newOrphanCopyCanonicalFromBuilderIn",
     };
     for (fixed_names) |name| {
-        try validateGeneratedTopLevelZigName(allocator, file, name);
+        for (file.structs) |decl| {
+            const struct_name = try zigIdentAlloc(allocator, decl.name);
+            defer allocator.free(struct_name);
+            if (std.mem.eql(u8, name, struct_name)) return error.NameCollision;
+        }
     }
 }
 
@@ -26044,6 +26048,22 @@ test "schema code generator rejects sanitized Zig name collisions" {
         var layouts = try planLayouts(std.testing.allocator, &file);
         defer layouts.deinit(std.testing.allocator);
         try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    {
+        var file = try parse(std.testing.allocator,
+            \\const getRoot :UInt32 = 1;
+            \\using initRoot = UInt32;
+            \\struct SafeRootHelperNames {
+            \\  id @0 :UInt32;
+            \\}
+        );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        const code = try generateZig(std.testing.allocator, &file, &layouts);
+        defer std.testing.allocator.free(code);
+        try std.testing.expect(std.mem.indexOf(u8, code, "pub const getRoot: u32 = 1;") != null);
+        try std.testing.expect(std.mem.indexOf(u8, code, "pub const initRoot = u32;") != null);
     }
     for ([_][]const u8{
         \\enum RawMode {
