@@ -1866,6 +1866,7 @@ pub const Parser = struct {
             } else if (self.lookahead.tag == .dollar) {
                 try raw_file_annotations.append(self.allocator, try self.takeRawUntilSemicolon());
             } else if (self.lookahead.tag == .at) {
+                if (file_id != null) return error.OrdinalCollision;
                 file_id = try self.parseFileId();
             } else {
                 return error.UnexpectedToken;
@@ -4591,6 +4592,16 @@ test "schema parser accepts binary and octal integer literals" {
     try std.testing.expectEqual(@as(?u64, 63), file.structs[0].id);
     try std.testing.expectEqual(@as(u32, 10), file.structs[0].fields[0].ordinal);
     try std.testing.expectEqual(@as(u16, 8), file.enums[0].values[0].ordinal);
+}
+
+test "schema parser rejects duplicate file ids" {
+    try std.testing.expectError(error.OrdinalCollision, parse(std.testing.allocator,
+        \\@0xaaaa;
+        \\@0xbbbb;
+        \\struct Thing {
+        \\  field @0 :UInt32;
+        \\}
+    ));
 }
 
 test "schema parser rejects invalid syntax" {
