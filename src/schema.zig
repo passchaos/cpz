@@ -8207,6 +8207,7 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: 
         }
         try validateFieldDefaultHelperZigName(allocator, decl, lhs);
         try validatePointerFieldHelperZigNames(allocator, file, decl, lhs);
+        try validateListFieldWrapperZigNames(allocator, file, decl, lhs);
     }
     for (decl.consts, 0..) |lhs, i| {
         for (decl.consts[i + 1 ..]) |rhs| {
@@ -8234,6 +8235,23 @@ fn validateFieldDefaultHelperZigName(allocator: std.mem.Allocator, decl: *const 
 
     try validateGeneratedStructMemberZigName(allocator, decl, field, default_name);
     try validateGeneratedStructMemberZigName(allocator, decl, field, default_flat_name);
+}
+
+fn validateListFieldWrapperZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct, field: *const Field) LayoutError!void {
+    if (!fieldEmitsListWrappers(file, decl, field)) return;
+
+    const owner_name = try zigIdentAlloc(allocator, decl.name);
+    defer allocator.free(owner_name);
+    const field_name = try zigIdentAlloc(allocator, field.name);
+    defer allocator.free(field_name);
+
+    const reader_name = try std.fmt.allocPrint(allocator, "{s}_{s}_List", .{ owner_name, field_name });
+    defer allocator.free(reader_name);
+    const builder_name = try std.fmt.allocPrint(allocator, "{s}_{s}_BuilderList", .{ owner_name, field_name });
+    defer allocator.free(builder_name);
+
+    try validateGeneratedStructMemberZigName(allocator, decl, field, reader_name);
+    try validateGeneratedStructMemberZigName(allocator, decl, field, builder_name);
 }
 
 fn validatePointerFieldHelperZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct, field: *const Field) LayoutError!void {
@@ -8373,6 +8391,14 @@ fn fieldEmitsPointerHelpers(file: *const File, decl: *const Struct, field: *cons
     return switch (resolveTypeScoped(file, decl, field.ty)) {
         .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list, .optional => true,
         .named => |name| findEnum(file, name) == null,
+        else => false,
+    };
+}
+
+fn fieldEmitsListWrappers(file: *const File, decl: *const Struct, field: *const Field) bool {
+    return switch (resolveTypeScoped(file, decl, field.ty)) {
+        .list => true,
+        .optional => |child| resolveTypeScoped(file, decl, child.*) == .list,
         else => false,
     };
 }
@@ -25164,6 +25190,34 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\struct PointerHelpers {
         \\  foo @0 :Text;
         \\  fooPointerKind @1 :Bool;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct ListWrappers {
+        \\  foo @0 :List(UInt16);
+        \\  ListWrappers_foo_List @1 :UInt32;
+        \\}
+        ,
+        \\struct ListWrappers {
+        \\  foo @0 :List(UInt16);
+        \\  ListWrappers_foo_BuilderList @1 :UInt32;
+        \\}
+        ,
+        \\struct ListWrappers {
+        \\  foo @0 :List(UInt16);
+        \\  const ListWrappers_foo_List :UInt32 = 1;
+        \\}
+        ,
+        \\struct ListWrappers {
+        \\  foo @0 :List(UInt16);
+        \\  using ListWrappers_foo_BuilderList = UInt16;
         \\}
         ,
     }) |source| {
