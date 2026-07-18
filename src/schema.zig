@@ -7664,6 +7664,7 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, decl: *const Struct) Layo
         for (decl.aliases) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+        try validateFieldDefaultHelperZigName(allocator, decl, &lhs);
     }
     for (decl.consts, 0..) |lhs, i| {
         for (decl.consts[i + 1 ..]) |rhs| {
@@ -7677,6 +7678,33 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, decl: *const Struct) Layo
         for (decl.aliases[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
         }
+    }
+}
+
+fn validateFieldDefaultHelperZigName(allocator: std.mem.Allocator, decl: *const Struct, field: *const Field) LayoutError!void {
+    if (field.default_expression.len == 0) return;
+    const field_name = try zigIdentAlloc(allocator, field.name);
+    defer allocator.free(field_name);
+    const default_name = try std.fmt.allocPrint(allocator, "{s}Default", .{field_name});
+    defer allocator.free(default_name);
+    const default_flat_name = try std.fmt.allocPrint(allocator, "{s}DefaultFlat", .{field_name});
+    defer allocator.free(default_flat_name);
+
+    for (decl.fields) |other| {
+        if (field == &other) continue;
+        const other_name = try zigIdentAlloc(allocator, other.name);
+        defer allocator.free(other_name);
+        if (std.mem.eql(u8, default_name, other_name) or std.mem.eql(u8, default_flat_name, other_name)) return error.NameCollision;
+    }
+    for (decl.consts) |constant| {
+        const const_name = try zigIdentAlloc(allocator, constant.name);
+        defer allocator.free(const_name);
+        if (std.mem.eql(u8, default_name, const_name) or std.mem.eql(u8, default_flat_name, const_name)) return error.NameCollision;
+    }
+    for (decl.aliases) |alias| {
+        const alias_name = try zigIdentAlloc(allocator, alias.name);
+        defer allocator.free(alias_name);
+        if (std.mem.eql(u8, default_name, alias_name) or std.mem.eql(u8, default_flat_name, alias_name)) return error.NameCollision;
     }
 }
 
@@ -24361,6 +24389,30 @@ test "schema code generator rejects sanitized Zig name collisions" {
         var file = try parse(std.testing.allocator,
             \\using import "foo-bar.capnp";
             \\using import "foo_bar.capnp";
+        );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    {
+        var file = try parse(std.testing.allocator,
+            \\struct Defaults {
+            \\  value @0 :Text = "default";
+            \\  valueDefault @1 :UInt32;
+            \\}
+        );
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    {
+        var file = try parse(std.testing.allocator,
+            \\struct Defaults {
+            \\  value @0 :Text = "default";
+            \\  valueDefaultFlat @1 :UInt32;
+            \\}
         );
         defer file.deinit(std.testing.allocator);
         var layouts = try planLayouts(std.testing.allocator, &file);
