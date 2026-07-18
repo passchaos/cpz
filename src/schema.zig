@@ -2302,7 +2302,7 @@ pub const Parser = struct {
 
         var index: usize = 1;
         while (true) {
-            while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+            index = try skipTriviaIndex(signature, index);
             if (index >= signature.len) return error.UnexpectedToken;
             if (signature[index] == ']' and parameters.items.len == 0) return error.UnexpectedToken;
             if (signature[index] == ']') return parameters.toOwnedSlice(self.allocator);
@@ -2317,11 +2317,11 @@ pub const Parser = struct {
             const entry = try names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
             try parameters.append(self.allocator, name);
-            while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+            index = try skipTriviaIndex(signature, index);
             if (index >= signature.len) return error.UnexpectedToken;
             if (signature[index] == ',') {
                 index += 1;
-                while (index < signature.len and (signature[index] == ' ' or signature[index] == '\t' or signature[index] == '\r' or signature[index] == '\n')) index += 1;
+                index = try skipTriviaIndex(signature, index);
                 if (index < signature.len and signature[index] == ']') return error.UnexpectedToken;
                 continue;
             }
@@ -2366,7 +2366,7 @@ pub const Parser = struct {
         defer names.deinit();
 
         while (index < end) {
-            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+            index = try skipTriviaIndex(trimmed, index);
             if (index >= end) break;
             if (trimmed[index] == ',') return error.UnexpectedToken;
             if (!isIdentStart(trimmed[index])) return error.UnexpectedToken;
@@ -2376,10 +2376,10 @@ pub const Parser = struct {
             const field_name = trimmed[name_start..index];
             const entry = try names.getOrPut(field_name);
             if (entry.found_existing) return error.NameCollision;
-            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+            index = try skipTriviaIndex(trimmed, index);
             if (index >= end or trimmed[index] != ':') return error.UnexpectedToken;
             index += 1;
-            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+            index = try skipTriviaIndex(trimmed, index);
             const type_start = index;
             var paren_depth: usize = 0;
             while (index < end) : (index += 1) {
@@ -2433,7 +2433,7 @@ pub const Parser = struct {
             if (index < end and trimmed[index] == '=') {
                 has_explicit_default = true;
                 index += 1;
-                while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+                index = try skipTriviaIndex(trimmed, index);
                 const default_start = index;
                 var default_paren_depth: usize = 0;
                 var default_bracket_depth: usize = 0;
@@ -2489,11 +2489,11 @@ pub const Parser = struct {
             }
             try validateAnnotationSuffix(annotations);
             try fields.append(self.allocator, .{ .index = fields.items.len, .name = field_name, .ty = field_type, .default_literal = default_literal, .default_is_hex_data = default_is_hex_data, .has_explicit_default = has_explicit_default, .annotations = annotations });
-            while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+            index = try skipTriviaIndex(trimmed, index);
             if (index < end) {
                 if (trimmed[index] != ',') return error.UnexpectedToken;
                 index += 1;
-                while (index < end and (trimmed[index] == ' ' or trimmed[index] == '\t' or trimmed[index] == '\r' or trimmed[index] == '\n')) index += 1;
+                index = try skipTriviaIndex(trimmed, index);
                 if (index >= end or trimmed[index] == ',') return error.UnexpectedToken;
             }
         }
@@ -6211,6 +6211,40 @@ test "schema parser keeps separators inside quoted method defaults" {
     try std.testing.expectEqualStrings("\"raw,bytes\"", method.param_fields[1].default_literal.?);
     try std.testing.expectEqualStrings("\"contains $ marker\"", method.param_fields[2].default_literal.?);
     try std.testing.expectEqualStrings("\"ok, result\"", method.result_fields[0].default_literal.?);
+}
+
+test "schema parser accepts comments between method field tokens" {
+    var file = try parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [
+        \\    T /* generic parameter T */,
+        \\    # generic parameter U
+        \\    U
+        \\  ] (
+        \\    item /* name/type separator */ : /* type */ T,
+        \\    # default expression follows
+        \\    label :Text = /* default */ "commented"
+        \\  ) -> (
+        \\    result :U
+        \\  );
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces.len);
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces[0].methods.len);
+    const method = file.interfaces[0].methods[0];
+    try std.testing.expectEqual(@as(usize, 2), method.parameters.len);
+    try std.testing.expectEqualStrings("T", method.parameters[0]);
+    try std.testing.expectEqualStrings("U", method.parameters[1]);
+    try std.testing.expectEqual(@as(usize, 2), method.param_fields.len);
+    try std.testing.expectEqualStrings("item", method.param_fields[0].name);
+    try std.testing.expectEqualStrings("T", method.param_fields[0].ty);
+    try std.testing.expectEqualStrings("label", method.param_fields[1].name);
+    try std.testing.expectEqualStrings("\"commented\"", method.param_fields[1].default_literal.?);
+    try std.testing.expectEqual(@as(usize, 1), method.result_fields.len);
+    try std.testing.expectEqualStrings("result", method.result_fields[0].name);
+    try std.testing.expectEqualStrings("U", method.result_fields[0].ty);
 }
 
 test "schema parser rejects malformed method field commas" {
