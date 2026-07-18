@@ -3364,6 +3364,10 @@ pub const Parser = struct {
                     const split = splitDefaultExpressionAndAnnotations(raw_tail);
                     default_expression = split.default_expression;
                     annotations = split.annotations;
+                    if (std.mem.startsWith(u8, default_expression, "(")) {
+                        const fields = try parseConstStructFieldsAlloc(self.allocator, default_expression);
+                        self.allocator.free(fields);
+                    }
                 } else {
                     const default_start = self.currentTokenStart();
                     if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) {
@@ -4674,6 +4678,25 @@ test "schema parser rejects duplicate declaration ids" {
 test "schema parser rejects invalid syntax" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "struct Bad { field @0 UInt32; }"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "@!;"));
+}
+
+test "schema parser rejects malformed struct field defaults" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  item @0 :Item = (id = );
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  item @0 :Item = (id = 1, id = 2);
+        \\}
+    ));
 }
 
 test "schema parser rejects malformed type application arguments" {
