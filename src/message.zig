@@ -4737,9 +4737,9 @@ pub const StructBuilder = struct {
         if (dst_segment.ptr != src_segment.ptr) return false;
 
         const dst_start = self.data_start;
-        const dst_end = dst_start + @as(usize, self.data_words) + @as(usize, self.pointer_count);
+        const dst_end = structEndWord(dst_start, self.data_words, self.pointer_count) catch return false;
         const src_start = source.data_start;
-        const src_end = src_start + @as(usize, source.data_words) + @as(usize, source.pointer_count);
+        const src_end = structEndWord(src_start, source.data_words, source.pointer_count) catch return false;
         return wordRangesOverlap(dst_start, dst_end, src_start, src_end);
     }
 
@@ -6110,6 +6110,11 @@ fn canonicalStructListSize(list: ListReader) Error!wire.StructSize {
 
 fn wordRangesOverlap(a_start: usize, a_end: usize, b_start: usize, b_end: usize) bool {
     return a_start < b_end and b_start < a_end;
+}
+
+fn structEndWord(start: usize, data_words: u16, pointer_count: u16) Error!usize {
+    const payload_words = @as(usize, data_words) + @as(usize, pointer_count);
+    return std.math.add(usize, start, payload_words) catch return error.MessageTooLarge;
 }
 
 fn exactBytesForBits(bits: usize) Error!usize {
@@ -8584,6 +8589,18 @@ test "accessors report oversized derived offsets instead of trapping" {
     try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.getUInt8(0, 0));
     try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.setBool(0, true, false));
     try testing.expectError(error.PointerOutOfBounds, huge_struct_builder.getBool(0, false));
+    try testing.expectEqual(@as(usize, 3), try structEndWord(0, 1, 2));
+    try testing.expectError(error.MessageTooLarge, structEndWord(max, 1, 0));
+    var same_segment_reader = MessageReader.init(try builder.segmentsConst(), .{});
+    try testing.expectError(error.MessageTooLarge, huge_struct_builder.copyFromReader(.{
+        .message = &same_segment_reader,
+        .segment_id = 0,
+        .data_start = 0,
+        .pointer_start = 0,
+        .data_words = 0,
+        .pointer_count = 0,
+        .nesting_left = 1,
+    }));
 
     const huge_pointer_list_builder = ListBuilder{
         .message = &builder,
