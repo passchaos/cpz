@@ -4636,7 +4636,10 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 return error.UnexpectedToken;
             }
             const struct_decl = findStructDirect(file, type_name) orelse {
-                if (parameterNameInScope(file, scope, type_name)) return;
+                if (parameterNameInScope(file, scope, type_name)) {
+                    if (std.mem.eql(u8, raw, "null") or std.mem.eql(u8, raw, "void") or raw[0] == '(' or raw[0] == '[' or const_ref != null) return;
+                    return error.UnexpectedToken;
+                }
                 if (std.mem.eql(u8, raw, "null") or std.mem.eql(u8, raw, "void")) return;
                 if (const_ref) |decl| {
                     const resolved_decl_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
@@ -4650,6 +4653,17 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 }
                 return error.UnexpectedToken;
             };
+            const type_args = try splitTypeApplicationArgsAlloc(allocator, type_name);
+            defer if (type_args) |args| {
+                for (args) |*arg| arg.deinit(allocator);
+                allocator.free(args);
+            };
+            const args = type_args orelse &[_]Type{};
+            var owned_names = std.ArrayList([]const u8).empty;
+            defer {
+                for (owned_names.items) |name| allocator.free(name);
+                owned_names.deinit(allocator);
+            }
             if (std.mem.eql(u8, raw, "null")) return;
             if (raw[0] != '(') {
                 if (const_ref) |decl| {
@@ -4658,14 +4672,24 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                     return;
                 }
                 if (struct_decl.fields.len == 0) return error.UnexpectedToken;
-                try validateTypeAggregateDefault(allocator, file, struct_decl, struct_decl.fields[0].ty, raw);
+                var validation_ty = if (args.len != 0)
+                    try substituteGenericTypeAlloc(allocator, &owned_names, struct_decl.fields[0].ty, struct_decl.parameters, args)
+                else
+                    struct_decl.fields[0].ty;
+                defer if (args.len != 0) validation_ty.deinit(allocator);
+                try validateTypeAggregateDefault(allocator, file, struct_decl, validation_ty, raw);
                 return;
             }
             const fields = try parseConstStructFieldsAlloc(allocator, raw);
             defer allocator.free(fields);
             for (fields) |const_field| {
                 const schema_field = findStructFieldByNameOrGroupFirst(struct_decl, const_field.name) orelse return error.UnexpectedToken;
-                try validateTypeAggregateDefault(allocator, file, struct_decl, schema_field.ty, const_field.literal);
+                var validation_ty = if (args.len != 0)
+                    try substituteGenericTypeAlloc(allocator, &owned_names, schema_field.ty, struct_decl.parameters, args)
+                else
+                    schema_field.ty;
+                defer if (args.len != 0) validation_ty.deinit(allocator);
+                try validateTypeAggregateDefault(allocator, file, struct_decl, validation_ty, const_field.literal);
             }
         },
         .any_pointer, .any_struct, .any_list, .capability => {},
@@ -6203,6 +6227,24 @@ test "schema layout planner rejects defaults for unresolved named types" {
     );
     defer method_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &method_file));
+}
+
+test "schema layout planner rejects scalar defaults for generic parameters" {
+    var field_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  value @0 :T = 1;
+        \\}
+    );
+    defer field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &field_file));
+
+    var const_file = try parse(std.testing.allocator,
+        \\struct Box(T) {
+        \\  const value :T = 1;
+        \\}
+    );
+    defer const_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &const_file));
 }
 
 test "schema parser rejects duplicate field names" {
