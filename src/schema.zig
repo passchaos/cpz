@@ -2508,7 +2508,7 @@ pub const Parser = struct {
             '(' => {
                 const fields = try parseConstStructFieldsAlloc(self.allocator, raw);
                 defer self.allocator.free(fields);
-                for (fields) |field| try self.validateInlineAggregateDefaultSyntax(field.literal);
+                for (fields) |field| try self.validateDefaultLiteralSyntax(field.literal);
             },
             '[' => {
                 const items = parseInlineConstListElementsAlloc(self.allocator, raw) catch |err| switch (err) {
@@ -2518,7 +2518,7 @@ pub const Parser = struct {
                     else => return error.UnexpectedToken,
                 };
                 defer self.allocator.free(items);
-                for (items) |item| try self.validateInlineAggregateDefaultSyntax(item);
+                for (items) |item| try self.validateDefaultLiteralSyntax(item);
             },
             else => {},
         }
@@ -5018,6 +5018,22 @@ test "schema parser rejects malformed struct field defaults" {
         \\}
         \\struct Bad {
         \\  items @0 :List(Item) = [(id = 1), (id = )];
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  item @0 :Item = (id = 1 trailing);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  items @0 :List(Item) = [(id = 1 trailing)];
         \\}
     ));
 }
