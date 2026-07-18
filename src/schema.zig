@@ -8125,6 +8125,7 @@ fn appendRawSchemaComment(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 fn validateZigNameCollisions(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
     try validateImportZigNames(allocator, file.imports);
     try validateTopLevelConstFlatZigNames(allocator, file);
+    try validateTopLevelConstStructMemberZigNames(allocator, file);
 
     for (file.structs, 0..) |lhs, i| {
         for (file.structs[i + 1 ..]) |rhs| {
@@ -8463,10 +8464,46 @@ fn validateTopLevelConstFlatZigNames(allocator: std.mem.Allocator, file: *const 
 
 fn validateStructConstFlatZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!void {
     for (decl.consts) |*constant| {
+        try validateConstStructMemberZigNames(allocator, constant);
         const generated_name = (try constFlatContainerNameAlloc(allocator, file, decl, constant)) orelse continue;
         defer allocator.free(generated_name);
         try validateGeneratedStructMemberZigName(allocator, decl, null, generated_name);
     }
+}
+
+fn validateTopLevelConstStructMemberZigNames(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    for (file.consts) |*decl| {
+        try validateConstStructMemberZigNames(allocator, decl);
+    }
+}
+
+fn validateConstStructMemberZigNames(allocator: std.mem.Allocator, decl: *const ConstDecl) LayoutError!void {
+    const fields = decl.struct_fields orelse return;
+    var names = std.StringHashMap(void).init(allocator);
+    defer names.deinit();
+    var owned_names = std.ArrayList([]const u8).empty;
+    defer {
+        for (owned_names.items) |name| allocator.free(name);
+        owned_names.deinit(allocator);
+    }
+
+    const fixed_names = [_][]const u8{ "fieldCount", "fields", "fieldByIndex", "fieldByName", "fieldByLiteral" };
+    for (fixed_names) |name| try addUniqueGeneratedName(allocator, &names, &owned_names, name);
+
+    for (fields) |field| {
+        const field_name = try zigIdentAlloc(allocator, field.name);
+        defer allocator.free(field_name);
+        try addUniqueGeneratedName(allocator, &names, &owned_names, field_name);
+    }
+}
+
+fn addUniqueGeneratedName(allocator: std.mem.Allocator, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8), raw_name: []const u8) LayoutError!void {
+    const name = try allocator.dupe(u8, raw_name);
+    errdefer allocator.free(name);
+    const entry = try names.getOrPut(name);
+    if (entry.found_existing) return error.NameCollision;
+    errdefer _ = names.remove(name);
+    try owned_names.append(allocator, name);
 }
 
 fn validateGeneratedTopLevelZigName(allocator: std.mem.Allocator, file: *const File, generated_name: []const u8) LayoutError!void {
@@ -8889,6 +8926,7 @@ fn validateInterfaceConstFlatZigNames(allocator: std.mem.Allocator, file: *const
         .aliases = decl.aliases,
     };
     for (decl.consts) |*constant| {
+        try validateConstStructMemberZigNames(allocator, constant);
         const generated_name = (try constFlatContainerNameAlloc(allocator, file, &scope, constant)) orelse continue;
         defer allocator.free(generated_name);
 
@@ -25748,6 +25786,32 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\interface ConstFlatHelpers {
         \\  const value :Text = "x";
         \\  using valueFlat = UInt16;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct StructFieldNames {
+        \\  fieldCount @0 :UInt32;
+        \\}
+        \\const structFieldNames :StructFieldNames = (fieldCount = 1);
+        ,
+        \\struct StructFieldNames {
+        \\  error @0 :UInt32;
+        \\  error_ @1 :UInt32;
+        \\}
+        \\const structFieldNames :StructFieldNames = (error = 1, error_ = 2);
+        ,
+        \\struct ConstStructFieldNames {
+        \\  struct Inner {
+        \\    fields @0 :Text;
+        \\  }
+        \\  const value :Inner = (fields = "x");
         \\}
         ,
     }) |source| {
