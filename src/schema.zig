@@ -3411,7 +3411,7 @@ pub const Parser = struct {
             }
             if (try self.isAnonymousUnionStart()) {
                 try self.advance();
-                const union_index: u32 = @intCast(unions.items.len);
+                const union_index = try checkedUnionIndex(unions.items.len);
                 try unions.append(self.allocator, UnionBuilder.init(self.allocator));
                 try self.parseAnonymousUnion(&unions.items[union_index], &member_names, union_index);
                 continue;
@@ -3508,7 +3508,7 @@ pub const Parser = struct {
             else
                 try self.allocator.dupe(u8, name);
             defer self.allocator.free(union_prefix);
-            const union_index: u32 = @intCast(unions.items.len);
+            const union_index = try checkedUnionIndex(unions.items.len);
             try unions.append(self.allocator, UnionBuilder.init(self.allocator));
             unions.items[union_index].name = name;
             unions.items[union_index].ordinal = ordinal;
@@ -5305,6 +5305,11 @@ fn countUnions(fields: []const Field) usize {
         if (field.union_index) |union_index| count = @max(count, @as(usize, @intCast(union_index)) + 1);
     }
     return count;
+}
+
+fn checkedUnionIndex(index: usize) Error!u32 {
+    if (index > std.math.maxInt(u32)) return error.InvalidOrdinal;
+    return @intCast(index);
 }
 
 fn addUnionRequirement(file: *const File, scope: ?*const Struct, req: *UnionRequirement, ty: Type) LayoutError!void {
@@ -8146,6 +8151,11 @@ test "schema parser lowers anonymous unions and tolerates group blocks inside st
     try std.testing.expectEqualStrings("id", file.structs[0].fields[3].name);
     try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[3].union_index);
     try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[3].union_discriminant);
+    try std.testing.expectEqual(@as(u32, 0), try checkedUnionIndex(0));
+    try std.testing.expectEqual(std.math.maxInt(u32), try checkedUnionIndex(std.math.maxInt(u32)));
+    if (@bitSizeOf(usize) > @bitSizeOf(u32)) {
+        try std.testing.expectError(error.InvalidOrdinal, checkedUnionIndex(@as(usize, std.math.maxInt(u32)) + 1));
+    }
 }
 
 test "schema parser tolerates nested declarations and dotted type names" {
