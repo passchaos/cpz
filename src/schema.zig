@@ -4559,7 +4559,10 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
             .consts = decl.consts,
             .aliases = decl.aliases,
         };
-        for (decl.superclasses) |superclass| try validateTypeApplicationArity(allocator, file, &interface_scope, superclass);
+        for (decl.superclasses) |superclass| {
+            try validateTypeApplicationArity(allocator, file, &interface_scope, superclass);
+            try validateInterfaceSuperclass(file, &interface_scope, superclass);
+        }
         for (decl.aliases) |alias| try validateTypeApplicationArity(allocator, file, &interface_scope, alias.target);
         for (decl.consts) |const_decl| try validateTypeApplicationArity(allocator, file, &interface_scope, const_decl.ty);
         for (decl.methods) |method| {
@@ -4591,6 +4594,18 @@ fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File
             for (method.result_fields) |field| try validateMethodFieldAggregateDefault(allocator, file, &interface_scope, field);
         }
     }
+}
+
+fn validateInterfaceSuperclass(file: *const File, scope: *const Struct, superclass: Type) LayoutError!void {
+    return switch (resolveTypeScoped(file, scope, superclass)) {
+        .capability => {},
+        .named => |name| {
+            if (findInterfaceDirect(file, name) != null) return;
+            if (isImportedTypeName(file, name)) return;
+            return error.UnsupportedType;
+        },
+        else => error.UnsupportedType,
+    };
 }
 
 fn validateFileAliasCycles(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
@@ -6596,6 +6611,47 @@ test "schema parser rejects duplicate interface superclasses" {
         \\  call @0 () -> ();
         \\}
     ));
+}
+
+test "schema layout planner rejects unsupported interface superclasses" {
+    var unknown_file = try parse(std.testing.allocator,
+        \\interface Derived extends(Missing) {
+        \\  call @0 () -> ();
+        \\}
+    );
+    defer unknown_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &unknown_file));
+
+    var scalar_file = try parse(std.testing.allocator,
+        \\interface Derived extends(UInt32) {
+        \\  call @0 () -> ();
+        \\}
+    );
+    defer scalar_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &scalar_file));
+
+    var alias_file = try parse(std.testing.allocator,
+        \\interface Base {
+        \\  call @0 () -> ();
+        \\}
+        \\using Alias = Base;
+        \\interface Derived extends(Alias) {
+        \\  call @0 () -> ();
+        \\}
+    );
+    defer alias_file.deinit(std.testing.allocator);
+    var alias_layouts = try planLayouts(std.testing.allocator, &alias_file);
+    alias_layouts.deinit(std.testing.allocator);
+
+    var import_file = try parse(std.testing.allocator,
+        \\using Base = import "base.capnp";
+        \\interface Derived extends(Base.Service) {
+        \\  call @0 () -> ();
+        \\}
+    );
+    defer import_file.deinit(std.testing.allocator);
+    var import_layouts = try planLayouts(std.testing.allocator, &import_file);
+    import_layouts.deinit(std.testing.allocator);
 }
 
 test "schema parser skips common top-level using and const declarations" {
