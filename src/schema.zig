@@ -2267,11 +2267,11 @@ pub const Parser = struct {
             const param_fields = try self.parseMethodFields(parts.params);
             var keep_param_fields = false;
             errdefer if (!keep_param_fields) self.allocator.free(param_fields);
-            try validateMethodParameterFieldNames(parameters, param_fields);
+            try validateMethodParameterFieldNames(self.allocator, parameters, param_fields);
             const result_fields = try self.parseMethodFields(parts.results);
             var keep_result_fields = false;
             errdefer if (!keep_result_fields) self.allocator.free(result_fields);
-            try validateMethodParameterFieldNames(parameters, result_fields);
+            try validateMethodParameterFieldNames(self.allocator, parameters, result_fields);
             try methods.append(self.allocator, .{
                 .name = name,
                 .ordinal = ordinal,
@@ -2689,10 +2689,14 @@ pub const Parser = struct {
         }
     }
 
-    fn validateMethodParameterFieldNames(parameters: []const []const u8, fields: []const MethodField) Error!void {
-        for (fields) |field| {
+    fn validateMethodParameterFieldNames(allocator: std.mem.Allocator, parameters: []const []const u8, fields: []const MethodField) Error!void {
+        for (fields, 0..) |field, index| {
+            for (fields[index + 1 ..]) |other| {
+                if (try zigNamesEqual(allocator, field.name, other.name)) return error.NameCollision;
+            }
             for (parameters) |parameter| {
                 if (std.mem.eql(u8, parameter, field.name)) return error.NameCollision;
+                if (try zigNamesEqual(allocator, parameter, field.name)) return error.NameCollision;
             }
         }
     }
@@ -6514,6 +6518,21 @@ test "schema parser rejects duplicate interface method field names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 () -> (value :UInt32, value :Text);
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (error :UInt32, error_ :Text) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> (error :UInt32, error_ :Text);
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 [error_] (error :UInt32) -> ();
         \\}
     ));
 }
