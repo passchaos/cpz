@@ -1965,6 +1965,7 @@ pub const Parser = struct {
 
             if (self.lookahead.tag == .comma) {
                 try self.expect(.comma);
+                if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
             } else if (self.lookahead.tag != .r_paren) {
                 return error.UnexpectedToken;
             }
@@ -4833,6 +4834,11 @@ test "schema parser rejects wildcard annotation target mixed with explicit targe
 test "schema parser rejects duplicate annotation targets" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(field, field) :Void;"));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(struct, field, struct) :Void;"));
+}
+
+test "schema parser rejects malformed annotation target lists" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(field,) :Void;"));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator, "annotation bad(,) :Void;"));
 }
 
 test "schema parser records imported type aliases" {
