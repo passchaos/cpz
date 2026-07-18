@@ -5199,13 +5199,21 @@ pub const ListBuilder = struct {
     }
 
     pub fn bytes(self: ListBuilder) []u8 {
-        const word_count = checkedListWordLen(self.element_count, self.step_bits) catch @panic("list word length overflow");
-        return std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items[self.start .. self.start + word_count])[0..listByteLen(self.element_count, self.step_bits)];
+        return self.bytesChecked() catch emptyMutableBytes();
+    }
+
+    fn bytesChecked(self: ListBuilder) Error![]u8 {
+        const word_count = try checkedListWordLen(self.element_count, self.step_bits);
+        if (self.segment_id >= self.message.segments.items.len) return error.SegmentOutOfBounds;
+        const words = self.message.segments.items[self.segment_id].words.items;
+        if (self.start > words.len or words.len - self.start < word_count) return error.PointerOutOfBounds;
+        const byte_len = try checkedListByteLen(self.element_count, self.step_bits);
+        return std.mem.sliceAsBytes(words[self.start .. self.start + word_count])[0..byte_len];
     }
 
     pub fn rawPrimitiveBytes(self: ListBuilder) Error![]u8 {
         if (self.element_size == .pointer or self.element_size == .composite) return error.IncompatibleListShape;
-        return self.bytes();
+        return self.bytesChecked();
     }
 
     pub fn setUInt8(self: ListBuilder, index: usize, value: u8) Error!void {
@@ -5521,7 +5529,8 @@ pub const ListBuilder = struct {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
         const byte_offset = std.math.mul(usize, index, @sizeOf(T)) catch return error.MessageTooLarge;
-        const target_bytes = self.bytes()[byte_offset..][0..@sizeOf(T)];
+        const data = try self.bytesChecked();
+        const target_bytes = data[byte_offset..][0..@sizeOf(T)];
         std.mem.writeInt(T, target_bytes, value, .little);
     }
 
@@ -5529,7 +5538,8 @@ pub const ListBuilder = struct {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
         const byte_offset = std.math.mul(usize, index, @sizeOf(T)) catch return error.MessageTooLarge;
-        const source_bytes = self.bytes()[byte_offset..][0..@sizeOf(T)];
+        const data = try self.bytesChecked();
+        const source_bytes = data[byte_offset..][0..@sizeOf(T)];
         return std.mem.readInt(T, source_bytes, .little);
     }
 };
@@ -8580,6 +8590,20 @@ test "accessors report oversized derived offsets instead of trapping" {
     const overflowing_u64_index = max / @sizeOf(u64) + 1;
     try testing.expectError(error.MessageTooLarge, huge_primitive_list_builder.getUInt64(overflowing_u64_index));
     try testing.expectError(error.MessageTooLarge, huge_primitive_list_builder.setUInt64(overflowing_u64_index, 1));
+
+    const out_of_bounds_primitive_list_builder = ListBuilder{
+        .message = &builder,
+        .segment_id = 0,
+        .start = max,
+        .element_count = 1,
+        .element_size = .eight_bytes,
+        .data_words = 0,
+        .pointer_count = 0,
+        .step_bits = wire.bits_per_word,
+    };
+    try testing.expectEqual(@as(usize, 0), out_of_bounds_primitive_list_builder.bytes().len);
+    try testing.expectError(error.PointerOutOfBounds, out_of_bounds_primitive_list_builder.getUInt64(0));
+    try testing.expectError(error.PointerOutOfBounds, out_of_bounds_primitive_list_builder.setUInt64(0, 1));
 
     const huge_bit_list_builder = ListBuilder{
         .message = &builder,
