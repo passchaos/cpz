@@ -12732,7 +12732,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                 .any_pointer => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, raw, .any),
                 .any_struct => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, raw, .struct_ptr),
                 .any_list => methodAnyPointerDefaultFlatBytesAlloc(allocator, file, scope, raw, .list),
-                else => unreachable,
+                else => return error.UnsupportedType,
             } catch |err| switch (err) {
                 error.UnexpectedToken, error.InvalidToken, error.UnsupportedType => return,
                 else => return err,
@@ -12774,7 +12774,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                     \\{s}    }}
                     \\
                 , .{ indent, indent, indent }),
-                else => unreachable,
+                else => return error.UnsupportedType,
             }
             try emitFlatContainerSizeHelpers(allocator, out, indent);
             try appendFmt(allocator, out,
@@ -13248,7 +13248,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             defer allocator.free(flat_bytes);
             const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
             defer allocator.free(flat_literal);
-            const struct_name_from_const_type = try zigTypeRefAlloc(allocator, file, structLiteralTypeName(file, scope, decl.ty) orelse unreachable);
+            const struct_name_from_const_type = try zigTypeRefAlloc(allocator, file, structLiteralTypeName(file, scope, decl.ty) orelse return error.UnsupportedType);
             defer allocator.free(struct_name_from_const_type);
             try appendFmt(allocator, out,
                 \\{s}    pub const flatBytes: []const u8 = {s};
