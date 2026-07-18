@@ -2303,6 +2303,7 @@ pub const Parser = struct {
                 annotations = std.mem.trim(u8, trimmed[annotation_start..index], " \t\r\n");
             }
             const field_type = std.mem.trim(u8, trimmed[type_start..field_type_end], " \t\r\n");
+            if (field_type.len == 0) return error.UnexpectedToken;
             if (index < end and trimmed[index] == '=') {
                 has_explicit_default = true;
                 index += 1;
@@ -4786,6 +4787,24 @@ test "schema parser rejects malformed method field commas" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 () -> (value :UInt32,);
+        \\}
+    ));
+}
+
+test "schema parser rejects empty method field types" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 () -> (value :);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value := 1) -> ();
         \\}
     ));
 }
