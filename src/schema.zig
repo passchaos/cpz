@@ -4716,6 +4716,19 @@ test "schema parser rejects duplicate declaration and method parameter names" {
     ));
 }
 
+test "schema parser rejects malformed declaration and method parameter lists" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Box(T U) {
+        \\  item @0 :T;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [T U] () -> ();
+        \\}
+    ));
+}
+
 test "schema parser skips common top-level using and const declarations" {
     const source =
         \\using Go = import "go.capnp";
