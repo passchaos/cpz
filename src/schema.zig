@@ -5364,6 +5364,13 @@ fn findInterfaceDirect(file: *const File, name: []const u8) ?*const InterfaceDec
     return null;
 }
 
+fn findAnnotationDirect(file: *const File, name: []const u8) ?*const AnnotationDecl {
+    for (file.annotations) |*decl| {
+        if (typeNameEqualsCanonical(name, decl.name)) return decl;
+    }
+    return null;
+}
+
 fn firstTopLevelDot(raw: []const u8) ?usize {
     var depth: usize = 0;
     var index: usize = 0;
@@ -5640,6 +5647,23 @@ fn isInterfaceDirectInOwnerScope(file: *const File, owner_name: []const u8, base
     return false;
 }
 
+fn isAnnotationDirectInOwnerScope(file: *const File, owner_name: []const u8, base: []const u8) bool {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        for (file.annotations) |decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + base.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], base))
+            {
+                return true;
+            }
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
+    }
+    return false;
+}
+
 fn validateTypeReference(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError!void {
     switch (ty) {
         .named => |name| try validateRawTypeReference(allocator, file, scope, name),
@@ -5719,7 +5743,6 @@ fn validateMethodTypeReference(allocator: std.mem.Allocator, file: *const File, 
 
 fn validateSimpleNamedTypeExists(file: *const File, scope: ?*const Struct, name: []const u8) LayoutError!void {
     if (isBuiltinSchemaTypeName(name)) return;
-    if (std.mem.indexOfScalar(u8, name, '.') != null) return;
     if (isImportedTypeName(file, name)) return;
     if (scope) |owner| {
         if (declHasParameter(owner.parameters, name)) return;
@@ -5727,16 +5750,19 @@ fn validateSimpleNamedTypeExists(file: *const File, scope: ?*const Struct, name:
             if (isStructDirectInOwnerScope(file, owner.name, name)) return;
             if (isEnumDirectInOwnerScope(file, owner.name, name)) return;
             if (isInterfaceDirectInOwnerScope(file, owner.name, name)) return;
+            if (isAnnotationDirectInOwnerScope(file, owner.name, name)) return;
         }
         if (findInterfaceDirect(file, owner.name) != null) {
             if (isStructDirectInOwnerScope(file, owner.name, name)) return;
             if (isEnumDirectInOwnerScope(file, owner.name, name)) return;
             if (isInterfaceDirectInOwnerScope(file, owner.name, name)) return;
+            if (isAnnotationDirectInOwnerScope(file, owner.name, name)) return;
         }
     }
     if (findStructDirect(file, name) != null) return;
     if (findEnumDirect(file, name) != null) return;
     if (findInterfaceDirect(file, name) != null) return;
+    if (findAnnotationDirect(file, name) != null) return;
     if (resolveNamedAlias(file, scope, name, 0) != null) return;
     return error.UnsupportedType;
 }
@@ -7137,6 +7163,14 @@ test "schema layout planner rejects unresolved simple named types without defaul
     );
     defer method_list_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &method_list_file));
+
+    var dotted_field_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  value @0 :Missing.Type;
+        \\}
+    );
+    defer dotted_field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &dotted_field_file));
 }
 
 test "schema layout planner rejects scalar defaults for generic parameters" {
@@ -25780,6 +25814,11 @@ test "schema parser and code generator accept C-style escaped text literals" {
 
 test "schema code generator sanitizes dotted named type references" {
     var file = try parse(std.testing.allocator,
+        \\struct Outer {
+        \\  struct Inner {
+        \\    id @0 :UInt32;
+        \\  }
+        \\}
         \\struct Ref {
         \\  child @0 :Outer.Inner;
         \\  children @1 :List(Outer.Inner);
