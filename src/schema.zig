@@ -205,6 +205,7 @@ pub const ConstDecl = struct {
     literal: []const u8,
     owns_literal: bool = false,
     is_hex_data: bool = false,
+    literal_is_string: bool = false,
     is_embed: bool = false,
     embed_path: []const u8 = "",
     embed_bytes: ?[]const u8 = null,
@@ -2931,6 +2932,7 @@ pub const Parser = struct {
         var owns_literal = false;
         var literal_is_string = false;
         const literal: []const u8 = if (block_text_literal) blk: {
+            literal_is_string = true;
             break :blk try self.parseBlockTextLiteralAfterEqual();
         } else blk: {
             try self.expect(.equal);
@@ -2991,6 +2993,7 @@ pub const Parser = struct {
             .literal = literal,
             .owns_literal = owns_literal,
             .is_hex_data = is_hex_data,
+            .literal_is_string = literal_is_string,
             .annotations = const_annotations,
             .list_items = list_items,
             .emit_value = !list_has_aggregate_items,
@@ -4612,53 +4615,61 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
 }
 
 fn validateFileConstReferenceCycles(file: *const File) LayoutError!void {
-    for (file.consts) |decl| {
-        try validateConstReferenceCycle(file, null, decl.name, decl.literal, 0);
+    for (file.consts) |*decl| {
+        try validateConstReferenceCycleDecl(file, null, null, decl.name, decl, 0);
     }
-    for (file.structs) |decl| {
-        for (decl.consts) |const_decl| {
-            try validateConstReferenceCycle(file, decl.name, const_decl.name, const_decl.literal, 0);
+    for (file.structs) |*owner| {
+        for (owner.consts) |*decl| {
+            try validateConstReferenceCycleDecl(file, owner.name, owner.name, decl.name, decl, 0);
         }
     }
-    for (file.interfaces) |decl| {
-        for (decl.consts) |const_decl| {
-            try validateConstReferenceCycle(file, decl.name, const_decl.name, const_decl.literal, 0);
+    for (file.interfaces) |*owner| {
+        for (owner.consts) |*decl| {
+            try validateConstReferenceCycleDecl(file, owner.name, owner.name, decl.name, decl, 0);
         }
     }
 }
 
-fn validateConstReferenceCycle(file: *const File, owner_name: ?[]const u8, const_name: []const u8, literal: []const u8, depth: usize) LayoutError!void {
+fn validateConstReferenceCycleDecl(file: *const File, owner_name: ?[]const u8, root_owner: ?[]const u8, root_name: []const u8, decl: *const ConstDecl, depth: usize) LayoutError!void {
     if (depth >= 32) return error.UnsupportedType;
-    const raw = std.mem.trim(u8, literal, " \t\r\n");
-    if (!defaultLiteralCanBeReference(raw)) return;
-    const next_name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
-    const next_owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else owner_name;
-    if (next_owner == null and owner_name == null and std.mem.eql(u8, next_name, const_name)) return error.UnsupportedType;
-    if (next_owner) |owner| {
-        if (owner_name) |current_owner| {
-            if (typeNameEqualsCanonical(owner, current_owner) and std.mem.eql(u8, next_name, const_name)) return error.UnsupportedType;
-        }
-    }
 
-    var scope_storage: Struct = undefined;
     var empty_fields: [0]Field = .{};
-    const lookup_scope = if (owner_name) |owner| blk: {
-        if (findStructDirect(file, owner)) |decl| break :blk decl;
-        if (findInterfaceDirect(file, owner)) |decl| {
-            scope_storage = .{ .name = decl.name, .fields = empty_fields[0..], .consts = decl.consts, .aliases = decl.aliases };
-            break :blk &scope_storage;
-        }
-        break :blk null;
-    } else null;
-    const next_decl = findConstReference(file, lookup_scope, raw) orelse return;
-    const resolved_owner = constDeclOwnerName(file, next_decl);
-    if (std.mem.eql(u8, next_decl.name, const_name)) {
-        if (owner_name == null and resolved_owner == null) return error.UnsupportedType;
-        if (owner_name) |current_owner| if (resolved_owner) |owner| {
-            if (typeNameEqualsCanonical(owner, current_owner)) return error.UnsupportedType;
-        };
+    var scope_storage: Struct = undefined;
+    const scope = ownerNameScope(file, owner_name, empty_fields[0..], &scope_storage);
+    if (!constDeclLiteralCanBeReference(file, scope, decl)) return;
+
+    const raw = std.mem.trim(u8, decl.literal, " \t\r\n");
+    const next_decl = findConstReference(file, scope, raw) orelse return;
+    const next_owner = constDeclOwnerName(file, next_decl);
+    if (std.mem.eql(u8, next_decl.name, root_name) and sameOptionalTypeName(next_owner, root_owner)) return error.UnsupportedType;
+    try validateConstReferenceCycleDecl(file, next_owner, root_owner, root_name, next_decl, depth + 1);
+}
+
+fn constDeclLiteralCanBeReference(file: *const File, scope: ?*const Struct, decl: *const ConstDecl) bool {
+    if (decl.is_embed) return false;
+    const literal = std.mem.trim(u8, decl.literal, " \t\r\n");
+    if (literal.len == 0) return false;
+    const resolved_ty = nonNullResolvedDefaultType(file, scope, decl.ty);
+    if (decl.literal_is_string and (resolved_ty == .text or resolved_ty == .data)) return false;
+    if (decl.is_hex_data and resolved_ty == .data) return false;
+    if (defaultLiteralIsValidBareLiteral(file, scope, decl.ty, literal)) return false;
+    return defaultLiteralCanBeReference(literal);
+}
+
+fn ownerNameScope(file: *const File, owner_name: ?[]const u8, empty_fields: []Field, storage: *Struct) ?*const Struct {
+    const owner = owner_name orelse return null;
+    if (findStructDirect(file, owner)) |decl| return decl;
+    if (findInterfaceDirect(file, owner)) |decl| {
+        storage.* = .{ .name = decl.name, .fields = empty_fields, .consts = decl.consts, .aliases = decl.aliases };
+        return storage;
     }
-    try validateConstReferenceCycle(file, resolved_owner, const_name, next_decl.literal, depth + 1);
+    return null;
+}
+
+fn sameOptionalTypeName(lhs: ?[]const u8, rhs: ?[]const u8) bool {
+    if (lhs == null and rhs == null) return true;
+    if (lhs) |l| if (rhs) |r| return typeNameEqualsCanonical(l, r);
+    return false;
 }
 
 fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
@@ -4702,7 +4713,7 @@ fn validateFieldDefaultValue(allocator: std.mem.Allocator, file: *const File, sc
 }
 
 fn defaultLiteralIsValidBareLiteral(file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) bool {
-    const resolved_ty = nonNullDefaultType(resolveTypeScoped(file, scope, ty));
+    const resolved_ty = nonNullResolvedDefaultType(file, scope, ty);
     if (std.mem.eql(u8, literal, "null") and typeAcceptsNullPointerDefault(file, resolved_ty)) return true;
     if (std.mem.eql(u8, literal, "void") and typeAcceptsVoidPointerDefault(file, resolved_ty)) return true;
     return switch (resolved_ty) {
@@ -5029,6 +5040,13 @@ fn nonNullDefaultType(ty: Type) Type {
     return switch (ty) {
         .optional => |child| child.*,
         else => ty,
+    };
+}
+
+fn nonNullResolvedDefaultType(file: *const File, scope: ?*const Struct, ty: Type) Type {
+    return switch (ty) {
+        .optional => |child| nonNullResolvedDefaultType(file, scope, child.*),
+        else => resolveTypeScoped(file, scope, ty),
     };
 }
 
