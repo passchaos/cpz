@@ -8195,6 +8195,7 @@ fn validateImportZigNames(allocator: std.mem.Allocator, imports: []const ImportD
 }
 
 fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!void {
+    try validateStructFixedMemberZigNames(allocator, decl);
     for (decl.fields, 0..) |*lhs, i| {
         for (decl.fields[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
@@ -8220,6 +8221,77 @@ fn validateFieldZigNames(allocator: std.mem.Allocator, file: *const File, decl: 
     for (decl.aliases, 0..) |lhs, i| {
         for (decl.aliases[i + 1 ..]) |rhs| {
             if (try zigNamesEqual(allocator, lhs.name, rhs.name)) return error.NameCollision;
+        }
+    }
+}
+
+fn validateStructFixedMemberZigNames(allocator: std.mem.Allocator, decl: *const Struct) LayoutError!void {
+    // These members are emitted for every generated struct before schema field
+    // accessors and nested user declarations.  Validating them here turns what
+    // would otherwise be a generated Zig duplicate-declaration error into the
+    // same deterministic NameCollision reported for user-visible schema names.
+    const fixed_names = [_][]const u8{
+        "size",
+        "Orphan",
+        "initRoot",
+        "getRoot",
+        "getRootTyped",
+        "newOrphan",
+        "newOrphanIn",
+        "newOrphanCopy",
+        "newOrphanCopyCanonical",
+        "newOrphanCopyFromBuilder",
+        "newOrphanCopyCanonicalFromBuilder",
+        "newOrphanCopyIn",
+        "newOrphanCopyCanonicalIn",
+        "newOrphanCopyFromBuilderIn",
+        "newOrphanCopyCanonicalFromBuilderIn",
+        "fromReader",
+        "validate",
+        "validateWithOptions",
+        "totalSize",
+        "totalSizeWithOptions",
+        "actualSize",
+        "actualDataWordCount",
+        "actualPointerCount",
+        "actualTotalWords",
+        "actualDataByteCount",
+        "actualPointerByteCount",
+        "actualTotalByteCount",
+        "matchesActualSize",
+        "matchesActualDataWords",
+        "matchesActualPointerCount",
+        "matchesActualTotalWords",
+        "matchesActualDataBytes",
+        "matchesActualPointerBytes",
+        "matchesActualTotalBytes",
+        "dataSection",
+        "pointerSection",
+        "initRootTyped",
+        "Builder",
+    };
+    for (fixed_names) |name| {
+        try validateGeneratedStructMemberZigName(allocator, decl, null, name);
+    }
+
+    for (decl.unions, 0..) |_, union_index| {
+        try validateGeneratedStructMemberZigNameFmt(allocator, decl, null, "Union{}", .{union_index});
+        try validateGeneratedStructMemberZigNameFmt(allocator, decl, null, "union{}Discriminant", .{union_index});
+        try validateGeneratedStructMemberZigNameFmt(allocator, decl, null, "union{}", .{union_index});
+        try validateGeneratedStructMemberZigNameFmt(allocator, decl, null, "union{}Is", .{union_index});
+        try validateGeneratedStructMemberZigNameFmt(allocator, decl, null, "union{}MatchesDiscriminant", .{union_index});
+        try validateGeneratedStructMemberZigNameFmt(allocator, decl, null, "union{}Field", .{union_index});
+    }
+    if (decl.unions.len == 1) {
+        const which_names = [_][]const u8{
+            "whichDiscriminant",
+            "which",
+            "whichIs",
+            "whichMatchesDiscriminant",
+            "whichField",
+        };
+        for (which_names) |name| {
+            try validateGeneratedStructMemberZigName(allocator, decl, null, name);
         }
     }
 }
@@ -8414,6 +8486,12 @@ fn validatePointerFieldHelperZigNameFmt(allocator: std.mem.Allocator, decl: *con
     const name = try std.fmt.allocPrint(allocator, fmt, args);
     defer allocator.free(name);
     try validateGeneratedStructMemberZigName(allocator, decl, field, name);
+}
+
+fn validateGeneratedStructMemberZigNameFmt(allocator: std.mem.Allocator, decl: *const Struct, source_field: ?*const Field, comptime fmt: []const u8, args: anytype) LayoutError!void {
+    const name = try std.fmt.allocPrint(allocator, fmt, args);
+    defer allocator.free(name);
+    try validateGeneratedStructMemberZigName(allocator, decl, source_field, name);
 }
 
 fn validateGeneratedStructMemberZigName(allocator: std.mem.Allocator, decl: *const Struct, source_field: ?*const Field, generated_name: []const u8) LayoutError!void {
@@ -25218,6 +25296,59 @@ test "schema code generator rejects sanitized Zig name collisions" {
         \\struct ListWrappers {
         \\  foo @0 :List(UInt16);
         \\  using ListWrappers_foo_BuilderList = UInt16;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct FixedHelpers {
+        \\  actualSize @0 :UInt32;
+        \\}
+        ,
+        \\struct FixedHelpers {
+        \\  dataSection @0 :Text;
+        \\}
+        ,
+        \\struct FixedHelpers {
+        \\  const pointerSection :UInt32 = 1;
+        \\}
+        ,
+        \\struct FixedHelpers {
+        \\  using actualTotalWords = UInt16;
+        \\}
+        ,
+    }) |source| {
+        var file = try parse(std.testing.allocator, source);
+        defer file.deinit(std.testing.allocator);
+        var layouts = try planLayouts(std.testing.allocator, &file);
+        defer layouts.deinit(std.testing.allocator);
+        try std.testing.expectError(error.NameCollision, generateZig(std.testing.allocator, &file, &layouts));
+    }
+    for ([_][]const u8{
+        \\struct UnionHelpers {
+        \\  union {
+        \\    first @0 :Void;
+        \\  }
+        \\  union0 @1 :UInt32;
+        \\}
+        ,
+        \\struct UnionHelpers {
+        \\  union {
+        \\    first @0 :Void;
+        \\  }
+        \\  Union0 @1 :UInt32;
+        \\}
+        ,
+        \\struct UnionHelpers {
+        \\  union {
+        \\    first @0 :Void;
+        \\  }
+        \\  which @1 :UInt32;
         \\}
         ,
     }) |source| {
