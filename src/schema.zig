@@ -14354,7 +14354,7 @@ fn appendStructPointerFieldLiteral(allocator: std.mem.Allocator, file: *const Fi
 }
 
 fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, layout: *const StructLayout, fields: []const ConstStructField, segment: *std.ArrayList(u8), object_start_words: usize) LayoutError!void {
-    const object_start_bytes = object_start_words * @sizeOf(u64);
+    const object_start_bytes = try wordByteLen(object_start_words);
     for (fields) |const_field| {
         const field_layout = findFieldLayoutByNameOrGroupFirst(layout, const_field.name) orelse return error.UnsupportedType;
         const field = field_layout.field;
@@ -25804,6 +25804,8 @@ test "schema list flats resolve scalar const item references" {
     try std.testing.expectError(error.SerializedSizeOverflow, flatByteLenForSegmentBytes(std.math.maxInt(usize)));
     try std.testing.expectEqual(@as(usize, 8), try byteListPaddedLen(1));
     try std.testing.expectError(error.SerializedSizeOverflow, byteListPaddedLen(std.math.maxInt(usize)));
+    try std.testing.expectEqual(@as(usize, 8), try wordByteLen(1));
+    try std.testing.expectError(error.SerializedSizeOverflow, wordByteLen(std.math.maxInt(usize)));
 
     const source =
         \\const one :UInt32 = 1;
