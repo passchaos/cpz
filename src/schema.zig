@@ -5008,18 +5008,44 @@ fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const Fi
     const trimmed = std.mem.trim(u8, raw, " \t\r\n");
     if (trimmed.len == 0) return;
     if (std.mem.startsWith(u8, trimmed, "?")) return validateRawTypeApplicationArity(allocator, file, scope, trimmed[1..]);
-    if (typeApplicationOpen(trimmed) == null) return;
+    const open = typeApplicationOpen(trimmed) orelse return;
 
     const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return error.UnsupportedType;
     defer {
         for (args) |*arg| arg.deinit(allocator);
         allocator.free(args);
     }
-    if (std.mem.startsWith(u8, trimmed, "List(") and args.len != 1) return error.UnsupportedType;
+    const base = std.mem.trim(u8, trimmed[0..open], " \t\r\n");
+    if (std.mem.eql(u8, base, "List")) {
+        if (args.len != 1) return error.UnsupportedType;
+    } else if (isBuiltinTypeApplicationBase(base)) {
+        return error.UnsupportedType;
+    }
     if (try declarationParameterCount(allocator, file, scope, trimmed)) |parameter_count| {
         if (args.len != parameter_count) return error.UnsupportedType;
     }
     for (args) |arg| try validateTypeApplicationArity(allocator, file, scope, arg);
+}
+
+fn isBuiltinTypeApplicationBase(name: []const u8) bool {
+    return std.mem.eql(u8, name, "Void") or
+        std.mem.eql(u8, name, "Bool") or
+        std.mem.eql(u8, name, "Int8") or
+        std.mem.eql(u8, name, "Int16") or
+        std.mem.eql(u8, name, "Int32") or
+        std.mem.eql(u8, name, "Int64") or
+        std.mem.eql(u8, name, "UInt8") or
+        std.mem.eql(u8, name, "UInt16") or
+        std.mem.eql(u8, name, "UInt32") or
+        std.mem.eql(u8, name, "UInt64") or
+        std.mem.eql(u8, name, "Float32") or
+        std.mem.eql(u8, name, "Float64") or
+        std.mem.eql(u8, name, "Text") or
+        std.mem.eql(u8, name, "Data") or
+        std.mem.eql(u8, name, "AnyPointer") or
+        std.mem.eql(u8, name, "AnyStruct") or
+        std.mem.eql(u8, name, "AnyList") or
+        std.mem.eql(u8, name, "Capability");
 }
 
 fn validateTypeApplicationArity(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError!void {
@@ -5622,6 +5648,22 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer alias_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &alias_file));
+
+    var builtin_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :Text(UInt32);
+        \\}
+    );
+    defer builtin_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &builtin_file));
+
+    var builtin_method_file = try parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (field :AnyPointer(Text)) -> ();
+        \\}
+    );
+    defer builtin_method_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &builtin_method_file));
 }
 
 test "schema parser rejects duplicate enum ordinals" {
