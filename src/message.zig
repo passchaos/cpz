@@ -5784,20 +5784,24 @@ pub const ListReader = struct {
     }
 
     pub fn bytes(self: ListReader) []const u8 {
-        if (self.segment_id >= self.message.segments.len) return &.{};
-        if (self.bit_offset % 8 != 0) return &.{};
-        const bit_len = std.math.mul(usize, self.element_count, self.step_bits) catch return &.{};
-        const byte_len = std.math.divCeil(usize, bit_len, 8) catch return &.{};
-        const byte_start = checkedWordByteOffset(self.start, self.bit_offset) catch return &.{};
+        return self.bytesChecked() catch &.{};
+    }
+
+    fn bytesChecked(self: ListReader) Error![]const u8 {
+        if (self.segment_id >= self.message.segments.len) return error.SegmentOutOfBounds;
+        if (self.bit_offset % 8 != 0) return error.UnsupportedElementSize;
+        const bit_len = std.math.mul(usize, self.element_count, self.step_bits) catch return error.MessageTooLarge;
+        const byte_len = std.math.divCeil(usize, bit_len, 8) catch return error.MessageTooLarge;
+        const byte_start = try checkedWordByteOffset(self.start, self.bit_offset);
         const segment = self.message.segments[self.segment_id];
-        if (byte_start > segment.len or segment.len - byte_start < byte_len) return &.{};
+        if (byte_start > segment.len or segment.len - byte_start < byte_len) return error.PointerOutOfBounds;
         return segment[byte_start..][0..byte_len];
     }
 
     pub fn rawPrimitiveBytes(self: ListReader) Error![]const u8 {
         if (self.element_size == .pointer or self.element_size == .composite) return error.IncompatibleListShape;
         if (self.bit_offset % 8 != 0) return error.UnsupportedElementSize;
-        return self.bytes();
+        return self.bytesChecked();
     }
 
     pub fn getBool(self: ListReader, index: usize) bool {
@@ -8836,6 +8840,7 @@ test "accessors report oversized derived offsets instead of trapping" {
     };
     try testing.expect(!huge_bit_list_reader.getBool(0));
     try testing.expectEqual(@as(usize, 0), huge_bit_list_reader.bytes().len);
+    try testing.expectError(error.MessageTooLarge, huge_bit_list_reader.rawPrimitiveBytes());
 
     const huge_pointer_list_reader = ListReader{
         .message = &reader,
