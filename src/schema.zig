@@ -1934,34 +1934,34 @@ pub const Parser = struct {
         }
 
         while (self.lookahead.tag != .eof) {
-            if (self.eatKeyword("struct")) {
+            if (try self.eatKeyword("struct")) {
                 saw_top_level_item = true;
                 var decl = try self.parseStruct(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedStruct(decl);
                 keep = true;
-            } else if (self.eatKeyword("enum")) {
+            } else if (try self.eatKeyword("enum")) {
                 saw_top_level_item = true;
                 var decl = try self.parseEnum(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedEnum(decl);
                 keep = true;
-            } else if (self.eatKeyword("interface")) {
+            } else if (try self.eatKeyword("interface")) {
                 saw_top_level_item = true;
                 var decl = try self.parseInterfaceDeclaration(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedInterface(decl);
                 keep = true;
-            } else if (self.eatKeyword("using")) {
+            } else if (try self.eatKeyword("using")) {
                 saw_top_level_item = true;
                 try self.parseUsingOrSkip(&aliases, &imports, &decl_names);
-            } else if (self.eatKeyword("const")) {
+            } else if (try self.eatKeyword("const")) {
                 saw_top_level_item = true;
                 try self.parseConstOrSkip(&consts, &decl_names);
-            } else if (self.eatKeyword("annotation")) {
+            } else if (try self.eatKeyword("annotation")) {
                 saw_top_level_item = true;
                 var decl = try self.parseAnnotationDeclaration(null);
                 var keep = false;
@@ -2226,7 +2226,7 @@ pub const Parser = struct {
                 keep = true;
                 continue;
             }
-            if (self.eatKeyword("annotation")) {
+            if (try self.eatKeyword("annotation")) {
                 var decl = try self.parseAnnotationDeclaration(interface_name);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
@@ -2240,11 +2240,11 @@ pub const Parser = struct {
                 try self.skipBracedDeclaration();
                 continue;
             }
-            if (self.eatKeyword("using")) {
+            if (try self.eatKeyword("using")) {
                 try self.parseUsingOrSkip(aliases, self.parsed_imports, member_names);
                 continue;
             }
-            if (self.eatKeyword("const")) {
+            if (try self.eatKeyword("const")) {
                 try self.parseConstOrSkip(consts, member_names);
                 continue;
             }
@@ -3396,7 +3396,7 @@ pub const Parser = struct {
                 keep = true;
                 continue;
             }
-            if (self.eatKeyword("annotation")) {
+            if (try self.eatKeyword("annotation")) {
                 var decl = try self.parseAnnotationDeclaration(qualified.name);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
@@ -3416,11 +3416,11 @@ pub const Parser = struct {
                 try self.parseAnonymousUnion(&unions.items[union_index], &member_names, union_index);
                 continue;
             }
-            if (self.eatKeyword("const")) {
+            if (try self.eatKeyword("const")) {
                 try self.parseConstOrSkip(&consts, &member_names);
                 continue;
             }
-            if (self.eatKeyword("using")) {
+            if (try self.eatKeyword("using")) {
                 try self.parseUsingOrSkip(&aliases, self.parsed_imports, &member_names);
                 continue;
             }
@@ -3533,7 +3533,7 @@ pub const Parser = struct {
                 try self.skipNamedAggregate();
                 continue;
             }
-            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            if (try self.eatKeyword("using") or try self.eatKeyword("const") or try self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
@@ -3584,7 +3584,7 @@ pub const Parser = struct {
                 try self.skipCurrentBracedBody();
                 continue;
             }
-            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            if (try self.eatKeyword("using") or try self.eatKeyword("const") or try self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
@@ -3652,7 +3652,7 @@ pub const Parser = struct {
                 try self.skipNamedAggregate();
                 continue;
             }
-            if (self.eatKeyword("using") or self.eatKeyword("const") or self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+            if (try self.eatKeyword("using") or try self.eatKeyword("const") or try self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
@@ -3973,9 +3973,9 @@ pub const Parser = struct {
         return false;
     }
 
-    fn eatKeyword(self: *Parser, keyword: []const u8) bool {
+    fn eatKeyword(self: *Parser, keyword: []const u8) Error!bool {
         if (self.isKeyword(keyword)) {
-            self.advance() catch unreachable;
+            try self.advance();
             return true;
         }
         return false;
