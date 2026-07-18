@@ -2434,6 +2434,7 @@ pub const Parser = struct {
                 }
                 default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
                 if (default_literal.?.len == 0) return error.UnexpectedToken;
+                try self.validateInlineAggregateDefaultSyntax(default_literal.?);
                 if (std.mem.eql(u8, field_type, "Data")) {
                     if (default_literal) |literal| {
                         default_is_hex_data = std.mem.startsWith(u8, literal, "0x\"");
@@ -2479,6 +2480,29 @@ pub const Parser = struct {
         var ty = try parser.parseType();
         defer ty.deinit(self.allocator);
         if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
+    }
+
+    fn validateInlineAggregateDefaultSyntax(self: *Parser, expression: []const u8) Error!void {
+        const raw = std.mem.trim(u8, expression, " \t\r\n");
+        if (raw.len == 0) return error.UnexpectedToken;
+        switch (raw[0]) {
+            '(' => {
+                const fields = try parseConstStructFieldsAlloc(self.allocator, raw);
+                defer self.allocator.free(fields);
+                for (fields) |field| try self.validateInlineAggregateDefaultSyntax(field.literal);
+            },
+            '[' => {
+                const items = parseInlineConstListElementsAlloc(self.allocator, raw) catch |err| switch (err) {
+                    error.OutOfMemory => return error.OutOfMemory,
+                    error.UnexpectedToken => return error.UnexpectedToken,
+                    error.InvalidToken => return error.InvalidToken,
+                    else => return error.UnexpectedToken,
+                };
+                defer self.allocator.free(items);
+                for (items) |item| try self.validateInlineAggregateDefaultSyntax(item);
+            },
+            else => {},
+        }
     }
 
     fn methodSignatureTypeName(raw: []const u8) []const u8 {
@@ -3403,9 +3427,12 @@ pub const Parser = struct {
         if (ordinal_u64 > std.math.maxInt(u32)) return error.InvalidOrdinal;
         if (self.lookahead.tag == .bang) try self.expect(.bang);
         try self.expect(.colon);
-        const ty = try self.parseType();
+        var ty = try self.parseType();
+        var keep_ty = false;
+        errdefer if (!keep_ty) ty.deinit(self.allocator);
         if (isGroupType(ty) and self.lookahead.tag == .l_brace) {
             try self.skipCurrentBracedBody();
+            ty.deinit(self.allocator);
             return .{ .name = name, .ordinal = @intCast(ordinal_u64), .ty = .void };
         }
 
@@ -3428,10 +3455,7 @@ pub const Parser = struct {
                     const split = splitDefaultExpressionAndAnnotations(raw_tail);
                     default_expression = split.default_expression;
                     annotations = split.annotations;
-                    if (std.mem.startsWith(u8, default_expression, "(")) {
-                        const fields = try parseConstStructFieldsAlloc(self.allocator, default_expression);
-                        self.allocator.free(fields);
-                    }
+                    try self.validateInlineAggregateDefaultSyntax(default_expression);
                 } else {
                     const default_start = self.currentTokenStart();
                     if (ty == .data and self.lookahead.tag == .integer and std.mem.eql(u8, self.lookahead.lexeme, "0x")) {
@@ -3454,6 +3478,7 @@ pub const Parser = struct {
         }
 
         if (owns_default_literal) _ = self.takeOwnedLiteral(default_literal.?);
+        keep_ty = true;
         return .{
             .name = name,
             .ordinal = @intCast(ordinal_u64),
@@ -4889,6 +4914,24 @@ test "schema parser rejects malformed struct field defaults" {
         \\  item @0 :Item = (id = 1, id = 2);
         \\}
     ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  values @0 :List(UInt32) = [1,, 2];
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  values @0 :List(UInt32) = [1, 2;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  items @0 :List(Item) = [(id = 1), (id = )];
+        \\}
+    ));
 }
 
 test "schema parser rejects malformed type application arguments" {
@@ -5195,6 +5238,24 @@ test "schema parser rejects empty method field defaults" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 () -> (value :UInt32 =);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (values :List(UInt32) = [1,, 2]) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (values :List(UInt32) = [1, 2) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (item :Item = (id = )) -> ();
+        \\}
+        \\struct Item {
+        \\  id @0 :UInt32;
         \\}
     ));
 }
