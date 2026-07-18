@@ -380,6 +380,8 @@ fn parseConstStructFieldsAlloc(allocator: std.mem.Allocator, expression: []const
 
     var fields = std.ArrayList(ConstStructField).empty;
     errdefer fields.deinit(allocator);
+    var names = std.StringHashMap(void).init(allocator);
+    defer names.deinit();
 
     while (true) {
         index = try skipTriviaIndex(source, index);
@@ -393,6 +395,8 @@ fn parseConstStructFieldsAlloc(allocator: std.mem.Allocator, expression: []const
         index += 1;
         while (index < source.len and isIdentContinue(source[index])) index += 1;
         const name = source[name_start..index];
+        const entry = try names.getOrPut(name);
+        if (entry.found_existing) return error.NameCollision;
 
         index = try skipTriviaIndex(source, index);
         if (index >= source.len or source[index] != '=') return error.UnexpectedToken;
@@ -2547,10 +2551,13 @@ pub const Parser = struct {
             try self.expect(.equal);
             break :blk if (list_literal) list_blk: {
                 const list_start = self.currentTokenStart();
-                list_items = self.parseConstListItems(&list_has_aggregate_items) catch {
-                    ty.deinit(self.allocator);
-                    try self.skipRawUntilSemicolon();
-                    return;
+                list_items = self.parseConstListItems(&list_has_aggregate_items) catch |err| switch (err) {
+                    error.NameCollision => return err,
+                    else => {
+                        ty.deinit(self.allocator);
+                        try self.skipRawUntilSemicolon();
+                        return;
+                    },
                 };
                 const list_end = self.currentTokenStart();
                 break :list_blk std.mem.trim(u8, self.lexer.source[list_start..list_end], " \t\r\n");
@@ -4953,6 +4960,21 @@ test "schema parser tolerates list and struct field defaults" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_nums(self: Builder, @\"cpz.count\": usize)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_child(self: Builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getDataDefault(\"bar\")") != null);
+}
+
+test "schema parser rejects duplicate const struct field names" {
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const item :Item = (id = 1, id = 2);
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const items :List(Item) = [(id = 1, id = 2)];
+    ));
 }
 
 test "schema parser and codegen accept optional pointer types" {
