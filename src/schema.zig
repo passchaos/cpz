@@ -4623,8 +4623,8 @@ fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File
         };
         for (decl.consts) |const_decl| try validateConstAggregateDefault(allocator, file, &interface_scope, const_decl);
         for (decl.methods) |method| {
-            for (method.param_fields) |field| try validateMethodFieldAggregateDefault(allocator, file, &interface_scope, field);
-            for (method.result_fields) |field| try validateMethodFieldAggregateDefault(allocator, file, &interface_scope, field);
+            for (method.param_fields) |field| try validateMethodFieldDefaultValue(allocator, file, &interface_scope, field);
+            for (method.result_fields) |field| try validateMethodFieldDefaultValue(allocator, file, &interface_scope, field);
         }
     }
 }
@@ -4639,7 +4639,8 @@ fn validateFieldDefaultValue(allocator: std.mem.Allocator, file: *const File, sc
     } else if (findConstReference(file, scope, literal)) |decl| {
         const field_ty = nonNullDefaultType(resolveTypeScoped(file, scope, field.ty));
         const const_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
-        if (!defaultConstTypeCompatible(file, field_ty, const_ty)) return error.UnexpectedToken;
+        const field_owner = if (scope) |owner| owner.name else null;
+        if (!defaultConstTypeCompatibleScoped(file, field_owner, constDeclOwnerName(file, decl), field_ty, const_ty)) return error.UnexpectedToken;
     } else if (defaultLiteralCanBeReference(literal)) {
         return error.UnexpectedToken;
     }
@@ -4660,37 +4661,86 @@ fn defaultLiteralIsValidBareLiteral(file: *const File, scope: ?*const Struct, ty
     };
 }
 
-fn defaultConstTypeCompatible(file: *const File, field_ty: Type, const_ty: Type) bool {
-    if (typesEqual(field_ty, const_ty)) return true;
-    return switch (field_ty) {
-        .named => |field_name| switch (const_ty) {
+fn defaultConstTypeCompatibleScoped(file: *const File, field_owner: ?[]const u8, const_owner: ?[]const u8, field_ty: Type, const_ty: Type) bool {
+    return defaultConstTypeCompatibleScopedDepth(file, field_owner, const_owner, field_ty, const_ty, 0);
+}
+
+fn defaultConstTypeCompatibleScopedDepth(file: *const File, field_owner: ?[]const u8, const_owner: ?[]const u8, field_ty: Type, const_ty: Type, depth: usize) bool {
+    if (depth >= 32) return false;
+    const non_null_field_ty = nonNullDefaultType(field_ty);
+    const non_null_const_ty = nonNullDefaultType(const_ty);
+
+    if (non_null_field_ty == .named) {
+        if (resolveNamedAliasInOwnerScope(file, field_owner, non_null_field_ty.named, 0)) |resolved| {
+            if (!typesEqual(resolved, non_null_field_ty)) {
+                return defaultConstTypeCompatibleScopedDepth(file, field_owner, const_owner, resolved, non_null_const_ty, depth + 1);
+            }
+        }
+    }
+    if (non_null_const_ty == .named) {
+        if (resolveNamedAliasInOwnerScope(file, const_owner, non_null_const_ty.named, 0)) |resolved| {
+            if (!typesEqual(resolved, non_null_const_ty)) {
+                return defaultConstTypeCompatibleScopedDepth(file, field_owner, const_owner, non_null_field_ty, resolved, depth + 1);
+            }
+        }
+    }
+
+    if (typesEqual(non_null_field_ty, non_null_const_ty)) return true;
+    return switch (non_null_field_ty) {
+        .named => |field_name| switch (non_null_const_ty) {
             .named => |const_name| blk: {
-                if (findEnum(file, field_name) != null and findEnum(file, const_name) != null) break :blk true;
-                if (findInterface(file, field_name) != null and findInterface(file, const_name) != null) break :blk true;
-                if (isStructLikeName(file, field_name) and isStructLikeName(file, const_name)) break :blk true;
+                if (isEnumLikeNameRelative(file, field_owner, field_name) and isEnumLikeNameRelative(file, const_owner, const_name)) break :blk true;
+                if (isInterfaceLikeNameRelative(file, field_owner, field_name) and isInterfaceLikeNameRelative(file, const_owner, const_name)) break :blk true;
+                if (isStructLikeNameRelative(file, field_owner, field_name) and isStructLikeNameRelative(file, const_owner, const_name)) break :blk true;
                 break :blk false;
             },
-            .capability => findInterface(file, field_name) != null,
-            .any_pointer, .any_struct, .any_list => isStructLikeName(file, field_name) or findInterface(file, field_name) != null,
+            .capability => isInterfaceLikeNameRelative(file, field_owner, field_name),
+            .any_pointer, .any_struct, .any_list => isStructLikeNameRelative(file, field_owner, field_name) or isInterfaceLikeNameRelative(file, field_owner, field_name),
             else => false,
         },
         .any_pointer => true,
-        .any_struct => switch (const_ty) {
+        .any_struct => switch (non_null_const_ty) {
             .any_struct => true,
-            .named => |name| isStructLikeName(file, name),
+            .named => |name| isStructLikeNameRelative(file, const_owner, name),
             else => false,
         },
-        .any_list => switch (const_ty) {
+        .any_list => switch (non_null_const_ty) {
             .any_list, .list => true,
             else => false,
         },
-        .capability => switch (const_ty) {
+        .capability => switch (non_null_const_ty) {
             .capability => true,
-            .named => |name| findInterface(file, name) != null,
+            .named => |name| isInterfaceLikeNameRelative(file, const_owner, name),
+            else => false,
+        },
+        .list => |field_child| switch (non_null_const_ty) {
+            .list => |const_child| defaultConstTypeCompatibleScopedDepth(file, field_owner, const_owner, field_child.*, const_child.*, depth + 1),
             else => false,
         },
         else => false,
     };
+}
+
+fn isEnumLikeNameRelative(file: *const File, owner_name: ?[]const u8, name: []const u8) bool {
+    if (findEnum(file, name) != null) return true;
+    if (owner_name) |owner| return isEnumDirectInOwnerScope(file, owner, name);
+    return false;
+}
+
+fn isInterfaceLikeNameRelative(file: *const File, owner_name: ?[]const u8, name: []const u8) bool {
+    if (findInterface(file, name) != null) return true;
+    if (owner_name) |owner| return isInterfaceDirectInOwnerScope(file, owner, name);
+    return false;
+}
+
+fn isStructLikeNameRelative(file: *const File, owner_name: ?[]const u8, name: []const u8) bool {
+    if (isStructLikeName(file, name)) return true;
+    if (owner_name) |owner| return isStructDirectInOwnerScope(file, owner, name);
+    return false;
+}
+
+fn defaultConstTypeCompatible(file: *const File, field_ty: Type, const_ty: Type) bool {
+    return defaultConstTypeCompatibleScoped(file, null, null, field_ty, const_ty);
 }
 
 fn validateInterfaceSuperclass(file: *const File, scope: *const Struct, superclass: Type) LayoutError!void {
@@ -4786,10 +4836,22 @@ fn validateConstAggregateDefault(allocator: std.mem.Allocator, file: *const File
     try validateTypeAggregateDefault(allocator, file, scope, decl.ty, decl.literal);
 }
 
-fn validateMethodFieldAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: MethodField) LayoutError!void {
+fn validateMethodFieldDefaultValue(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: MethodField) LayoutError!void {
     const literal = field.default_literal orelse return;
     var ty = try parseTypeArgAlloc(allocator, field.ty);
     defer ty.deinit(allocator);
+    if (defaultLiteralIsValidBareLiteral(file, scope, ty, literal)) {
+        // Match struct-field default resolution: bare enum values and scalar
+        // literals should not be interpreted as const references with the same
+        // spelling.
+    } else if (findConstReference(file, scope, literal)) |decl| {
+        const field_ty = nonNullDefaultType(resolveTypeScoped(file, scope, ty));
+        const const_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
+        const field_owner = if (scope) |owner| owner.name else null;
+        if (!defaultConstTypeCompatibleScoped(file, field_owner, constDeclOwnerName(file, decl), field_ty, const_ty)) return error.UnexpectedToken;
+    } else if (defaultLiteralCanBeReference(literal)) {
+        return error.UnexpectedToken;
+    }
     try validateTypeAggregateDefault(allocator, file, scope, ty, literal);
 }
 
@@ -5386,6 +5448,40 @@ fn isEnumDirectInOwnerScope(file: *const File, owner_name: []const u8, base: []c
     var current: ?[]const u8 = owner_name;
     while (current) |owner| {
         for (file.enums) |decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + base.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], base))
+            {
+                return true;
+            }
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
+    }
+    return false;
+}
+
+fn isStructDirectInOwnerScope(file: *const File, owner_name: []const u8, base: []const u8) bool {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        for (file.structs) |decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + base.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], base))
+            {
+                return true;
+            }
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
+    }
+    return false;
+}
+
+fn isInterfaceDirectInOwnerScope(file: *const File, owner_name: []const u8, base: []const u8) bool {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        for (file.interfaces) |decl| {
             if (std.mem.startsWith(u8, decl.name, owner) and
                 decl.name.len == owner.len + 1 + base.len and
                 decl.name[owner.len] == '.' and
@@ -6670,6 +6766,17 @@ test "schema layout planner rejects defaults for unresolved named types" {
     );
     defer method_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &method_file));
+
+    var method_const_ref_file = try parse(std.testing.allocator,
+        \\const text :Text = "x";
+        \\const number :UInt32 = 1;
+        \\interface Bad {
+        \\  wrongScalar @0 (value :UInt32 = text) -> ();
+        \\  wrongText @1 (label :Text = number) -> ();
+        \\}
+    );
+    defer method_const_ref_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &method_const_ref_file));
 }
 
 test "schema layout planner rejects scalar defaults for generic parameters" {
