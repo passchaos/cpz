@@ -226,7 +226,7 @@ test "top-level stream framing helpers round-trip" {
 
     const table = try serializeSegmentTable(testing.allocator, segments);
     defer testing.allocator.free(table);
-    try testing.expectEqual(segmentTableWords(segments.len) * wire.bytes_per_word, table.len);
+    try testing.expectEqual((try segmentTableWords(segments.len)) * wire.bytes_per_word, table.len);
     try testing.expectEqual(table.len, try segmentTableByteLen(segments.len));
     var stack_table: [16]u8 = undefined;
     const stack_table_len = try writeSegmentTable(&stack_table, segments);

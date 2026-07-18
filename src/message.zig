@@ -6162,7 +6162,7 @@ test "owned message readers parse flat and packed bytes" {
     try testing.expect(!owned_flat.matchesCapabilityCountLimit(0));
     const owned_table = try owned_flat.serializeSegmentTable(testing.allocator);
     defer testing.allocator.free(owned_table);
-    try testing.expectEqual(serialize.segmentTableWords(owned_flat.segmentCount()) * wire.bytes_per_word, owned_table.len);
+    try testing.expectEqual((try serialize.segmentTableWords(owned_flat.segmentCount())) * wire.bytes_per_word, owned_table.len);
     const owned_flat_bytes = try owned_flat.toFlatBytes(testing.allocator);
     defer testing.allocator.free(owned_flat_bytes);
     try testing.expectEqualSlices(u8, flat, owned_flat_bytes);

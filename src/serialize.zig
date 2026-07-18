@@ -141,10 +141,8 @@ pub fn computeSerializedSizeInWords(segments: []const ConstSegment) Error!usize 
     return (try computeSerializedSize(segments)) / wire.bytes_per_word;
 }
 
-pub fn segmentTableWords(segment_count: usize) usize {
-    // 4 bytes for segment_count_minus_one plus 4 bytes per segment, rounded up
-    // to a word boundary.
-    return (4 + 4 * segment_count + 7) / 8;
+pub fn segmentTableWords(segment_count: usize) Error!usize {
+    return (try segmentTableByteLen(segment_count)) / wire.bytes_per_word;
 }
 
 pub fn writeSegmentTable(dest: []u8, segments: []const ConstSegment) Error!usize {
@@ -899,7 +897,10 @@ test "segment table rejects excessive segment counts before allocation" {
     var max_prefix = [_]u8{0} ** 8;
     writeU32(max_prefix[0..4], @intCast(max_segment_count - 1));
     try testing.expectEqual(try segmentTableByteLen(max_segment_count), try expectedSize(&max_prefix));
+    try testing.expectEqual((try segmentTableByteLen(max_segment_count)) / wire.bytes_per_word, try segmentTableWords(max_segment_count));
     try testing.expectEqual((try segmentTableByteLen(max_segment_count)) / wire.bytes_per_word, try expectedSizeInWordsFromPrefix(&max_prefix));
+    try testing.expectError(error.EmptyMessage, segmentTableWords(0));
+    try testing.expectError(error.TooManySegments, segmentTableWords(max_segment_count + 1));
 }
 
 test "packed stream framing round-trips through unpacked parser" {
