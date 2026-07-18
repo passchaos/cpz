@@ -336,7 +336,7 @@ pub fn readFlatMessageViewInto(segment_table: []ConstSegment, bytes: []const u8)
     var off = table.table_len;
     for (0..table.segment_count) |idx| {
         const words = readU32(bytes[4 + idx * 4 ..][0..4]);
-        const len = @as(usize, words) * wire.bytes_per_word;
+        const len = try bytesForWords(words);
         segment_table[idx] = bytes[off .. off + len];
         off += len;
     }
@@ -634,7 +634,7 @@ fn readOwnedFlatMessageWithSourceConsumedLen(allocator: std.mem.Allocator, owned
     var off = table.table_len;
     for (0..table.segment_count) |idx| {
         const words = readU32(owned[4 + idx * 4 ..][0..4]);
-        const len = @as(usize, words) * wire.bytes_per_word;
+        const len = try bytesForWords(words);
         segments[idx] = owned[off .. off + len];
         off += len;
     }
@@ -689,7 +689,11 @@ pub fn segmentWordLenFromPrefix(prefix: []const u8, index: usize) Error!usize {
 }
 
 pub fn segmentByteLenFromPrefix(prefix: []const u8, index: usize) Error!usize {
-    return std.math.mul(usize, try segmentWordLenFromPrefix(prefix, index), wire.bytes_per_word) catch return error.SerializedSizeOverflow;
+    return bytesForWords(try segmentWordLenFromPrefix(prefix, index));
+}
+
+fn bytesForWords(words: usize) Error!usize {
+    return std.math.mul(usize, words, wire.bytes_per_word) catch return error.SerializedSizeOverflow;
 }
 
 pub fn parseSegmentTable(bytes: []const u8) Error!struct { segment_count: usize, table_len: usize } {
@@ -815,6 +819,8 @@ test "standard stream framing serializes even segment count with padding" {
     try testing.expectEqual(@as(usize, 1), try segmentWordLenFromPrefix(bytes[0..16], 0));
     try testing.expectEqual(@as(usize, 2), try segmentWordLenFromPrefix(bytes[0..16], 1));
     try testing.expectEqual(@as(usize, 16), try segmentByteLenFromPrefix(bytes[0..16], 1));
+    try testing.expectEqual(@as(usize, 16), try bytesForWords(2));
+    try testing.expectError(error.SerializedSizeOverflow, bytesForWords(std.math.maxInt(usize)));
     try testing.expectError(error.SegmentOutOfBounds, segmentWordLenFromPrefix(bytes[0..16], 2));
     try testing.expectError(error.SegmentTableTruncated, segmentWordLenFromPrefix(bytes[0..8], 1));
 }
