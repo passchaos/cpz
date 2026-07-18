@@ -7926,7 +7926,7 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
         constant_index += 1;
     }
     for (file.annotations) |decl| {
-        try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "annotation_decl", decl.id, "", &.{}, indent);
+        try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "annotation_decl", decl.id, decl.annotations, &.{}, indent);
         constant_index += 1;
     }
     try appendFmt(allocator, out,
@@ -7958,7 +7958,7 @@ fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayLis
     }
     for (file.annotations) |decl| {
         if (count != 0) try out.appendSlice(allocator, ", ");
-        try appendDeclarationMetadataLiteral(allocator, out, count, decl.name, "annotation_decl", decl.id, "", &.{});
+        try appendDeclarationMetadataLiteral(allocator, out, count, decl.name, "annotation_decl", decl.id, decl.annotations, &.{});
         count += 1;
     }
     try out.appendSlice(allocator, "};\n");

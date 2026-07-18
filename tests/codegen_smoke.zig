@@ -108,6 +108,9 @@ test "generated schema exposes file and type ids" {
     try std.testing.expectEqualStrings("schemaNote", generated.@"cpz.declarations"[18].name);
     try std.testing.expectEqual(.annotation_decl, generated.@"cpz.declarations"[18].kind);
     try std.testing.expectEqual(@as(?u64, 0xa110ca110c), generated.@"cpz.declarations"[18].id);
+    try std.testing.expectEqualStrings("$schemaNote(\"annotation-decl\")", generated.@"cpz.declarations"[17].annotations);
+    try std.testing.expectEqualStrings("$schemaNote(\"annotation-decl\")", generated.@"cpz.declaration.enumNote.annotations");
+    try std.testing.expectEqualStrings("enumNote", generated.@"cpz.declarationByAnnotations"("$schemaNote(\"annotation-decl\")").?.name);
     try std.testing.expectEqual(@as(u64, 0xc010), generated.Color.@"cpz.type_id");
     try std.testing.expectEqual(@as(u64, 0xd00d), generated.DynamicBox.@"cpz.type_id");
     try std.testing.expectEqual(@as(u64, 0xe57e0001), generated.ExtendedService.@"cpz.type_id");
