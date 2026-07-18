@@ -3677,7 +3677,7 @@ pub const Parser = struct {
         @memset(assigned, false);
         for (0..fields.len) |discriminant| {
             if (discriminant > std.math.maxInt(u16)) return error.InvalidOrdinal;
-            const field_index = nextOrdinalFieldIndex(fields, assigned) orelse unreachable;
+            const field_index = try nextOrdinalFieldIndexChecked(fields, assigned);
             assigned[field_index] = true;
             fields[field_index].union_discriminant = @intCast(discriminant);
         }
@@ -5243,7 +5243,7 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
     }
 
     for (0..decl.fields.len) |_| {
-        const field_index = nextOrdinalFieldIndex(decl.fields, assigned) orelse unreachable;
+        const field_index = try nextOrdinalFieldIndexChecked(decl.fields, assigned);
         assigned[field_index] = true;
         const field = &decl.fields[field_index];
 
@@ -5374,6 +5374,11 @@ fn nextOrdinalFieldIndex(fields: []const Field, assigned: []const bool) ?usize {
         }
     }
     return best;
+}
+
+fn nextOrdinalFieldIndexChecked(fields: []const Field, assigned: []const bool) Error!usize {
+    if (fields.len != assigned.len) return error.InvalidOrdinal;
+    return nextOrdinalFieldIndex(fields, assigned) orelse error.InvalidOrdinal;
 }
 
 const TypeClass = union(enum) {
@@ -8261,6 +8266,18 @@ test "schema resolver inherits aliases from ancestor declaration scopes" {
 }
 
 test "schema layout planner assigns data and pointer slots" {
+    const fields_for_order = [_]Field{
+        .{ .name = "later", .ordinal = 2, .ty = .void },
+        .{ .name = "earlier", .ordinal = 1, .ty = .void },
+    };
+    var assigned_for_order = [_]bool{ false, false };
+    try std.testing.expectEqual(@as(usize, 1), try nextOrdinalFieldIndexChecked(&fields_for_order, &assigned_for_order));
+    assigned_for_order[1] = true;
+    try std.testing.expectEqual(@as(usize, 0), try nextOrdinalFieldIndexChecked(&fields_for_order, &assigned_for_order));
+    assigned_for_order[0] = true;
+    try std.testing.expectError(error.InvalidOrdinal, nextOrdinalFieldIndexChecked(&fields_for_order, &assigned_for_order));
+    try std.testing.expectError(error.InvalidOrdinal, nextOrdinalFieldIndexChecked(&fields_for_order, assigned_for_order[0..1]));
+
     const source =
         \\struct Sample {
         \\  enabled @0 :Bool;
