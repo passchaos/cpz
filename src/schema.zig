@@ -5342,7 +5342,7 @@ const BitRange = struct {
 fn allocateDataBits(allocator: std.mem.Allocator, ranges: *std.ArrayList(BitRange), bits: usize) LayoutError!usize {
     var start: usize = 0;
     while (true) {
-        start = alignForward(usize, start, bits);
+        start = try alignForwardChecked(start, bits);
         const end = std.math.add(usize, start, bits) catch return error.InvalidOrdinal;
         var advanced = false;
         for (ranges.items) |range| {
@@ -5978,9 +5978,10 @@ fn isGroupType(ty: Type) bool {
     };
 }
 
-fn alignForward(comptime T: type, value: T, alignment: T) T {
+fn alignForwardChecked(value: usize, alignment: usize) Error!usize {
     if (alignment == 0) return value;
-    return ((value + alignment - 1) / alignment) * alignment;
+    const biased = std.math.add(usize, value, alignment - 1) catch return error.InvalidOrdinal;
+    return std.math.mul(usize, biased / alignment, alignment) catch return error.InvalidOrdinal;
 }
 
 fn parseInteger(text: []const u8) (std.fmt.ParseIntError || error{InvalidToken})!u64 {
@@ -8443,6 +8444,18 @@ test "schema layout planner reuses alignment padding holes" {
     try std.testing.expectEqual(FieldSlot{ .data_byte = 0 }, layout.fields[0].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[1].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 2 }, layout.fields[2].slot);
+}
+
+test "schema layout planner reports alignment overflow" {
+    try std.testing.expectError(error.InvalidOrdinal, alignForwardChecked(std.math.maxInt(usize), 64));
+
+    var ranges = std.ArrayList(BitRange).empty;
+    defer ranges.deinit(std.testing.allocator);
+    try ranges.append(std.testing.allocator, .{
+        .start = 0,
+        .end = std.math.maxInt(usize),
+    });
+    try std.testing.expectError(error.InvalidOrdinal, allocateDataBits(std.testing.allocator, &ranges, 64));
 }
 
 pub const CodegenOptions = struct {
