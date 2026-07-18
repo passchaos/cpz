@@ -69,6 +69,15 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
+    const cpzc_test_mod = b.createModule(.{
+        .root_source_file = b.path("src/cpzc.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const cpzc_tests = b.addTest(.{ .root_module = cpzc_test_mod });
+    test_step.dependOn(&b.addRunArtifact(cpzc_tests).step);
+
     const run_schema_codegen = b.addRunArtifact(cpzc);
     run_schema_codegen.addFileArg(b.path("tests/schema_smoke.capnp"));
     const generated_schema = b.createModule(.{
