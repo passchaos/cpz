@@ -2404,6 +2404,7 @@ pub const Parser = struct {
             }
             const field_type = std.mem.trim(u8, trimmed[type_start..field_type_end], " \t\r\n");
             if (field_type.len == 0) return error.UnexpectedToken;
+            try self.validateRawTypeSyntax(field_type);
             if (index < end and trimmed[index] == '=') {
                 has_explicit_default = true;
                 index += 1;
@@ -2470,6 +2471,14 @@ pub const Parser = struct {
             }
         }
         return fields.toOwnedSlice(self.allocator);
+    }
+
+    fn validateRawTypeSyntax(self: *Parser, raw: []const u8) Error!void {
+        var parser = try Parser.init(self.allocator, raw);
+        defer parser.deinitLiteralScratch();
+        var ty = try parser.parseType();
+        defer ty.deinit(self.allocator);
+        if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
     }
 
     fn methodSignatureTypeName(raw: []const u8) []const u8 {
@@ -3591,29 +3600,21 @@ pub const Parser = struct {
         while (self.lookahead.tag == .l_paren) {
             try self.expect(.l_paren);
             if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
-            var depth: usize = 1;
-            var expecting_arg = true;
-            while (depth != 0) {
-                if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            while (true) {
+                var arg = try self.parseType();
+                defer arg.deinit(self.allocator);
                 switch (self.lookahead.tag) {
-                    .l_paren => {
-                        if (depth == 1 and expecting_arg) return error.UnexpectedToken;
-                        depth += 1;
+                    .comma => {
+                        try self.expect(.comma);
+                        if (self.lookahead.tag == .r_paren) return error.UnexpectedToken;
                     },
                     .r_paren => {
-                        if (depth == 1 and expecting_arg) return error.UnexpectedToken;
-                        depth -= 1;
                         last_end = self.lexer.index;
+                        try self.expect(.r_paren);
+                        break;
                     },
-                    .comma => if (depth == 1) {
-                        if (expecting_arg) return error.UnexpectedToken;
-                        expecting_arg = true;
-                    },
-                    else => if (depth == 1) {
-                        expecting_arg = false;
-                    },
+                    else => return error.UnexpectedToken,
                 }
-                try self.advance();
             }
         }
         return last_end;
@@ -4983,6 +4984,31 @@ test "schema parser rejects malformed type application arguments" {
         \\  field @0 :GenericBox(Text,, Data);
         \\}
     ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :List(Text, Data);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :GenericBox(Text Data);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  field @0 :GenericBox(List(Text) Data);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (field :GenericBox(Text Data)) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (field :List(Text, Data)) -> ();
+        \\}
+    ));
 }
 
 test "schema layout planner rejects generic arity mismatches" {
@@ -5007,14 +5033,6 @@ test "schema layout planner rejects generic arity mismatches" {
     );
     defer nested_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &nested_file));
-
-    var list_file = try parse(std.testing.allocator,
-        \\interface Bad {
-        \\  call @0 (field :List(Text, Data)) -> ();
-        \\}
-    );
-    defer list_file.deinit(std.testing.allocator);
-    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &list_file));
 
     var method_file = try parse(std.testing.allocator,
         \\struct Box(T) {
