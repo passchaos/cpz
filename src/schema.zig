@@ -10210,7 +10210,7 @@ fn defaultExpressionIsVoidPointer(file: *const File, scope: ?*const Struct, expr
 
 fn nullPointerFlatBytesAlloc(allocator: std.mem.Allocator) LayoutError![]u8 {
     const segment_words: usize = 1;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -13459,7 +13459,7 @@ fn nestedListLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const Fi
     };
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -13801,7 +13801,7 @@ fn listStructItemsFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File
 
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -13866,7 +13866,7 @@ fn structLiteralFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, 
     defer allocator.free(object);
     const segment_words = object.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + object.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(object.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -14554,6 +14554,15 @@ fn setBit(bytes: []u8, bit_offset: usize) void {
     bytes[bit_offset / 8] |= @as(u8, 1) << @as(u3, @intCast(bit_offset % 8));
 }
 
+fn flatByteLenForSegmentWords(segment_words: usize) LayoutError!usize {
+    const segment_bytes = std.math.mul(usize, segment_words, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
+    return flatByteLenForSegmentBytes(segment_bytes);
+}
+
+fn flatByteLenForSegmentBytes(segment_bytes: usize) LayoutError!usize {
+    return std.math.add(usize, @sizeOf(u64), segment_bytes) catch return error.SerializedSizeOverflow;
+}
+
 fn simpleQuotedTextLiteralAlloc(allocator: std.mem.Allocator, literal: []const u8) LayoutError!?[]u8 {
     const raw = std.mem.trim(u8, literal, " \t\r\n");
     if (raw.len < 2 or raw[0] != '"' or raw[raw.len - 1] != '"') return null;
@@ -14758,7 +14767,7 @@ fn listUnsignedFlatBytesAlloc(comptime T: type, allocator: std.mem.Allocator, fi
     const data_words = try wire.wordsForList(element_size, items.len);
     const segment_words = 1 + data_words;
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -14778,7 +14787,7 @@ fn listSignedFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.m
     const data_words = try wire.wordsForList(element_size, items.len);
     const segment_words = 1 + data_words;
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -14798,7 +14807,7 @@ fn listFloatFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.me
     const data_words = try wire.wordsForList(element_size, items.len);
     const segment_words = 1 + data_words;
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -14818,7 +14827,7 @@ fn listBoolFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope
     const data_words = try wire.wordsForList(.bit, items.len);
     const segment_words = 1 + data_words;
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -14838,7 +14847,7 @@ fn listCapabilityFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File,
     const data_words = try wire.wordsForList(.pointer, items.len);
     const segment_words = 1 + data_words;
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -14854,7 +14863,7 @@ fn listCapabilityFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File,
 
 fn listVoidFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem) LayoutError![]u8 {
     const segment_words: usize = 1;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -14936,7 +14945,7 @@ fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File,
 
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -14948,7 +14957,7 @@ fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope
     const data_words = try wire.wordsForList(.two_bytes, items.len);
     const segment_words = 1 + data_words;
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -15209,7 +15218,7 @@ fn resolveScalarConstListItem(file: *const File, scope: ?*const Struct, item: Co
 fn scalarConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) LayoutError![]u8 {
     const resolved_literal = resolveScalarConstLiteral(file, scope, literal);
     const segment_words: usize = 2;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment_words * @sizeOf(u64));
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
     @memset(flat, 0);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
@@ -15964,7 +15973,7 @@ fn listOptionalTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *con
 
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -15985,7 +15994,7 @@ fn listOptionalStructConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *co
     }
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16067,7 +16076,7 @@ fn listOptionalAnyPointerConstFlatBytesAlloc(allocator: std.mem.Allocator, file:
 
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16492,7 +16501,7 @@ fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: 
 
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16527,7 +16536,7 @@ fn listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator
 
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16542,7 +16551,7 @@ fn listStructFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *con
     try appendStructListPointer(allocator, file, scope, &segment, 0, 0, 0, type_name, literal);
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16588,7 +16597,7 @@ fn listOptionalStructFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, fi
     try appendOptionalStructListPointer(allocator, file, scope, &segment, 0, 0, 0, type_name, literal);
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16603,7 +16612,7 @@ fn listOptionalAnyPointerDefaultFlatBytesAlloc(allocator: std.mem.Allocator, fil
     try appendOptionalAnyPointerListPointer(allocator, file, scope, &segment, 0, 0, 0, literal, want);
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16618,7 +16627,7 @@ fn listNestedFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *con
     try appendScalarListPointer(allocator, file, scope, &segment, 0, 0, 0, child, literal);
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16633,7 +16642,7 @@ fn blobFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, bytes: []const u
     try appendByteListPointerAtWord(allocator, &segment, 0, bytes, is_text);
     const segment_words = segment.items.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + segment.items.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(segment.items.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -16690,7 +16699,7 @@ fn structFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: *const F
     defer allocator.free(object);
     const segment_words = object.len / @sizeOf(u64);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
-    const flat = try allocator.alloc(u8, @sizeOf(u64) + object.len);
+    const flat = try allocator.alloc(u8, try flatByteLenForSegmentBytes(object.len));
     errdefer allocator.free(flat);
     std.mem.writeInt(u32, flat[0..4], 0, .little);
     std.mem.writeInt(u32, flat[4..8], @intCast(segment_words), .little);
@@ -25770,6 +25779,11 @@ test "schema code generator rejects cyclic blob const references" {
 }
 
 test "schema list flats resolve scalar const item references" {
+    try std.testing.expectEqual(@as(usize, 16), try flatByteLenForSegmentWords(1));
+    try std.testing.expectEqual(@as(usize, 16), try flatByteLenForSegmentBytes(8));
+    try std.testing.expectError(error.SerializedSizeOverflow, flatByteLenForSegmentWords(std.math.maxInt(usize)));
+    try std.testing.expectError(error.SerializedSizeOverflow, flatByteLenForSegmentBytes(std.math.maxInt(usize)));
+
     const source =
         \\const one :UInt32 = 1;
         \\const two :UInt32 = 2;
