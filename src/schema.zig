@@ -2408,7 +2408,8 @@ pub const Parser = struct {
             }
             const field_type = std.mem.trim(u8, trimmed[type_start..field_type_end], " \t\r\n");
             if (field_type.len == 0) return error.UnexpectedToken;
-            try self.validateRawTypeSyntax(field_type);
+            var parsed_field_type = try self.parseRawTypeSyntax(field_type);
+            defer parsed_field_type.deinit(self.allocator);
             if (index < end and trimmed[index] == '=') {
                 has_explicit_default = true;
                 index += 1;
@@ -2438,7 +2439,7 @@ pub const Parser = struct {
                 }
                 default_literal = std.mem.trim(u8, trimmed[default_start..index], " \t\r\n");
                 if (default_literal.?.len == 0) return error.UnexpectedToken;
-                try self.validateDefaultLiteralSyntax(default_literal.?);
+                try self.validateDefaultLiteralForTypeSyntax(parsed_field_type, default_literal.?);
                 if (std.mem.eql(u8, field_type, "Data")) {
                     if (default_literal) |literal| {
                         default_is_hex_data = std.mem.startsWith(u8, literal, "0x\"");
@@ -2479,12 +2480,18 @@ pub const Parser = struct {
         return fields.toOwnedSlice(self.allocator);
     }
 
-    fn validateRawTypeSyntax(self: *Parser, raw: []const u8) Error!void {
+    fn parseRawTypeSyntax(self: *Parser, raw: []const u8) Error!Type {
         var parser = try Parser.init(self.allocator, raw);
         defer parser.deinitLiteralScratch();
         var ty = try parser.parseType();
-        defer ty.deinit(self.allocator);
+        errdefer ty.deinit(self.allocator);
         if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
+        return ty;
+    }
+
+    fn validateRawTypeSyntax(self: *Parser, raw: []const u8) Error!void {
+        var ty = try self.parseRawTypeSyntax(raw);
+        defer ty.deinit(self.allocator);
     }
 
     fn validateDefaultLiteralSyntax(self: *Parser, expression: []const u8) Error!void {
@@ -2503,6 +2510,131 @@ pub const Parser = struct {
         if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
     }
 
+    fn validateDefaultLiteralForTypeSyntax(self: *Parser, ty: Type, expression: []const u8) Error!void {
+        try self.validateDefaultLiteralSyntax(expression);
+        const raw = std.mem.trim(u8, expression, " \t\r\n");
+        if (raw.len == 0) return error.UnexpectedToken;
+
+        switch (ty) {
+            .optional => |child| {
+                if (std.mem.eql(u8, raw, "null")) return;
+                return self.validateDefaultLiteralForTypeSyntax(child.*, raw);
+            },
+            .void => {
+                if (std.mem.eql(u8, raw, "void")) return;
+                if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken;
+            },
+            .bool => {
+                if (std.mem.eql(u8, raw, "true") or std.mem.eql(u8, raw, "false")) return;
+                if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken;
+            },
+            .int8 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseSignedLiteral(i8, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .int16 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseSignedLiteral(i16, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .int32 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseSignedLiteral(i32, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .int64 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseSignedLiteral(i64, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .uint8 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseUnsignedLiteral(u8, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .uint16 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseUnsignedLiteral(u16, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .uint32 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseUnsignedLiteral(u32, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .uint64 => if (defaultLiteralIsSignedNumber(raw)) {
+                if (parseUnsignedLiteral(u64, raw) == null) return error.UnexpectedToken;
+            } else if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .float32 => if (parseFloatLiteral(f32, raw) == null and !defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .float64 => if (parseFloatLiteral(f64, raw) == null and !defaultLiteralCanBeReference(raw)) return error.UnexpectedToken,
+            .text => {
+                if (raw[0] == '"') return;
+                if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken;
+            },
+            .data => {
+                if (std.mem.startsWith(u8, raw, "0x\"")) {
+                    const decoded = hexBytesAlloc(self.allocator, raw[3 .. raw.len - 1]) catch |err| switch (err) {
+                        error.OutOfMemory => return error.OutOfMemory,
+                        error.InvalidToken => return error.UnexpectedToken,
+                        else => return error.UnexpectedToken,
+                    };
+                    self.allocator.free(decoded);
+                    return;
+                }
+                if (raw[0] == '"') return;
+                if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken;
+            },
+            .list => |child| {
+                if (raw[0] == '[') {
+                    try self.validateInlineListDefaultForTypeSyntax(child.*, raw);
+                    return;
+                }
+                if (!defaultLiteralCanBeReference(raw)) return error.UnexpectedToken;
+            },
+            .named => |type_name| {
+                if (raw[0] == '(') {
+                    try self.validateStructDefaultForTypeSyntax(type_name, raw);
+                    return;
+                }
+            },
+            .any_pointer, .any_struct, .any_list, .capability => {},
+        }
+    }
+
+    fn validateInlineListDefaultForTypeSyntax(self: *Parser, child_ty: Type, expression: []const u8) Error!void {
+        const items = parseInlineConstListElementsAlloc(self.allocator, expression) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.UnexpectedToken => return error.UnexpectedToken,
+            error.InvalidToken => return error.InvalidToken,
+            else => return error.UnexpectedToken,
+        };
+        defer self.allocator.free(items);
+        for (items) |item| {
+            const split = splitDefaultExpressionAndAnnotations(item);
+            try validateAnnotationSuffix(split.annotations);
+            try self.validateDefaultLiteralForTypeSyntax(child_ty, split.default_expression);
+        }
+    }
+
+    fn validateStructDefaultForTypeSyntax(self: *Parser, type_name: []const u8, expression: []const u8) Error!void {
+        const struct_fields = try parseConstStructFieldsAlloc(self.allocator, expression);
+        defer self.allocator.free(struct_fields);
+        const struct_decl = self.parsedStructDirect(type_name) orelse {
+            for (struct_fields) |field| try self.validateDefaultLiteralSyntax(field.literal);
+            return;
+        };
+
+        for (struct_fields) |const_field| {
+            const schema_field = structFieldByName(struct_decl, const_field.name) orelse {
+                try self.validateDefaultLiteralSyntax(const_field.literal);
+                continue;
+            };
+            try self.validateDefaultLiteralForTypeSyntax(schema_field.ty, const_field.literal);
+        }
+    }
+
+    fn parsedStructDirect(self: *const Parser, type_name: []const u8) ?*const Struct {
+        const structs = self.parsed_structs orelse return null;
+        for (structs.items) |*decl| {
+            if (typeNameEqualsCanonical(type_name, decl.name)) return decl;
+        }
+        return null;
+    }
+
+    fn structFieldByName(decl: *const Struct, name: []const u8) ?*const Field {
+        for (decl.fields) |*field| {
+            if (std.mem.eql(u8, field.name, name)) return field;
+        }
+        return null;
+    }
+
     fn validateInlineAggregateDefaultSyntax(self: *Parser, expression: []const u8) Error!void {
         const raw = std.mem.trim(u8, expression, " \t\r\n");
         if (raw.len == 0) return error.UnexpectedToken;
@@ -2510,7 +2642,7 @@ pub const Parser = struct {
             '(' => {
                 const fields = try parseConstStructFieldsAlloc(self.allocator, raw);
                 defer self.allocator.free(fields);
-                for (fields) |field| try self.validateDefaultLiteralSyntax(field.literal);
+                for (fields) |field| try self.validateInlineAggregateDefaultSyntax(field.literal);
             },
             '[' => {
                 const items = parseInlineConstListElementsAlloc(self.allocator, raw) catch |err| switch (err) {
@@ -2520,7 +2652,7 @@ pub const Parser = struct {
                     else => return error.UnexpectedToken,
                 };
                 defer self.allocator.free(items);
-                for (items) |item| try self.validateDefaultLiteralSyntax(item);
+                for (items) |item| try self.validateInlineAggregateDefaultSyntax(item);
             },
             else => {},
         }
@@ -2703,10 +2835,10 @@ pub const Parser = struct {
             var struct_fields: ?[]ConstStructField = null;
             errdefer if (struct_fields) |fields| self.allocator.free(fields);
             if (is_struct_literal) {
-                try self.validateDefaultLiteralSyntax(split.default_expression);
+                try self.validateDefaultLiteralForTypeSyntax(ty, split.default_expression);
                 struct_fields = try parseConstStructFieldsAlloc(self.allocator, split.default_expression);
             } else if (std.mem.startsWith(u8, split.default_expression, "[")) {
-                try self.validateDefaultLiteralSyntax(split.default_expression);
+                try self.validateDefaultLiteralForTypeSyntax(ty, split.default_expression);
             }
             const entry = try decl_names.getOrPut(name);
             if (entry.found_existing) {
@@ -2737,6 +2869,7 @@ pub const Parser = struct {
             self.allocator.free(items);
         };
         var owns_literal = false;
+        var literal_is_string = false;
         const literal: []const u8 = if (block_text_literal) blk: {
             break :blk try self.parseBlockTextLiteralAfterEqual();
         } else blk: {
@@ -2754,11 +2887,30 @@ pub const Parser = struct {
                 is_hex_data = true;
                 break :data_blk value;
             } else value_blk: {
+                literal_is_string = self.lookahead.tag == .string;
                 const value = (try self.expectDefaultLiteral()) orelse return error.UnexpectedToken;
                 owns_literal = self.ownsScratchLiteral(value);
                 break :value_blk value;
             };
         };
+        if (!block_text_literal) {
+            if (is_hex_data) {
+                const decoded = hexBytesAlloc(self.allocator, literal) catch |err| switch (err) {
+                    error.OutOfMemory => return error.OutOfMemory,
+                    error.InvalidToken => return error.UnexpectedToken,
+                    else => return error.UnexpectedToken,
+                };
+                self.allocator.free(decoded);
+            } else if (literal_is_string and (typeAcceptsTextLiteral(ty) or typeAcceptsDataLiteral(ty))) {
+                // Const Text/Data literals are stored decoded rather than as raw
+                // quoted syntax, so the token stream has already validated their
+                // string grammar.  Re-parsing the decoded bytes would reject
+                // perfectly valid text such as adjacent strings or C-style
+                // escapes after they have been normalized.
+            } else {
+                try self.validateDefaultLiteralForTypeSyntax(ty, literal);
+            }
+        }
 
         if (!isSimpleConstType(ty) and list_items == null) {
             ty.deinit(self.allocator);
@@ -3474,12 +3626,14 @@ pub const Parser = struct {
         var default_is_hex_data = false;
         var default_expression: []const u8 = "";
         var annotations: []const u8 = "";
+        var default_is_block_text = false;
 
         if (self.lookahead.tag == .equal) {
             if (ty == .text and self.constLiteralFirstByte() == '`') {
                 const literal = try self.parseBlockTextLiteralAfterEqual();
                 default_literal = literal;
                 default_expression = literal;
+                default_is_block_text = true;
                 annotations = try self.takeAnnotationSuffixUntilSemicolon();
             } else {
                 try self.expect(.equal);
@@ -3511,6 +3665,7 @@ pub const Parser = struct {
             annotations = try self.takeAnnotationSuffixUntilSemicolon();
         }
 
+        if (default_expression.len != 0 and !default_is_block_text) try self.validateDefaultLiteralForTypeSyntax(ty, default_expression);
         if (owns_default_literal) _ = self.takeOwnedLiteral(default_literal.?);
         keep_ty = true;
         return .{
@@ -4866,6 +5021,28 @@ fn isIdentContinue(c: u8) bool {
     };
 }
 
+fn defaultLiteralCanBeReference(raw: []const u8) bool {
+    if (raw.len == 0) return false;
+    var index: usize = 0;
+    if (raw[index] == '.') index += 1;
+    if (index >= raw.len or !isIdentStart(raw[index])) return false;
+    index += 1;
+    while (index < raw.len and isIdentContinue(raw[index])) index += 1;
+    while (index < raw.len and raw[index] == '.') {
+        index += 1;
+        if (index >= raw.len or !isIdentStart(raw[index])) return false;
+        index += 1;
+        while (index < raw.len and isIdentContinue(raw[index])) index += 1;
+    }
+    return index == raw.len;
+}
+
+fn defaultLiteralIsSignedNumber(raw: []const u8) bool {
+    if (raw.len == 0) return false;
+    const first_digit: usize = if (raw[0] == '+' or raw[0] == '-') 1 else 0;
+    return first_digit < raw.len and std.ascii.isDigit(raw[first_digit]);
+}
+
 fn isNumberContinue(c: u8) bool {
     return switch (c) {
         '0'...'9', 'a'...'f', 'A'...'F', 'o', 'O', 'x', 'X', '_', '.', '+', '-' => true,
@@ -5015,6 +5192,16 @@ test "schema parser rejects malformed struct field defaults" {
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\struct Bad {
+        \\  value @0 :UInt32 = 123abc;
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
+        \\  payload @0 :Data = 0x"0";
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Bad {
         \\  values @0 :List(UInt32) = [1,, 2];
         \\}
     ));
@@ -5080,6 +5267,18 @@ test "schema parser rejects malformed struct field defaults" {
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\const bad :List(UInt32) = [1,];
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\const bad :UInt32 = 123abc;
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\const bad :Data = 0x"0";
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\const bad :List(UInt32) = [1, 123abc];
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\const bad :List(Data) = [0x"0"];
     ));
 }
 
@@ -5427,6 +5626,16 @@ test "schema parser rejects empty method field defaults" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 (payload :Data = 0x"01" "junk") -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (value :UInt32 = 123abc) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (payload :Data = 0x"0") -> ();
         \\}
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
