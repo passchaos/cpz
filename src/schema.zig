@@ -4811,7 +4811,7 @@ fn defaultConstTypeCompatible(file: *const File, field_ty: Type, const_ty: Type)
 
 fn validateInterfaceSuperclass(file: *const File, scope: *const Struct, superclass: Type) LayoutError!void {
     return switch (resolveTypeScoped(file, scope, superclass)) {
-        .capability => {},
+        .capability => error.UnsupportedType,
         .named => |name| {
             if (findInterfaceDirect(file, name) != null) return;
             if (isImportedTypeName(file, name)) return;
@@ -7243,6 +7243,23 @@ test "schema layout planner rejects unsupported interface superclasses" {
     );
     defer scalar_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &scalar_file));
+
+    var capability_file = try parse(std.testing.allocator,
+        \\interface Derived extends(Capability) {
+        \\  call @0 () -> ();
+        \\}
+    );
+    defer capability_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &capability_file));
+
+    var capability_alias_file = try parse(std.testing.allocator,
+        \\using Cap = Capability;
+        \\interface Derived extends(Cap) {
+        \\  call @0 () -> ();
+        \\}
+    );
+    defer capability_alias_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnsupportedType, planLayouts(std.testing.allocator, &capability_alias_file));
 
     var alias_file = try parse(std.testing.allocator,
         \\interface Base {
