@@ -10681,7 +10681,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                     \\{s}pub const {s}: {s} = @as({s}, @enumFromInt({}));
                     \\
                     \\
-                , .{ indent, const_name, zig_type, enum_type, try enumDefaultOrdinal(enum_decl, resolveScalarConstLiteral(file, scope, raw)) });
+                , .{ indent, const_name, zig_type, enum_type, try resolvedEnumDefaultOrdinal(file, scope, enum_decl, raw) });
                 try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, child, raw);
             }
         },
@@ -11222,7 +11222,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
                     \\{s}pub const {s}: {s} = @enumFromInt({});
                     \\
                     \\
-                , .{ indent, const_name, zig_type, try enumDefaultOrdinal(enum_decl, resolveScalarConstLiteral(file, scope, decl.literal)) });
+                , .{ indent, const_name, zig_type, try resolvedEnumDefaultOrdinal(file, scope, enum_decl, decl.literal) });
             }
         },
         .list => |child| {
@@ -12049,7 +12049,7 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
             if (findEnum(file, type_name)) |enum_decl| {
                 const data = try appendInlineListPointer(allocator, segment, pointer_index, data_words, object_start_words, .two_bytes, items.len);
                 for (items, 0..) |item, index| {
-                    const value = enumLiteralOrdinal(enum_decl, resolveScalarConstLiteral(file, scope, item)) orelse return error.UnsupportedType;
+                    const value = resolvedEnumLiteralOrdinal(file, scope, enum_decl, item) orelse return error.UnsupportedType;
                     std.mem.writeInt(u16, data[index * @sizeOf(u16) ..][0..@sizeOf(u16)], value, .little);
                 }
             } else {
@@ -12233,8 +12233,11 @@ fn writeStructLiteralFieldsIntoSegment(allocator: std.mem.Allocator, file: *cons
                 },
                 .named => |field_type_name| {
                     const enum_decl = findEnum(file, field_type_name) orelse return error.UnsupportedType;
-                    const value = enumLiteralOrdinal(enum_decl, const_literal) orelse return error.UnsupportedType;
-                    const default_value = enumLiteralOrdinal(enum_decl, default_literal orelse "") orelse 0;
+                    const value = resolvedEnumLiteralOrdinal(file, literal_scope, enum_decl, const_field.literal) orelse return error.UnsupportedType;
+                    const default_value = if (field.default_literal) |literal|
+                        try resolvedEnumDefaultOrdinal(file, layout.decl, enum_decl, literal)
+                    else
+                        0;
                     const stored: u16 = value ^ default_value;
                     std.mem.writeInt(u16, segment.items[object_start_bytes + byte_offset ..][0..@sizeOf(u16)], stored, .little);
                 },
@@ -12760,8 +12763,7 @@ fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope
     const data = flat[2 * @sizeOf(u64) ..];
     for (items) |item| {
         if (item.index >= items.len) return error.InvalidToken;
-        const resolved_item = resolveScalarConstListItem(file, scope, item);
-        const ordinal = try enumDefaultOrdinal(enum_decl, resolved_item.literal);
+        const ordinal = try resolvedEnumDefaultOrdinal(file, scope, enum_decl, item.literal);
         std.mem.writeInt(u16, data[item.index * @sizeOf(u16) ..][0..@sizeOf(u16)], ordinal, .little);
     }
     return flat;
@@ -13056,7 +13058,7 @@ fn scalarConstFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, sc
         },
         .named => |type_name| {
             const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const ordinal = enumLiteralOrdinal(enum_decl, resolved_literal) orelse return error.InvalidToken;
+            const ordinal = resolvedEnumLiteralOrdinal(file, scope, enum_decl, literal) orelse return error.InvalidToken;
             std.mem.writeInt(u16, data[0..@sizeOf(u16)], ordinal, .little);
         },
         else => return error.UnsupportedType,
@@ -13531,8 +13533,7 @@ fn emitListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             try appendFmt(allocator, out, "{s}pub const {s}: {s} = &[_]{s}{{", .{ indent, name, value_type, zig_type });
             for (items, 0..) |item, i| {
                 if (i != 0) try out.appendSlice(allocator, ", ");
-                const resolved_item = resolveScalarConstListItem(file, scope, item);
-                try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, resolved_item.literal)});
+                try appendFmt(allocator, out, "@enumFromInt({})", .{try resolvedEnumDefaultOrdinal(file, scope, enum_decl, item.literal)});
             }
             try out.appendSlice(allocator, "};\n\n");
             try emitEnumListFlatContainer(allocator, out, file, scope, indent, name, zig_type, enum_decl, items);
@@ -13723,7 +13724,7 @@ fn emitOptionalEnumListConst(allocator: std.mem.Allocator, out: *std.ArrayList(u
         if (std.mem.eql(u8, std.mem.trim(u8, resolved_item.literal, " \t\r\n"), "null")) {
             try out.appendSlice(allocator, "null");
         } else {
-            try appendFmt(allocator, out, "@enumFromInt({})", .{try enumDefaultOrdinal(enum_decl, resolved_item.literal)});
+            try appendFmt(allocator, out, "@enumFromInt({})", .{try resolvedEnumDefaultOrdinal(file, scope, enum_decl, item.literal)});
         }
     }
     try out.appendSlice(allocator, "};\n\n");
@@ -22841,9 +22842,18 @@ fn enumDefaultOrdinal(decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u
     return error.InvalidToken;
 }
 
+fn resolvedEnumLiteralOrdinal(file: *const File, scope: ?*const Struct, decl: *const EnumDecl, literal: []const u8) ?u16 {
+    return enumLiteralOrdinal(decl, literal) orelse enumLiteralOrdinal(decl, resolveScalarConstLiteral(file, scope, literal));
+}
+
+fn resolvedEnumDefaultOrdinal(file: *const File, scope: ?*const Struct, decl: *const EnumDecl, literal: ?[]const u8) LayoutError!u16 {
+    const raw = literal orelse return enumDefaultOrdinal(decl, null);
+    return resolvedEnumLiteralOrdinal(file, scope, decl, raw) orelse error.InvalidToken;
+}
+
 fn resolvedFieldDefaultEnumOrdinal(file: *const File, scope: ?*const Struct, decl: *const EnumDecl, field: *const Field) LayoutError!u16 {
     const literal = field.default_literal orelse return enumDefaultOrdinal(decl, null);
-    return enumDefaultOrdinal(decl, resolveScalarConstLiteral(file, scope, literal));
+    return resolvedEnumDefaultOrdinal(file, scope, decl, literal);
 }
 
 test "schema parser and code generator preserve declaration ids" {
@@ -23649,6 +23659,37 @@ test "schema code generator resolves const reference scalar defaults for flats" 
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const discriminantValueDefaultFlat = struct") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "\\xFF\\xFF\\x00\\x00\\x00\\x00\\x00\\x00") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "return (try @This().root(message_reader)).getUInt16(0, 0);") != null);
+}
+
+test "schema code generator prefers enum literals over same-named consts" {
+    const source =
+        \\enum Color {
+        \\  red @0;
+        \\  blue @1;
+        \\}
+        \\const blue :UInt16 = 0;
+        \\const chosen :Color = blue;
+        \\struct Paint {
+        \\  color @0 :Color = blue;
+        \\  colors @1 :List(Color) = [blue, chosen];
+        \\}
+        \\interface Service {
+        \\  choose @0 (color :Color = blue) -> ();
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const enum_decl = &file.enums[0];
+    try std.testing.expectEqual(@as(u16, 1), try resolvedFieldDefaultEnumOrdinal(&file, &file.structs[0], enum_decl, &file.structs[0].fields[0]));
+
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const chosen: @\"cpz.schema\".Color = @enumFromInt(1);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "return self.reader.getUInt16(0, 1);") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.method.choose.params.field.color.defaultFlat\" = struct") != null);
 }
 
 test "schema code generator resolves ancestor const references" {
