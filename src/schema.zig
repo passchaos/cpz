@@ -2598,7 +2598,7 @@ pub const Parser = struct {
         defer self.allocator.free(items);
         for (items) |item| {
             const split = splitDefaultExpressionAndAnnotations(item);
-            try validateAnnotationSuffix(split.annotations);
+            try Parser.validateAnnotationSuffix(split.annotations);
             try self.validateDefaultLiteralForTypeSyntax(child_ty, split.default_expression);
         }
     }
@@ -2612,10 +2612,7 @@ pub const Parser = struct {
         };
 
         for (struct_fields) |const_field| {
-            const schema_field = structFieldByName(struct_decl, const_field.name) orelse {
-                try self.validateDefaultLiteralSyntax(const_field.literal);
-                continue;
-            };
+            const schema_field = structFieldByNameOrGroupFirst(struct_decl, const_field.name) orelse return error.UnexpectedToken;
             try self.validateDefaultLiteralForTypeSyntax(schema_field.ty, const_field.literal);
         }
     }
@@ -2628,9 +2625,17 @@ pub const Parser = struct {
         return null;
     }
 
-    fn structFieldByName(decl: *const Struct, name: []const u8) ?*const Field {
+    fn structFieldByNameOrGroupFirst(decl: *const Struct, name: []const u8) ?*const Field {
         for (decl.fields) |*field| {
             if (std.mem.eql(u8, field.name, name)) return field;
+        }
+        for (decl.fields) |*field| {
+            if (field.name.len > name.len + 1 and
+                std.mem.startsWith(u8, field.name, name) and
+                field.name[name.len] == '_')
+            {
+                return field;
+            }
         }
         return null;
     }
@@ -2828,7 +2833,7 @@ pub const Parser = struct {
             try self.expect(.equal);
             const raw_tail = try self.takeRawUntilSemicolon();
             const split = splitDefaultExpressionAndAnnotations(raw_tail);
-            try validateAnnotationSuffix(split.annotations);
+            try Parser.validateAnnotationSuffix(split.annotations);
             const is_embed = std.mem.startsWith(u8, split.default_expression, "embed");
             const embed_path = if (is_embed) embedPathFromExpression(split.default_expression) orelse "" else "";
             const is_struct_literal = std.mem.startsWith(u8, split.default_expression, "(");
@@ -4470,6 +4475,7 @@ fn unionDeclsFromBuilders(allocator: std.mem.Allocator, builders: []const UnionB
 
 pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!LayoutFile {
     try validateFileTypeApplications(allocator, file);
+    try validateFileAggregateDefaults(allocator, file);
 
     var layouts = std.ArrayList(StructLayout).empty;
     errdefer {
@@ -4510,6 +4516,88 @@ fn validateFileTypeApplications(allocator: std.mem.Allocator, file: *const File)
             for (method.result_fields) |field| try validateRawTypeApplicationArity(allocator, file, &interface_scope, field.ty);
         }
     }
+}
+
+fn validateFileAggregateDefaults(allocator: std.mem.Allocator, file: *const File) LayoutError!void {
+    for (file.consts) |decl| try validateConstAggregateDefault(allocator, file, null, decl);
+    for (file.structs) |decl| {
+        for (decl.fields) |field| try validateTypeAggregateDefault(allocator, file, &decl, field.ty, field.default_expression);
+        for (decl.consts) |const_decl| try validateConstAggregateDefault(allocator, file, &decl, const_decl);
+    }
+    for (file.interfaces) |decl| {
+        var empty_fields: [0]Field = .{};
+        var interface_scope = Struct{
+            .name = decl.name,
+            .fields = empty_fields[0..],
+            .consts = decl.consts,
+            .aliases = decl.aliases,
+        };
+        for (decl.consts) |const_decl| try validateConstAggregateDefault(allocator, file, &interface_scope, const_decl);
+        for (decl.methods) |method| {
+            for (method.param_fields) |field| try validateMethodFieldAggregateDefault(allocator, file, &interface_scope, field);
+            for (method.result_fields) |field| try validateMethodFieldAggregateDefault(allocator, file, &interface_scope, field);
+        }
+    }
+}
+
+fn validateConstAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, decl: ConstDecl) LayoutError!void {
+    if (decl.is_embed) return;
+    try validateTypeAggregateDefault(allocator, file, scope, decl.ty, decl.literal);
+}
+
+fn validateMethodFieldAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, field: MethodField) LayoutError!void {
+    const literal = field.default_literal orelse return;
+    var ty = try parseTypeArgAlloc(allocator, field.ty);
+    defer ty.deinit(allocator);
+    try validateTypeAggregateDefault(allocator, file, scope, ty, literal);
+}
+
+fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type, literal: []const u8) LayoutError!void {
+    const raw = std.mem.trim(u8, resolveConstReferenceLiteral(file, scope, literal), " \t\r\n");
+    if (raw.len == 0) return;
+    switch (resolveTypeScoped(file, scope, ty)) {
+        .optional => |child| {
+            if (std.mem.eql(u8, raw, "null")) return;
+            try validateTypeAggregateDefault(allocator, file, scope, child.*, raw);
+        },
+        .list => |child| {
+            if (raw[0] != '[') return;
+            const items = parseInlineConstListElementsAlloc(allocator, raw) catch |err| switch (err) {
+                error.UnexpectedToken, error.InvalidToken => return error.UnexpectedToken,
+                else => return err,
+            };
+            defer allocator.free(items);
+            for (items) |item| {
+                const split = Parser.splitDefaultExpressionAndAnnotations(item);
+                try Parser.validateAnnotationSuffix(split.annotations);
+                try validateTypeAggregateDefault(allocator, file, scope, child.*, split.default_expression);
+            }
+        },
+        .named => |type_name| {
+            if (raw[0] != '(') return;
+            const struct_decl = findStructDirect(file, type_name) orelse return;
+            const fields = try parseConstStructFieldsAlloc(allocator, raw);
+            defer allocator.free(fields);
+            for (fields) |const_field| {
+                const schema_field = findStructFieldByNameOrGroupFirst(struct_decl, const_field.name) orelse return error.UnexpectedToken;
+                try validateTypeAggregateDefault(allocator, file, struct_decl, schema_field.ty, const_field.literal);
+            }
+        },
+        else => {},
+    }
+}
+
+fn findStructFieldByNameOrGroupFirst(decl: *const Struct, name: []const u8) ?*const Field {
+    for (decl.fields) |*field| if (std.mem.eql(u8, field.name, name)) return field;
+    for (decl.fields) |*field| {
+        if (field.name.len > name.len + 1 and
+            std.mem.startsWith(u8, field.name, name) and
+            field.name[name.len] == '_')
+        {
+            return field;
+        }
+    }
+    return null;
 }
 
 pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!StructLayout {
@@ -5280,6 +5368,26 @@ test "schema parser rejects malformed struct field defaults" {
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\const bad :List(Data) = [0x"0"];
     ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const bad :Item = (missing = 1);
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\struct Bad {
+        \\  item @0 :Item = (missing = 1);
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+        \\const bad :List(Item) = [(missing = 1)];
+    ));
 }
 
 test "schema parser rejects malformed type application arguments" {
@@ -5669,6 +5777,39 @@ test "schema parser rejects empty method field defaults" {
         \\  id @0 :UInt32;
         \\}
     ));
+}
+
+test "schema layout planner rejects unknown struct literal fields" {
+    var const_file = try parse(std.testing.allocator,
+        \\const bad :Item = (missing = 1);
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+    );
+    defer const_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &const_file));
+
+    var field_file = try parse(std.testing.allocator,
+        \\struct Bad {
+        \\  item @0 :Item = (missing = 1);
+        \\}
+        \\struct Item {
+        \\  id @0 :UInt32;
+        \\}
+    );
+    defer field_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &field_file));
+
+    var method_file = try parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call @0 (item :Item = (missing = 1)) -> ();
+        \\  struct Item {
+        \\    id @0 :UInt32;
+        \\  }
+        \\}
+    );
+    defer method_file.deinit(std.testing.allocator);
+    try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &method_file));
 }
 
 test "schema parser rejects duplicate field names" {
