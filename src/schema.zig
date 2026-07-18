@@ -2227,10 +2227,11 @@ pub const Parser = struct {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
-            if (self.lookahead.tag != .identifier or (try self.peekNext()).tag != .at) {
+            if (self.lookahead.tag != .identifier) {
                 try self.skipRawUntilSemicolon();
                 continue;
             }
+            if ((try self.peekNext()).tag != .at) return error.UnexpectedToken;
             const name = try self.expectIdentifier();
             try self.expect(.at);
             const ordinal_u64 = try self.expectInteger();
@@ -5200,6 +5201,16 @@ test "schema parser rejects duplicate interface method names and ordinals" {
 }
 
 test "schema parser rejects malformed method signatures" {
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call () -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
+        \\interface Bad {
+        \\  call :UInt32;
+        \\}
+    ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
         \\  call @0 -> ();
