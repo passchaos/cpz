@@ -4546,7 +4546,8 @@ fn appendUnionFields(allocator: std.mem.Allocator, fields: *std.ArrayList(Field)
         fields.shrinkRetainingCapacity(fields.items.len - appended);
     }
     try fields.ensureUnusedCapacity(allocator, union_builder.fields.items.len);
-    try field_names.ensureUnusedCapacity(@intCast(union_builder.fields.items.len));
+    const additional_field_names = try hashMapCapacityCount(union_builder.fields.items.len);
+    try field_names.ensureUnusedCapacity(additional_field_names);
     for (union_builder.fields.items) |field| {
         if (field_names.contains(field.name)) return error.NameCollision;
     }
@@ -5310,6 +5311,11 @@ fn countUnions(fields: []const Field) usize {
 fn checkedUnionIndex(index: usize) Error!u32 {
     if (index > std.math.maxInt(u32)) return error.InvalidOrdinal;
     return @intCast(index);
+}
+
+fn hashMapCapacityCount(count: usize) Error!std.StringHashMap(void).Size {
+    if (count > std.math.maxInt(std.StringHashMap(void).Size)) return error.InvalidOrdinal;
+    return @intCast(count);
 }
 
 fn addUnionRequirement(file: *const File, scope: ?*const Struct, req: *UnionRequirement, ty: Type) LayoutError!void {
@@ -8155,6 +8161,11 @@ test "schema parser lowers anonymous unions and tolerates group blocks inside st
     try std.testing.expectEqual(std.math.maxInt(u32), try checkedUnionIndex(std.math.maxInt(u32)));
     if (@bitSizeOf(usize) > @bitSizeOf(u32)) {
         try std.testing.expectError(error.InvalidOrdinal, checkedUnionIndex(@as(usize, std.math.maxInt(u32)) + 1));
+    }
+    try std.testing.expectEqual(@as(std.StringHashMap(void).Size, 0), try hashMapCapacityCount(0));
+    try std.testing.expectEqual(std.math.maxInt(std.StringHashMap(void).Size), try hashMapCapacityCount(std.math.maxInt(std.StringHashMap(void).Size)));
+    if (@bitSizeOf(usize) > @bitSizeOf(std.StringHashMap(void).Size)) {
+        try std.testing.expectError(error.InvalidOrdinal, hashMapCapacityCount(@as(usize, std.math.maxInt(std.StringHashMap(void).Size)) + 1));
     }
 }
 
