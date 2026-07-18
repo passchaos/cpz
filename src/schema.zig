@@ -2141,6 +2141,7 @@ pub const Parser = struct {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
             const name = try self.expectIdentifier();
             if (std.mem.eql(u8, name, declaration_name)) return error.NameCollision;
+            if (isBuiltinSchemaTypeName(name)) return error.NameCollision;
             const entry = try names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
             try parameters.append(self.allocator, name);
@@ -2311,6 +2312,7 @@ pub const Parser = struct {
             while (index < signature.len and isIdentContinue(signature[index])) index += 1;
             const name = signature[start..index];
             if (std.mem.eql(u8, name, method_name)) return error.NameCollision;
+            if (isBuiltinSchemaTypeName(name)) return error.NameCollision;
             const entry = try names.getOrPut(name);
             if (entry.found_existing) return error.NameCollision;
             try parameters.append(self.allocator, name);
@@ -5054,6 +5056,10 @@ fn validateRawTypeApplicationArity(allocator: std.mem.Allocator, file: *const Fi
 }
 
 fn isBuiltinTypeApplicationBase(name: []const u8) bool {
+    return isBuiltinSchemaTypeName(name);
+}
+
+fn isBuiltinSchemaTypeName(name: []const u8) bool {
     return std.mem.eql(u8, name, "Void") or
         std.mem.eql(u8, name, "Bool") or
         std.mem.eql(u8, name, "Int8") or
@@ -6219,6 +6225,16 @@ test "schema parser rejects duplicate declaration and method parameter names" {
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
         \\interface Service {
         \\  call @0 [call] (item :call) -> ();
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\struct Box(Text) {
+        \\  item @0 :Text;
+        \\}
+    ));
+    try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
+        \\interface Service {
+        \\  call @0 [UInt32] (item :UInt32) -> ();
         \\}
     ));
     try std.testing.expectError(error.NameCollision, parse(std.testing.allocator,
