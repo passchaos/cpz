@@ -85,6 +85,7 @@ pub fn build(b: *std.Build) void {
     addCpzOnlyTest(b, test_step, "tests/public_api_smoke.zig", target, optimize, cpz_mod);
     addCpzOnlyTest(b, test_step, "src/rpc.zig", target, optimize, cpz_mod);
     addCpzOnlyTest(b, test_step, "tests/upstream_testdata_smoke.zig", target, optimize, cpz_mod);
+    addCpzOnlyTest(b, test_step, "tests/upstream_rpc_schema_smoke.zig", target, optimize, cpz_mod);
 
     const run_schema_codegen = b.addRunArtifact(cpzc_host);
     run_schema_codegen.addFileArg(b.path("tests/schema_smoke.capnp"));
