@@ -14,6 +14,11 @@ pub const Error = error{
     ImportAlreadyReleased,
 };
 
+pub const CapabilityRef = union(enum) {
+    export_id: ExportId,
+    import_id: ImportId,
+};
+
 /// Transport-independent subset of rpc.capnp message variants. This is only a
 /// state-machine vocabulary; it deliberately does not read sockets, schedule
 /// promises, or dispatch application methods.
@@ -56,10 +61,10 @@ pub const Event = union(MessageKind) {
     return_: AnswerId,
     finish: QuestionId,
     resolve: AnswerId,
-    release: void,
+    release: CapabilityRef,
     disembargo: void,
-    provide: void,
-    accept: void,
+    provide: ExportId,
+    accept: ImportId,
     join: void,
     obsolete: void,
 
@@ -77,6 +82,15 @@ pub const Event = union(MessageKind) {
     pub fn answerId(self: Event) ?AnswerId {
         return switch (self) {
             .return_, .resolve => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn capabilityRef(self: Event) ?CapabilityRef {
+        return switch (self) {
+            .release => |ref| ref,
+            .provide => |id| .{ .export_id = id },
+            .accept => |id| .{ .import_id = id },
             else => null,
         };
     }
@@ -167,17 +181,23 @@ pub const ImportTracker = CapabilityTracker(ImportId, error.ImportAlreadyRelease
 pub const State = struct {
     questions: std.AutoHashMap(QuestionId, QuestionTracker),
     answers: std.AutoHashMap(AnswerId, AnswerTracker),
+    exports: std.AutoHashMap(ExportId, ExportTracker),
+    imports: std.AutoHashMap(ImportId, ImportTracker),
 
     pub fn init(allocator: std.mem.Allocator) State {
         return .{
             .questions = std.AutoHashMap(QuestionId, QuestionTracker).init(allocator),
             .answers = std.AutoHashMap(AnswerId, AnswerTracker).init(allocator),
+            .exports = std.AutoHashMap(ExportId, ExportTracker).init(allocator),
+            .imports = std.AutoHashMap(ImportId, ImportTracker).init(allocator),
         };
     }
 
     pub fn deinit(self: *State) void {
         self.questions.deinit();
         self.answers.deinit();
+        self.exports.deinit();
+        self.imports.deinit();
         self.* = undefined;
     }
 
@@ -189,12 +209,32 @@ pub const State = struct {
         return self.answers.count();
     }
 
+    /// Counts tracked export lifetime entries, including released tombstones.
+    /// Keeping tombstones lets the state machine distinguish a duplicate
+    /// release from a release of an id it never observed.
+    pub fn exportCount(self: *const State) usize {
+        return self.exports.count();
+    }
+
+    /// Counts tracked import lifetime entries, including released tombstones.
+    pub fn importCount(self: *const State) usize {
+        return self.imports.count();
+    }
+
     pub fn hasQuestion(self: *const State, id: QuestionId) bool {
         return self.questions.contains(id);
     }
 
     pub fn hasAnswer(self: *const State, id: AnswerId) bool {
         return self.answers.contains(id);
+    }
+
+    pub fn hasExport(self: *const State, id: ExportId) bool {
+        return self.exports.contains(id);
+    }
+
+    pub fn hasImport(self: *const State, id: ImportId) bool {
+        return self.imports.contains(id);
     }
 
     pub fn openQuestion(self: *State, id: QuestionId, kind: MessageKind) (Error || std.mem.Allocator.Error)!void {
@@ -219,6 +259,33 @@ pub const State = struct {
         try answer.resolve(kind);
     }
 
+    pub fn addExport(self: *State, id: ExportId) (Error || std.mem.Allocator.Error)!void {
+        if (self.exports.contains(id)) return error.InvalidTransition;
+        try self.exports.put(id, .{ .id = id });
+    }
+
+    pub fn addImport(self: *State, id: ImportId) (Error || std.mem.Allocator.Error)!void {
+        if (self.imports.contains(id)) return error.InvalidTransition;
+        try self.imports.put(id, .{ .id = id });
+    }
+
+    pub fn releaseExport(self: *State, id: ExportId) Error!void {
+        const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
+        try tracker.release();
+    }
+
+    pub fn releaseImport(self: *State, id: ImportId) Error!void {
+        const tracker = self.imports.getPtr(id) orelse return error.InvalidTransition;
+        try tracker.release();
+    }
+
+    pub fn releaseCapability(self: *State, capability: CapabilityRef) Error!void {
+        return switch (capability) {
+            .export_id => |id| self.releaseExport(id),
+            .import_id => |id| self.releaseImport(id),
+        };
+    }
+
     pub fn questionState(self: *const State, id: QuestionId) ?QuestionState {
         const question = self.questions.get(id) orelse return null;
         return question.state;
@@ -229,6 +296,16 @@ pub const State = struct {
         return answer.state;
     }
 
+    pub fn exportState(self: *const State, id: ExportId) ?CapabilityLifetime {
+        const tracker = self.exports.get(id) orelse return null;
+        return tracker.state;
+    }
+
+    pub fn importState(self: *const State, id: ImportId) ?CapabilityLifetime {
+        const tracker = self.imports.get(id) orelse return null;
+        return tracker.state;
+    }
+
     pub fn apply(self: *State, event: Event) (Error || std.mem.Allocator.Error)!void {
         return switch (event) {
             .bootstrap => |id| self.openQuestion(id, .bootstrap),
@@ -236,6 +313,9 @@ pub const State = struct {
             .finish => |id| self.finishQuestion(id),
             .return_ => |id| self.resolveAnswer(id, .return_),
             .resolve => |id| self.resolveAnswer(id, .resolve),
+            .release => |capability| self.releaseCapability(capability),
+            .provide => |id| self.addExport(id),
+            .accept => |id| self.addImport(id),
             else => error.InvalidTransition,
         };
     }
@@ -258,6 +338,12 @@ test "rpc message kind predicates describe state-machine roles" {
     const return_event = Event{ .return_ = 12 };
     try testing.expectEqual(MessageKind.return_, return_event.kind());
     try testing.expectEqual(@as(?AnswerId, 12), return_event.answerId());
+
+    const provide_event = Event{ .provide = 5 };
+    try testing.expectEqual(MessageKind.provide, provide_event.kind());
+    try testing.expectEqual(CapabilityRef{ .export_id = 5 }, provide_event.capabilityRef().?);
+    const accept_event = Event{ .accept = 6 };
+    try testing.expectEqual(CapabilityRef{ .import_id = 6 }, accept_event.capabilityRef().?);
 }
 
 test "rpc question and answer trackers reject invalid transitions" {
@@ -317,6 +403,36 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectError(error.QuestionNotOpen, state.resolveAnswer(99, .return_));
 }
 
+test "rpc state tracks import and export lifetimes" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try testing.expectEqual(@as(usize, 0), state.exportCount());
+    try testing.expectEqual(@as(usize, 0), state.importCount());
+
+    try state.addExport(10);
+    try state.addImport(20);
+    try testing.expect(state.hasExport(10));
+    try testing.expect(state.hasImport(20));
+    try testing.expectEqual(@as(usize, 1), state.exportCount());
+    try testing.expectEqual(@as(usize, 1), state.importCount());
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.exportState(10));
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(20));
+
+    try testing.expectError(error.InvalidTransition, state.addExport(10));
+    try testing.expectError(error.InvalidTransition, state.addImport(20));
+    try testing.expectError(error.InvalidTransition, state.releaseExport(99));
+    try testing.expectError(error.InvalidTransition, state.releaseImport(99));
+
+    try state.releaseExport(10);
+    try state.releaseImport(20);
+    try testing.expectEqual(@as(?CapabilityLifetime, .released), state.exportState(10));
+    try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(20));
+    try testing.expectError(error.ExportAlreadyReleased, state.releaseExport(10));
+    try testing.expectError(error.ImportAlreadyReleased, state.releaseImport(20));
+}
+
 test "rpc state applies transport-independent events" {
     const testing = std.testing;
     var state = State.init(testing.allocator);
@@ -332,5 +448,15 @@ test "rpc state applies transport-independent events" {
     try state.apply(.{ .resolve = 3 });
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(3));
     try testing.expectError(error.AnswerAlreadyResolved, state.apply(.{ .return_ = 3 }));
-    try testing.expectError(error.InvalidTransition, state.apply(.{ .release = {} }));
+
+    try state.apply(.{ .provide = 7 });
+    try state.apply(.{ .accept = 8 });
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.exportState(7));
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(8));
+    try state.apply(.{ .release = .{ .export_id = 7 } });
+    try state.apply(.{ .release = .{ .import_id = 8 } });
+    try testing.expectEqual(@as(?CapabilityLifetime, .released), state.exportState(7));
+    try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(8));
+    try testing.expectError(error.ExportAlreadyReleased, state.apply(.{ .release = .{ .export_id = 7 } }));
+    try testing.expectError(error.InvalidTransition, state.apply(.{ .join = {} }));
 }
