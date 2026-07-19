@@ -186,7 +186,13 @@ pub const CallFlags = struct {
     only_promise_pipeline: bool = false,
 };
 
+pub const CallMethod = struct {
+    interface_id: u64 = 0,
+    method_id: u16 = 0,
+};
+
 pub const CallOptions = struct {
+    method: CallMethod = .{},
     send_results_to: CallSendResultsTo = .caller,
     flags: CallFlags = .{},
 };
@@ -600,6 +606,18 @@ pub fn callTargetFromWireCallAlloc(allocator: std.mem.Allocator, call: anytype) 
     return targetFromWireMessageTargetAlloc(allocator, try call.target());
 }
 
+pub fn callMethodFromWireCall(call: anytype) CallMethod {
+    return .{
+        .interface_id = call.interfaceId(),
+        .method_id = call.methodId(),
+    };
+}
+
+pub fn writeCallMethodToWire(method: CallMethod, call: anytype) !void {
+    try call.set_interfaceId(method.interface_id);
+    try call.set_methodId(method.method_id);
+}
+
 pub fn sendResultsToFromWireCall(call: anytype) !CallSendResultsTo {
     return switch (call.which() orelse return error.InvalidTransition) {
         .sendResultsTo_caller => .caller,
@@ -913,6 +931,7 @@ pub fn initWireCallWithOptions(
 ) !void {
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
+    try writeCallMethodToWire(options.method, call);
     try writeSendResultsToToWire(options.send_results_to, call);
     try writeCallFlagsToWire(options.flags, call);
     const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);

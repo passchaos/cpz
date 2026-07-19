@@ -298,6 +298,17 @@ test "rpc call helpers decode and write boolean flags" {
     }, cpz.rpc.callFlagsFromWireCall(call_reader));
 }
 
+test "rpc call helpers decode and write method ids" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const call = try generated.Call.initRootTyped(&builder);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xfeed_beef, .method_id = 42 }, call);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call_reader = generated.Call.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0xfeed_beef, .method_id = 42 }, cpz.rpc.callMethodFromWireCall(call_reader));
+}
+
 test "rpc allocating call target helpers decode promised-answer transforms" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
@@ -911,6 +922,7 @@ test "rpc top-level call helpers initialize routing options and flags" {
     defer builder.deinit();
     const root = try generated.Message.initRootTyped(&builder);
     try cpz.rpc.initWireCallMessageWithOptions(std.testing.allocator, root, 76, .{ .imported_cap = 5 }, &registry, .{
+        .method = .{ .interface_id = 0x1234, .method_id = 7 },
         .send_results_to = .yourself,
         .flags = .{
             .allow_third_party_tail_call = true,
@@ -921,6 +933,7 @@ test "rpc top-level call helpers initialize routing options and flags" {
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const call = try generated.Message.fromReader(try reader.getRoot()).call();
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x1234, .method_id = 7 }, cpz.rpc.callMethodFromWireCall(call));
     try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(call));
     try std.testing.expectEqual(cpz.rpc.CallFlags{
         .allow_third_party_tail_call = true,

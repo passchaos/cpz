@@ -39,6 +39,8 @@ struct Bootstrap {
 struct Call {
   questionId @0 :QuestionId;
   target @1 :MessageTarget;
+  interfaceId @2 :UInt64;
+  methodId @3 :UInt16;
   params @4 :Payload;
   allowThirdPartyTailCall @8 :Bool = false;
   noPromisePipelining @9 :Bool = false;
