@@ -145,6 +145,25 @@ test "rpc promised answer helpers decode transform paths" {
     }
 }
 
+test "rpc promised answer helpers write transform paths" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const promised = try generated.PromisedAnswer.initRootTyped(&builder);
+    try promised.set_questionId(82);
+    try cpz.rpc.initWirePromisedAnswerTransform(promised, &.{
+        .noop,
+        .{ .get_pointer_field = 4 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const promised_reader = generated.PromisedAnswer.fromReader(try reader.getRoot());
+    const ops = try cpz.rpc.promisedAnswerTransformFromWireAlloc(std.testing.allocator, promised_reader);
+    defer std.testing.allocator.free(ops);
+    try std.testing.expectEqual(@as(usize, 2), ops.len);
+    try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp.noop, ops[0]);
+    try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp{ .get_pointer_field = 4 }, ops[1]);
+}
+
 fn decodeCapDescriptor(builder: *cpz.MessageBuilder) !cpz.rpc.CapDescriptor {
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const descriptor = generated.CapDescriptor.fromReader(try reader.getRoot());

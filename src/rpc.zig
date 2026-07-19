@@ -404,6 +404,17 @@ pub fn promisedAnswerTransformFromWireAlloc(allocator: std.mem.Allocator, promis
     return ops;
 }
 
+pub fn initWirePromisedAnswerTransform(promised_answer: anytype, ops: []const PromisedAnswerOp) !void {
+    const transform = try promised_answer.init_transform(ops.len);
+    for (ops, 0..) |op, index| {
+        const wire_op = try transform.get(index);
+        switch (op) {
+            .noop => try wire_op.set_noop(),
+            .get_pointer_field => |field_index| try wire_op.set_getPointerField(field_index),
+        }
+    }
+}
+
 pub fn callTargetFromWireCall(call: anytype) !CallTarget {
     return targetFromWireMessageTarget(try call.target());
 }
