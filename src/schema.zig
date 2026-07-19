@@ -5040,7 +5040,7 @@ fn defaultLiteralIsValidBareLiteral(file: *const File, scope: ?*const Struct, ty
         .bool => parseBoolLiteral(literal) != null,
         .float32 => parseFloatLiteral(f32, literal) != null,
         .float64 => parseFloatLiteral(f64, literal) != null,
-        .named => |type_name| if (findEnum(file, type_name)) |enum_decl| enumLiteralOrdinal(enum_decl, literal) != null else false,
+        .named => |type_name| if (findEnumRelative(file, if (scope) |owner| owner.name else null, type_name)) |enum_decl| enumLiteralOrdinal(enum_decl, literal) != null else false,
         else => false,
     };
 }
@@ -5297,16 +5297,35 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
             }
         },
         .named => |type_name| {
-            if (findEnum(file, type_name)) |enum_decl| {
+            const owner_name = if (scope) |owner| owner.name else null;
+            var owned_names = std.ArrayList([]const u8).empty;
+            defer {
+                for (owned_names.items) |name| allocator.free(name);
+                owned_names.deinit(allocator);
+            }
+            if (findEnumRelative(file, owner_name, type_name)) |enum_decl| {
                 if (enumLiteralOrdinal(enum_decl, raw) != null or enumLiteralOrdinal(enum_decl, literal_raw) != null) return;
                 if (const_ref) |decl| {
+                    const const_owner = constDeclOwnerName(file, decl);
                     const resolved_decl_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
-                    if (resolved_decl_ty == .named and findEnum(file, resolved_decl_ty.named) != null) return;
+                    if (resolved_decl_ty == .named and findEnumRelative(file, const_owner, resolved_decl_ty.named) != null) return;
                 }
                 if (std.mem.indexOfScalar(u8, type_name, '.') != null) return;
                 return error.UnexpectedToken;
             }
             const struct_decl = findStructDirect(file, type_name) orelse {
+                if (try resolveAppliedAliasInScopeAlloc(allocator, file, scope, type_name, &owned_names)) |resolved_alias_ty_const| {
+                    var resolved_alias_ty = resolved_alias_ty_const;
+                    defer resolved_alias_ty.deinit(allocator);
+                    try validateTypeAggregateDefault(allocator, file, scope, resolved_alias_ty, raw);
+                    return;
+                }
+                if (try resolveTypeApplicationSuffixAliasAlloc(allocator, file, scope, type_name, &owned_names)) |resolved_alias_ty_const| {
+                    var resolved_alias_ty = resolved_alias_ty_const;
+                    defer resolved_alias_ty.deinit(allocator);
+                    try validateTypeAggregateDefault(allocator, file, scope, resolved_alias_ty, raw);
+                    return;
+                }
                 if (parameterNameInScope(file, scope, type_name)) {
                     if (std.mem.eql(u8, raw, "null") or std.mem.eql(u8, raw, "void") or raw[0] == '(' or raw[0] == '[' or const_ref != null) return;
                     return error.UnexpectedToken;
@@ -5324,18 +5343,17 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 }
                 return error.UnexpectedToken;
             };
-            const type_args = try splitTypeApplicationArgsAlloc(allocator, type_name);
-            defer if (type_args) |args| {
-                for (args) |*arg| arg.deinit(allocator);
-                allocator.free(args);
-            };
-            const args = type_args orelse &[_]Type{};
-            var owned_names = std.ArrayList([]const u8).empty;
-            defer {
-                for (owned_names.items) |name| allocator.free(name);
-                owned_names.deinit(allocator);
-            }
+            var bindings = try typeApplicationBindingsAlloc(allocator, file, scope, type_name, struct_decl);
+            defer bindings.deinit(allocator);
+            const args = bindings.args;
+            const parameters = bindings.parameters;
             if (std.mem.eql(u8, raw, "null")) return;
+            var applied_scope_storage: Struct = undefined;
+            const validation_scope: *const Struct = if (args.len != 0) blk: {
+                applied_scope_storage = struct_decl.*;
+                applied_scope_storage.name = type_name;
+                break :blk &applied_scope_storage;
+            } else struct_decl;
             if (raw[0] != '(') {
                 if (const_ref) |decl| {
                     const resolved_decl_ty = nonNullDefaultType(resolveConstDeclType(file, scope, decl));
@@ -5344,11 +5362,11 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 }
                 if (struct_decl.fields.len == 0) return error.UnexpectedToken;
                 var validation_ty = if (args.len != 0)
-                    try substituteGenericTypeAlloc(allocator, &owned_names, struct_decl.fields[0].ty, struct_decl.parameters, args)
+                    try substituteGenericTypeAlloc(allocator, &owned_names, struct_decl.fields[0].ty, parameters, args)
                 else
                     struct_decl.fields[0].ty;
                 defer if (args.len != 0) validation_ty.deinit(allocator);
-                try validateTypeAggregateDefault(allocator, file, struct_decl, validation_ty, raw);
+                try validateTypeAggregateDefault(allocator, file, validation_scope, validation_ty, raw);
                 return;
             }
             const fields = try parseConstStructFieldsAlloc(allocator, raw);
@@ -5356,11 +5374,11 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
             for (fields) |const_field| {
                 const schema_field = findStructFieldByNameOrGroupFirst(struct_decl, const_field.name) orelse return error.UnexpectedToken;
                 var validation_ty = if (args.len != 0)
-                    try substituteGenericTypeAlloc(allocator, &owned_names, schema_field.ty, struct_decl.parameters, args)
+                    try substituteGenericTypeAlloc(allocator, &owned_names, schema_field.ty, parameters, args)
                 else
                     schema_field.ty;
                 defer if (args.len != 0) validation_ty.deinit(allocator);
-                try validateTypeAggregateDefault(allocator, file, struct_decl, validation_ty, const_field.literal);
+                try validateTypeAggregateDefault(allocator, file, validation_scope, validation_ty, const_field.literal);
             }
         },
         .any_pointer => try validateAnyPointerLikeDefault(file, scope, raw, const_ref, .any),
@@ -5368,6 +5386,209 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
         .any_list => try validateAnyPointerLikeDefault(file, scope, raw, const_ref, .list),
         .capability => try validateAnyPointerLikeDefault(file, scope, raw, const_ref, .capability),
     }
+}
+
+fn resolveTypeApplicationSuffixAliasAlloc(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    type_name: []const u8,
+    owned_names: *std.ArrayList([]const u8),
+) LayoutError!?Type {
+    const open = typeApplicationOpen(type_name) orelse return null;
+    const close = (try matchingParen(type_name, open)) orelse return null;
+    var suffix_start = try skipTriviaIndex(type_name, close + 1);
+    if (suffix_start >= type_name.len or type_name[suffix_start] != '.') return null;
+    suffix_start += 1;
+    suffix_start = try skipTriviaIndex(type_name, suffix_start);
+    if (suffix_start >= type_name.len) return null;
+
+    const raw_base = std.mem.trim(u8, type_name[0..open], " \t\r\n");
+    const base = try canonicalTypeNameAlloc(allocator, raw_base);
+    defer allocator.free(base);
+    const owner_decl = findStructDirect(file, base) orelse blk: {
+        if (scope) |owner| break :blk findStructInOwnerScope(file, owner.name, base);
+        break :blk null;
+    } orelse return null;
+    const args = (try splitTypeApplicationArgsAlloc(allocator, type_name)) orelse return null;
+    defer {
+        for (args) |*arg| arg.deinit(allocator);
+        allocator.free(args);
+    }
+    return resolveAliasSuffixAlloc(allocator, file, scope, owner_decl.name, type_name[0 .. close + 1], owner_decl.aliases, owner_decl.parameters, args, type_name[suffix_start..], owned_names);
+}
+
+fn resolveAppliedAliasInScopeAlloc(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    type_name: []const u8,
+    owned_names: *std.ArrayList([]const u8),
+) LayoutError!?Type {
+    var current = if (scope) |owner| owner.name else return null;
+    while (true) {
+        const owner_decl = findStructDirect(file, current) orelse {
+            current = if (lastTopLevelDot(current)) |dot| current[0..dot] else return null;
+            continue;
+        };
+        if (try splitTypeApplicationArgsAlloc(allocator, current)) |args| {
+            defer {
+                for (args) |*arg| arg.deinit(allocator);
+                allocator.free(args);
+            }
+            if (try resolveAliasSuffixAlloc(allocator, file, scope, owner_decl.name, current, owner_decl.aliases, owner_decl.parameters, args, type_name, owned_names)) |resolved| return resolved;
+        } else {
+            if (try resolveAliasSuffixAlloc(allocator, file, scope, owner_decl.name, current, owner_decl.aliases, owner_decl.parameters, &.{}, type_name, owned_names)) |resolved| return resolved;
+        }
+        current = if (lastTopLevelDot(current)) |dot| current[0..dot] else return null;
+    }
+}
+
+fn resolveAliasSuffixAlloc(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    owner_decl_name: []const u8,
+    applied_owner_name: []const u8,
+    aliases: []const AliasDecl,
+    parameters: []const []const u8,
+    args: []const Type,
+    suffix: []const u8,
+    owned_names: *std.ArrayList([]const u8),
+) LayoutError!?Type {
+    const dot = firstTopLevelDot(suffix);
+    const raw_head = if (dot) |index| suffix[0..index] else suffix;
+    const head_open = typeApplicationOpen(raw_head);
+    const head = std.mem.trim(u8, if (head_open) |index| raw_head[0..index] else raw_head, " \t\r\n");
+    const head_app = if (head_open) |index| raw_head[index..] else "";
+    const tail = if (dot) |index| suffix[index + 1 ..] else "";
+    const alias = findAliasDeclInList(aliases, head) orelse return null;
+    var target_ty = try substituteGenericTypeAlloc(allocator, owned_names, alias.target, parameters, args);
+    errdefer target_ty.deinit(allocator);
+    target_ty = try prefixRelativeAliasTargetAlloc(allocator, file, owner_decl_name, applied_owner_name, target_ty, owned_names);
+    if (head_app.len != 0) {
+        const target_name = try schemaTypeNameAlloc(allocator, target_ty);
+        defer allocator.free(target_name);
+        target_ty.deinit(allocator);
+        const applied_name = try std.fmt.allocPrint(allocator, "{s}{s}", .{ target_name, head_app });
+        errdefer allocator.free(applied_name);
+        try owned_names.append(allocator, applied_name);
+        target_ty = .{ .named = applied_name };
+    }
+    if (tail.len == 0) return target_ty;
+
+    const target_name = try schemaTypeNameAlloc(allocator, target_ty);
+    defer allocator.free(target_name);
+    target_ty.deinit(allocator);
+    const combined = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ target_name, tail });
+    errdefer allocator.free(combined);
+    try owned_names.append(allocator, combined);
+    if (try resolveTypeApplicationSuffixAliasAlloc(allocator, file, scope, combined, owned_names)) |resolved| return resolved;
+    return .{ .named = combined };
+}
+
+fn prefixRelativeAliasTargetAlloc(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    owner_decl_name: []const u8,
+    applied_owner_name: []const u8,
+    ty: Type,
+    owned_names: *std.ArrayList([]const u8),
+) LayoutError!Type {
+    if (ty != .named) return ty;
+    const name = ty.named;
+    if (name.len == 0 or name[0] == '.') return ty;
+    const head = try aliasReferenceHeadAlloc(allocator, name);
+    defer allocator.free(head);
+    if (findStructInOwnerScope(file, owner_decl_name, head) == null and
+        findInterfaceInOwnerScope(file, owner_decl_name, head) == null and
+        !isEnumDirectInOwnerScope(file, owner_decl_name, head) and
+        !isAnnotationDirectInOwnerScope(file, owner_decl_name, head))
+    {
+        return ty;
+    }
+    const prefixed = try std.fmt.allocPrint(allocator, "{s}.{s}", .{ applied_owner_name, name });
+    errdefer allocator.free(prefixed);
+    try owned_names.append(allocator, prefixed);
+    return .{ .named = prefixed };
+}
+
+fn findAliasDeclInList(aliases: []const AliasDecl, name: []const u8) ?AliasDecl {
+    for (aliases) |alias| {
+        if (std.mem.eql(u8, alias.name, name)) return alias;
+    }
+    return null;
+}
+
+const TypeApplicationBindings = struct {
+    parameters: []const []const u8,
+    args: []Type,
+
+    fn deinit(self: *TypeApplicationBindings, allocator: std.mem.Allocator) void {
+        allocator.free(self.parameters);
+        for (self.args) |*arg| arg.deinit(allocator);
+        allocator.free(self.args);
+        self.* = undefined;
+    }
+};
+
+fn typeApplicationBindingsAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8, fallback_decl: *const Struct) LayoutError!TypeApplicationBindings {
+    var parameters = std.ArrayList([]const u8).empty;
+    errdefer parameters.deinit(allocator);
+    var args = std.ArrayList(Type).empty;
+    errdefer {
+        for (args.items) |*arg| arg.deinit(allocator);
+        args.deinit(allocator);
+    }
+
+    var owner_name = if (scope) |owner| owner.name else null;
+    var current_decl: ?*const Struct = null;
+    var start: usize = 0;
+    while (start < type_name.len) {
+        const rest = type_name[start..];
+        const dot = firstTopLevelDot(rest);
+        const segment = std.mem.trim(u8, if (dot) |index| rest[0..index] else rest, " \t\r\n");
+        const open = typeApplicationOpen(segment);
+        const raw_base = if (open) |index| std.mem.trim(u8, segment[0..index], " \t\r\n") else segment;
+        const base = try canonicalTypeNameAlloc(allocator, raw_base);
+        defer allocator.free(base);
+
+        const decl = if (current_decl) |owner_decl|
+            findStructInOwnerScope(file, owner_decl.name, base)
+        else
+            findStructDirect(file, base) orelse if (owner_name) |owner| findStructInOwnerScope(file, owner, base) else null;
+        if (decl) |resolved_decl| {
+            if (open != null) {
+                try parameters.appendSlice(allocator, resolved_decl.parameters);
+                if (try splitTypeApplicationArgsAlloc(allocator, segment)) |segment_args| {
+                    defer {
+                        for (segment_args) |*arg| arg.deinit(allocator);
+                        allocator.free(segment_args);
+                    }
+                    for (segment_args) |*arg| {
+                        try args.append(allocator, arg.*);
+                        arg.* = .void;
+                    }
+                }
+            }
+            current_decl = resolved_decl;
+            owner_name = resolved_decl.name;
+        }
+
+        if (dot) |index| {
+            start += index + 1;
+        } else {
+            break;
+        }
+    }
+
+    if (parameters.items.len == 0 and args.items.len == 0 and fallback_decl.parameters.len != 0) {
+        try parameters.appendSlice(allocator, fallback_decl.parameters);
+    }
+    return .{
+        .parameters = try parameters.toOwnedSlice(allocator),
+        .args = try args.toOwnedSlice(allocator),
+    };
 }
 
 fn validateAnyPointerLikeDefault(file: *const File, scope: ?*const Struct, raw: []const u8, const_ref: ?*const ConstDecl, comptime want: enum { any, struct_ptr, list, capability }) LayoutError!void {
@@ -5708,7 +5929,7 @@ fn classifyScoped(file: *const File, scope: ?*const Struct, ty: Type) LayoutErro
         .int64, .uint64, .float64 => .{ .data = 64 },
         .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => .pointer,
         .optional => .pointer,
-        .named => |name| if (findEnum(file, name) != null) .{ .data = 16 } else .pointer,
+        .named => |name| if (findEnumRelative(file, if (scope) |owner| owner.name else null, name) != null) .{ .data = 16 } else .pointer,
     };
 }
 
@@ -5721,6 +5942,24 @@ fn findEnum(file: *const File, name: []const u8) ?*const EnumDecl {
     };
 }
 
+fn findEnumRelative(file: *const File, owner_name: ?[]const u8, name: []const u8) ?*const EnumDecl {
+    if (findEnum(file, name)) |decl| return decl;
+    var current = owner_name;
+    while (current) |owner| {
+        for (file.enums) |*decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + name.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], name))
+            {
+                return decl;
+            }
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
+    }
+    return null;
+}
+
 fn findEnumDirect(file: *const File, name: []const u8) ?*const EnumDecl {
     for (file.enums) |*decl| {
         if (typeNameEqualsCanonical(name, decl.name)) return decl;
@@ -5731,6 +5970,23 @@ fn findEnumDirect(file: *const File, name: []const u8) ?*const EnumDecl {
 fn findStructDirect(file: *const File, name: []const u8) ?*const Struct {
     for (file.structs) |*decl| {
         if (typeNameEqualsCanonical(name, decl.name)) return decl;
+    }
+    return null;
+}
+
+fn findStructInOwnerScope(file: *const File, owner_name: []const u8, name: []const u8) ?*const Struct {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        for (file.structs) |*decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + name.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], name))
+            {
+                return decl;
+            }
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
     }
     return null;
 }
@@ -5750,6 +6006,23 @@ const builtin_capability_interface = InterfaceDecl{ .name = "Capability" };
 fn findInterfaceDirect(file: *const File, name: []const u8) ?*const InterfaceDecl {
     for (file.interfaces) |*decl| {
         if (typeNameEqualsCanonical(name, decl.name)) return decl;
+    }
+    return null;
+}
+
+fn findInterfaceInOwnerScope(file: *const File, owner_name: []const u8, name: []const u8) ?*const InterfaceDecl {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        for (file.interfaces) |*decl| {
+            if (std.mem.startsWith(u8, decl.name, owner) and
+                decl.name.len == owner.len + 1 + name.len and
+                decl.name[owner.len] == '.' and
+                std.mem.eql(u8, decl.name[owner.len + 1 ..], name))
+            {
+                return decl;
+            }
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
     }
     return null;
 }
@@ -8681,6 +8954,79 @@ test "schema parser tolerates nested declarations and dotted type names" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 2 }, layouts.structs[1].fields[3].slot);
     try std.testing.expectEqual(FieldSlot{ .pointer = 3 }, layouts.structs[1].fields[4].slot);
     try std.testing.expectEqual(FieldSlot{ .pointer = 4 }, layouts.structs[1].fields[5].slot);
+}
+
+test "schema layout planner resolves relative nested enum defaults" {
+    var file = try parse(std.testing.allocator,
+        \\struct Outer {
+        \\  struct Inner {
+        \\    enum State {
+        \\      ready @0;
+        \\      done @1;
+        \\    }
+        \\  }
+        \\  state @0 :Inner.State = done;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 0 }, layouts.structs[1].fields[0].slot);
+}
+
+test "schema layout planner binds outer generic args for nested struct defaults" {
+    var file = try parse(std.testing.allocator,
+        \\struct Box(Foo, Bar) {
+        \\  struct Inner {
+        \\    foo @0 :Foo;
+        \\    bar @1 :Bar;
+        \\  }
+        \\}
+        \\struct Defaults {
+        \\  value @0 :Box(UInt32, Text).Inner = (foo = 123, bar = "ok");
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    var saw_defaults = false;
+    for (layouts.structs) |layout| {
+        if (std.mem.eql(u8, layout.decl.name, "Defaults")) {
+            saw_defaults = true;
+            try std.testing.expectEqual(@as(u16, 1), layout.pointer_count);
+        }
+    }
+    try std.testing.expect(saw_defaults);
+}
+
+test "schema layout planner binds generic aliases in default types" {
+    var file = try parse(std.testing.allocator,
+        \\struct Box(Foo, Bar) {
+        \\  using AliasFoo = Foo;
+        \\  using AliasInner = Inner;
+        \\  struct Inner {
+        \\    foo @0 :Foo;
+        \\    bar @1 :Bar;
+        \\  }
+        \\}
+        \\struct Defaults {
+        \\  value @0 :Box(UInt32, Text).AliasFoo = 123;
+        \\  inner @1 :Box(UInt32, Text).AliasInner = (foo = 123, bar = "ok");
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    var saw_defaults = false;
+    for (layouts.structs) |layout| {
+        if (std.mem.eql(u8, layout.decl.name, "Defaults")) {
+            saw_defaults = true;
+        }
+    }
+    try std.testing.expect(saw_defaults);
 }
 
 test "schema resolver inherits aliases from ancestor declaration scopes" {
