@@ -641,6 +641,32 @@ test "rpc top-level call helpers initialize messages" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
 }
 
+test "rpc top-level call helpers initialize routing options and flags" {
+    var registry: cpz.CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(std.testing.allocator);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageWithOptions(std.testing.allocator, root, 76, .{ .imported_cap = 5 }, &registry, .{
+        .send_results_to = .yourself,
+        .flags = .{
+            .allow_third_party_tail_call = true,
+            .no_promise_pipelining = true,
+            .only_promise_pipeline = true,
+        },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call = try generated.Message.fromReader(try reader.getRoot()).call();
+    try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(call));
+    try std.testing.expectEqual(cpz.rpc.CallFlags{
+        .allow_third_party_tail_call = true,
+        .no_promise_pipelining = true,
+        .only_promise_pipeline = true,
+    }, cpz.rpc.callFlagsFromWireCall(call));
+}
+
 test "rpc wire calls apply target and params state together" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();

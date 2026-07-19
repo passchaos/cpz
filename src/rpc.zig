@@ -166,6 +166,11 @@ pub const CallFlags = struct {
     only_promise_pipeline: bool = false,
 };
 
+pub const CallOptions = struct {
+    send_results_to: CallSendResultsTo = .caller,
+    flags: CallFlags = .{},
+};
+
 pub const CapDescriptor = union(enum) {
     none,
     sender_hosted: ExportId,
@@ -767,13 +772,36 @@ pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, re
     return descriptors;
 }
 
-pub fn initWireCall(allocator: std.mem.Allocator, call: anytype, question_id: QuestionId, target: CallTarget, registry: anytype) !void {
+pub fn initWireCallWithOptions(
+    allocator: std.mem.Allocator,
+    call: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    registry: anytype,
+    options: CallOptions,
+) !void {
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
-    try writeSendResultsToToWire(.caller, call);
+    try writeSendResultsToToWire(options.send_results_to, call);
+    try writeCallFlagsToWire(options.flags, call);
     const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
     defer allocator.free(descriptors);
     try initWireCallParamsCapTable(call, descriptors);
+}
+
+pub fn initWireCall(allocator: std.mem.Allocator, call: anytype, question_id: QuestionId, target: CallTarget, registry: anytype) !void {
+    try initWireCallWithOptions(allocator, call, question_id, target, registry, .{});
+}
+
+pub fn initWireCallMessageWithOptions(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    try initWireCallWithOptions(allocator, try message.init_call(), question_id, target, registry, options);
 }
 
 pub fn initWireCallMessage(allocator: std.mem.Allocator, message: anytype, question_id: QuestionId, target: CallTarget, registry: anytype) !void {
