@@ -8089,6 +8089,13 @@ test "validation reports traversal budget and bounds failures" {
     var invalid = MessageReader.init(&bad_segments, .{});
     try testing.expectError(error.PointerOutOfBounds, invalid.validate());
 
+    const root_self_cycle = try wire.encodeStruct(0, 0, 1);
+    const field_self_cycle = try wire.encodeStruct(-1, 0, 1);
+    var cyclic_words = [_]wire.Word{ root_self_cycle, field_self_cycle };
+    const cyclic_segments = [_]serialize.ConstSegment{std.mem.sliceAsBytes(&cyclic_words)};
+    var cyclic = MessageReader.init(&cyclic_segments, .{ .nesting_limit = 4, .traversal_limit_words = 100 });
+    try testing.expectError(error.NestingLimitExceeded, cyclic.validate());
+
     const misaligned_segment = [_]u8{ 0, 0, 0, 0 };
     var misaligned = MessageReader.init(&.{&misaligned_segment}, .{});
     try testing.expectError(error.SegmentNotWordAligned, misaligned.validate());
