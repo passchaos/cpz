@@ -1335,6 +1335,27 @@ pub fn dispatchCall(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchCallMethod(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    const result = try handler(context, call);
+    try initDispatchReturnMessage(response_message, call.questionId(), result);
+}
+
 pub fn dispatchWireMessageOutcome(
     state: *State,
     allocator: std.mem.Allocator,

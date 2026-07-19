@@ -1986,6 +1986,73 @@ test "rpc generic call dispatcher builds capability returns" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(105));
 }
 
+test "rpc method-aware call dispatcher filters methods" {
+    const Handler = struct {
+        fn handle(seen_question: *u32, call: anytype) !cpz.rpc.DispatchResult {
+            seen_question.* = call.questionId();
+            return .empty;
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(27);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 1 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var seen_question: u32 = 0;
+        try cpz.rpc.dispatchCallMethod(&state, std.testing.allocator, response_root, try request.call(), .{ .interface_id = 0xabc, .method_id = 1 }, &seen_question, Handler.handle);
+        try std.testing.expectEqual(@as(u32, 27), seen_question);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results, try cpz.rpc.returnOutcomeFromWireReturn(try response.return_()));
+    }
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(28);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 2 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var seen_question: u32 = 0;
+        try cpz.rpc.dispatchCallMethod(&state, std.testing.allocator, response_root, try request.call(), .{ .interface_id = 0xabc, .method_id = 1 }, &seen_question, Handler.handle);
+        try std.testing.expectEqual(@as(u32, 0), seen_question);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try response.return_());
+        const exception = switch (outcome) {
+            .exception => |value| value,
+            else => return error.TestUnexpectedResult,
+        };
+        try std.testing.expectEqual(@as(u16, 3), exception.type_raw);
+    }
+}
+
 test "rpc generic dispatch return helper builds non-result outcomes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });

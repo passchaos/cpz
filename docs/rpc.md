@@ -118,6 +118,8 @@ that a complete RPC runtime exists.
   same for calls that return a single capability, an empty no-finish result,
   exceptions, cancellation, results-sent-elsewhere, or take-from-other-question
   outcomes, including await-from-third-party tail-call handoffs. A
+  method-aware call dispatcher can filter on interface/method IDs and emit an
+  unimplemented exception for mismatches. A
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized or state was
   applied, and apply other supported top-level wire messages to state; a batch
