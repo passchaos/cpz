@@ -466,6 +466,7 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqualStrings("nickname", generated.Person.@"cpz.fieldByDefault"("\"an\" \"on\"").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByDefault"("missing"));
     try std.testing.expectEqualStrings("id", generated.Person.@"cpz.fieldByAnnotations"("").?.name);
+    try std.testing.expectEqualStrings("active", generated.Person.@"cpz.fieldByAnnotations"("$schemaNote(\"\\\\n\")").?.name);
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByAnnotations"("$schemaNote(\"person-name\")").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByAnnotations"("missing"));
     try std.testing.expectEqualStrings("name", generated.Person.@"cpz.fieldByOrdinal"(2).?.name);
@@ -475,6 +476,8 @@ test "generated declaration and field annotation metadata compiles" {
     try std.testing.expectEqual(@as(?cpz.schema.FieldMetadata, null), generated.Person.@"cpz.fieldByIndex"(999));
     try std.testing.expectEqualStrings("pointer", generated.Person.@"cpz.fields"[2].slot);
     try std.testing.expectEqual(@as(usize, 0), generated.Person.@"cpz.fields"[2].offset);
+    try std.testing.expectEqualStrings("$schemaNote(\"\\\\n\")", generated.Person.@"cpz.fields"[1].annotations);
+    try std.testing.expectEqualStrings("$schemaNote(\"\\\\n\")", generated.Person.@"cpz.field.active.annotations");
     try std.testing.expectEqualStrings("$schemaNote(\"person-name\")", generated.Person.@"cpz.fields"[2].annotations);
     try std.testing.expect(generated.Person.@"cpz.fields"[2].hasAnnotations());
     try std.testing.expect(!generated.Person.@"cpz.fields"[0].hasAnnotations());

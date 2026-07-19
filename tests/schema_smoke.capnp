@@ -66,7 +66,7 @@ annotation maybeService(method) :?ServiceAlias;
 
 struct Person $schemaNote("person") {
   id @0 :UInt32 = 42;
-  active @1 :Bool = true;
+  active @1 :Bool = true $schemaNote("\\n");
   name @2 :Text $schemaNote("person-name");
   favorite @3 :Color = Color.green;
   scores @4 :List(UInt32) = [1, 2, 3];
