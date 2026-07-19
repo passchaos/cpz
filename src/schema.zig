@@ -14619,6 +14619,10 @@ fn flatByteLenForSegmentWords(segment_words: usize) LayoutError!usize {
     return flatByteLenForSegmentBytes(try wordByteLen(segment_words));
 }
 
+fn rootListSegmentWords(data_words: usize) LayoutError!usize {
+    return std.math.add(usize, 1, data_words) catch return error.SerializedSizeOverflow;
+}
+
 fn flatByteLenForSegmentBytes(segment_bytes: usize) LayoutError!usize {
     return std.math.add(usize, @sizeOf(u64), segment_bytes) catch return error.SerializedSizeOverflow;
 }
@@ -14843,7 +14847,7 @@ fn emitEmbeddedStructConst(
 
 fn listUnsignedFlatBytesAlloc(comptime T: type, allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, element_size: wire.ElementSize) LayoutError![]u8 {
     const data_words = try wire.wordsForList(element_size, items.len);
-    const segment_words = 1 + data_words;
+    const segment_words = try rootListSegmentWords(data_words);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
@@ -14863,7 +14867,7 @@ fn listUnsignedFlatBytesAlloc(comptime T: type, allocator: std.mem.Allocator, fi
 
 fn listSignedFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, element_size: wire.ElementSize) LayoutError![]u8 {
     const data_words = try wire.wordsForList(element_size, items.len);
-    const segment_words = 1 + data_words;
+    const segment_words = try rootListSegmentWords(data_words);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
@@ -14883,7 +14887,7 @@ fn listSignedFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.m
 
 fn listFloatFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem, element_size: wire.ElementSize) LayoutError![]u8 {
     const data_words = try wire.wordsForList(element_size, items.len);
-    const segment_words = 1 + data_words;
+    const segment_words = try rootListSegmentWords(data_words);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
@@ -14903,7 +14907,7 @@ fn listFloatFlatBytesAlloc(comptime T: type, comptime U: type, allocator: std.me
 
 fn listBoolFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem) LayoutError![]u8 {
     const data_words = try wire.wordsForList(.bit, items.len);
-    const segment_words = 1 + data_words;
+    const segment_words = try rootListSegmentWords(data_words);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
@@ -14923,7 +14927,7 @@ fn listBoolFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope
 
 fn listCapabilityFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, items: []const ConstListItem) LayoutError![]u8 {
     const data_words = try wire.wordsForList(.pointer, items.len);
-    const segment_words = 1 + data_words;
+    const segment_words = try rootListSegmentWords(data_words);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
@@ -15033,7 +15037,7 @@ fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File,
 
 fn listEnumFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, enum_decl: *const EnumDecl, items: []const ConstListItem) LayoutError![]u8 {
     const data_words = try wire.wordsForList(.two_bytes, items.len);
-    const segment_words = 1 + data_words;
+    const segment_words = try rootListSegmentWords(data_words);
     if (segment_words > std.math.maxInt(u32)) return error.SegmentTooLarge;
     const flat = try allocator.alloc(u8, try flatByteLenForSegmentWords(segment_words));
     errdefer allocator.free(flat);
@@ -25867,6 +25871,8 @@ test "schema list flats resolve scalar const item references" {
     try std.testing.expectError(error.SerializedSizeOverflow, wordByteLen(std.math.maxInt(usize)));
     try std.testing.expectEqual(@as(usize, 8), try wordByteOffset(1));
     try std.testing.expectError(error.SerializedSizeOverflow, wordByteOffset(std.math.maxInt(usize)));
+    try std.testing.expectEqual(@as(usize, 2), try rootListSegmentWords(1));
+    try std.testing.expectError(error.SerializedSizeOverflow, rootListSegmentWords(std.math.maxInt(usize)));
     try std.testing.expectEqual(@as(usize, 4), try structPointerWordIndex(1, 2, 1));
     try std.testing.expectError(error.SerializedSizeOverflow, structPointerWordIndex(std.math.maxInt(usize), 1, 0));
     try std.testing.expectError(error.SerializedSizeOverflow, structPointerWordIndex(std.math.maxInt(usize) - 1, 1, 1));
