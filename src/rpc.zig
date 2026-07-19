@@ -532,6 +532,15 @@ pub fn resolveInfoFromWireResolve(resolve: anytype) !ResolveInfo {
     };
 }
 
+pub fn writeResolveInfoToWire(info: ResolveInfo, resolve: anytype) !void {
+    try resolve.set_promiseId(info.promise_id);
+    if (info.cap) |descriptor| {
+        try writeCapDescriptorToWire(descriptor, try resolve.init_cap());
+    } else {
+        return error.InvalidTransition;
+    }
+}
+
 pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !void {
     switch (descriptor) {
         .none => try builder.set_none(),

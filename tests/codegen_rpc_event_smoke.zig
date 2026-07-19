@@ -881,6 +881,22 @@ test "rpc resolve cap descriptors replace promise exports" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(91));
 }
 
+test "rpc resolve info helpers write cap descriptors" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const resolve = try generated.Resolve.initRootTyped(&builder);
+    try cpz.rpc.writeResolveInfoToWire(.{
+        .promise_id = 92,
+        .cap = .{ .sender_promise = 93 },
+    }, resolve);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const resolve_reader = generated.Resolve.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.resolveInfoFromWireResolve(resolve_reader);
+    try std.testing.expectEqual(@as(u32, 92), info.promise_id);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_promise = 93 }, info.cap.?);
+}
+
 test "decoded wire events can drive the supported state subset" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
