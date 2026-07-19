@@ -1915,7 +1915,7 @@ pub const Parser = struct {
         var decl_ids = std.AutoHashMap(u64, void).init(self.allocator);
         defer decl_ids.deinit();
         var file_id: ?u64 = null;
-        var saw_top_level_item = false;
+        var saw_top_level_declaration = false;
         self.parsed_structs = &structs;
         self.parsed_enums = &enums;
         self.parsed_interfaces = &interfaces;
@@ -1935,44 +1935,43 @@ pub const Parser = struct {
 
         while (self.lookahead.tag != .eof) {
             if (try self.eatKeyword("struct")) {
-                saw_top_level_item = true;
+                saw_top_level_declaration = true;
                 var decl = try self.parseStruct(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedStruct(decl);
                 keep = true;
             } else if (try self.eatKeyword("enum")) {
-                saw_top_level_item = true;
+                saw_top_level_declaration = true;
                 var decl = try self.parseEnum(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedEnum(decl);
                 keep = true;
             } else if (try self.eatKeyword("interface")) {
-                saw_top_level_item = true;
+                saw_top_level_declaration = true;
                 var decl = try self.parseInterfaceDeclaration(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedInterface(decl);
                 keep = true;
             } else if (try self.eatKeyword("using")) {
-                saw_top_level_item = true;
                 try self.parseUsingOrSkip(&aliases, &imports, &decl_names);
             } else if (try self.eatKeyword("const")) {
-                saw_top_level_item = true;
+                saw_top_level_declaration = true;
                 try self.parseConstOrSkip(&consts, &decl_names);
             } else if (try self.eatKeyword("annotation")) {
-                saw_top_level_item = true;
+                saw_top_level_declaration = true;
                 var decl = try self.parseAnnotationDeclaration(null);
                 var keep = false;
                 errdefer if (!keep) decl.deinit(self.allocator);
                 try self.appendParsedAnnotation(decl);
                 keep = true;
             } else if (self.lookahead.tag == .dollar) {
-                saw_top_level_item = true;
+                saw_top_level_declaration = true;
                 try raw_file_annotations.append(self.allocator, try self.takeAnnotationSuffixUntilSemicolon());
             } else if (self.lookahead.tag == .at) {
-                if (saw_top_level_item) return error.UnexpectedToken;
+                if (saw_top_level_declaration) return error.UnexpectedToken;
                 if (file_id != null) return error.OrdinalCollision;
                 file_id = try self.parseFileId();
                 try self.registerDeclarationId(file_id);
@@ -6141,6 +6140,30 @@ test "schema parser rejects duplicate file ids" {
         \\$unknown("file-annotation");
         \\@0xaaaa;
     ));
+}
+
+test "schema parser accepts file id after top-level using" {
+    var file = try parse(std.testing.allocator,
+        \\using Cxx = import "/capnp/c++.capnp";
+        \\@0xff75ddc6a36723c9;
+        \\$Cxx.namespace("example");
+        \\
+        \\struct ParkingLot {
+        \\  cars @0 :List(Car);
+        \\}
+        \\
+        \\struct Car {
+        \\  make @0 :Text;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(?u64, 0xff75ddc6a36723c9), file.id);
+    try std.testing.expectEqual(@as(usize, 1), file.imports.len);
+    try std.testing.expectEqualStrings("Cxx", file.imports[0].name);
+    try std.testing.expectEqual(@as(usize, 1), file.annotations_raw.len);
+    try std.testing.expectEqualStrings("$Cxx.namespace(\"example\")", file.annotations_raw[0]);
+    try std.testing.expectEqual(@as(usize, 2), file.structs.len);
 }
 
 test "schema parser rejects duplicate declaration ids" {
