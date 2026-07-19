@@ -8522,7 +8522,7 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     }
     for (file.annotations_raw, 0..) |annotation_raw, index| {
         const indent = if (options.namespace != null) "    " else "";
-        const annotation_literal = try zigStringLiteralAlloc(allocator, annotation_raw);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, annotation_raw);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, &out,
             \\{s}pub const @"cpz.file_annotation.{}": []const u8 = {s};
@@ -9482,7 +9482,7 @@ fn zigNamesEqual(allocator: std.mem.Allocator, lhs_raw: []const u8, rhs_raw: []c
 
 fn emitDeclarationAnnotations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), annotations: []const u8, indent: []const u8) LayoutError!void {
     if (annotations.len == 0) return;
-    const annotation_literal = try zigStringLiteralAlloc(allocator, annotations);
+    const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, annotations);
     defer allocator.free(annotation_literal);
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.annotations": []const u8 = {s};
@@ -9593,7 +9593,7 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
         if (index != 0) try out.appendSlice(allocator, ", ");
         const value_name_literal = try zigStringLiteralAlloc(allocator, value.name);
         defer allocator.free(value_name_literal);
-        const annotation_literal = try zigStringLiteralAlloc(allocator, value.annotations);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, value.annotations);
         defer allocator.free(annotation_literal);
         if (value.annotations.len != 0) {
             try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .annotations = {s} }}", .{ value.index, value_name_literal, value.ordinal, annotation_literal });
@@ -9615,7 +9615,7 @@ fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *const 
             \\pub const @"cpz.enumerant.{s}.{s}.ordinal": u16 = {};
             \\pub const @"cpz.enumerant.{s}.{s}.metadata": cpz.schema.EnumValueMetadata = @"cpz.enum.{s}.values"[{}];
         , .{ enum_name_for_const, value_name, value.index, enum_name_for_const, value_name, value_name_literal, enum_name_for_const, value_name, value.ordinal, enum_name_for_const, value_name, enum_name_for_const, value.index });
-        const annotation_literal = try zigStringLiteralAlloc(allocator, value.annotations);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, value.annotations);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
             \\pub const @"cpz.enumerant.{s}.{s}.annotations": []const u8 = {s};
@@ -9684,13 +9684,13 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.metadata": cpz.schema.InterfaceMethodMetadata = @This().@"cpz.methods"[{}];
             \\
         , .{ method_name, method.ordinal, method_name, method_index, method_name, method_name_literal, method_name, method.ordinal, method_name, method_index });
-        const signature_literal = try zigStringLiteralAlloc(allocator, method.signature);
+        const signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.signature);
         defer allocator.free(signature_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.method.{s}.signature": []const u8 = {s};
             \\
         , .{ method_name, signature_literal });
-        const params_signature_literal = try zigStringLiteralAlloc(allocator, method.params_signature);
+        const params_signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.params_signature);
         defer allocator.free(params_signature_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.method.{s}.params": []const u8 = {s};
@@ -9710,7 +9710,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.resolvedParamsType": []const u8 = {s};
             \\
         , .{ method_name, resolved_params_type_literal });
-        const results_signature_literal = try zigStringLiteralAlloc(allocator, method.results_signature);
+        const results_signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.results_signature);
         defer allocator.free(results_signature_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.method.{s}.results": []const u8 = {s};
@@ -9730,7 +9730,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.resolvedResultsType": []const u8 = {s};
             \\
         , .{ method_name, resolved_results_type_literal });
-        const annotation_signature_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
+        const annotation_signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.annotation_signature);
         defer allocator.free(annotation_signature_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.method.{s}.annotations": []const u8 = {s};
@@ -9821,11 +9821,11 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         if (index != 0) try out.appendSlice(allocator, ", ");
         const name_literal = try zigStringLiteralAlloc(allocator, method.name);
         defer allocator.free(name_literal);
-        const signature_literal = try zigStringLiteralAlloc(allocator, method.signature);
+        const signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.signature);
         defer allocator.free(signature_literal);
-        const params_literal = try zigStringLiteralAlloc(allocator, method.params_signature);
+        const params_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.params_signature);
         defer allocator.free(params_literal);
-        const results_literal = try zigStringLiteralAlloc(allocator, method.results_signature);
+        const results_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.results_signature);
         defer allocator.free(results_literal);
         const params_type_literal = try zigStringLiteralAlloc(allocator, method.params_type);
         defer allocator.free(params_type_literal);
@@ -9839,7 +9839,7 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         defer allocator.free(resolved_results_type);
         const resolved_results_type_literal = try zigStringLiteralAlloc(allocator, resolved_results_type);
         defer allocator.free(resolved_results_type_literal);
-        const annotations_literal = try zigStringLiteralAlloc(allocator, method.annotation_signature);
+        const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.annotation_signature);
         defer allocator.free(annotations_literal);
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .signature = {s}, .params = {s}, .results = {s}", .{
             index,
@@ -11456,13 +11456,13 @@ fn appendMethodFieldMetadata(
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.default": ?[]const u8 = 
         , .{ indent, method_name, kind, field_name, field.index, indent, method_name, kind, field_name, name_literal, indent, method_name, kind, field_name, method_name, kind, field.index, indent, method_name, kind, field_name, type_literal, indent, method_name, kind, field_name, resolved_type_literal, indent, method_name, kind, field_name });
         if (field.default_literal) |default_raw| {
-            const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
+            const default_literal = try zigSchemaSyntaxLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
             try appendFmt(allocator, out, "{s};\n", .{default_literal});
         } else {
             try out.appendSlice(allocator, "null;\n");
         }
-        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         try appendFmt(allocator, out,
             \\{s}pub const @"cpz.method.{s}.{s}.field.{s}.defaultIsHexData": bool = {};
@@ -11482,10 +11482,10 @@ fn appendMethodFieldMetadata(
         defer allocator.free(resolved_type_name);
         const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
         defer allocator.free(resolved_type_literal);
-        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         if (field.default_literal) |default_raw| {
-            const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
+            const default_literal = try zigSchemaSyntaxLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
             try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .default_literal = {s}, .default_is_hex_data = {}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, default_literal, field.default_is_hex_data, field.has_explicit_default, annotations_literal });
         } else if (field.annotations.len != 0) {
@@ -11519,10 +11519,10 @@ fn appendMethodFieldListLiteral(
         defer allocator.free(resolved_type_name);
         const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
         defer allocator.free(resolved_type_literal);
-        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         if (field.default_literal) |default_raw| {
-            const default_literal = try zigStringLiteralAlloc(allocator, default_raw);
+            const default_literal = try zigSchemaSyntaxLiteralAlloc(allocator, default_raw);
             defer allocator.free(default_literal);
             try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ty = {s}, .resolved_ty = {s}, .default_literal = {s}, .default_is_hex_data = {}, .has_explicit_default = {}, .annotations = {s} }}", .{ field.index, name_literal, type_literal, resolved_type_literal, default_literal, field.default_is_hex_data, field.has_explicit_default, annotations_literal });
         } else if (field.annotations.len != 0) {
@@ -11563,7 +11563,7 @@ fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayLis
     defer allocator.free(by_hex_default_ident);
     const by_annotations = try std.fmt.allocPrint(allocator, "{s}.fieldByAnnotations", .{metadata_name});
     defer allocator.free(by_annotations);
-    const by_annotations_ident = try zigStringLiteralAlloc(allocator, by_annotations);
+    const by_annotations_ident = try zigSchemaSyntaxLiteralAlloc(allocator, by_annotations);
     defer allocator.free(by_annotations_ident);
     const by_index = try std.fmt.allocPrint(allocator, "{s}.fieldByIndex", .{metadata_name});
     defer allocator.free(by_index);
@@ -11785,7 +11785,7 @@ fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Array
         \\
     , .{ indent, annotations_raw.len });
     for (annotations_raw, 0..) |annotation_raw, index| {
-        const annotation_literal = try zigStringLiteralAlloc(allocator, annotation_raw);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, annotation_raw);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
             \\{s}pub const @"cpz.fileAnnotation.{}.index": usize = {};
@@ -11797,7 +11797,7 @@ fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Array
     try appendFmt(allocator, out, "{s}pub const @\"cpz.file_annotations\": []const cpz.schema.FileAnnotationMetadata = &[_]cpz.schema.FileAnnotationMetadata{{", .{indent});
     for (annotations_raw, 0..) |annotation_raw, index| {
         if (index != 0) try out.appendSlice(allocator, ", ");
-        const annotation_literal = try zigStringLiteralAlloc(allocator, annotation_raw);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, annotation_raw);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out, ".{{ .index = {}, .raw = {s} }}", .{ index, annotation_literal });
     }
@@ -11924,7 +11924,7 @@ fn emitDeclarationMetadataConstants(
     defer allocator.free(decl_name);
     const name_literal = try zigStringLiteralAlloc(allocator, name);
     defer allocator.free(name_literal);
-    const annotations_literal = try zigStringLiteralAlloc(allocator, annotations);
+    const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, annotations);
     defer allocator.free(annotations_literal);
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.declaration.{s}.index": usize = {};
@@ -11963,7 +11963,7 @@ fn appendDeclarationMetadataLiteral(
 ) LayoutError!void {
     const name_literal = try zigStringLiteralAlloc(allocator, name);
     defer allocator.free(name_literal);
-    const annotations_literal = try zigStringLiteralAlloc(allocator, annotations);
+    const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, annotations);
     defer allocator.free(annotations_literal);
     try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .kind = .{s}", .{ index, name_literal, kind });
     if (id) |value| try appendFmt(allocator, out, ", .id = 0x{x}", .{value});
@@ -12157,7 +12157,7 @@ fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.Array
     defer allocator.free(resolved_type_name);
     const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
     defer allocator.free(resolved_type_literal);
-    const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, decl.annotations);
     defer allocator.free(annotation_literal);
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.annotationDecl.{s}.index": usize = {};
@@ -12193,7 +12193,7 @@ fn appendAnnotationMetadataLiteral(allocator: std.mem.Allocator, out: *std.Array
     defer allocator.free(resolved_type_name);
     const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
     defer allocator.free(resolved_type_literal);
-    const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, decl.annotations);
     defer allocator.free(annotation_literal);
     try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, ", .{ index, name_literal });
     if (decl.id) |id| try appendFmt(allocator, out, ".id = 0x{x}, ", .{id});
@@ -12423,7 +12423,7 @@ fn appendConstMetadataLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
     defer allocator.free(resolved_type_literal);
     const value_literal = try zigStringLiteralAlloc(allocator, decl.literal);
     defer allocator.free(value_literal);
-    const annotations_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, decl.annotations);
     defer allocator.free(annotations_literal);
     try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}", .{ index, name_literal });
     if (decl.id) |id| {
@@ -12470,7 +12470,7 @@ fn appendConstListItemsLiteral(allocator: std.mem.Allocator, out: *std.ArrayList
         if (index != 0) try out.appendSlice(allocator, ", ");
         const literal = try zigStringLiteralAlloc(allocator, item.literal);
         defer allocator.free(literal);
-        const annotations = try zigStringLiteralAlloc(allocator, item.annotations);
+        const annotations = try zigSchemaSyntaxLiteralAlloc(allocator, item.annotations);
         defer allocator.free(annotations);
         try appendFmt(allocator, out, ".{{ .index = {}, .literal = {s}", .{ item.index, literal });
         if (item.is_hex_data) {
@@ -13177,7 +13177,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         for (items) |item| {
             const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
             defer allocator.free(item_literal);
-            const item_annotations = try zigStringLiteralAlloc(allocator, item.annotations);
+            const item_annotations = try zigSchemaSyntaxLiteralAlloc(allocator, item.annotations);
             defer allocator.free(item_annotations);
             try appendFmt(allocator, out,
                 \\{s}pub const @"cpz.const.{s}.listItem.{}.index": usize = {};
@@ -13340,7 +13340,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
     try out.appendSlice(allocator,
         \\
     );
-    const annotation_literal = try zigStringLiteralAlloc(allocator, decl.annotations);
+    const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, decl.annotations);
     defer allocator.free(annotation_literal);
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.const.{s}.annotations": []const u8 = {s};
@@ -16232,7 +16232,7 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         const field_count = unionFieldCount(layout, @intCast(index));
         const name_literal = try zigStringLiteralAlloc(allocator, union_layout.name);
         defer allocator.free(name_literal);
-        const annotation_literal = try zigStringLiteralAlloc(allocator, union_layout.annotations);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, union_layout.annotations);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.union.{}.index": u32 = {};
@@ -16324,7 +16324,7 @@ fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         if (index != 0) try out.appendSlice(allocator, ", ");
         const name_literal = try zigStringLiteralAlloc(allocator, union_layout.name);
         defer allocator.free(name_literal);
-        const annotation_literal = try zigStringLiteralAlloc(allocator, union_layout.annotations);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, union_layout.annotations);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}", .{ index, name_literal });
         if (union_layout.ordinal) |ordinal| {
@@ -16408,9 +16408,9 @@ fn appendUnionFieldMetadataLiteral(allocator: std.mem.Allocator, out: *std.Array
         defer allocator.free(resolved_type_name);
         const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
         defer allocator.free(resolved_type_literal);
-        const default_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
+        const default_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.default_expression);
         defer allocator.free(default_literal);
-        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         const slot = fieldSlotMetadata(field_layout.slot);
         const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
@@ -16459,9 +16459,9 @@ fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(resolved_type_name);
         const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
         defer allocator.free(resolved_type_literal);
-        const default_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
+        const default_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.default_expression);
         defer allocator.free(default_literal);
-        const annotations_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+        const annotations_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
         defer allocator.free(annotations_literal);
         const slot = fieldSlotMetadata(field_layout.slot);
         const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
@@ -17052,7 +17052,7 @@ fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         defer allocator.free(group_name);
         const name_literal = try zigStringLiteralAlloc(allocator, group.name);
         defer allocator.free(name_literal);
-        const annotation_literal = try zigStringLiteralAlloc(allocator, group.annotations);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, group.annotations);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
             \\    pub const @"cpz.group.{s}.index": usize = {};
@@ -17075,7 +17075,7 @@ fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         if (index != 0) try out.appendSlice(allocator, ", ");
         const name_literal = try zigStringLiteralAlloc(allocator, group.name);
         defer allocator.free(name_literal);
-        const annotation_literal = try zigStringLiteralAlloc(allocator, group.annotations);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, group.annotations);
         defer allocator.free(annotation_literal);
         try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}", .{ group.index, name_literal });
         if (group.ordinal) |ordinal| {
@@ -19613,9 +19613,9 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     try appendFmt(allocator, out,
         \\    pub const @"cpz.field.{s}.unionDiscriminant": u16 = {};
     , .{ field_name, field.union_discriminant });
-    const default_expression_literal = try zigStringLiteralAlloc(allocator, field.default_expression);
+    const default_expression_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.default_expression);
     defer allocator.free(default_expression_literal);
-    const annotation_literal = try zigStringLiteralAlloc(allocator, field.annotations);
+    const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
     defer allocator.free(annotation_literal);
     try appendFmt(allocator, out,
         \\    pub const @"cpz.field.{s}.default": []const u8 = {s};
@@ -24936,6 +24936,13 @@ fn zigStringLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.
     return out.toOwnedSlice(allocator);
 }
 
+fn zigSchemaSyntaxLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
+    // Schema metadata fields store source syntax, not decoded Text/Data values.
+    // Preserve backslash escape spelling so annotation/signature/default lookup
+    // helpers round-trip the parser's raw slices exactly.
+    return zigRawStringLiteralAlloc(allocator, raw);
+}
+
 fn zigRawStringLiteralAlloc(allocator: std.mem.Allocator, raw: []const u8) std.mem.Allocator.Error![]u8 {
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
@@ -26094,6 +26101,26 @@ test "schema code generator converts C-style escaped string defaults to Zig lite
     const hex_backslash_literal = try zigDataLiteralAlloc(std.testing.allocator, "5c 6e 5c 78 32 31", true);
     defer std.testing.allocator.free(hex_backslash_literal);
     try std.testing.expectEqualStrings("\"\\\\n\\\\x21\"", hex_backslash_literal);
+
+    var file = try parse(std.testing.allocator,
+        \\annotation note(field) :Text;
+        \\struct EscapedAnnotation {
+        \\  field @0 :UInt32 $note("\n");
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("$note(\"\\n\")", file.structs[0].fields[0].annotations);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    const raw_annotation_literal = try zigSchemaSyntaxLiteralAlloc(std.testing.allocator, file.structs[0].fields[0].annotations);
+    defer std.testing.allocator.free(raw_annotation_literal);
+    const decoded_annotation_literal = try zigStringLiteralAlloc(std.testing.allocator, file.structs[0].fields[0].annotations);
+    defer std.testing.allocator.free(decoded_annotation_literal);
+    try std.testing.expect(!std.mem.eql(u8, raw_annotation_literal, decoded_annotation_literal));
+    try std.testing.expect(std.mem.indexOf(u8, code, raw_annotation_literal) != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, decoded_annotation_literal) == null);
 }
 
 test "schema parser and code generator accept C-style escaped text literals" {
