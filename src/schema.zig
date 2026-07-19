@@ -5314,6 +5314,12 @@ fn validateTypeAggregateDefault(allocator: std.mem.Allocator, file: *const File,
                 return error.UnexpectedToken;
             }
             const struct_decl = findStructDirect(file, type_name) orelse {
+                if (try resolveQualifiedAliasSuffixAlloc(allocator, file, scope, type_name, &owned_names)) |resolved_alias_ty_const| {
+                    var resolved_alias_ty = resolved_alias_ty_const;
+                    defer resolved_alias_ty.deinit(allocator);
+                    try validateTypeAggregateDefault(allocator, file, scope, resolved_alias_ty, raw);
+                    return;
+                }
                 if (try resolveAppliedAliasInScopeAlloc(allocator, file, scope, type_name, &owned_names)) |resolved_alias_ty_const| {
                     var resolved_alias_ty = resolved_alias_ty_const;
                     defer resolved_alias_ty.deinit(allocator);
@@ -5485,6 +5491,35 @@ fn resolveAliasSuffixAlloc(
     try owned_names.append(allocator, combined);
     if (try resolveTypeApplicationSuffixAliasAlloc(allocator, file, scope, combined, owned_names)) |resolved| return resolved;
     return .{ .named = combined };
+}
+
+fn resolveQualifiedAliasSuffixAlloc(
+    allocator: std.mem.Allocator,
+    file: *const File,
+    scope: ?*const Struct,
+    type_name: []const u8,
+    owned_names: *std.ArrayList([]const u8),
+) LayoutError!?Type {
+    const dot = firstTopLevelDot(type_name) orelse return null;
+    const raw_owner = std.mem.trim(u8, type_name[0..dot], " \t\r\n");
+    const suffix = std.mem.trim(u8, type_name[dot + 1 ..], " \t\r\n");
+    if (suffix.len == 0) return null;
+    const open = typeApplicationOpen(raw_owner);
+    const raw_base = if (open) |index| std.mem.trim(u8, raw_owner[0..index], " \t\r\n") else raw_owner;
+    const base = try canonicalTypeNameAlloc(allocator, raw_base);
+    defer allocator.free(base);
+    const owner_decl = findStructDirect(file, base) orelse blk: {
+        if (scope) |owner| break :blk findStructInOwnerScope(file, owner.name, base);
+        break :blk null;
+    } orelse return null;
+    if (try splitTypeApplicationArgsAlloc(allocator, raw_owner)) |args| {
+        defer {
+            for (args) |*arg| arg.deinit(allocator);
+            allocator.free(args);
+        }
+        return resolveAliasSuffixAlloc(allocator, file, scope, owner_decl.name, raw_owner, owner_decl.aliases, owner_decl.parameters, args, suffix, owned_names);
+    }
+    return resolveAliasSuffixAlloc(allocator, file, scope, owner_decl.name, raw_owner, owner_decl.aliases, owner_decl.parameters, &.{}, suffix, owned_names);
 }
 
 fn prefixRelativeAliasTargetAlloc(
@@ -6437,6 +6472,12 @@ fn validateSimpleNamedTypeExists(allocator: std.mem.Allocator, file: *const File
         owned_names.deinit(allocator);
     }
     if (try resolveAppliedAliasInScopeAlloc(allocator, file, scope, name, &owned_names)) |resolved_ty_const| {
+        var resolved_ty = resolved_ty_const;
+        defer resolved_ty.deinit(allocator);
+        try validateTypeReference(allocator, file, scope, resolved_ty);
+        return;
+    }
+    if (try resolveQualifiedAliasSuffixAlloc(allocator, file, scope, name, &owned_names)) |resolved_ty_const| {
         var resolved_ty = resolved_ty_const;
         defer resolved_ty.deinit(allocator);
         try validateTypeReference(allocator, file, scope, resolved_ty);
@@ -9059,6 +9100,22 @@ test "schema layout planner resolves alias suffix type references" {
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     try std.testing.expect(layouts.structs.len >= 2);
+}
+
+test "schema layout planner resolves qualified alias suffixes" {
+    var file = try parse(std.testing.allocator,
+        \\struct Owner {
+        \\  using Bytes = Data;
+        \\}
+        \\struct Holder {
+        \\  payload @0 :Owner.Bytes;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u16, 1), layouts.structs[1].pointer_count);
 }
 
 test "schema resolver inherits aliases from ancestor declaration scopes" {
