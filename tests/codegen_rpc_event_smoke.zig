@@ -610,6 +610,40 @@ test "rpc return result cap tables can be written directly" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 72 }, descriptors[1]);
 }
 
+test "rpc return helpers initialize flags and registry-backed cap tables" {
+    var registry: cpz.CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(std.testing.allocator);
+    _ = try registry.register(std.testing.allocator, "result-a");
+    _ = try registry.register(std.testing.allocator, "result-b");
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const return_ = try root.init_return_();
+    try cpz.rpc.initWireReturn(std.testing.allocator, return_, 74, true, false, &registry);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const return_reader = try message.return_();
+    try std.testing.expectEqual(@as(u32, 74), return_reader.answerId());
+    try std.testing.expect(return_reader.releaseParamCaps());
+    try std.testing.expect(!return_reader.noFinishNeeded());
+
+    const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, return_reader);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 2), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 1 }, descriptors[1]);
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(74, .call);
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(74));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(0));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(1));
+}
+
 test "rpc wire returns resolve answers and apply result cap tables" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();

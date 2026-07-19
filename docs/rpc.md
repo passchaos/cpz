@@ -83,14 +83,15 @@ that a complete RPC runtime exists.
   Call/Return payload tables directly to `State`, and generated Call/Return
   builders can initialize those cap tables directly from descriptors. Generated
   Call builders can initialize question ID, target, and registry-backed params
-  cap tables together. A generated Call reader can also be applied as a unit:
-  target validation, question opening, and params capability-table bookkeeping.
-  A generated Return reader can resolve its answer and apply result
-  capability-table bookkeeping. A generated top-level Message reader can route
-  call/return payload-aware application or simpler state events; Provide/Join
-  top-level messages validate their targets before opening questions, while
-  Accept top-level messages have an explicit question-opening route ready for
-  future provision/embargo handling.
+  cap tables together; Return builders can initialize answer ID, flags, and
+  registry-backed results cap tables together. A generated Call reader can also
+  be applied as a unit: target validation, question opening, and params
+  capability-table bookkeeping. A generated Return reader can resolve its answer
+  and apply result capability-table bookkeeping. A generated top-level Message
+  reader can route call/return payload-aware application or simpler state
+  events; Provide/Join top-level messages validate their targets before opening
+  questions, while Accept top-level messages have an explicit question-opening
+  route ready for future provision/embargo handling.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.
