@@ -875,6 +875,32 @@ pub fn initWireCallMessage(allocator: std.mem.Allocator, message: anytype, quest
     try initWireCall(allocator, try message.init_call(), question_id, target, registry);
 }
 
+pub fn initWireCallMessagePayloadCapability(
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsCapability(call, capability_index, descriptors);
+}
+
+pub fn initWireCallMessagePayloadCapabilityInfo(
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    infos: []const CapDescriptorInfo,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsCapabilityInfo(call, capability_index, infos);
+}
+
 pub fn initWireBootstrap(bootstrap: anytype, question_id: QuestionId) !void {
     try bootstrap.set_questionId(question_id);
 }
@@ -958,6 +984,36 @@ pub fn initWireReturnMessage(
     registry: anytype,
 ) !void {
     try initWireReturn(allocator, try message.init_return_(), answer_id, release_param_caps, no_finish_needed, registry);
+}
+
+pub fn initWireReturnMessagePayloadCapability(
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsCapability(return_, capability_index, descriptors);
+}
+
+pub fn initWireReturnMessagePayloadCapabilityInfo(
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+    infos: []const CapDescriptorInfo,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsCapabilityInfo(return_, capability_index, infos);
 }
 
 pub fn initCapabilityReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {

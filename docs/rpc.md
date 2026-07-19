@@ -93,7 +93,8 @@ that a complete RPC runtime exists.
   can `Return.results.capTable`; convenience helpers can apply those generated
   Call/Return payload tables directly to `State`, and generated Call/Return
   builders can initialize those cap tables directly from descriptors or combine
-  them with payload content capability indexes. Generated Call builders can
+  them with payload content capability indexes at either the Call/Return member
+  level or through top-level Message builders. Generated Call builders can
   initialize question ID, target, and registry-backed params cap tables together;
   Return builders can initialize answer ID, flags, and registry-backed results
   cap tables together, either at the Call/Return member level or through

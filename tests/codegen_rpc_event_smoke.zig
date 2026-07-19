@@ -886,6 +886,41 @@ test "rpc top-level call helpers initialize routing options and flags" {
     }, cpz.rpc.callFlagsFromWireCall(call));
 }
 
+test "rpc top-level call helpers initialize content capabilities" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireCallMessagePayloadCapability(root, 77, .{ .imported_cap = 5 }, 0, &.{.{ .sender_hosted = 78 }});
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call = try generated.Message.fromReader(try reader.getRoot()).call();
+        try std.testing.expectEqual(@as(u32, 77), call.questionId());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, try cpz.rpc.callTargetFromWireCall(call));
+        const params = try call.params();
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.payloadContentCapabilityIndex(params));
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, params);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 78 }, descriptors[0]);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireCallMessagePayloadCapabilityInfo(root, 78, .{ .imported_cap = 5 }, 0, &.{.{ .descriptor = .{ .sender_promise = 79 }, .attached_fd = 7 }});
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call = try generated.Message.fromReader(try reader.getRoot()).call();
+        const params = try call.params();
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.payloadContentCapabilityIndex(params));
+        const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, params);
+        defer std.testing.allocator.free(infos);
+        try std.testing.expectEqual(@as(usize, 1), infos.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 79 }, .attached_fd = 7 }, infos[0]);
+    }
+}
+
 test "rpc wire calls apply target and params state together" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
@@ -1053,6 +1088,44 @@ test "rpc top-level return helpers initialize messages" {
     defer std.testing.allocator.free(descriptors);
     try std.testing.expectEqual(@as(usize, 1), descriptors.len);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
+}
+
+test "rpc top-level return helpers initialize content capabilities" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireReturnMessagePayloadCapability(root, 77, false, true, 0, &.{.{ .sender_hosted = 80 }});
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+        try std.testing.expectEqual(@as(u32, 77), return_.answerId());
+        try std.testing.expect(!return_.releaseParamCaps());
+        try std.testing.expect(return_.noFinishNeeded());
+        const results = try return_.results();
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.payloadContentCapabilityIndex(results));
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, results);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 80 }, descriptors[0]);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireReturnMessagePayloadCapabilityInfo(root, 78, true, false, 0, &.{.{ .descriptor = .{ .sender_promise = 81 }, .attached_fd = 8 }});
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+        try std.testing.expect(return_.releaseParamCaps());
+        try std.testing.expect(!return_.noFinishNeeded());
+        const results = try return_.results();
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.payloadContentCapabilityIndex(results));
+        const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, results);
+        defer std.testing.allocator.free(infos);
+        try std.testing.expectEqual(@as(usize, 1), infos.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 81 }, .attached_fd = 8 }, infos[0]);
+    }
 }
 
 test "rpc return outcomes without result payloads resolve answers" {
