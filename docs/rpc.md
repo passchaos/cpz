@@ -52,7 +52,8 @@ that a complete RPC runtime exists.
   resolution have been observed.
   Generated RPC `Call.target` readers can be decoded into a lightweight
   `CallTarget` for imported capabilities and promised answers, and validated
-  against tracked imports/answers.
+  against tracked imports/answers. Promised-answer transform paths can be
+  decoded for noop and get-pointer-field operations.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver capability-table entries and written back into generated
   payload builders. `Payload.capTable` can be decoded into a caller-owned

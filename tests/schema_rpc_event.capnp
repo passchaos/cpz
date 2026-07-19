@@ -88,6 +88,15 @@ struct MessageTarget {
 
 struct PromisedAnswer {
   questionId @0 :QuestionId;
+
+  struct Op {
+    union {
+      noop @0 :Void;
+      getPointerField @1 :UInt16;
+    }
+  }
+
+  transform @1 :List(Op);
 }
 
 struct Payload {

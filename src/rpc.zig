@@ -39,6 +39,11 @@ pub const PromisedAnswerTarget = struct {
     question_id: QuestionId,
 };
 
+pub const PromisedAnswerOp = union(enum) {
+    noop,
+    get_pointer_field: u16,
+};
+
 pub const CallTarget = union(enum) {
     imported_cap: ImportId,
     promised_answer: PromisedAnswerTarget,
@@ -380,6 +385,23 @@ pub fn targetFromWireMessageTarget(target: anytype) !CallTarget {
             break :blk .{ .promised_answer = .{ .question_id = promised_answer.questionId() } };
         },
     };
+}
+
+pub fn promisedAnswerTransformFromWireAlloc(allocator: std.mem.Allocator, promised_answer: anytype) ![]PromisedAnswerOp {
+    const transform = promised_answer.transform() catch |err| switch (err) {
+        error.NullPointer => return allocator.alloc(PromisedAnswerOp, 0),
+        else => return err,
+    };
+    const ops = try allocator.alloc(PromisedAnswerOp, transform.len());
+    errdefer allocator.free(ops);
+    for (ops, 0..) |*op, index| {
+        const wire_op = try transform.get(index);
+        op.* = switch (wire_op.which() orelse return error.InvalidTransition) {
+            .noop => .noop,
+            .getPointerField => .{ .get_pointer_field = try wire_op.getPointerField() },
+        };
+    }
+    return ops;
 }
 
 pub fn callTargetFromWireCall(call: anytype) !CallTarget {
