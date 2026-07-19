@@ -12,6 +12,7 @@ test "malformed flat and packed inputs return errors instead of crashing" {
     var seed: u64 = 0x4350_5a5f_4655_5a5a;
     var storage: [512]u8 = undefined;
     var view_segments: [64]cpz.ConstSegment = undefined;
+    var flat_view_buffer: [512]u8 = undefined;
     var packed_view_segments: [64]cpz.ConstSegment = undefined;
     var packed_flat_buffer: [4096]u8 = undefined;
 
@@ -35,6 +36,30 @@ test "malformed flat and packed inputs return errors instead of crashing" {
         } else |_| {}
 
         if (cpz.readPackedMessageViewInto(&packed_view_segments, &packed_flat_buffer, storage[0..len])) |view| {
+            var owned_view = view;
+            owned_view.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var flat_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.readMessageFromReader(std.testing.allocator, &flat_reader)) |message| {
+            var owned = message;
+            owned.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var flat_view_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.readMessageViewFromReaderInto(&view_segments, &flat_view_buffer, &flat_view_reader)) |view| {
+            var owned_view = view;
+            owned_view.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var packed_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.readPackedMessageFromReader(std.testing.allocator, &packed_reader)) |message| {
+            var owned = message;
+            owned.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var packed_view_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.readPackedMessageViewFromReaderInto(&packed_view_segments, &packed_flat_buffer, &packed_view_reader)) |view| {
             var owned_view = view;
             owned_view.deinit(std.testing.allocator);
         } else |_| {}
