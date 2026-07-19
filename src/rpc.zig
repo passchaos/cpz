@@ -2271,6 +2271,11 @@ pub const State = struct {
         return self.calls.get(id);
     }
 
+    pub fn callMatchesMethod(self: *const State, id: QuestionId, interface_id: u64, method_id: u16) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.method.matches(interface_id, method_id);
+    }
+
     pub fn callInfoCount(self: *const State) usize {
         return self.calls.count();
     }

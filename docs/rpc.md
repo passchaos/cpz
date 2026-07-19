@@ -125,7 +125,8 @@ that a complete RPC runtime exists.
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording, and
-  params capability-table bookkeeping.
+  method-match querying for future service dispatch, plus params
+  capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application or simpler state events; Provide
