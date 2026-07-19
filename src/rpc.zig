@@ -567,6 +567,10 @@ pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
     try accept.set_embargoOrNull(info.embargo);
 }
 
+pub fn initWireAcceptMessage(message: anytype, info: AcceptInfo) !void {
+    try writeAcceptInfoToWire(info, try message.init_accept());
+}
+
 pub fn provideInfoFromWireProvide(provide: anytype) !ProvideInfo {
     const has_recipient = provide.has_recipient();
     const recipient_capability: ?u32 = if (has_recipient)
@@ -591,6 +595,10 @@ pub fn writeProvideInfoToWire(info: ProvideInfo, provide: anytype) !void {
     if (info.recipient_capability) |index| {
         (try provide.get_recipientAsPointer()).setCapability(index);
     }
+}
+
+pub fn initWireProvideMessage(message: anytype, info: ProvideInfo) !void {
+    try writeProvideInfoToWire(info, try message.init_provide());
 }
 
 pub fn joinInfoFromWireJoin(join: anytype) !JoinInfo {
@@ -619,6 +627,10 @@ pub fn writeJoinInfoToWire(info: JoinInfo, join: anytype) !void {
     }
 }
 
+pub fn initWireJoinMessage(message: anytype, info: JoinInfo) !void {
+    try writeJoinInfoToWire(info, try message.init_join());
+}
+
 pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {
     const target = try targetFromWireTargetedMessage(disembargo);
     const context: DisembargoContext = switch (disembargo.which() orelse return error.InvalidTransition) {
@@ -636,6 +648,10 @@ pub fn writeDisembargoInfoToWire(info: DisembargoInfo, disembargo: anytype) !voi
         .receiver_loopback => |id| try disembargo.set_receiverLoopback(id),
         .accept => |embargo| try disembargo.set_accept(embargo),
     }
+}
+
+pub fn initWireDisembargoMessage(message: anytype, info: DisembargoInfo) !void {
+    try writeDisembargoInfoToWire(info, try message.init_disembargo());
 }
 
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {

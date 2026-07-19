@@ -100,7 +100,8 @@ that a complete RPC runtime exists.
   call/return payload-aware application or simpler state events; Provide/Join
   top-level messages validate their targets before opening questions, while
   Accept top-level messages have an explicit question-opening route ready for
-  future provision/embargo handling.
+  future provision/embargo handling. Top-level Provide/Accept/Join/Disembargo
+  builders can initialize their currently-structured handoff fields.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

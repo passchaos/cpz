@@ -1313,6 +1313,79 @@ test "rpc provide info helpers write targets and recipients" {
     try std.testing.expectEqual(@as(?u32, 2), info.recipient_capability);
 }
 
+test "rpc top-level handoff helpers initialize messages" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireProvideMessage(root, .{
+            .question_id = 90,
+            .target = .{ .imported_cap = 91 },
+            .has_recipient = true,
+            .recipient_max_capability_count = 1,
+            .recipient_capability = 0,
+        });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.provideInfoFromWireProvide(try message.provide());
+        try std.testing.expectEqual(@as(u32, 90), info.question_id);
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 91 }, info.target);
+        try std.testing.expectEqual(@as(?u32, 0), info.recipient_capability);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 92,
+            .has_provision = false,
+            .provision_max_capability_count = 0,
+            .embargo = "accept-92",
+        });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.acceptInfoFromWireAccept(try message.accept());
+        try std.testing.expectEqual(@as(u32, 92), info.question_id);
+        try std.testing.expectEqualStrings("accept-92", info.embargo.?);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireJoinMessage(root, .{
+            .question_id = 93,
+            .target = .{ .imported_cap = 94 },
+            .has_key_part = true,
+            .key_part_max_capability_count = 2,
+            .key_part_capability = 1,
+        });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.joinInfoFromWireJoin(try message.join());
+        try std.testing.expectEqual(@as(u32, 93), info.question_id);
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 94 }, info.target);
+        try std.testing.expectEqual(@as(?u32, 1), info.key_part_capability);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireDisembargoMessage(root, .{
+            .target = .{ .imported_cap = 95 },
+            .context = .{ .sender_loopback = 96 },
+        });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try message.disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 95 }, info.target);
+        try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .sender_loopback = 96 }, info.context);
+    }
+}
+
 test "rpc join info helpers write targets and key parts" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
