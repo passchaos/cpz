@@ -132,6 +132,72 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
 pub const ExportTracker = CapabilityTracker(ExportId, error.ExportAlreadyReleased);
 pub const ImportTracker = CapabilityTracker(ImportId, error.ImportAlreadyReleased);
 
+pub const State = struct {
+    questions: std.AutoHashMap(QuestionId, QuestionTracker),
+    answers: std.AutoHashMap(AnswerId, AnswerTracker),
+
+    pub fn init(allocator: std.mem.Allocator) State {
+        return .{
+            .questions = std.AutoHashMap(QuestionId, QuestionTracker).init(allocator),
+            .answers = std.AutoHashMap(AnswerId, AnswerTracker).init(allocator),
+        };
+    }
+
+    pub fn deinit(self: *State) void {
+        self.questions.deinit();
+        self.answers.deinit();
+        self.* = undefined;
+    }
+
+    pub fn questionCount(self: *const State) usize {
+        return self.questions.count();
+    }
+
+    pub fn answerCount(self: *const State) usize {
+        return self.answers.count();
+    }
+
+    pub fn hasQuestion(self: *const State, id: QuestionId) bool {
+        return self.questions.contains(id);
+    }
+
+    pub fn hasAnswer(self: *const State, id: AnswerId) bool {
+        return self.answers.contains(id);
+    }
+
+    pub fn openQuestion(self: *State, id: QuestionId, kind: MessageKind) (Error || std.mem.Allocator.Error)!void {
+        if (!kind.isQuestionOpening()) return error.InvalidTransition;
+        if (self.questions.contains(id)) return error.QuestionAlreadyOpen;
+        if (self.answers.contains(id)) return error.AnswerAlreadyResolved;
+
+        var question = QuestionTracker{ .id = id };
+        try question.open(kind);
+        try self.questions.put(id, question);
+        errdefer _ = self.questions.remove(id);
+        try self.answers.put(id, .{ .id = id });
+    }
+
+    pub fn finishQuestion(self: *State, id: QuestionId) Error!void {
+        const question = self.questions.getPtr(id) orelse return error.QuestionNotOpen;
+        try question.finish();
+    }
+
+    pub fn resolveAnswer(self: *State, id: AnswerId, kind: MessageKind) Error!void {
+        const answer = self.answers.getPtr(id) orelse return error.QuestionNotOpen;
+        try answer.resolve(kind);
+    }
+
+    pub fn questionState(self: *const State, id: QuestionId) ?QuestionState {
+        const question = self.questions.get(id) orelse return null;
+        return question.state;
+    }
+
+    pub fn answerState(self: *const State, id: AnswerId) ?AnswerState {
+        const answer = self.answers.get(id) orelse return null;
+        return answer.state;
+    }
+};
+
 test "rpc message kind predicates describe state-machine roles" {
     const testing = std.testing;
     try testing.expect(MessageKind.bootstrap.isQuestionOpening());
@@ -172,4 +238,30 @@ test "rpc capability trackers reject double release" {
     var import_tracker = ImportTracker{ .id = 2 };
     try import_tracker.release();
     try testing.expectError(error.ImportAlreadyReleased, import_tracker.release());
+}
+
+test "rpc state tracks in-flight questions and answers" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try testing.expectEqual(@as(usize, 0), state.questionCount());
+    try state.openQuestion(1, .call);
+    try testing.expect(state.hasQuestion(1));
+    try testing.expect(state.hasAnswer(1));
+    try testing.expectEqual(@as(usize, 1), state.questionCount());
+    try testing.expectEqual(@as(usize, 1), state.answerCount());
+    try testing.expectEqual(@as(?QuestionState, .open), state.questionState(1));
+    try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
+
+    try testing.expectError(error.QuestionAlreadyOpen, state.openQuestion(1, .bootstrap));
+    try testing.expectError(error.InvalidTransition, state.openQuestion(2, .finish));
+    try state.finishQuestion(1);
+    try testing.expectEqual(@as(?QuestionState, .finished), state.questionState(1));
+    try testing.expectError(error.QuestionNotOpen, state.finishQuestion(99));
+
+    try state.resolveAnswer(1, .return_);
+    try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(1));
+    try testing.expectError(error.AnswerAlreadyResolved, state.resolveAnswer(1, .resolve));
+    try testing.expectError(error.QuestionNotOpen, state.resolveAnswer(99, .return_));
 }
