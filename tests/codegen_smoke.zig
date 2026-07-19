@@ -4345,6 +4345,12 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(@as(u32, 7070), try cap_orphan_for_field.getCapabilityIndex());
     try box_builder.adopt_cap(&cap_orphan_for_field);
     try std.testing.expectEqual(@as(u32, 7070), try box_builder.get_cap());
+    var cap_handles = try std.ArrayList(u32).initCapacity(std.testing.allocator, 7071);
+    defer cap_handles.deinit(std.testing.allocator);
+    for (0..7071) |index| cap_handles.appendAssumeCapacity(@intCast(index + 100));
+    const cap_table = cpz.CapabilityTable(u32).init(cap_handles.items);
+    try std.testing.expectEqual(@as(u32, 7170), try box_builder.get_capFromTable(u32, cap_table));
+    try std.testing.expectEqual(@as(?u32, 7170), try box_builder.get_capOrNullFromTable(u32, cap_table));
     try std.testing.expectEqual(@as(usize, 7071), try box_builder.get_capMaxCapabilityCount());
     try std.testing.expect(try box_builder.get_capMatchesMaxCapabilityCount(7071));
     try std.testing.expect(!try box_builder.get_capMatchesMaxCapabilityCount(7070));
@@ -4393,6 +4399,8 @@ test "generated builtin any and capability accessors round-trip" {
     const read_list = try dynamic_box.anyList();
     try std.testing.expectEqual(@as(u16, 222), read_list.getUInt16(1));
     try std.testing.expectEqual(@as(u32, 7070), try dynamic_box.cap());
+    try std.testing.expectEqual(@as(u32, 7170), try dynamic_box.capFromTable(u32, cap_table));
+    try std.testing.expectEqual(@as(?u32, 7170), try dynamic_box.capOrNullFromTable(u32, cap_table));
     try std.testing.expectError(error.InvalidCapabilityPointer, dynamic_box.capStatsWithOptions(.{ .capability_count_limit = 100 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, dynamic_box.capTotalSizeWithOptions(.{ .capability_count_limit = 100 }));
     const cap_stats = try dynamic_box.capStats();
@@ -5292,12 +5300,20 @@ test "generated interface capability accessors round-trip" {
     try services.set(0, 2345);
     try services.set(1, 3456);
     try std.testing.expectEqual(@as(u32, 1234), try box_builder.get_service());
+    var service_handles = try std.ArrayList([]const u8).initCapacity(std.testing.allocator, 3457);
+    defer service_handles.deinit(std.testing.allocator);
+    for (0..3457) |index| service_handles.appendAssumeCapacity(if (index == 1234) "primary" else if (index == 3456) "backup" else "unused");
+    const service_table = cpz.CapabilityTable([]const u8).init(service_handles.items);
+    try std.testing.expectEqualStrings("primary", try box_builder.get_serviceFromTable([]const u8, service_table));
+    try std.testing.expectEqual(@as(?[]const u8, "primary"), try box_builder.get_serviceOrNullFromTable([]const u8, service_table));
     try std.testing.expectEqual(@as(u32, 3456), try services.get(1));
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const box = generated.InterfaceBox.fromReader(try reader.getRoot());
     try std.testing.expect(box.has_service());
     try std.testing.expectEqual(@as(u32, 1234), try box.service());
+    try std.testing.expectEqualStrings("primary", try box.serviceFromTable([]const u8, service_table));
+    try std.testing.expectEqual(@as(?[]const u8, "primary"), try box.serviceOrNullFromTable([]const u8, service_table));
     const read_services = try box.services();
     try std.testing.expectEqual(@as(u32, 2345), try read_services.get(0));
     try std.testing.expectEqual(@as(u32, 3456), try read_services.get(1));

@@ -9924,6 +9924,8 @@ fn appendAnyListBuilderHelperNames(allocator: std.mem.Allocator, field_name: []c
 fn appendCapabilityBuilderHelperNames(allocator: std.mem.Allocator, field_name: []const u8, names: *std.StringHashMap(void), owned_names: *std.ArrayList([]const u8)) LayoutError!void {
     try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}", .{field_name});
     try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}OrNull", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}FromTable", .{field_name});
+    try addBuilderHelperNameFmt(allocator, names, owned_names, "get_{s}OrNullFromTable", .{field_name});
     try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}", .{field_name});
     try addBuilderHelperNameFmt(allocator, names, owned_names, "set_{s}OrNull", .{field_name});
 }
@@ -10311,10 +10313,16 @@ fn validatePointerFieldHelperZigNames(allocator: std.mem.Allocator, file: *const
         .any_list, .list => if (field_is_optional) {
             try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
         },
-        .capability => try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name}),
+        .capability => {
+            try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
+            try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}FromTable", .{field_name});
+            try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNullFromTable", .{field_name});
+        },
         .named => |type_name| {
             if (findInterface(file, type_name) != null) {
                 try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
+                try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}FromTable", .{field_name});
+                try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNullFromTable", .{field_name});
             } else if (field_is_optional and isStructLikeName(file, type_name)) {
                 try validatePointerFieldHelperZigNameFmt(allocator, decl, field, "{s}OrNull", .{field_name});
             }
@@ -21436,6 +21444,20 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        return try @"cpz.pointer".getCapabilityIndex();
                 \\    }}
                 \\
+                \\    pub fn {s}FromTable(self: @This(), comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return @"cpz.table".getPointer(self.reader.getPointerField({}));
+                \\    }}
+                \\
+                \\    pub fn {s}OrNullFromTable(self: @This(), comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return @"cpz.table".getPointerOrNull(self.reader.getPointerField({}));
+                \\    }}
+                \\
             , .{index});
         },
         .list => |child| {
@@ -21478,6 +21500,20 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\        const @"cpz.pointer" = self.reader.getPointerField({});
                 \\        if (@"cpz.pointer".isNull()) return null;
                 \\        return try @"cpz.pointer".getCapabilityIndex();
+                \\    }}
+                \\
+                \\    pub fn {s}FromTable(self: @This(), comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return @"cpz.table".getPointer(self.reader.getPointerField({}));
+                \\    }}
+                \\
+                \\    pub fn {s}OrNullFromTable(self: @This(), comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+            , .{ index, field_name });
+            try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\        return @"cpz.table".getPointerOrNull(self.reader.getPointerField({}));
                 \\    }}
                 \\
             , .{index});
@@ -25545,6 +25581,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            return try @"cpz.pointer".getCapabilityIndex();
                 \\        }}
                 \\
+                \\        pub fn get_{s}FromTable(self: Builder, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            , .{ index, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return @"cpz.table".getPointerBuilder(try self.builder.getPointerField({}));
+                \\        }}
+                \\
+                \\        pub fn get_{s}OrNullFromTable(self: Builder, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+            , .{ index, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return @"cpz.table".getPointerBuilderOrNull(try self.builder.getPointerField({}));
+                \\        }}
+                \\
                 \\        pub fn set_{s}(self: Builder, new_value: u32) !void {{
             , .{ index, field_name });
             try emitBuilderUnionActivation(allocator, out, field);
@@ -25582,6 +25632,20 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\            const @"cpz.pointer" = try self.builder.getPointerField({});
                 \\            if (@"cpz.pointer".isNull()) return null;
                 \\            return try @"cpz.pointer".getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn get_{s}FromTable(self: Builder, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            , .{ index, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return @"cpz.table".getPointerBuilder(try self.builder.getPointerField({}));
+                \\        }}
+                \\
+                \\        pub fn get_{s}OrNullFromTable(self: Builder, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+            , .{ index, field_name });
+            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+            try appendFmt(allocator, out,
+                \\            return @"cpz.table".getPointerBuilderOrNull(try self.builder.getPointerField({}));
                 \\        }}
                 \\
                 \\        pub fn set_{s}(self: Builder, new_value: u32) !void {{
