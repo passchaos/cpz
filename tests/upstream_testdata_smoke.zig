@@ -517,3 +517,61 @@ test "upstream segmented fixtures work through owned and view readers" {
     try std.testing.expectEqual(@as(usize, 125), view_packed.segmentCount());
     try expectTestAllTypesRoot(try view_packed.getRoot());
 }
+
+test "upstream segmented fixtures work through streaming and writer wrappers" {
+    const allocator = std.testing.allocator;
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+    const segmented_packed = try readFixture(allocator, "segmented-packed");
+    defer allocator.free(segmented_packed);
+    const trailer = &[_]u8{ 0xde, 0xad, 0xbe, 0xef };
+
+    const segmented_with_trailer = try std.mem.concat(allocator, u8, &.{ segmented, trailer });
+    defer allocator.free(segmented_with_trailer);
+    var flat_stream = std.Io.Reader.fixed(segmented_with_trailer);
+    var owned_from_reader = try cpz.OwnedMessageReader.initFromReader(allocator, &flat_stream, .{});
+    defer owned_from_reader.deinit(allocator);
+    try std.testing.expectEqual(segmented.len, owned_from_reader.consumedLen());
+    try std.testing.expectEqual(segmented.len, owned_from_reader.sourceConsumedLen());
+    try std.testing.expectEqualSlices(u8, trailer, flat_stream.buffered());
+    try expectTestAllTypesRoot(try owned_from_reader.getRoot());
+
+    var stream_view_segments: [128]cpz.ConstSegment = undefined;
+    var stream_view_buffer: [8192]u8 = undefined;
+    var flat_view_stream = std.Io.Reader.fixed(segmented_with_trailer);
+    var view_from_reader = try cpz.MessageReaderView.initFromReaderInto(&stream_view_segments, &stream_view_buffer, &flat_view_stream, .{});
+    try std.testing.expectEqual(segmented.len, view_from_reader.consumedLen());
+    try std.testing.expectEqual(segmented.len, view_from_reader.sourceConsumedLen());
+    try std.testing.expectEqualSlices(u8, trailer, flat_view_stream.buffered());
+    try expectTestAllTypesRoot(try view_from_reader.getRoot());
+
+    var flat_writer_buffer: [8192]u8 = undefined;
+    var flat_writer = std.Io.Writer.fixed(&flat_writer_buffer);
+    try view_from_reader.writeToWriter(&flat_writer);
+    try expectEqualBytes(segmented, std.Io.Writer.buffered(&flat_writer));
+
+    const packed_with_trailer = try std.mem.concat(allocator, u8, &.{ segmented_packed, trailer });
+    defer allocator.free(packed_with_trailer);
+    var packed_stream = std.Io.Reader.fixed(packed_with_trailer);
+    var owned_packed_from_reader = try cpz.OwnedMessageReader.initPackedFromReader(allocator, &packed_stream, .{});
+    defer owned_packed_from_reader.deinit(allocator);
+    try std.testing.expectEqual(segmented.len, owned_packed_from_reader.consumedLen());
+    try std.testing.expectEqual(segmented_packed.len, owned_packed_from_reader.sourceConsumedLen());
+    try std.testing.expectEqualSlices(u8, trailer, packed_stream.buffered());
+    try expectTestAllTypesRoot(try owned_packed_from_reader.getRoot());
+
+    var packed_view_segments: [128]cpz.ConstSegment = undefined;
+    var packed_view_buffer: [8192]u8 = undefined;
+    var packed_view_stream = std.Io.Reader.fixed(packed_with_trailer);
+    var packed_view_from_reader = try cpz.MessageReaderView.initPackedFromReaderInto(&packed_view_segments, &packed_view_buffer, &packed_view_stream, .{});
+    try std.testing.expectEqual(segmented.len, packed_view_from_reader.consumedLen());
+    try std.testing.expectEqual(segmented_packed.len, packed_view_from_reader.sourceConsumedLen());
+    try std.testing.expectEqualSlices(u8, trailer, packed_view_stream.buffered());
+    try expectTestAllTypesRoot(try packed_view_from_reader.getRoot());
+
+    var packed_writer_buffer: [2048]u8 = undefined;
+    var packed_writer = std.Io.Writer.fixed(&packed_writer_buffer);
+    var packed_table_buffer: [512]u8 = undefined;
+    try packed_view_from_reader.writePackedToWriterWithTableBuffer(&packed_table_buffer, &packed_writer);
+    try expectEqualBytes(segmented_packed, std.Io.Writer.buffered(&packed_writer));
+}
