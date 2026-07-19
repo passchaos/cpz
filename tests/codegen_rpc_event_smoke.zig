@@ -2239,6 +2239,17 @@ test "rpc batch dispatcher routes messages and aggregates outcomes" {
     defer std.testing.allocator.free(descriptors);
     try std.testing.expectEqual(@as(usize, 1), descriptors.len);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 2030 }, descriptors[0]);
+
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessages(
+        &state,
+        std.testing.allocator,
+        responses[0..1],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &call_seen,
+        CallHandler.handle,
+    ));
 }
 
 test "rpc top-level provide and join messages validate targets" {
