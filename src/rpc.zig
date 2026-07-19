@@ -767,6 +767,7 @@ pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
 }
 
 pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
+    if (!info.has_provision and info.provision_capability != null) return error.InvalidTransition;
     try accept.set_questionId(info.question_id);
     if (info.provision_capability) |index| {
         (try accept.get_provisionAsPointer()).setCapability(index);
@@ -797,6 +798,7 @@ pub fn provideInfoFromWireProvide(provide: anytype) !ProvideInfo {
 }
 
 pub fn writeProvideInfoToWire(info: ProvideInfo, provide: anytype) !void {
+    if (!info.has_recipient and info.recipient_capability != null) return error.InvalidTransition;
     try provide.set_questionId(info.question_id);
     try writeCallTargetToWire(info.target, try provide.init_target());
     if (info.recipient_capability) |index| {
@@ -827,6 +829,7 @@ pub fn joinInfoFromWireJoin(join: anytype) !JoinInfo {
 }
 
 pub fn writeJoinInfoToWire(info: JoinInfo, join: anytype) !void {
+    if (!info.has_key_part and info.key_part_capability != null) return error.InvalidTransition;
     try join.set_questionId(info.question_id);
     try writeCallTargetToWire(info.target, try join.init_target());
     if (info.key_part_capability) |index| {
@@ -848,6 +851,7 @@ pub fn thirdPartyAnswerInfoFromWireThirdPartyAnswer(third_party_answer: anytype)
 }
 
 pub fn writeThirdPartyAnswerInfoToWire(info: ThirdPartyAnswerInfo, third_party_answer: anytype) !void {
+    if (!info.has_completion and info.completion != null) return error.InvalidTransition;
     try third_party_answer.set_answerId(info.answer_id);
     if (info.completion) |completion| {
         if (completion.capability) |index| {

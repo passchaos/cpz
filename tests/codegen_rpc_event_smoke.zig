@@ -2248,6 +2248,55 @@ test "rpc provide info helpers write targets and recipients" {
     try std.testing.expectEqual(@as(?u32, 2), info.recipient_capability);
 }
 
+test "rpc handoff info writers reject inconsistent capability flags" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const provide = try generated.Provide.initRootTyped(&builder);
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeProvideInfoToWire(.{
+            .question_id = 1,
+            .target = .{ .imported_cap = 2 },
+            .has_recipient = false,
+            .recipient_max_capability_count = 0,
+            .recipient_capability = 0,
+        }, provide));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const accept = try generated.Accept.initRootTyped(&builder);
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeAcceptInfoToWire(.{
+            .question_id = 1,
+            .has_provision = false,
+            .provision_max_capability_count = 0,
+            .provision_capability = 0,
+            .embargo = null,
+        }, accept));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const join = try generated.Join.initRootTyped(&builder);
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeJoinInfoToWire(.{
+            .question_id = 1,
+            .target = .{ .imported_cap = 2 },
+            .has_key_part = false,
+            .key_part_max_capability_count = 0,
+            .key_part_capability = 0,
+        }, join));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const third_party_answer = try generated.ThirdPartyAnswer.initRootTyped(&builder);
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeThirdPartyAnswerInfoToWire(.{
+            .answer_id = 1,
+            .has_completion = false,
+            .completion = .{ .max_capability_count = 1, .capability = 0 },
+        }, third_party_answer));
+    }
+}
+
 test "rpc top-level handoff helpers initialize messages" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
