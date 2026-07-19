@@ -646,3 +646,30 @@ test "upstream segmented fixtures work through free streaming APIs" {
     try cpz.writePackedMessageToWriterWithTableBuffer(&table_buffer, &packed_writer, unpacked.segments);
     try expectEqualBytes(segmented_packed, std.Io.Writer.buffered(&packed_writer));
 }
+
+test "upstream segmented fixtures serialize into caller buffers" {
+    const allocator = std.testing.allocator;
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+    const segmented_packed = try readFixture(allocator, "segmented-packed");
+    defer allocator.free(segmented_packed);
+
+    var flat = try cpz.readFlatMessage(allocator, segmented);
+    defer flat.deinit(allocator);
+    var reader = cpz.MessageReader.init(flat.segments, .{});
+
+    var flat_buffer: [8192]u8 = undefined;
+    const flat_len = try reader.toFlatBytesInto(&flat_buffer);
+    try std.testing.expectEqual(segmented.len, flat_len);
+    try expectEqualBytes(segmented, flat_buffer[0..flat_len]);
+
+    var table_buffer: [512]u8 = undefined;
+    var packed_buffer: [2048]u8 = undefined;
+    const packed_len = try reader.toPackedBytesInto(&table_buffer, &packed_buffer);
+    try std.testing.expectEqual(segmented_packed.len, packed_len);
+    try expectEqualBytes(segmented_packed, packed_buffer[0..packed_len]);
+
+    try std.testing.expectError(error.SerializedOutputTooSmall, reader.toFlatBytesInto(flat_buffer[0 .. segmented.len - 1]));
+    try std.testing.expectError(error.SegmentTableTruncated, reader.toPackedBytesInto(table_buffer[0..16], &packed_buffer));
+    try std.testing.expectError(error.PackedOutputTooSmall, reader.toPackedBytesInto(&table_buffer, packed_buffer[0 .. segmented_packed.len - 1]));
+}
