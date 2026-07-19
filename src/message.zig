@@ -8318,6 +8318,11 @@ test "message builder and reader expose scalar root pointer helpers" {
     try testing.expectEqual(@as(u32, 4242), try cap_builder.getRootCapability());
     var cap_reader = MessageReader.init(try cap_builder.segmentsConst(), .{});
     try testing.expectEqual(@as(u32, 4242), try cap_reader.getRootCapability());
+    var cap_limit_ok = MessageReader.init(try cap_builder.segmentsConst(), .{ .capability_count_limit = 4243 });
+    const cap_limit_stats = try cap_limit_ok.validate();
+    try testing.expectEqual(@as(usize, 1), cap_limit_stats.capabilityCount());
+    var cap_limit_bad = MessageReader.init(try cap_builder.segmentsConst(), .{ .capability_count_limit = 4242 });
+    try testing.expectError(error.InvalidCapabilityPointer, cap_limit_bad.validate());
 
     const text_root_pointer = try text_builder.getRootPointer();
     try testing.expectEqual(@as(u32, 0), text_root_pointer.segmentId());
