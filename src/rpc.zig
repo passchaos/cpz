@@ -524,6 +524,14 @@ pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {
     return .{ .target = target, .context = context };
 }
 
+pub fn writeDisembargoInfoToWire(info: DisembargoInfo, disembargo: anytype) !void {
+    try writeCallTargetToWire(info.target, try disembargo.init_target());
+    switch (info.context) {
+        .sender_loopback => |id| try disembargo.set_senderLoopback(id),
+        .receiver_loopback => |id| try disembargo.set_receiverLoopback(id),
+    }
+}
+
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
     return targetFromWireMessageTarget(try message.target());
 }
