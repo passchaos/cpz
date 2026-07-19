@@ -858,6 +858,29 @@ test "rpc resolve wire events mark exports without projecting to Event.resolve" 
     try std.testing.expectEqual(@as(?bool, true), state.exportResolved(21));
 }
 
+test "rpc resolve cap descriptors replace promise exports" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const resolve = try root.init_resolve();
+    try resolve.set_promiseId(90);
+    const cap = try resolve.init_cap();
+    try cap.set_senderHosted(91);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.resolveInfoFromWireResolve(try message.resolve());
+    try std.testing.expectEqual(@as(u32, 90), info.promise_id);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 91 }, info.cap.?);
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addExport(90);
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?bool, true), state.exportResolved(90));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(91));
+}
+
 test "decoded wire events can drive the supported state subset" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

@@ -40,8 +40,9 @@ that a complete RPC runtime exists.
   question finished so its ID can be reused.
   Release wire events preserve `referenceCount` so `State.applyWireEvent()` can
   decrement import lifetimes without silently collapsing batched releases.
-  Resolve wire events mark an existing export promise as resolved without
-  conflating the official `ExportId` with answer IDs.
+  Resolve wire events mark an existing export promise as resolved, can apply a
+  replacement cap descriptor, and do not conflate the official `ExportId` with
+  answer IDs.
   Finish wire events preserve the official `releaseResultCaps` flag while still
   projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official

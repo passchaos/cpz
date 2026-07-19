@@ -40,6 +40,11 @@ pub const AcceptInfo = struct {
     embargo: ?[]const u8,
 };
 
+pub const ResolveInfo = struct {
+    promise_id: ExportId,
+    cap: ?CapDescriptor,
+};
+
 pub const PromisedAnswerTarget = struct {
     question_id: QuestionId,
 };
@@ -518,6 +523,15 @@ pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
     };
 }
 
+pub fn resolveInfoFromWireResolve(resolve: anytype) !ResolveInfo {
+    return switch (resolve.which() orelse return error.InvalidTransition) {
+        .cap => .{
+            .promise_id = resolve.promiseId(),
+            .cap = try capDescriptorFromWire(try resolve.cap()),
+        },
+    };
+}
+
 pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !void {
     switch (descriptor) {
         .none => try builder.set_none(),
@@ -916,6 +930,13 @@ pub const State = struct {
         }
     }
 
+    pub fn applyWireResolve(self: *State, resolve: anytype) !void {
+        const info = try resolveInfoFromWireResolve(resolve);
+        if (info.cap) |descriptor| try self.validateCapDescriptor(descriptor);
+        try self.resolveExport(info.promise_id);
+        if (info.cap) |descriptor| try self.applyCapDescriptor(descriptor);
+    }
+
     pub fn applyWireTargetedQuestion(self: *State, question_id: QuestionId, targeted: anytype) !void {
         try self.validateCallTarget(try targetFromWireTargetedMessage(targeted));
         try self.openQuestion(question_id, .call);
@@ -931,6 +952,7 @@ pub const State = struct {
         return switch (event) {
             .call => self.applyWireCall(allocator, try message.call()),
             .return_ => self.applyWireReturn(allocator, try message.return_()),
+            .resolve => self.applyWireResolve(try message.resolve()),
             .provide => |id| self.applyWireTargetedQuestion(id, try message.provide()),
             .accept => self.applyWireAccept(try message.accept()),
             .join => |id| self.applyWireTargetedQuestion(id, try message.join()),

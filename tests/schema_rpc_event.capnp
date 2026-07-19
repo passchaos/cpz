@@ -54,6 +54,10 @@ struct Finish {
 
 struct Resolve {
   promiseId @0 :ExportId;
+
+  union {
+    cap @1 :CapDescriptor;
+  }
 }
 
 struct Release {
