@@ -786,6 +786,21 @@ test "rpc disembargo helpers decode targets and loopback contexts" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 76 } }, info.target);
         try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .receiver_loopback = 77 }, info.context);
     }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const disembargo = try root.init_disembargo();
+        const target = try disembargo.init_target();
+        try target.set_importedCap(80);
+        try disembargo.set_accept("accept-embargo");
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try message.disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 80 }, info.target);
+        try std.testing.expectEqualStrings("accept-embargo", info.context.accept);
+    }
 }
 
 test "rpc disembargo helpers write targets and loopback contexts" {
@@ -802,6 +817,22 @@ test "rpc disembargo helpers write targets and loopback contexts" {
     const info = try cpz.rpc.disembargoInfoFromWireDisembargo(disembargo_reader);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 78 }, info.target);
     try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .receiver_loopback = 79 }, info.context);
+}
+
+test "rpc disembargo helpers write accept contexts" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const disembargo = try generated.Disembargo.initRootTyped(&builder);
+    try cpz.rpc.writeDisembargoInfoToWire(.{
+        .target = .{ .imported_cap = 81 },
+        .context = .{ .accept = "accept-write" },
+    }, disembargo);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const disembargo_reader = generated.Disembargo.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.disembargoInfoFromWireDisembargo(disembargo_reader);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 81 }, info.target);
+    try std.testing.expectEqualStrings("accept-write", info.context.accept);
 }
 
 test "rpc accept info helpers write question ids and embargoes" {

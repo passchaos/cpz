@@ -51,8 +51,8 @@ that a complete RPC runtime exists.
   ID, and can write that information back to generated builders, for future
   provision/embargo handling.
   Disembargo wire readers/builders can decode and write targets plus
-  sender/receiver loopback context IDs, though full embargo queue handling
-  remains future work.
+  sender/receiver loopback context IDs and accept embargo bytes, though full
+  embargo queue handling remains future work.
   ThirdPartyAnswer wire events resolve existing answers by official `AnswerId`
   while remaining distinct from ordinary Return events.
   Completed question IDs can be reused once both Finish and Return-like answer

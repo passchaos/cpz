@@ -43,6 +43,7 @@ pub const AcceptInfo = struct {
 pub const DisembargoContext = union(enum) {
     sender_loopback: u32,
     receiver_loopback: u32,
+    accept: []const u8,
 };
 
 pub const DisembargoInfo = struct {
@@ -520,6 +521,7 @@ pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {
     const context: DisembargoContext = switch (disembargo.which() orelse return error.InvalidTransition) {
         .senderLoopback => .{ .sender_loopback = try disembargo.senderLoopback() },
         .receiverLoopback => .{ .receiver_loopback = try disembargo.receiverLoopback() },
+        .accept => .{ .accept = (try disembargo.acceptOrNull()) orelse "" },
     };
     return .{ .target = target, .context = context };
 }
@@ -529,6 +531,7 @@ pub fn writeDisembargoInfoToWire(info: DisembargoInfo, disembargo: anytype) !voi
     switch (info.context) {
         .sender_loopback => |id| try disembargo.set_senderLoopback(id),
         .receiver_loopback => |id| try disembargo.set_receiverLoopback(id),
+        .accept => |embargo| try disembargo.set_accept(embargo),
     }
 }
 
