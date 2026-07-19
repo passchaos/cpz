@@ -47,7 +47,9 @@ that a complete RPC runtime exists.
   decoded into a caller-owned descriptor slice. Decoded descriptor tables can be
   applied to `State` for basic import creation/reference counting and
   receiver-hosted export/answer validation. `Call.params.capTable` can be
-  decoded through the same descriptor pipeline, as can `Return.results.capTable`.
+  decoded through the same descriptor pipeline, as can `Return.results.capTable`;
+  convenience helpers can apply those generated Call/Return payload tables
+  directly to `State`.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

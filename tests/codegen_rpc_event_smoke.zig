@@ -208,6 +208,12 @@ test "rpc call params expose capability descriptor tables" {
     try state.addExport(31);
     try state.applyCapTable(descriptors);
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(30));
+
+    var direct_state = cpz.rpc.State.init(std.testing.allocator);
+    defer direct_state.deinit();
+    try direct_state.addExport(31);
+    try direct_state.applyWireCallPayload(std.testing.allocator, try message.call());
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), direct_state.importState(30));
 }
 
 test "rpc return results expose capability descriptor tables" {
@@ -234,6 +240,12 @@ test "rpc return results expose capability descriptor tables" {
     try state.addExport(33);
     try state.applyCapTable(descriptors);
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(32));
+
+    var direct_state = cpz.rpc.State.init(std.testing.allocator);
+    defer direct_state.deinit();
+    try direct_state.addExport(33);
+    try direct_state.applyWireReturnPayload(std.testing.allocator, try message.return_());
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), direct_state.importState(32));
 }
 
 test "rpc provide accept and join wire events open questions" {
