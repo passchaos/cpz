@@ -38,6 +38,8 @@ that a complete RPC runtime exists.
   `QuestionId` payloads rather than treating them as capability-table IDs.
   ThirdPartyAnswer wire events resolve existing answers by official `AnswerId`
   while remaining distinct from ordinary Return events.
+  Completed question IDs can be reused once both Finish and Return-like answer
+  resolution have been observed.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

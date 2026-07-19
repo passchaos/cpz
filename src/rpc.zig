@@ -412,10 +412,34 @@ pub const State = struct {
         return self.imports.contains(id);
     }
 
+    pub fn questionComplete(self: *const State, id: QuestionId) bool {
+        const question = self.questions.get(id) orelse return false;
+        const answer = self.answers.get(id) orelse return false;
+        return question.state == .finished and answer.state == .resolved;
+    }
+
+    pub fn canReuseQuestionId(self: *const State, id: QuestionId) bool {
+        return (!self.questions.contains(id) and !self.answers.contains(id)) or self.questionComplete(id);
+    }
+
     pub fn openQuestion(self: *State, id: QuestionId, kind: MessageKind) (Error || std.mem.Allocator.Error)!void {
         if (!kind.isQuestionOpening()) return error.InvalidTransition;
-        if (self.questions.contains(id)) return error.QuestionAlreadyOpen;
-        if (self.answers.contains(id)) return error.AnswerAlreadyResolved;
+        if (self.questions.getPtr(id)) |existing_question| {
+            const existing_answer = self.answers.getPtr(id) orelse return error.AnswerAlreadyResolved;
+            if (existing_question.state != .finished) return error.QuestionAlreadyOpen;
+            if (existing_answer.state != .resolved) return error.AnswerAlreadyResolved;
+
+            // Once both halves of the question/answer pair have completed,
+            // rpc.capnp permits the ID to be reused. Reset in place instead of
+            // removing/reinserting so any allocation failure cannot leave the
+            // two hash maps out of sync.
+            existing_question.* = .{ .id = id };
+            try existing_question.open(kind);
+            existing_answer.* = .{ .id = id };
+            return;
+        } else if (self.answers.contains(id)) {
+            return error.AnswerAlreadyResolved;
+        }
 
         var question = QuestionTracker{ .id = id };
         try question.open(kind);
@@ -646,11 +670,23 @@ test "rpc state tracks in-flight questions and answers" {
     try state.finishQuestion(1);
     try testing.expectEqual(@as(?QuestionState, .finished), state.questionState(1));
     try testing.expectError(error.QuestionNotOpen, state.finishQuestion(99));
+    try testing.expect(!state.questionComplete(1));
+    try testing.expect(!state.canReuseQuestionId(1));
+    try testing.expectError(error.AnswerAlreadyResolved, state.openQuestion(1, .call));
 
     try state.resolveAnswer(1, .return_);
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(1));
     try testing.expectError(error.AnswerAlreadyResolved, state.resolveAnswer(1, .resolve));
     try testing.expectError(error.QuestionNotOpen, state.resolveAnswer(99, .return_));
+
+    try testing.expect(state.questionComplete(1));
+    try testing.expect(state.canReuseQuestionId(1));
+    try state.openQuestion(1, .bootstrap);
+    try testing.expectEqual(@as(usize, 1), state.questionCount());
+    try testing.expectEqual(@as(usize, 1), state.answerCount());
+    try testing.expectEqual(@as(?QuestionState, .open), state.questionState(1));
+    try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
+    try testing.expect(!state.canReuseQuestionId(1));
 }
 
 test "rpc state tracks import and export lifetimes" {
