@@ -71,6 +71,7 @@ struct Disembargo {
   union {
     senderLoopback @1 :UInt32;
     receiverLoopback @2 :UInt32;
+    accept @3 :Data;
   }
 }
 
