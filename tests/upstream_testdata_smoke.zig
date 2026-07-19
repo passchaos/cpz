@@ -613,3 +613,36 @@ test "upstream segmented fixture normalizes to single segment and canonical byte
     try expectEnumList(try canonical_root.getPointerField(18).getList(.two_bytes), &.{ 0, 7 });
     try std.testing.expect(canonical_root.getPointerField(19).isNull());
 }
+
+test "upstream segmented fixtures work through free streaming APIs" {
+    const allocator = std.testing.allocator;
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+    const segmented_packed = try readFixture(allocator, "segmented-packed");
+    defer allocator.free(segmented_packed);
+
+    var flat_stream = std.Io.Reader.fixed(segmented);
+    var flat = try cpz.readMessageFromReader(allocator, &flat_stream);
+    defer flat.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 125), flat.segmentCount());
+    var flat_reader = cpz.MessageReader.init(flat.segments, .{});
+    try expectTestAllTypesRoot(try flat_reader.getRoot());
+
+    var flat_writer_buffer: [8192]u8 = undefined;
+    var flat_writer = std.Io.Writer.fixed(&flat_writer_buffer);
+    try cpz.writeMessageToWriter(&flat_writer, flat.segments);
+    try expectEqualBytes(segmented, std.Io.Writer.buffered(&flat_writer));
+
+    var packed_stream = std.Io.Reader.fixed(segmented_packed);
+    var unpacked = try cpz.readPackedMessageFromReader(allocator, &packed_stream);
+    defer unpacked.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 125), unpacked.segmentCount());
+    var unpacked_reader = cpz.MessageReader.init(unpacked.segments, .{});
+    try expectTestAllTypesRoot(try unpacked_reader.getRoot());
+
+    var packed_writer_buffer: [2048]u8 = undefined;
+    var packed_writer = std.Io.Writer.fixed(&packed_writer_buffer);
+    var table_buffer: [512]u8 = undefined;
+    try cpz.writePackedMessageToWriterWithTableBuffer(&table_buffer, &packed_writer, unpacked.segments);
+    try expectEqualBytes(segmented_packed, std.Io.Writer.buffered(&packed_writer));
+}
