@@ -389,6 +389,25 @@ test "upstream C++ fixture bytes match cpz packing and framing" {
     const reserialized_packed = try cpz.messageToPackedBytes(allocator, flat_message.segments);
     defer allocator.free(reserialized_packed);
     try expectEqualBytes(packed_fixture, reserialized_packed);
+
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+    const segmented_packed = try readFixture(allocator, "segmented-packed");
+    defer allocator.free(segmented_packed);
+
+    const unpacked_segmented_packed = try cpz.unpack(allocator, segmented_packed);
+    defer allocator.free(unpacked_segmented_packed);
+    try expectEqualBytes(segmented, unpacked_segmented_packed);
+
+    var segmented_message = try cpz.readFlatMessage(allocator, segmented);
+    defer segmented_message.deinit(allocator);
+    const reserialized_segmented = try cpz.messageToFlatBytes(allocator, segmented_message.segments);
+    defer allocator.free(reserialized_segmented);
+    try expectEqualBytes(segmented, reserialized_segmented);
+
+    const reserialized_segmented_packed = try cpz.messageToPackedBytes(allocator, segmented_message.segments);
+    defer allocator.free(reserialized_segmented_packed);
+    try expectEqualBytes(segmented_packed, reserialized_segmented_packed);
 }
 
 test "upstream C++ TestLists fixture exposes nested list values" {
