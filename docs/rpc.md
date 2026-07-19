@@ -52,6 +52,8 @@ that a complete RPC runtime exists.
   convenience helpers can apply those generated Call/Return payload tables
   directly to `State`. A generated Call reader can also be applied as a unit:
   target validation, question opening, and params capability-table bookkeeping.
+  A generated Return reader can resolve its answer and apply result
+  capability-table bookkeeping.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

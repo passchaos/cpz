@@ -626,6 +626,16 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
     }
 
+    pub fn applyWireReturn(self: *State, allocator: std.mem.Allocator, return_: anytype) !void {
+        const answer_id = return_.answerId();
+        const descriptors = try capTableFromWireReturnResults(allocator, return_);
+        defer allocator.free(descriptors);
+
+        for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
+        try self.resolveAnswer(answer_id, .return_);
+        for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
+    }
+
     pub fn releaseExport(self: *State, id: ExportId) Error!void {
         const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
