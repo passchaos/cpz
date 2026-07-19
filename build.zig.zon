@@ -1,0 +1,17 @@
+.{
+    .name = .cpz,
+    .version = "0.0.1",
+    .fingerprint = 0x2a3f4dbfa98d8aec,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{},
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "README.md",
+        "LICENSE",
+        "docs",
+        "examples",
+        "src",
+        "tests",
+    },
+}
