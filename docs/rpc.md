@@ -84,7 +84,8 @@ that a complete RPC runtime exists.
   builders can initialize those cap tables directly from descriptors. Generated
   Call builders can initialize question ID, target, and registry-backed params
   cap tables together; Return builders can initialize answer ID, flags, and
-  registry-backed results cap tables together. A generated Call reader can also
+  registry-backed results cap tables together, either at the Call/Return member
+  level or through top-level Message builders. A generated Call reader can also
   be applied as a unit: target validation, question opening, and params
   capability-table bookkeeping. A generated Return reader can resolve its answer
   and apply result capability-table bookkeeping. A generated top-level Message

@@ -686,6 +686,10 @@ pub fn initWireCall(allocator: std.mem.Allocator, call: anytype, question_id: Qu
     try initWireCallParamsCapTable(call, descriptors);
 }
 
+pub fn initWireCallMessage(allocator: std.mem.Allocator, message: anytype, question_id: QuestionId, target: CallTarget, registry: anytype) !void {
+    try initWireCall(allocator, try message.init_call(), question_id, target, registry);
+}
+
 pub fn initWireReturn(
     allocator: std.mem.Allocator,
     return_: anytype,
@@ -700,6 +704,17 @@ pub fn initWireReturn(
     const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
     defer allocator.free(descriptors);
     try initWireReturnResultsCapTable(return_, descriptors);
+}
+
+pub fn initWireReturnMessage(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    registry: anytype,
+) !void {
+    try initWireReturn(allocator, try message.init_return_(), answer_id, release_param_caps, no_finish_needed, registry);
 }
 
 pub fn initWireCallParamsCapTable(call: anytype, descriptors: []const CapDescriptor) !void {
