@@ -68,8 +68,9 @@ that a complete RPC runtime exists.
   plus sender/receiver loopback context IDs and accept embargo bytes, though
   full embargo queue handling remains future work. Disembargo targets are
   validated against tracked imports/answers before that queue exists.
-  ThirdPartyAnswer wire events resolve existing answers by official `AnswerId`
-  while remaining distinct from ordinary Return events.
+  ThirdPartyAnswer wire readers/builders expose completion pointer capability
+  usage and resolve existing answers by official `AnswerId` while remaining
+  distinct from ordinary Return events.
   Completed question IDs can be reused once both Finish and Return-like answer
   resolution have been observed.
   Call `sendResultsTo` caller/yourself targets can be decoded and written.

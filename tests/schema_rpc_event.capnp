@@ -5,6 +5,7 @@ using AnswerId = QuestionId;
 using ExportId = UInt32;
 using ImportId = ExportId;
 using ThirdPartyToContact = AnyPointer;
+using ThirdPartyCompletion = AnyPointer;
 
 struct Message {
   union {
@@ -106,7 +107,8 @@ struct Accept {
 }
 
 struct ThirdPartyAnswer {
-  answerId @0 :AnswerId;
+  completion @0 :ThirdPartyCompletion;
+  answerId @1 :AnswerId;
 }
 
 struct Join {

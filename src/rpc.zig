@@ -84,6 +84,12 @@ pub const JoinInfo = struct {
     key_part_capability: ?u32 = null,
 };
 
+pub const ThirdPartyAnswerInfo = struct {
+    answer_id: AnswerId,
+    has_completion: bool,
+    completion: ?AnyPointerUsage = null,
+};
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -701,6 +707,28 @@ pub fn writeJoinInfoToWire(info: JoinInfo, join: anytype) !void {
 
 pub fn initWireJoinMessage(message: anytype, info: JoinInfo) !void {
     try writeJoinInfoToWire(info, try message.init_join());
+}
+
+pub fn thirdPartyAnswerInfoFromWireThirdPartyAnswer(third_party_answer: anytype) !ThirdPartyAnswerInfo {
+    const has_completion = third_party_answer.has_completion();
+    return .{
+        .answer_id = third_party_answer.answerId(),
+        .has_completion = has_completion,
+        .completion = if (has_completion) try anyPointerUsageFromWire(try third_party_answer.completionAsPointer()) else null,
+    };
+}
+
+pub fn writeThirdPartyAnswerInfoToWire(info: ThirdPartyAnswerInfo, third_party_answer: anytype) !void {
+    try third_party_answer.set_answerId(info.answer_id);
+    if (info.completion) |completion| {
+        if (completion.capability) |index| {
+            (try third_party_answer.get_completionAsPointer()).setCapability(index);
+        }
+    }
+}
+
+pub fn initWireThirdPartyAnswerMessage(message: anytype, info: ThirdPartyAnswerInfo) !void {
+    try writeThirdPartyAnswerInfoToWire(info, try message.init_thirdPartyAnswer());
 }
 
 pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {

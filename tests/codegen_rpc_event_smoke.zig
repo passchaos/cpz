@@ -2264,12 +2264,39 @@ test "rpc third-party answer wire events resolve answers" {
     defer builder.deinit();
     const root = try generated.Message.initRootTyped(&builder);
     const payload = try root.init_thirdPartyAnswer();
+    (try payload.get_completionAsPointer()).setCapability(4);
     try payload.set_answerId(24);
     const event = try decode(&builder);
     try std.testing.expectEqual(cpz.rpc.WireEvent{ .third_party_answer = 24 }, event);
+
+    var info_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const info_message = generated.Message.fromReader(try info_reader.getRoot());
+    const info = try cpz.rpc.thirdPartyAnswerInfoFromWireThirdPartyAnswer(try info_message.thirdPartyAnswer());
+    try std.testing.expectEqual(@as(u32, 24), info.answer_id);
+    try std.testing.expect(info.has_completion);
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, info.completion.?);
+
     try std.testing.expect(event.toStateEvent() == null);
     try state.applyWireEvent(event);
     try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(24));
+}
+
+test "rpc third-party answer info helpers write completions" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireThirdPartyAnswerMessage(root, .{
+        .answer_id = 26,
+        .has_completion = true,
+        .completion = .{ .max_capability_count = 3, .capability = 2 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.thirdPartyAnswerInfoFromWireThirdPartyAnswer(try message.thirdPartyAnswer());
+    try std.testing.expectEqual(@as(u32, 26), info.answer_id);
+    try std.testing.expect(info.has_completion);
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, info.completion.?);
 }
 
 test "rpc resolve wire events mark exports without projecting to Event.resolve" {
