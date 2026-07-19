@@ -3746,7 +3746,7 @@ pub const PointerBuilder = struct {
             .data_words = source.data_words,
             .pointer_count = source.pointer_count,
         });
-        @memcpy(dst.dataBytes(), source.dataBytes());
+        try copyStructDataFromReader(dst, source);
         for (0..source.pointer_count) |i| {
             try (try dst.getPointerField(i)).copyFrom(source.getPointerField(i));
         }
@@ -3755,7 +3755,7 @@ pub const PointerBuilder = struct {
     pub fn copyStructFromCanonical(self: PointerBuilder, source: StructReader) Error!void {
         const dst_size = try canonicalStructSize(source);
         const dst = try self.initStruct(dst_size);
-        @memcpy(dst.dataBytes(), source.dataBytes()[0..dst.dataBytes().len]);
+        try copyStructDataFromReader(dst, source);
         for (0..dst_size.pointer_count) |i| {
             try (try dst.getPointerField(i)).copyFromCanonical(source.getPointerField(i));
         }
@@ -3807,7 +3807,7 @@ pub const PointerBuilder = struct {
                     .data_words = dst_size.data_words,
                     .pointer_count = dst_size.pointer_count,
                 });
-                @memcpy(dst.dataBytes(), src.dataBytes()[0..dst.dataBytes().len]);
+                try copyStructDataFromReader(dst, src);
                 for (0..dst_size.pointer_count) |i| {
                     const dst_ptr = try dst.getPointerField(i);
                     if (canonical) {
@@ -3839,7 +3839,7 @@ pub const PointerBuilder = struct {
             for (0..source.element_count) |i| {
                 const src_element = try source.getStructElement(i);
                 const dst_element = try dst.getStructElement(i);
-                @memcpy(dst_element.dataBytes(), src_element.dataBytes()[0..dst_element.dataBytes().len]);
+                try copyStructDataFromReader(dst_element, src_element);
                 for (0..dst_size.pointer_count) |j| {
                     const dst_ptr = try dst_element.getPointerField(j);
                     if (canonical) {
@@ -3895,6 +3895,13 @@ fn copyPrimitiveBuilderList(dst: ListBuilder, source: ListBuilder, start_index: 
         .eight_bytes => for (0..dst.element_count) |i| try dst.setUInt64(i, try source.getUInt64(start_index + i)),
         .pointer, .composite => return error.IncompatibleListShape,
     }
+}
+
+fn copyStructDataFromReader(dst: StructBuilder, source: StructReader) Error!void {
+    const dst_data = try dst.dataBytesChecked();
+    const source_data = try source.dataBytesChecked();
+    const data_len = @min(dst_data.len, source_data.len);
+    @memcpy(dst_data[0..data_len], source_data[0..data_len]);
 }
 
 fn listRangeShouldCopyBackward(dst: ListBuilder, dst_index: usize, source: ListReader, source_index: usize, count: usize) Error!bool {
@@ -4743,8 +4750,7 @@ pub const StructBuilder = struct {
         }
 
         try self.clear();
-        const data_len = @min(self.dataBytes().len, source.dataBytes().len);
-        @memcpy(self.dataBytes()[0..data_len], source.dataBytes()[0..data_len]);
+        try copyStructDataFromReader(self, source);
         const pointer_len = @min(self.pointer_count, source.pointer_count);
         for (0..pointer_len) |i| {
             try (try self.getPointerField(i)).copyFrom(source.getPointerField(i));
@@ -4921,12 +4927,16 @@ pub const StructReader = struct {
     }
 
     fn dataBytes(self: StructReader) []const u8 {
-        if (self.segment_id >= self.message.segments.len) return &.{};
-        if (self.data_bit_offset % 8 != 0) return &.{};
-        const byte_start = checkedWordByteOffset(self.data_start, self.data_bit_offset) catch return &.{};
+        return self.dataBytesChecked() catch &.{};
+    }
+
+    fn dataBytesChecked(self: StructReader) Error![]const u8 {
+        if (self.segment_id >= self.message.segments.len) return error.SegmentOutOfBounds;
+        if (self.data_bit_offset % 8 != 0) return error.UnsupportedElementSize;
+        const byte_start = try checkedWordByteOffset(self.data_start, self.data_bit_offset);
         const byte_len = self.effectiveDataBits() / 8;
         const segment = self.message.segments[self.segment_id];
-        if (byte_start > segment.len or segment.len - byte_start < byte_len) return &.{};
+        if (byte_start > segment.len or segment.len - byte_start < byte_len) return error.PointerOutOfBounds;
         return segment[byte_start..][0..byte_len];
     }
 
@@ -8772,6 +8782,12 @@ test "accessors report oversized derived offsets instead of trapping" {
     try testing.expectEqual(@as(u8, 77), huge_struct_reader.getUInt8(0, 77));
     try testing.expectEqual(@as(usize, 0), huge_struct_reader.dataSectionBytes().len);
     try testing.expect(huge_struct_reader.getPointerField(1).isNull());
+    {
+        var copy_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 2 });
+        defer copy_builder.deinit();
+        const copy_destination = try copy_builder.initRoot(.{ .data_words = 1, .pointer_count = 0 });
+        try testing.expectError(error.SegmentOutOfBounds, copy_destination.copyFromReader(huge_struct_reader));
+    }
 
     const overflowing_data_canonical_struct_reader = StructReader{
         .message = &reader,
