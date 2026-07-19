@@ -1356,6 +1356,29 @@ pub fn dispatchCallMethod(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchCallMethods(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    comptime entries: anytype,
+) !void {
+    const method = callMethodFromWireCall(call);
+    inline for (entries) |entry| {
+        if (method.matches(entry.method.interface_id, entry.method.method_id)) {
+            try dispatchCallMethod(state, allocator, response_message, call, entry.method, context, entry.handler);
+            return;
+        }
+    }
+
+    try state.applyWireCall(allocator, call);
+    try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+        .reason = "unimplemented method",
+        .type_raw = 3,
+    });
+}
+
 pub fn dispatchWireMessageOutcome(
     state: *State,
     allocator: std.mem.Allocator,

@@ -119,7 +119,8 @@ that a complete RPC runtime exists.
   exceptions, cancellation, results-sent-elsewhere, or take-from-other-question
   outcomes, including await-from-third-party tail-call handoffs. A
   method-aware call dispatcher can filter on interface/method IDs and emit an
-  unimplemented exception for mismatches. A
+  unimplemented exception for mismatches; a compile-time method table dispatcher
+  can select among multiple handlers. A
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized or state was
   applied, and apply other supported top-level wire messages to state; a batch

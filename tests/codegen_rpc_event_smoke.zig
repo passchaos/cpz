@@ -2053,6 +2053,88 @@ test "rpc method-aware call dispatcher filters methods" {
     }
 }
 
+test "rpc method table dispatcher selects matching handlers" {
+    const Context = struct {
+        selected: u32 = 0,
+    };
+    const Handlers = struct {
+        fn first(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId() + 100;
+            return .empty;
+        }
+
+        fn second(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId() + 200;
+            return .{ .capability = 106 };
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 }, .handler = Handlers.first },
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 2 }, .handler = Handlers.second },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(29);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 2 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var context: Context = .{};
+        try cpz.rpc.dispatchCallMethods(&state, std.testing.allocator, response_root, try request.call(), &context, entries);
+        try std.testing.expectEqual(@as(u32, 229), context.selected);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 106 }, descriptors[0]);
+    }
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(30);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 3 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var context: Context = .{};
+        try cpz.rpc.dispatchCallMethods(&state, std.testing.allocator, response_root, try request.call(), &context, entries);
+        try std.testing.expectEqual(@as(u32, 0), context.selected);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try response.return_());
+        const exception = switch (outcome) {
+            .exception => |value| value,
+            else => return error.TestUnexpectedResult,
+        };
+        try std.testing.expectEqual(@as(u16, 3), exception.type_raw);
+    }
+}
+
 test "rpc generic dispatch return helper builds non-result outcomes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
