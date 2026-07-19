@@ -37,6 +37,7 @@ struct Bootstrap {
 struct Call {
   questionId @0 :QuestionId;
   target @1 :MessageTarget;
+  params @4 :Payload;
 }
 
 struct Return {

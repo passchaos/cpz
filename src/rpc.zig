@@ -396,6 +396,10 @@ pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) !
     return descriptors;
 }
 
+pub fn capTableFromWireCallParams(allocator: std.mem.Allocator, call: anytype) ![]CapDescriptor {
+    return capTableFromWirePayload(allocator, try call.params());
+}
+
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
     const raw_discriminant = message.whichDiscriminant();
     const tag = std.enums.fromInt(WireMessageTag, raw_discriminant) orelse return error.InvalidTransition;
