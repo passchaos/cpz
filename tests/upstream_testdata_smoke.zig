@@ -176,6 +176,93 @@ fn expectStructList(list: cpz.ListReader, comptime prefix: []const u8) !void {
     }
 }
 
+fn expectTestListsStructListU8(list: cpz.ListReader, expected: []const u8) !void {
+    try std.testing.expectEqual(.composite, list.elementSize());
+    try std.testing.expectEqual(expected.len, list.len());
+    for (expected, 0..) |value, index| {
+        try std.testing.expectEqual(value, (try list.getStructElement(index)).getUInt8(0, 0));
+    }
+}
+
+fn expectTestListsStructListU16(list: cpz.ListReader, expected: []const u16) !void {
+    try std.testing.expectEqual(.composite, list.elementSize());
+    try std.testing.expectEqual(expected.len, list.len());
+    for (expected, 0..) |value, index| {
+        try std.testing.expectEqual(value, (try list.getStructElement(index)).getUInt16(0, 0));
+    }
+}
+
+fn expectTestListsStructListU32(list: cpz.ListReader, expected: []const u32) !void {
+    try std.testing.expectEqual(.composite, list.elementSize());
+    try std.testing.expectEqual(expected.len, list.len());
+    for (expected, 0..) |value, index| {
+        try std.testing.expectEqual(value, (try list.getStructElement(index)).getUInt32(0, 0));
+    }
+}
+
+fn expectTestListsStructListU64(list: cpz.ListReader, expected: []const u64) !void {
+    try std.testing.expectEqual(.composite, list.elementSize());
+    try std.testing.expectEqual(expected.len, list.len());
+    for (expected, 0..) |value, index| {
+        try std.testing.expectEqual(value, (try list.getStructElement(index)).getUInt64(0, 0));
+    }
+}
+
+fn expectTestListsRoot(root: cpz.StructReader) !void {
+    try std.testing.expectEqual(@as(u16, 0), root.dataWordCount());
+    try std.testing.expectEqual(@as(u16, 10), root.pointerCount());
+
+    const list0 = try root.getPointerField(0).getList(.composite);
+    try std.testing.expectEqual(@as(usize, 2), list0.len());
+    try std.testing.expectEqual(cpz.StructSize{ .data_words = 0, .pointer_count = 0 }, list0.structElementSize());
+
+    const list1 = try root.getPointerField(1).getList(.composite);
+    try std.testing.expectEqual(@as(usize, 4), list1.len());
+    try std.testing.expect((try list1.getStructElement(0)).getBool(0, false));
+    try std.testing.expect(!(try list1.getStructElement(1)).getBool(0, false));
+    try std.testing.expect((try list1.getStructElement(2)).getBool(0, false));
+    try std.testing.expect((try list1.getStructElement(3)).getBool(0, false));
+
+    try expectTestListsStructListU8(try root.getPointerField(2).getList(.composite), &.{ 123, 45 });
+    try expectTestListsStructListU16(try root.getPointerField(3).getList(.composite), &.{ 12345, 6789 });
+    try expectTestListsStructListU32(try root.getPointerField(4).getList(.composite), &.{ 123456789, 234567890 });
+    try expectTestListsStructListU64(try root.getPointerField(5).getList(.composite), &.{ 1234567890123456, 2345678901234567 });
+
+    const listp = try root.getPointerField(6).getList(.composite);
+    try std.testing.expectEqual(@as(usize, 2), listp.len());
+    try expectText((try listp.getStructElement(0)).getPointerField(0), "foo");
+    try expectText((try listp.getStructElement(1)).getPointerField(0), "bar");
+
+    const int32_list_list = try root.getPointerField(7).getList(.pointer);
+    try std.testing.expectEqual(@as(usize, 3), int32_list_list.len());
+    try expectInt32List(try (try int32_list_list.getPointerElement(0)).getList(.four_bytes), &.{ 1, 2, 3 });
+    try expectInt32List(try (try int32_list_list.getPointerElement(1)).getList(.four_bytes), &.{ 4, 5 });
+    try expectInt32List(try (try int32_list_list.getPointerElement(2)).getList(.four_bytes), &.{12341234});
+
+    const text_list_list = try root.getPointerField(8).getList(.pointer);
+    try std.testing.expectEqual(@as(usize, 3), text_list_list.len());
+    try expectTextList(try (try text_list_list.getPointerElement(0)).getList(.pointer), &.{ "foo", "bar" });
+    try expectTextList(try (try text_list_list.getPointerElement(1)).getList(.pointer), &.{"baz"});
+    try expectTextList(try (try text_list_list.getPointerElement(2)).getList(.pointer), &.{ "qux", "corge" });
+
+    const struct_list_list = try root.getPointerField(9).getList(.pointer);
+    try std.testing.expectEqual(@as(usize, 2), struct_list_list.len());
+    const first_structs = try (try struct_list_list.getPointerElement(0)).getList(.composite);
+    try std.testing.expectEqual(@as(usize, 2), first_structs.len());
+    try std.testing.expectEqual(@as(i32, 123), (try first_structs.getStructElement(0)).getInt32(4, 0));
+    try std.testing.expectEqual(@as(i32, 456), (try first_structs.getStructElement(1)).getInt32(4, 0));
+    const second_structs = try (try struct_list_list.getPointerElement(1)).getList(.composite);
+    try std.testing.expectEqual(@as(usize, 1), second_structs.len());
+    try std.testing.expectEqual(@as(i32, 789), (try second_structs.getStructElement(0)).getInt32(4, 0));
+}
+
+fn expectTestListsStreamFixture(name: []const u8) !void {
+    var flat = try readStreamFixture(std.testing.allocator, name, false);
+    defer flat.deinit(std.testing.allocator);
+    var reader = cpz.MessageReader.init(flat.segments, .{});
+    try expectTestListsRoot(try reader.getRoot());
+}
+
 fn expectTestAllTypesRoot(root: cpz.StructReader) !void {
     try std.testing.expectEqual(@as(u16, 6), root.dataWordCount());
     try std.testing.expectEqual(@as(u16, 20), root.pointerCount());
@@ -262,7 +349,6 @@ test "upstream C++ binary fixtures parse and expose TestAllTypes values" {
 
     // Additional upstream fixtures use different schemas; schema-agnostic
     // validation is still valuable because it walks all reachable pointers.
-    try validateStreamFixture("lists.binary", false);
     try validateStreamFixture("annotated-json.binary", false);
 }
 
@@ -303,4 +389,8 @@ test "upstream C++ fixture bytes match cpz packing and framing" {
     const reserialized_packed = try cpz.messageToPackedBytes(allocator, flat_message.segments);
     defer allocator.free(reserialized_packed);
     try expectEqualBytes(packed_fixture, reserialized_packed);
+}
+
+test "upstream C++ TestLists fixture exposes nested list values" {
+    try expectTestListsStreamFixture("lists.binary");
 }
