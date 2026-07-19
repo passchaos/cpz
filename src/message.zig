@@ -3089,7 +3089,7 @@ fn messageToSingleSegmentFlatBytes(allocator: std.mem.Allocator, source: *const 
 
     _ = try builder.copyRootFrom(&copy_reader);
     const segments = try builder.segmentsConst();
-    std.debug.assert(segments.len == 1);
+    try ensureSingleSegment(segments);
     return serialize.messageToFlatBytes(allocator, segments);
 }
 
@@ -3116,8 +3116,12 @@ fn messageToCanonicalSegmentBytes(allocator: std.mem.Allocator, source: *const M
 
     _ = try builder.copyRootCanonicalFrom(&copy_reader);
     const segments = try builder.segmentsConst();
-    std.debug.assert(segments.len == 1);
+    try ensureSingleSegment(segments);
     return allocator.dupe(u8, segments[0]);
+}
+
+fn ensureSingleSegment(segments: []const serialize.ConstSegment) Error!void {
+    if (segments.len != 1) return error.MessageTooLarge;
 }
 
 pub const PointerBuilder = struct {
