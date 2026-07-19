@@ -1079,6 +1079,34 @@ pub fn initWireReturnMessagePayloadCapabilityInfo(
     try initWireReturnResultsCapabilityInfo(return_, capability_index, infos);
 }
 
+pub fn joinResultCapabilityFromWireReturn(return_: anytype) !?u32 {
+    const outcome = try returnOutcomeFromWireReturn(return_);
+    if (outcome != .results) return null;
+    return payloadContentCapabilityIndex(try return_.results());
+}
+
+pub fn initWireJoinResultReturn(
+    return_: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+) !void {
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try initWireReturnResultsCapability(return_, capability_index, descriptors);
+}
+
+pub fn initWireJoinResultReturnMessage(
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+) !void {
+    try initWireJoinResultReturn(try message.init_return_(), answer_id, release_param_caps, capability_index, descriptors);
+}
+
 pub fn initCapabilityReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
     const return_ = try message.init_return_();
     try return_.set_answerId(answer_id);

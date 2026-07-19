@@ -1171,6 +1171,24 @@ test "rpc top-level return helpers initialize content capabilities" {
     }
 }
 
+test "rpc join result helpers initialize return payloads" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireJoinResultReturnMessage(root, 82, true, 0, &.{.{ .sender_hosted = 83 }});
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const return_ = try message.return_();
+    try std.testing.expectEqual(@as(u32, 82), return_.answerId());
+    try std.testing.expect(return_.releaseParamCaps());
+    try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(return_));
+    const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, return_);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 83 }, descriptors[0]);
+}
+
 test "rpc return outcomes without result payloads resolve answers" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
