@@ -1904,8 +1904,16 @@ pub const State = struct {
         };
     }
 
+    pub fn callTargetResolved(self: *const State, target: CallTarget) bool {
+        return self.callTargetResolution(target) != null;
+    }
+
     pub fn wireCallTargetResolution(self: *const State, call: anytype) !?CapDescriptor {
         return self.callTargetResolution(try callTargetFromWireCall(call));
+    }
+
+    pub fn wireCallTargetResolved(self: *const State, call: anytype) !bool {
+        return self.callTargetResolved(try callTargetFromWireCall(call));
     }
 
     pub fn validateWireDisembargo(self: *const State, disembargo: anytype) !void {
