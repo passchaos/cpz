@@ -937,6 +937,11 @@ pub const State = struct {
         try self.validateCallTarget(try callTargetFromWireCall(call));
     }
 
+    pub fn validateWireDisembargo(self: *const State, disembargo: anytype) !void {
+        const info = try disembargoInfoFromWireDisembargo(disembargo);
+        try self.validateCallTarget(info.target);
+    }
+
     pub fn applyWireCall(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
         const question_id = call.questionId();
         const target = try callTargetFromWireCall(call);

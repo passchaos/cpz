@@ -769,6 +769,12 @@ test "rpc disembargo helpers decode targets and loopback contexts" {
         const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try message.disembargo());
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 74 }, info.target);
         try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .sender_loopback = 75 }, info.context);
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try std.testing.expectError(error.InvalidTransition, state.validateWireDisembargo(try message.disembargo()));
+        try state.addImport(74);
+        try state.validateWireDisembargo(try message.disembargo());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
