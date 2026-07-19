@@ -387,7 +387,10 @@ pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
 }
 
 pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {
-    const cap_table = try payload.capTable();
+    const cap_table = payload.capTable() catch |err| switch (err) {
+        error.NullPointer => return allocator.alloc(CapDescriptor, 0),
+        else => return err,
+    };
     const descriptors = try allocator.alloc(CapDescriptor, cap_table.len());
     errdefer allocator.free(descriptors);
     for (descriptors, 0..) |*descriptor, index| {

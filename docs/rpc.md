@@ -45,14 +45,15 @@ that a complete RPC runtime exists.
   against tracked imports/answers.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver capability-table entries, and `Payload.capTable` can be
-  decoded into a caller-owned descriptor slice. Decoded descriptor tables can be
-  applied to `State` for basic import creation/reference counting and
-  receiver-hosted export/answer validation. `Call.params.capTable` can be
-  decoded through the same descriptor pipeline, as can `Return.results.capTable`;
-  convenience helpers can apply those generated Call/Return payload tables
-  directly to `State`. A generated Call reader can also be applied as a unit:
-  target validation, question opening, and params capability-table bookkeeping.
-  A generated Return reader can resolve its answer and apply result
+  decoded into a caller-owned descriptor slice, with absent tables treated as
+  empty. Decoded descriptor tables can be applied to `State` for basic import
+  creation/reference counting and receiver-hosted export/answer validation.
+  `Call.params.capTable` can be decoded through the same descriptor pipeline, as
+  can `Return.results.capTable`; convenience helpers can apply those generated
+  Call/Return payload tables directly to `State`. A generated Call reader can
+  also be applied as a unit: target validation, question opening, and params
+  capability-table bookkeeping. A generated Return reader can resolve its answer
+  and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application or simpler state events.
 - Generated accessors for capability and named-interface fields and list

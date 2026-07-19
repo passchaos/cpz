@@ -175,6 +175,18 @@ test "rpc payload helpers decode capability descriptor tables" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 14 } }, descriptors[2]);
 }
 
+test "rpc payload helpers treat absent capability tables as empty" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    _ = try generated.Payload.initRootTyped(&builder);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 0), descriptors.len);
+}
+
 test "rpc decoded capability descriptor tables apply to state" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
@@ -194,6 +206,39 @@ test "rpc decoded capability descriptor tables apply to state" {
     try state.applyCapTable(descriptors);
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(20));
     try std.testing.expectEqual(@as(?u32, 1), state.importReferenceCount(20));
+}
+
+test "rpc call and return payload helpers accept absent capability tables" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const call = try root.init_call();
+        try call.set_questionId(52);
+        const target = try call.init_target();
+        try target.set_importedCap(9);
+        _ = try call.init_params();
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireCallParams(std.testing.allocator, try message.call());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 0), descriptors.len);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try return_.set_answerId(53);
+        _ = try return_.init_results();
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try message.return_());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 0), descriptors.len);
+    }
 }
 
 test "rpc call params expose capability descriptor tables" {
