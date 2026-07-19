@@ -2365,6 +2365,12 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqualStrings("embargo-64", tracked.embargo.?);
     try std.testing.expectEqual(@as(?bool, false), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, false), state.acceptReady(64));
+    {
+        var premature_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer premature_builder.deinit();
+        const premature_root = try generated.Message.initRootTyped(&premature_builder);
+        try std.testing.expectError(error.InvalidTransition, state.initReadyAcceptReturnMessage(premature_root, 64, 90));
+    }
 
     var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer disembargo_builder.deinit();
@@ -2381,6 +2387,19 @@ test "rpc top-level accept messages open questions" {
     try state.applyWireMessage(std.testing.allocator, disembargo_message);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
+    {
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        try state.initReadyAcceptReturnMessage(response_root, 64, 90);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 90 }, descriptors[0]);
+    }
     try state.finishQuestion(64);
     try std.testing.expect(state.acceptInfo(64) == null);
 }

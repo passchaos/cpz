@@ -2071,6 +2071,11 @@ pub const State = struct {
         return tracker.embargo == null or tracker.embargo_released;
     }
 
+    pub fn initReadyAcceptReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
+        if (self.acceptReady(question_id) != true) return error.InvalidTransition;
+        try initCapabilityReturnMessage(message, question_id, export_id);
+    }
+
     pub fn joinInfo(self: *const State, id: QuestionId) ?JoinInfo {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.info();
