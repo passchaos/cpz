@@ -67,26 +67,6 @@ test "rpc wire-only events stay separate from simplified state events" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        const payload = try root.init_provide();
-        try payload.set_questionId(22);
-        const event = try decode(&builder);
-        try std.testing.expectEqual(cpz.rpc.WireEvent{ .provide = 22 }, event);
-        try std.testing.expect(event.toStateEvent() == null);
-    }
-    {
-        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
-        defer builder.deinit();
-        const root = try generated.Message.initRootTyped(&builder);
-        const payload = try root.init_accept();
-        try payload.set_questionId(23);
-        const event = try decode(&builder);
-        try std.testing.expectEqual(cpz.rpc.WireEvent{ .accept = 23 }, event);
-        try std.testing.expect(event.toStateEvent() == null);
-    }
-    {
-        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
-        defer builder.deinit();
-        const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_thirdPartyAnswer();
         try payload.set_answerId(24);
         const event = try decode(&builder);
@@ -102,6 +82,36 @@ test "rpc wire-only events stay separate from simplified state events" {
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireEvent{ .join = 25 }, event);
         try std.testing.expect(event.toStateEvent() == null);
+    }
+}
+
+test "rpc provide and accept wire events open questions" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const payload = try root.init_provide();
+        try payload.set_questionId(22);
+        const event = try decode(&builder);
+        try std.testing.expectEqual(cpz.rpc.WireEvent{ .provide = 22 }, event);
+        try std.testing.expect(event.toStateEvent() == null);
+        try state.applyWireEvent(event);
+        try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(22));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const payload = try root.init_accept();
+        try payload.set_questionId(23);
+        const event = try decode(&builder);
+        try std.testing.expectEqual(cpz.rpc.WireEvent{ .accept = 23 }, event);
+        try std.testing.expect(event.toStateEvent() == null);
+        try state.applyWireEvent(event);
+        try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(23));
     }
 }
 
