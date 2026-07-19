@@ -397,6 +397,12 @@ fn decodeCapDescriptor(builder: *cpz.MessageBuilder) !cpz.rpc.CapDescriptor {
     return cpz.rpc.capDescriptorFromWire(descriptor);
 }
 
+fn decodeCapDescriptorInfo(builder: *cpz.MessageBuilder) !cpz.rpc.CapDescriptorInfo {
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const descriptor = generated.CapDescriptor.fromReader(try reader.getRoot());
+    return cpz.rpc.capDescriptorInfoFromWire(descriptor);
+}
+
 test "rpc cap descriptor helpers decode common capability table entries" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -443,6 +449,30 @@ test "rpc cap descriptor helpers decode common capability table entries" {
     }
 }
 
+test "rpc cap descriptor info helpers preserve attached fd indexes" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
+        try descriptor.set_senderHosted(13);
+        try descriptor.set_attachedFd(4);
+        try std.testing.expectEqual(
+            cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 13 }, .attached_fd = 4 },
+            try decodeCapDescriptorInfo(&builder),
+        );
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
+        try cpz.rpc.writeCapDescriptorInfoToWire(.{ .descriptor = .{ .sender_promise = 14 }, .attached_fd = 2 }, descriptor);
+        try std.testing.expectEqual(
+            cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 14 }, .attached_fd = 2 },
+            try decodeCapDescriptorInfo(&builder),
+        );
+    }
+}
+
 test "rpc payload helpers decode capability descriptor tables" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
@@ -462,6 +492,27 @@ test "rpc payload helpers decode capability descriptor tables" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 12 }, descriptors[0]);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 13 }, descriptors[1]);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 14 } }, descriptors[2]);
+}
+
+test "rpc payload info helpers decode attached fd metadata" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    const cap_table = try payload.init_capTable(2);
+    const first = try cap_table.get(0);
+    try first.set_senderHosted(15);
+    try first.set_attachedFd(1);
+    const second = try cap_table.get(1);
+    try second.set_senderPromise(16);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(infos);
+
+    try std.testing.expectEqual(@as(usize, 2), infos.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 15 }, .attached_fd = 1 }, infos[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 16 }, .attached_fd = 0xff }, infos[1]);
 }
 
 test "rpc payload helpers write capability descriptor tables" {
@@ -488,6 +539,24 @@ test "rpc payload helpers write capability descriptor tables" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 18 }, descriptors[3]);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 19 } }, descriptors[4]);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 20 }, descriptors[5]);
+}
+
+test "rpc payload info helpers write attached fd metadata" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    try cpz.rpc.initWirePayloadCapTableInfo(payload, &.{
+        .{ .descriptor = .{ .sender_hosted = 21 }, .attached_fd = 3 },
+        .{ .descriptor = .{ .third_party_hosted = 22 }, .attached_fd = 0xff },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(infos);
+    try std.testing.expectEqual(@as(usize, 2), infos.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 21 }, .attached_fd = 3 }, infos[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .third_party_hosted = 22 }, .attached_fd = 0xff }, infos[1]);
 }
 
 test "rpc payload helpers build sender-hosted descriptors from registries" {

@@ -79,12 +79,12 @@ that a complete RPC runtime exists.
   owning target decoder can include promised-answer transform paths, which can
   also be decoded and written for noop and get-pointer-field operations.
   Generated RPC `CapDescriptor` readers can be decoded for the common
-  none/sender/receiver entries plus the third-party vine ID, and written back
-  into generated payload builders. `CapabilityRegistry(T)` can seed
-  sender-hosted descriptor tables for outgoing payloads. `Payload.capTable` can
-  be decoded into a caller-owned descriptor slice, with absent tables treated as
-  empty. Payload content capability indexes can be validated against the decoded
-  cap table length.
+  none/sender/receiver entries plus the third-party vine ID and optional
+  `attachedFd` index metadata, and written back into generated payload builders.
+  `CapabilityRegistry(T)` can seed sender-hosted descriptor tables for outgoing
+  payloads. `Payload.capTable` can be decoded into caller-owned descriptor or
+  descriptor-info slices, with absent tables treated as empty. Payload content
+  capability indexes can be validated against the decoded cap table length.
   Decoded descriptor tables can be applied to `State` for basic import
   creation/reference counting and receiver-hosted export/answer validation.
   `Call.params.capTable` can be decoded through the same descriptor pipeline, as

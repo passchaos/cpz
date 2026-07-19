@@ -148,6 +148,8 @@ struct CapDescriptor {
     receiverAnswer @4 :PromisedAnswer;
     thirdPartyHosted @5 :ThirdPartyCapDescriptor;
   }
+
+  attachedFd @6 :UInt8 = 0xff;
 }
 
 struct ThirdPartyCapDescriptor {

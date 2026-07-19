@@ -188,6 +188,11 @@ pub const CapDescriptor = union(enum) {
     third_party_hosted: ExportId,
 };
 
+pub const CapDescriptorInfo = struct {
+    descriptor: CapDescriptor,
+    attached_fd: u8 = 0xff,
+};
+
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's
 /// `rpc.capnp`. Keeping the mapping here lets code generated from that schema
 /// be decoded without making this runtime module import a generated file.
@@ -738,6 +743,13 @@ pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
     };
 }
 
+pub fn capDescriptorInfoFromWire(descriptor: anytype) !CapDescriptorInfo {
+    return .{
+        .descriptor = try capDescriptorFromWire(descriptor),
+        .attached_fd = descriptor.attachedFd(),
+    };
+}
+
 pub fn resolveInfoFromWireResolve(resolve: anytype) !ResolveInfo {
     return switch (resolve.which() orelse return error.InvalidTransition) {
         .cap => .{
@@ -788,10 +800,22 @@ pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !vo
     }
 }
 
+pub fn writeCapDescriptorInfoToWire(info: CapDescriptorInfo, builder: anytype) !void {
+    try writeCapDescriptorToWire(info.descriptor, builder);
+    try builder.set_attachedFd(info.attached_fd);
+}
+
 pub fn initWirePayloadCapTable(payload: anytype, descriptors: []const CapDescriptor) !void {
     const cap_table = try payload.init_capTable(descriptors.len);
     for (descriptors, 0..) |descriptor, index| {
         try writeCapDescriptorToWire(descriptor, try cap_table.get(index));
+    }
+}
+
+pub fn initWirePayloadCapTableInfo(payload: anytype, infos: []const CapDescriptorInfo) !void {
+    const cap_table = try payload.init_capTable(infos.len);
+    for (infos, 0..) |info, index| {
+        try writeCapDescriptorInfoToWire(info, try cap_table.get(index));
     }
 }
 
@@ -1046,6 +1070,19 @@ pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) !
         descriptor.* = try capDescriptorFromWire(try cap_table.get(index));
     }
     return descriptors;
+}
+
+pub fn capTableInfoFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptorInfo {
+    const cap_table = payload.capTable() catch |err| switch (err) {
+        error.NullPointer => return allocator.alloc(CapDescriptorInfo, 0),
+        else => return err,
+    };
+    const infos = try allocator.alloc(CapDescriptorInfo, cap_table.len());
+    errdefer allocator.free(infos);
+    for (infos, 0..) |*info, index| {
+        info.* = try capDescriptorInfoFromWire(try cap_table.get(index));
+    }
+    return infos;
 }
 
 pub fn capTableFromWireCallParams(allocator: std.mem.Allocator, call: anytype) ![]CapDescriptor {
