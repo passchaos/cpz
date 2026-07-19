@@ -373,6 +373,10 @@ pub fn callTargetFromWireCall(call: anytype) !CallTarget {
     return targetFromWireMessageTarget(try call.target());
 }
 
+pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
+    return targetFromWireMessageTarget(try message.target());
+}
+
 pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
     return switch (descriptor.which() orelse return error.InvalidTransition) {
         .none => .none,
@@ -652,11 +656,18 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
     }
 
+    pub fn applyWireTargetedQuestion(self: *State, question_id: QuestionId, targeted: anytype) !void {
+        try self.validateCallTarget(try targetFromWireTargetedMessage(targeted));
+        try self.openQuestion(question_id, .call);
+    }
+
     pub fn applyWireMessage(self: *State, allocator: std.mem.Allocator, message: anytype) !void {
         const event = try eventFromWireMessage(message);
         return switch (event) {
             .call => self.applyWireCall(allocator, try message.call()),
             .return_ => self.applyWireReturn(allocator, try message.return_()),
+            .provide => |id| self.applyWireTargetedQuestion(id, try message.provide()),
+            .join => |id| self.applyWireTargetedQuestion(id, try message.join()),
             else => self.applyWireEvent(event),
         };
     }

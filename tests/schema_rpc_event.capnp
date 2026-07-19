@@ -60,6 +60,7 @@ struct Release {
 
 struct Provide {
   questionId @0 :QuestionId;
+  target @1 :MessageTarget;
 }
 
 struct Accept {
@@ -72,6 +73,7 @@ struct ThirdPartyAnswer {
 
 struct Join {
   questionId @0 :QuestionId;
+  target @1 :MessageTarget;
 }
 
 struct MessageTarget {

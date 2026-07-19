@@ -56,7 +56,8 @@ that a complete RPC runtime exists.
   opening, and params capability-table bookkeeping. A generated Return reader
   can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
-  call/return payload-aware application or simpler state events.
+  call/return payload-aware application or simpler state events; Provide/Join
+  top-level messages validate their targets before opening questions.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.
