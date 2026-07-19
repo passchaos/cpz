@@ -35,8 +35,10 @@ test "rpc wire events decode generated message union tags and ids" {
         const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_return_();
         try payload.set_answerId(13);
+        try payload.set_releaseParamCaps(false);
+        try payload.set_noFinishNeeded(true);
         const event = try decode(&builder);
-        try std.testing.expectEqual(cpz.rpc.WireEvent{ .return_ = 13 }, event);
+        try std.testing.expectEqual(cpz.rpc.WireEvent{ .return_ = .{ .answer_id = 13, .release_param_caps = false, .no_finish_needed = true } }, event);
         try std.testing.expectEqual(cpz.rpc.Event{ .return_ = 13 }, event.toStateEvent().?);
     }
     {

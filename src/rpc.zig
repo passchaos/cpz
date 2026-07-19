@@ -29,6 +29,12 @@ pub const Finish = struct {
     release_result_caps: bool,
 };
 
+pub const Return = struct {
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+};
+
 pub const PromisedAnswerTarget = struct {
     question_id: QuestionId,
 };
@@ -86,7 +92,7 @@ pub const WireEvent = union(WireMessageTag) {
     abort: void,
     bootstrap: QuestionId,
     call: QuestionId,
-    return_: AnswerId,
+    return_: Return,
     finish: Finish,
     resolve: ExportId,
     release: CapabilityRelease,
@@ -148,7 +154,8 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn answerId(self: WireEvent) ?AnswerId {
         return switch (self) {
-            .return_, .third_party_answer => |id| id,
+            .third_party_answer => |id| id,
+            .return_ => |return_| return_.answer_id,
             else => null,
         };
     }
@@ -183,7 +190,7 @@ pub const WireEvent = union(WireMessageTag) {
         return switch (self) {
             .bootstrap => |id| .{ .bootstrap = id },
             .call => |id| .{ .call = id },
-            .return_ => |id| .{ .return_ = id },
+            .return_ => |return_| .{ .return_ = return_.answer_id },
             .finish => |finish| .{ .finish = finish.question_id },
             .release => |release| if (release.reference_count == 1) .{ .release = .{ .import_id = release.id } } else null,
             else => null,
@@ -456,7 +463,14 @@ pub fn eventFromWireMessage(message: anytype) !WireEvent {
         .abort => .{ .abort = {} },
         .bootstrap => .{ .bootstrap = (try message.bootstrap()).questionId() },
         .call => .{ .call = (try message.call()).questionId() },
-        .return_ => .{ .return_ = (try message.return_()).answerId() },
+        .return_ => blk: {
+            const return_ = try message.return_();
+            break :blk .{ .return_ = .{
+                .answer_id = return_.answerId(),
+                .release_param_caps = return_.releaseParamCaps(),
+                .no_finish_needed = return_.noFinishNeeded(),
+            } };
+        },
         .finish => blk: {
             const finish = try message.finish();
             break :blk .{ .finish = .{ .question_id = finish.questionId(), .release_result_caps = finish.releaseResultCaps() } };
@@ -824,7 +838,7 @@ test "rpc wire events expose classification and id helpers" {
     try testing.expect(!bootstrap.isQuestionClosing());
     try testing.expectEqual(@as(?QuestionId, 12), bootstrap.questionId());
 
-    const return_event = WireEvent{ .return_ = 13 };
+    const return_event = WireEvent{ .return_ = .{ .answer_id = 13, .release_param_caps = true, .no_finish_needed = false } };
     try testing.expect(return_event.isAnswerResolving());
     try testing.expectEqual(@as(?AnswerId, 13), return_event.answerId());
 
@@ -1054,7 +1068,7 @@ test "rpc state applies only the semantically aligned wire event subset" {
     try state.applyWireEvent(.{ .bootstrap = 41 });
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(41));
     try state.applyWireEvent(.{ .finish = .{ .question_id = 41, .release_result_caps = true } });
-    try state.applyWireEvent(.{ .return_ = 41 });
+    try state.applyWireEvent(.{ .return_ = .{ .answer_id = 41, .release_param_caps = true, .no_finish_needed = false } });
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(41));
 
     try state.openQuestion(102, .call);

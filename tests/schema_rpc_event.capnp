@@ -42,7 +42,9 @@ struct Call {
 
 struct Return {
   answerId @0 :AnswerId;
+  releaseParamCaps @1 :Bool = true;
   results @2 :Payload;
+  noFinishNeeded @8 :Bool = false;
 }
 
 struct Finish {

@@ -30,6 +30,8 @@ that a complete RPC runtime exists.
 - `cpz.rpc.eventFromWireMessage()` can decode the top-level `rpc.capnp` message
   union shape from generated readers into lightweight `WireEvent` values, and
   projects only the semantically-aligned subset into `State.apply()` events.
+  Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
+  while still projecting to the simplified answer-resolving event.
   Release wire events preserve `referenceCount` so `State.applyWireEvent()` can
   decrement import lifetimes without silently collapsing batched releases.
   Resolve wire events mark an existing export promise as resolved without
