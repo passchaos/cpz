@@ -46,4 +46,6 @@ pub fn main() !void {
 
 ## Scope
 
-The public API is intentionally low-level today. Generated schema accessors can build on top of `StructReader` / `StructBuilder` without changing the wire-format core.
+The current implementation is a runtime plus schema/codegen foundation. It can parse and generate accessors for a broad Cap'n Proto schema subset and read/write standard flat and packed messages, but it does not yet implement the Cap'n Proto RPC transport/protocol runtime. Interface declarations, method metadata, capability pointers, and capability-table validation are represented so generated code and wire-format tooling can reason about RPC-shaped schemas, while actual RPC dispatch, promises, vats, and network transports remain future work.
+
+The public API is intentionally low-level today. Generated schema accessors build on top of `StructReader` / `StructBuilder` without changing the wire-format core.
