@@ -111,5 +111,10 @@ struct CapDescriptor {
     senderPromise @2 :ExportId;
     receiverHosted @3 :ImportId;
     receiverAnswer @4 :PromisedAnswer;
+    thirdPartyHosted @5 :ThirdPartyCapDescriptor;
   }
+}
+
+struct ThirdPartyCapDescriptor {
+  vineId @1 :ExportId;
 }

@@ -92,6 +92,7 @@ pub const CapDescriptor = union(enum) {
     sender_promise: ExportId,
     receiver_hosted: ImportId,
     receiver_answer: PromisedAnswerTarget,
+    third_party_hosted: ExportId,
 };
 
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's
@@ -496,6 +497,7 @@ pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
             const promised_answer = try descriptor.receiverAnswer();
             break :blk .{ .receiver_answer = .{ .question_id = promised_answer.questionId() } };
         },
+        .thirdPartyHosted => .{ .third_party_hosted = (try descriptor.thirdPartyHosted()).vineId() },
     };
 }
 
@@ -508,6 +510,10 @@ pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !vo
         .receiver_answer => |answer| {
             const receiver_answer = try builder.init_receiverAnswer();
             try receiver_answer.set_questionId(answer.question_id);
+        },
+        .third_party_hosted => |vine_id| {
+            const third_party = try builder.init_thirdPartyHosted();
+            try third_party.set_vineId(vine_id);
         },
     }
 }
@@ -551,14 +557,14 @@ pub fn capTableFromWireReturnResults(allocator: std.mem.Allocator, return_: anyt
 fn capDescriptorImportIdsAlloc(allocator: std.mem.Allocator, descriptors: []const CapDescriptor) std.mem.Allocator.Error![]ImportId {
     var count: usize = 0;
     for (descriptors) |descriptor| switch (descriptor) {
-        .sender_hosted, .sender_promise => count += 1,
+        .sender_hosted, .sender_promise, .third_party_hosted => count += 1,
         else => {},
     };
 
     const ids = try allocator.alloc(ImportId, count);
     var index: usize = 0;
     for (descriptors) |descriptor| switch (descriptor) {
-        .sender_hosted, .sender_promise => |id| {
+        .sender_hosted, .sender_promise, .third_party_hosted => |id| {
             ids[index] = id;
             index += 1;
         },
@@ -771,7 +777,7 @@ pub const State = struct {
 
     fn validateCapDescriptor(self: *const State, descriptor: CapDescriptor) Error!void {
         switch (descriptor) {
-            .none, .sender_hosted, .sender_promise => {},
+            .none, .sender_hosted, .sender_promise, .third_party_hosted => {},
             .receiver_hosted => |id| {
                 const tracker = self.exports.get(id) orelse return error.InvalidTransition;
                 if (tracker.state != .live) return error.ExportAlreadyReleased;
@@ -788,6 +794,7 @@ pub const State = struct {
             .none, .receiver_hosted, .receiver_answer => {},
             .sender_hosted => |id| self.receiveImport(id),
             .sender_promise => |id| self.receiveImport(id),
+            .third_party_hosted => |id| self.receiveImport(id),
         };
     }
 
@@ -1182,6 +1189,8 @@ test "rpc state applies capability descriptors to table lifetimes" {
     try testing.expectEqual(@as(?u32, 1), state.importReferenceCount(30));
     try state.applyCapDescriptor(.{ .sender_promise = 30 });
     try testing.expectEqual(@as(?u32, 2), state.importReferenceCount(30));
+    try state.applyCapDescriptor(.{ .third_party_hosted = 30 });
+    try testing.expectEqual(@as(?u32, 3), state.importReferenceCount(30));
 
     try state.addExport(31);
     try state.applyCapDescriptor(.{ .receiver_hosted = 31 });
