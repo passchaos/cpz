@@ -138,13 +138,14 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Model the remaining official RPC semantics that are still only structural:
-   `Resolve` forwarding to remembered targets, full `Disembargo`,
-   `Accept.provision`/embargo state handling, `Join` result handling, and
-   third-party cap descriptors.
+1. Turn the now-recorded structural RPC data into behavior: forward calls to
+   remembered `Resolve` targets, queue/release `Disembargo` traffic, complete
+   `Accept` provisions after embargo release, and coordinate multi-part `Join`
+   results.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
-   emission, and state validation.
+   emission, and state validation for non-capability payload shapes as well as
+   the current capability-result helpers.
 3. Add a minimal dispatch loop for bootstrap/call/return over an application
    callback before attempting promise pipelining, vats, or network transports.
 4. Add generated service skeleton types only after the runtime can execute and
