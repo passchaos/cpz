@@ -2093,24 +2093,30 @@ test "rpc join info helpers write targets and key parts" {
 }
 
 test "rpc top-level accept messages open questions" {
-    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
     const root = try generated.Message.initRootTyped(&builder);
     const accept = try root.init_accept();
     try accept.set_questionId(64);
+    (try accept.get_provisionAsPointer()).setCapability(2);
     try accept.set_embargo("embargo-64");
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const message = generated.Message.fromReader(try reader.getRoot());
     const info = try cpz.rpc.acceptInfoFromWireAccept(try message.accept());
     try std.testing.expectEqual(@as(u32, 64), info.question_id);
-    try std.testing.expect(!info.has_provision);
-    try std.testing.expectEqual(@as(usize, 0), info.provision_max_capability_count);
+    try std.testing.expect(info.has_provision);
+    try std.testing.expectEqual(@as(usize, 3), info.provision_max_capability_count);
+    try std.testing.expectEqual(@as(?u32, 2), info.provision_capability);
     try std.testing.expectEqualStrings("embargo-64", info.embargo.?);
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(64));
+    const tracked = state.acceptInfo(64).?;
+    try std.testing.expect(tracked.has_provision);
+    try std.testing.expectEqual(@as(?u32, 2), tracked.provision_capability);
+    try std.testing.expectEqualStrings("embargo-64", tracked.embargo.?);
 }
 
 test "rpc disembargo helpers decode targets and loopback contexts" {

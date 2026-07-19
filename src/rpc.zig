@@ -91,6 +91,28 @@ pub const ThirdPartyAnswerInfo = struct {
     completion: ?AnyPointerUsage = null,
 };
 
+pub const AcceptTracker = struct {
+    question_id: QuestionId,
+    has_provision: bool,
+    provision: ?AnyPointerUsage = null,
+    embargo: ?[]const u8 = null,
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        if (self.embargo) |bytes| allocator.free(bytes);
+        self.* = undefined;
+    }
+
+    pub fn info(self: @This()) AcceptInfo {
+        return .{
+            .question_id = self.question_id,
+            .has_provision = self.has_provision,
+            .provision_max_capability_count = if (self.provision) |provision| provision.max_capability_count else 0,
+            .provision_capability = if (self.provision) |provision| provision.capability else null,
+            .embargo = self.embargo,
+        };
+    }
+};
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -1389,6 +1411,7 @@ pub const State = struct {
     imports: std.AutoHashMap(ImportId, ImportTracker),
     param_imports: std.AutoHashMap(QuestionId, []ImportId),
     result_imports: std.AutoHashMap(AnswerId, []ImportId),
+    accepts: std.AutoHashMap(QuestionId, AcceptTracker),
 
     pub fn init(allocator: std.mem.Allocator) State {
         return .{
@@ -1399,10 +1422,14 @@ pub const State = struct {
             .imports = std.AutoHashMap(ImportId, ImportTracker).init(allocator),
             .param_imports = std.AutoHashMap(QuestionId, []ImportId).init(allocator),
             .result_imports = std.AutoHashMap(AnswerId, []ImportId).init(allocator),
+            .accepts = std.AutoHashMap(QuestionId, AcceptTracker).init(allocator),
         };
     }
 
     pub fn deinit(self: *State) void {
+        var accepts = self.accepts.valueIterator();
+        while (accepts.next()) |accept| accept.deinit(self.allocator);
+        self.accepts.deinit();
         var result_imports = self.result_imports.valueIterator();
         while (result_imports.next()) |ids| self.allocator.free(ids.*);
         self.result_imports.deinit();
@@ -1464,6 +1491,13 @@ pub const State = struct {
         }
     }
 
+    fn clearAccept(self: *State, id: QuestionId) void {
+        if (self.accepts.fetchRemove(id)) |entry| {
+            var tracker = entry.value;
+            tracker.deinit(self.allocator);
+        }
+    }
+
     pub fn questionComplete(self: *const State, id: QuestionId) bool {
         const question = self.questions.get(id) orelse return false;
         const answer = self.answers.get(id) orelse return false;
@@ -1492,6 +1526,7 @@ pub const State = struct {
             // two hash maps out of sync.
             self.clearParamImports(id);
             self.clearResultImports(id);
+            self.clearAccept(id);
             existing_question.* = .{ .id = id };
             try existing_question.open(kind);
             existing_answer.* = .{ .id = id };
@@ -1618,6 +1653,25 @@ pub const State = struct {
         try self.validateTrackedImports(ids);
     }
 
+    fn trackAccept(self: *State, info: AcceptInfo) std.mem.Allocator.Error!void {
+        const embargo = if (info.embargo) |bytes| try self.allocator.dupe(u8, bytes) else null;
+        errdefer if (embargo) |bytes| self.allocator.free(bytes);
+
+        if (self.accepts.fetchRemove(info.question_id)) |old| {
+            var tracker = old.value;
+            tracker.deinit(self.allocator);
+        }
+        try self.accepts.put(info.question_id, .{
+            .question_id = info.question_id,
+            .has_provision = info.has_provision,
+            .provision = if (info.has_provision) .{
+                .max_capability_count = info.provision_max_capability_count,
+                .capability = info.provision_capability,
+            } else null,
+            .embargo = embargo,
+        });
+    }
+
     pub fn applyWireCallPayload(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
         const descriptors = try capTableFromWireCallParams(allocator, call);
         defer allocator.free(descriptors);
@@ -1710,6 +1764,7 @@ pub const State = struct {
     pub fn applyWireAccept(self: *State, accept: anytype) !void {
         const info = try acceptInfoFromWireAccept(accept);
         try self.openQuestion(info.question_id, .call);
+        try self.trackAccept(info);
     }
 
     pub fn applyWireMessage(self: *State, allocator: std.mem.Allocator, message: anytype) !void {
@@ -1796,6 +1851,15 @@ pub const State = struct {
     pub fn importReferenceCount(self: *const State, id: ImportId) ?u32 {
         const tracker = self.imports.get(id) orelse return null;
         return tracker.reference_count;
+    }
+
+    pub fn acceptInfo(self: *const State, id: QuestionId) ?AcceptInfo {
+        const tracker = self.accepts.get(id) orelse return null;
+        return tracker.info();
+    }
+
+    pub fn acceptCount(self: *const State) usize {
+        return self.accepts.count();
     }
 
     pub fn apply(self: *State, event: Event) (Error || std.mem.Allocator.Error)!void {
@@ -2148,6 +2212,7 @@ test "rpc wire provide accept and join open questions without projecting to capa
     try state.applyWireEvent(accept);
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(72));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(72));
+    try testing.expectEqual(@as(usize, 0), state.acceptCount());
 
     const join = WireEvent{ .join = 73 };
     try testing.expect(join.toStateEvent() == null);
