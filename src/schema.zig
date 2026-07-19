@@ -5535,7 +5535,13 @@ fn namedTypeResolvesToGenericParameter(allocator: std.mem.Allocator, file: *cons
         return false;
     var resolved = resolved_const;
     defer resolved.deinit(allocator);
-    return resolved == .named and parameterNameInScope(file, scope, resolved.named);
+    return switch (resolved) {
+        .named => |name| parameterNameInScope(file, scope, name) or
+            (findEnumRelative(file, if (scope) |owner| owner.name else null, name) == null and
+                findInterface(file, name) == null and
+                !isStructLikeNameRelative(file, if (scope) |owner| owner.name else null, name)),
+        else => true,
+    };
 }
 
 fn effectiveNamedTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8) LayoutError![]const u8 {
@@ -13867,7 +13873,7 @@ fn emitOptionalConstValue(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
                 try appendFmt(allocator, out,
                     \\{s}pub const {s} = struct {{
                     \\{s}    pub const fieldCount: usize = {};
-                    \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.schema".@"cpz.const.{s}.structFields";
+                    \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.const.{s}.structFields";
                     \\
                 , .{ indent, const_name, indent, fields.len, indent, const_name });
                 const flat = (try structFieldDefaultFlatBytesAlloc(allocator, file, scope, type_name, decl.literal)) orelse return;
@@ -14086,7 +14092,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             try appendFmt(allocator, out,
                 \\{s}pub const {s} = struct {{
                 \\{s}    pub const itemCount: usize = {};
-                \\{s}    pub const items: []const cpz.schema.ConstListItem = @"cpz.schema".@"cpz.const.{s}.listItems";
+                \\{s}    pub const items: []const cpz.schema.ConstListItem = @"cpz.const.{s}.listItems";
                 \\
             , .{ indent, const_name, indent, items.len, indent, const_name });
             if (try structListLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
@@ -14287,7 +14293,7 @@ fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         try appendFmt(allocator, out,
             \\{s}pub const {s} = struct {{
             \\{s}    pub const fieldCount: usize = {};
-            \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.schema".@"cpz.const.{s}.structFields";
+            \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.const.{s}.structFields";
             \\
         , .{ indent, const_name, indent, fields.len, indent, const_name });
         if (try structLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
