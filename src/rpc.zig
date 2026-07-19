@@ -495,6 +495,11 @@ pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
     };
 }
 
+pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
+    try accept.set_questionId(info.question_id);
+    try accept.set_embargoOrNull(info.embargo);
+}
+
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
     return targetFromWireMessageTarget(try message.target());
 }
