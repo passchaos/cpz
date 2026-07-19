@@ -1660,6 +1660,18 @@ pub const State = struct {
         return (!self.questions.contains(id) and !self.answers.contains(id)) or self.questionComplete(id);
     }
 
+    pub fn forgetQuestion(self: *State, id: QuestionId) Error!void {
+        if (!self.questions.contains(id) and !self.answers.contains(id)) return error.QuestionNotOpen;
+        if (!self.questionComplete(id)) return error.InvalidTransition;
+        self.clearParamImports(id);
+        self.clearResultImports(id);
+        self.clearAccept(id);
+        self.clearJoin(id);
+        self.clearProvide(id);
+        _ = self.questions.remove(id);
+        _ = self.answers.remove(id);
+    }
+
     pub fn openQuestion(self: *State, id: QuestionId, kind: MessageKind) (Error || std.mem.Allocator.Error)!void {
         if (!kind.isQuestionOpening()) return error.InvalidTransition;
         if (self.questions.getPtr(id)) |existing_question| {
@@ -2329,6 +2341,12 @@ test "rpc state tracks in-flight questions and answers" {
 
     try testing.expect(state.questionComplete(1));
     try testing.expect(state.canReuseQuestionId(1));
+    try state.forgetQuestion(1);
+    try testing.expect(!state.hasQuestion(1));
+    try testing.expect(!state.hasAnswer(1));
+    try testing.expectEqual(@as(usize, 0), state.questionCount());
+    try testing.expectEqual(@as(usize, 0), state.answerCount());
+    try testing.expectError(error.QuestionNotOpen, state.forgetQuestion(1));
     try state.openQuestion(1, .bootstrap);
     try testing.expectEqual(@as(usize, 1), state.questionCount());
     try testing.expectEqual(@as(usize, 1), state.answerCount());
