@@ -717,6 +717,24 @@ pub fn initWireReturnMessage(
     try initWireReturn(allocator, try message.init_return_(), answer_id, release_param_caps, no_finish_needed, registry);
 }
 
+pub fn initWireFinish(finish: anytype, value: Finish) !void {
+    try finish.set_questionId(value.question_id);
+    try finish.set_releaseResultCaps(value.release_result_caps);
+}
+
+pub fn initWireFinishMessage(message: anytype, value: Finish) !void {
+    try initWireFinish(try message.init_finish(), value);
+}
+
+pub fn initWireRelease(release: anytype, value: CapabilityRelease) !void {
+    try release.set_id(value.id);
+    try release.set_referenceCount(value.reference_count);
+}
+
+pub fn initWireReleaseMessage(message: anytype, value: CapabilityRelease) !void {
+    try initWireRelease(try message.init_release(), value);
+}
+
 pub fn initWireCallParamsCapTable(call: anytype, descriptors: []const CapDescriptor) !void {
     try initWirePayloadCapTable(try call.init_params(), descriptors);
 }

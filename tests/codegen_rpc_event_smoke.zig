@@ -687,6 +687,35 @@ test "rpc top-level return helpers initialize messages" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
 }
 
+test "rpc top-level finish and release helpers initialize messages" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireFinishMessage(root, .{ .question_id = 77, .release_result_caps = false });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(
+            cpz.rpc.WireEvent{ .finish = .{ .question_id = 77, .release_result_caps = false } },
+            try cpz.rpc.eventFromWireMessage(message),
+        );
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireReleaseMessage(root, .{ .id = 78, .reference_count = 3 });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(
+            cpz.rpc.WireEvent{ .release = .{ .id = 78, .reference_count = 3 } },
+            try cpz.rpc.eventFromWireMessage(message),
+        );
+    }
+}
+
 test "rpc wire returns resolve answers and apply result cap tables" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
