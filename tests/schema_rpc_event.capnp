@@ -17,7 +17,7 @@ struct Message {
 
     resolve @5 :Resolve;
     release @6 :Release;
-    disembargo @13 :Void;
+    disembargo @13 :Disembargo;
 
     obsoleteSave @7 :Void;
     obsoleteDelete @9 :Void;
@@ -63,6 +63,15 @@ struct Resolve {
 struct Release {
   id @0 :ImportId;
   referenceCount @1 :UInt32;
+}
+
+struct Disembargo {
+  target @0 :MessageTarget;
+
+  union {
+    senderLoopback @1 :UInt32;
+    receiverLoopback @2 :UInt32;
+  }
 }
 
 struct Provide {

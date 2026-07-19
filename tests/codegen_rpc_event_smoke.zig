@@ -754,6 +754,40 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(64));
 }
 
+test "rpc disembargo helpers decode targets and loopback contexts" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const disembargo = try root.init_disembargo();
+        const target = try disembargo.init_target();
+        try target.set_importedCap(74);
+        try disembargo.set_senderLoopback(75);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try message.disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 74 }, info.target);
+        try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .sender_loopback = 75 }, info.context);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const disembargo = try root.init_disembargo();
+        const target = try disembargo.init_target();
+        const promised = try target.init_promisedAnswer();
+        try promised.set_questionId(76);
+        try disembargo.set_receiverLoopback(77);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try message.disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 76 } }, info.target);
+        try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .receiver_loopback = 77 }, info.context);
+    }
+}
+
 test "rpc accept info helpers write question ids and embargoes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });

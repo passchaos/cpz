@@ -40,6 +40,16 @@ pub const AcceptInfo = struct {
     embargo: ?[]const u8,
 };
 
+pub const DisembargoContext = union(enum) {
+    sender_loopback: u32,
+    receiver_loopback: u32,
+};
+
+pub const DisembargoInfo = struct {
+    target: CallTarget,
+    context: DisembargoContext,
+};
+
 pub const ResolveInfo = struct {
     promise_id: ExportId,
     cap: ?CapDescriptor,
@@ -503,6 +513,15 @@ pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
 pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
     try accept.set_questionId(info.question_id);
     try accept.set_embargoOrNull(info.embargo);
+}
+
+pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {
+    const target = try targetFromWireTargetedMessage(disembargo);
+    const context: DisembargoContext = switch (disembargo.which() orelse return error.InvalidTransition) {
+        .senderLoopback => .{ .sender_loopback = try disembargo.senderLoopback() },
+        .receiverLoopback => .{ .receiver_loopback = try disembargo.receiverLoopback() },
+    };
+    return .{ .target = target, .context = context };
 }
 
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
