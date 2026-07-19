@@ -104,8 +104,8 @@ that a complete RPC runtime exists.
   Call/Return payload tables directly to `State`, and generated Call/Return
   builders can initialize those cap tables directly from descriptors or
   descriptor-info metadata, or combine them with payload content capability
-  indexes at either the Call/Return member level or through top-level Message
-  builders. Generated Call builders can
+  indexes or caller-filled struct payloads at either the Call/Return member
+  level or through top-level Message builders. Generated Call builders can
   initialize question ID, target, and registry-backed params cap tables together;
   Return builders can initialize answer ID, flags, and registry-backed results
   cap tables together, either at the Call/Return member level or through

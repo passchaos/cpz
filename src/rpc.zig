@@ -1131,6 +1131,21 @@ pub fn initWireCallMessagePayloadCapabilityInfo(
     try initWireCallParamsCapabilityInfo(call, capability_index, infos);
 }
 
+pub fn initWireCallMessageStructWith(
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    fill: anytype,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsStructWith(call, struct_size, descriptors, context, fill);
+}
+
 pub fn initWireBootstrap(bootstrap: anytype, question_id: QuestionId) !void {
     try bootstrap.set_questionId(question_id);
 }
@@ -1244,6 +1259,23 @@ pub fn initWireReturnMessagePayloadCapabilityInfo(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     try initWireReturnResultsCapabilityInfo(return_, capability_index, infos);
+}
+
+pub fn initWireReturnMessageStructWith(
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    struct_size: anytype,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    fill: anytype,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsStructWith(return_, struct_size, descriptors, context, fill);
 }
 
 pub fn joinResultCapabilityFromWireReturn(return_: anytype) !?u32 {
