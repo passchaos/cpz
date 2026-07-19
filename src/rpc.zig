@@ -678,6 +678,14 @@ pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, re
     return descriptors;
 }
 
+pub fn initWireCall(allocator: std.mem.Allocator, call: anytype, question_id: QuestionId, target: CallTarget, registry: anytype) !void {
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireCallParamsCapTable(call, descriptors);
+}
+
 pub fn initWireCallParamsCapTable(call: anytype, descriptors: []const CapDescriptor) !void {
     try initWirePayloadCapTable(try call.init_params(), descriptors);
 }
