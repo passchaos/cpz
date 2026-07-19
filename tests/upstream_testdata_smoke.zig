@@ -488,3 +488,32 @@ test "upstream segmented prefix sizing exposes segment table" {
     try std.testing.expectError(error.SegmentOutOfBounds, cpz.segmentWordLenFromPrefix(table_prefix, 125));
     try std.testing.expectError(error.SegmentTableTruncated, cpz.segmentWordLenFromPrefix(segmented[0..128], 124));
 }
+
+test "upstream segmented fixtures work through owned and view readers" {
+    const allocator = std.testing.allocator;
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+    const segmented_packed = try readFixture(allocator, "segmented-packed");
+    defer allocator.free(segmented_packed);
+
+    var owned_flat = try cpz.OwnedMessageReader.initFlat(allocator, segmented, .{});
+    defer owned_flat.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 125), owned_flat.segmentCount());
+    try expectTestAllTypesRoot(try owned_flat.getRoot());
+
+    var owned_packed = try cpz.OwnedMessageReader.initPacked(allocator, segmented_packed, .{});
+    defer owned_packed.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 125), owned_packed.segmentCount());
+    try expectTestAllTypesRoot(try owned_packed.getRoot());
+
+    var view_flat_segments: [128]cpz.ConstSegment = undefined;
+    var view_flat = try cpz.MessageReaderView.initFlatInto(&view_flat_segments, segmented, .{});
+    try std.testing.expectEqual(@as(usize, 125), view_flat.segmentCount());
+    try expectTestAllTypesRoot(try view_flat.getRoot());
+
+    var packed_view_segments: [128]cpz.ConstSegment = undefined;
+    var packed_view_buffer: [8192]u8 = undefined;
+    var view_packed = try cpz.MessageReaderView.initPackedInto(&packed_view_segments, &packed_view_buffer, segmented_packed, .{});
+    try std.testing.expectEqual(@as(usize, 125), view_packed.segmentCount());
+    try expectTestAllTypesRoot(try view_packed.getRoot());
+}
