@@ -42,6 +42,13 @@ pub const AcceptInfo = struct {
     embargo: ?[]const u8,
 };
 
+pub const ProvideInfo = struct {
+    question_id: QuestionId,
+    target: CallTarget,
+    has_recipient: bool,
+    recipient_max_capability_count: usize,
+};
+
 pub const DisembargoContext = union(enum) {
     sender_loopback: u32,
     receiver_loopback: u32,
@@ -519,6 +526,16 @@ pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
 pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
     try accept.set_questionId(info.question_id);
     try accept.set_embargoOrNull(info.embargo);
+}
+
+pub fn provideInfoFromWireProvide(provide: anytype) !ProvideInfo {
+    const has_recipient = provide.has_recipient();
+    return .{
+        .question_id = provide.questionId(),
+        .target = try targetFromWireTargetedMessage(provide),
+        .has_recipient = has_recipient,
+        .recipient_max_capability_count = if (has_recipient) try provide.recipientMaxCapabilityCount() else 0,
+    };
 }
 
 pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {

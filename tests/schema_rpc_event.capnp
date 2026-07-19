@@ -78,6 +78,7 @@ struct Disembargo {
 struct Provide {
   questionId @0 :QuestionId;
   target @1 :MessageTarget;
+  recipient @2 :AnyPointer;
 }
 
 struct Accept {

@@ -791,9 +791,15 @@ test "rpc top-level provide and join messages validate targets" {
         try provide.set_questionId(61);
         const target = try provide.init_target();
         try target.set_importedCap(70);
+        (try provide.get_recipientAsPointer()).setCapability(2);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.provideInfoFromWireProvide(try message.provide());
+        try std.testing.expectEqual(@as(u32, 61), info.question_id);
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, info.target);
+        try std.testing.expect(info.has_recipient);
+        try std.testing.expectEqual(@as(usize, 3), info.recipient_max_capability_count);
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
         try std.testing.expectError(error.InvalidTransition, state.applyWireMessage(std.testing.allocator, message));
