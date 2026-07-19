@@ -106,6 +106,22 @@ test "rpc bootstrap return helpers initialize capability results" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
 }
 
+test "rpc generic capability return helper initializes results" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initCapabilityReturnMessage(root, 12, 101);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+    const results = try return_.results();
+    try std.testing.expectEqual(@as(u32, 0), try (try results.content()).getCapabilityIndex());
+    const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, return_);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 101 }, descriptors[0]);
+}
+
 test "rpc call target helpers decode imported caps and promised answers" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });

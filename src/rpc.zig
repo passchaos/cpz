@@ -894,12 +894,16 @@ pub fn initWireReturnMessage(
     try initWireReturn(allocator, try message.init_return_(), answer_id, release_param_caps, no_finish_needed, registry);
 }
 
-pub fn initBootstrapReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
+pub fn initCapabilityReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
     const return_ = try message.init_return_();
     try return_.set_answerId(answer_id);
     const results = try return_.init_results();
     (try results.get_contentAsPointer()).setCapability(0);
     try initWirePayloadCapTable(results, &.{.{ .sender_hosted = export_id }});
+}
+
+pub fn initBootstrapReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
+    try initCapabilityReturnMessage(message, answer_id, export_id);
 }
 
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
