@@ -63,5 +63,44 @@ test "malformed flat and packed inputs return errors instead of crashing" {
             var owned_view = view;
             owned_view.deinit(std.testing.allocator);
         } else |_| {}
+
+        if (cpz.OwnedMessageReader.initFlat(std.testing.allocator, storage[0..len], .{})) |reader| {
+            var owned_reader = reader;
+            owned_reader.deinit(std.testing.allocator);
+        } else |_| {}
+
+        if (cpz.MessageReaderView.initFlatInto(&view_segments, storage[0..len], .{})) |reader| {
+            var view_reader_value = reader;
+            view_reader_value.deinit(std.testing.allocator);
+        } else |_| {}
+
+        if (cpz.MessageReaderView.initPackedInto(&packed_view_segments, &packed_flat_buffer, storage[0..len], .{})) |reader| {
+            var view_reader_value = reader;
+            view_reader_value.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var owned_flat_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.OwnedMessageReader.initFromReader(std.testing.allocator, &owned_flat_reader, .{})) |reader| {
+            var owned_reader = reader;
+            owned_reader.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var owned_packed_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.OwnedMessageReader.initPackedFromReader(std.testing.allocator, &owned_packed_reader, .{})) |reader| {
+            var owned_reader = reader;
+            owned_reader.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var view_flat_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.MessageReaderView.initFromReaderInto(&view_segments, &flat_view_buffer, &view_flat_reader, .{})) |reader| {
+            var view_reader_value = reader;
+            view_reader_value.deinit(std.testing.allocator);
+        } else |_| {}
+
+        var view_packed_reader = std.Io.Reader.fixed(storage[0..len]);
+        if (cpz.MessageReaderView.initPackedFromReaderInto(&packed_view_segments, &packed_flat_buffer, &view_packed_reader, .{})) |reader| {
+            var view_reader_value = reader;
+            view_reader_value.deinit(std.testing.allocator);
+        } else |_| {}
     }
 }
