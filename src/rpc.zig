@@ -906,6 +906,10 @@ pub fn initBootstrapReturnMessage(message: anytype, answer_id: AnswerId, export_
     try initCapabilityReturnMessage(message, answer_id, export_id);
 }
 
+pub fn initBootstrapReturnForRequest(message: anytype, bootstrap: anytype, export_id: ExportId) !void {
+    try initBootstrapReturnMessage(message, bootstrap.questionId(), export_id);
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);
