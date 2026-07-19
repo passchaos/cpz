@@ -76,6 +76,14 @@ pub const WireDispatchStats = struct {
         }
     }
 
+    pub fn recordResponseInitialized(self: *@This()) void {
+        self.record(.response_initialized);
+    }
+
+    pub fn recordStateApplied(self: *@This()) void {
+        self.record(.state_applied);
+    }
+
     pub fn total(self: @This()) usize {
         return self.response_initialized + self.state_applied;
     }
@@ -2236,6 +2244,13 @@ test "rpc message kind predicates describe state-machine roles" {
     try testing.expectEqual(CapabilityRef{ .export_id = 5 }, provide_event.capabilityRef().?);
     const accept_event = Event{ .accept = 6 };
     try testing.expectEqual(CapabilityRef{ .import_id = 6 }, accept_event.capabilityRef().?);
+
+    var stats: WireDispatchStats = .{};
+    stats.recordResponseInitialized();
+    stats.recordStateApplied();
+    try testing.expectEqual(@as(usize, 1), stats.response_initialized);
+    try testing.expectEqual(@as(usize, 1), stats.state_applied);
+    try testing.expectEqual(@as(usize, 2), stats.total());
 }
 
 test "rpc wire events expose classification and id helpers" {
