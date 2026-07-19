@@ -910,6 +910,18 @@ pub fn initBootstrapReturnForRequest(message: anytype, bootstrap: anytype, expor
     try initBootstrapReturnMessage(message, bootstrap.questionId(), export_id);
 }
 
+pub fn dispatchBootstrap(
+    state: *State,
+    response_message: anytype,
+    bootstrap: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireEvent(.{ .bootstrap = bootstrap.questionId() });
+    const export_id = try handler(context, bootstrap);
+    try initBootstrapReturnForRequest(response_message, bootstrap, export_id);
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);

@@ -96,9 +96,11 @@ that a complete RPC runtime exists.
   level or through top-level Message builders. Top-level Bootstrap,
   Finish/Release builders can initialize their question IDs, flags, and
   reference counts, and a helper can build a Return containing a single
-  capability result directly from a Bootstrap request reader. Call
-  initialization can include send-results routing and boolean call flags. A
-  generated Call reader can also be applied as a unit:
+  capability result directly from a Bootstrap request reader. A minimal
+  bootstrap dispatcher can apply the request and invoke an application callback
+  that returns the bootstrap export ID. Call initialization can include
+  send-results routing and boolean call flags. A generated Call reader can also
+  be applied as a unit:
   target validation, question opening, and params capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route

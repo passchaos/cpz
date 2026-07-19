@@ -130,6 +130,40 @@ test "rpc bootstrap helper responds to request readers" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(102));
 }
 
+test "rpc bootstrap dispatcher applies requests and builds responses" {
+    const Handler = struct {
+        fn handle(seen_question: *u32, bootstrap: anytype) !u32 {
+            seen_question.* = bootstrap.questionId();
+            return 103;
+        }
+    };
+
+    var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer request_builder.deinit();
+    const request_root = try generated.Message.initRootTyped(&request_builder);
+    try cpz.rpc.initWireBootstrapMessage(request_root, 14);
+
+    var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+    const request = generated.Message.fromReader(try request_reader.getRoot());
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+
+    var seen_question: u32 = 0;
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try cpz.rpc.dispatchBootstrap(&state, response_root, try request.bootstrap(), &seen_question, Handler.handle);
+    try std.testing.expectEqual(@as(u32, 14), seen_question);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(14));
+
+    var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+    const response = generated.Message.fromReader(try response_reader.getRoot());
+    try state.applyWireMessage(std.testing.allocator, response);
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(14));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(103));
+}
+
 test "rpc generic capability return helper initializes results" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
