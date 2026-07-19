@@ -519,6 +519,14 @@ pub fn initWirePayloadCapTable(payload: anytype, descriptors: []const CapDescrip
     }
 }
 
+pub fn initWireCallParamsCapTable(call: anytype, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadCapTable(try call.init_params(), descriptors);
+}
+
+pub fn initWireReturnResultsCapTable(return_: anytype, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadCapTable(try return_.init_results(), descriptors);
+}
+
 pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {
     const cap_table = payload.capTable() catch |err| switch (err) {
         error.NullPointer => return allocator.alloc(CapDescriptor, 0),

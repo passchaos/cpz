@@ -445,6 +445,26 @@ test "rpc call params expose capability descriptor tables" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), direct_state.importState(30));
 }
 
+test "rpc call params cap tables can be written directly" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const call = try root.init_call();
+    try call.set_questionId(67);
+    try cpz.rpc.initWireCallParamsCapTable(call, &.{
+        .{ .sender_hosted = 68 },
+        .{ .receiver_hosted = 69 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const descriptors = try cpz.rpc.capTableFromWireCallParams(std.testing.allocator, try message.call());
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 2), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 68 }, descriptors[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 69 }, descriptors[1]);
+}
+
 test "rpc wire calls apply target and params state together" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
@@ -499,6 +519,26 @@ test "rpc return results expose capability descriptor tables" {
     try direct_state.addExport(33);
     try direct_state.applyWireReturnPayload(std.testing.allocator, try message.return_());
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), direct_state.importState(32));
+}
+
+test "rpc return result cap tables can be written directly" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const return_ = try root.init_return_();
+    try return_.set_answerId(70);
+    try cpz.rpc.initWireReturnResultsCapTable(return_, &.{
+        .{ .sender_promise = 71 },
+        .{ .receiver_hosted = 72 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try message.return_());
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 2), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_promise = 71 }, descriptors[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 72 }, descriptors[1]);
 }
 
 test "rpc wire returns resolve answers and apply result cap tables" {

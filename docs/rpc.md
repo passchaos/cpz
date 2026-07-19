@@ -64,10 +64,11 @@ that a complete RPC runtime exists.
   creation/reference counting and receiver-hosted export/answer validation.
   `Call.params.capTable` can be decoded through the same descriptor pipeline, as
   can `Return.results.capTable`; convenience helpers can apply those generated
-  Call/Return payload tables directly to `State`. A generated Call reader can
-  also be applied as a unit: target validation, question opening, and params
-  capability-table bookkeeping. A generated Return reader can resolve its answer
-  and apply result
+  Call/Return payload tables directly to `State`, and generated Call/Return
+  builders can initialize those cap tables directly from descriptors. A
+  generated Call reader can also be applied as a unit: target validation,
+  question opening, and params capability-table bookkeeping. A generated Return
+  reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application or simpler state events; Provide/Join
   top-level messages validate their targets before opening questions, while
