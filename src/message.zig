@@ -4124,12 +4124,25 @@ pub const PointerReader = struct {
         if (resolved.raw == 0) return error.NullPointer;
         if (wire.pointerType(resolved.raw) != .list) return error.InvalidPointerKind;
         const l = try wire.decodeList(resolved.raw);
-        const struct_list_upgrade = if (expected) |exp| blk: {
-            if (exp == l.element_size) break :blk false;
-            if (l.element_size != .composite and exp == .composite) break :blk true;
-            if (l.element_size != .composite) return error.IncompatibleListShape;
-            break :blk false;
-        } else false;
+        const view_element_size = if (expected) |exp| blk: {
+            if (exp == l.element_size) break :blk exp;
+            if (l.element_size != .composite) {
+                // Match Cap'n Proto's schema-evolution rule for list views:
+                // a list whose stored elements are wider may be read through a
+                // narrower primitive schema by keeping the original stride and
+                // reading the low-order field.  Boolean lists are excluded by
+                // upstream too because bit packing cannot provide an addressable
+                // struct/data field per element.
+                if (exp != .composite) {
+                    if (l.element_size == .bit or exp == .bit) return error.IncompatibleListShape;
+                    if (listDataBitsPerElement(exp) > listDataBitsPerElement(l.element_size)) return error.IncompatibleListShape;
+                    if (primitivePointerCount(exp) > primitivePointerCount(l.element_size)) return error.IncompatibleListShape;
+                }
+                break :blk exp;
+            }
+            break :blk exp;
+        } else l.element_size;
+        const struct_list_upgrade = l.element_size != .composite and view_element_size == .composite;
         const target = try wire.targetWordIndex(resolved.pointer_word_index, l.offset_words);
 
         if (l.element_size == .composite) {
@@ -4143,6 +4156,8 @@ pub const PointerReader = struct {
             const step_bits = decoded_tag.size.totalWords() * wire.bits_per_word;
             if (expected) |exp| {
                 if (exp != .composite) {
+                    if (listDataBitsPerElement(exp) > @as(usize, decoded_tag.size.data_words) * wire.bits_per_word) return error.IncompatibleListShape;
+                    if (primitivePointerCount(exp) > decoded_tag.size.pointer_count) return error.IncompatibleListShape;
                     return .{
                         .message = self.message,
                         .segment_id = resolved.segment_id,
@@ -4195,11 +4210,13 @@ pub const PointerReader = struct {
             .segment_id = resolved.segment_id,
             .start = target,
             .element_count = l.element_count_or_words,
-            .element_size = l.element_size,
+            .element_size = view_element_size,
             .data_words = primitiveDataWords(l.element_size),
             .pointer_count = primitivePointerCount(l.element_size),
             .step_bits = wire.bitsPerElement(l.element_size),
             .nesting_left = self.nesting_left - 1,
+            .element_data_bits = listDataBitsPerElement(l.element_size),
+            .limit_element_data_bits = view_element_size != .pointer,
         };
     }
 
@@ -6030,6 +6047,14 @@ fn primitiveDataWords(size: wire.ElementSize) u16 {
 
 fn primitivePointerCount(size: wire.ElementSize) u16 {
     return if (size == .pointer) 1 else 0;
+}
+
+fn listDataBitsPerElement(size: wire.ElementSize) usize {
+    return switch (size) {
+        .void, .pointer => 0,
+        .bit, .byte, .two_bytes, .four_bytes, .eight_bytes => wire.bitsPerElement(size),
+        .composite => 0,
+    };
 }
 
 fn upgradedStructListShape(size: wire.ElementSize) Error!struct { data_words: u16, pointer_count: u16 } {
@@ -9139,10 +9164,24 @@ test "non-bit primitive and pointer lists can be read as struct lists" {
     const half_word_structs = try read_root.getPointerField(3).getList(.composite);
     try testing.expectEqual(@as(u16, 0x4455), (try half_word_structs.getStructElement(0)).getUInt16(0, 0));
     try testing.expectEqual(@as(u16, 0x6677), (try half_word_structs.getStructElement(1)).getUInt16(0, 0));
+    const half_words_as_bytes = try read_root.getPointerField(3).getList(.byte);
+    try testing.expectEqual(@as(usize, 2), half_words_as_bytes.len());
+    try testing.expectEqual(@as(u8, 0x55), half_words_as_bytes.getUInt8(0));
+    try testing.expectEqual(@as(u8, 0x77), half_words_as_bytes.getUInt8(1));
+    try testing.expectError(error.IncompatibleListShape, read_root.getPointerField(3).getList(.four_bytes));
+    try testing.expectError(error.IncompatibleListShape, read_root.getPointerField(3).getList(.bit));
 
     const double_word_structs = try read_root.getPointerField(4).getList(.composite);
     try testing.expectEqual(@as(u32, 0x8899_aabb), (try double_word_structs.getStructElement(0)).getUInt32(0, 0));
     try testing.expectEqual(@as(u32, 0xccdd_eeff), (try double_word_structs.getStructElement(1)).getUInt32(0, 0));
+    const double_words_as_half_words = try read_root.getPointerField(4).getList(.two_bytes);
+    try testing.expectEqual(@as(usize, 2), double_words_as_half_words.len());
+    try testing.expectEqual(@as(u16, 0xaabb), double_words_as_half_words.getUInt16(0));
+    try testing.expectEqual(@as(u16, 0xeeff), double_words_as_half_words.getUInt16(1));
+    const double_words_as_bytes = try read_root.getPointerField(4).getList(.byte);
+    try testing.expectEqual(@as(u8, 0xbb), double_words_as_bytes.getUInt8(0));
+    try testing.expectEqual(@as(u8, 0xff), double_words_as_bytes.getUInt8(1));
+    try testing.expectError(error.IncompatibleListShape, read_root.getPointerField(4).getList(.eight_bytes));
 
     const bit_structs = try read_root.getPointerField(5).getList(.composite);
     try testing.expectEqual(@as(usize, 3), bit_structs.len());
