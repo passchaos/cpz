@@ -13891,7 +13891,7 @@ fn appendStructListItemPointer(
     try item_segment.appendNTimes(allocator, 0, try wordByteLen(object_words));
     try writeStructListItemIntoSegment(allocator, file, scope, struct_decl, &layout, item, &item_segment, 0, 0);
 
-    const pointer_word_index = list_start_words + element_index;
+    const pointer_word_index = try pointerListElementWordIndex(list_start_words, element_index);
     const target_word_index = segment.items.len / @sizeOf(u64);
     try segment.appendSlice(allocator, item_segment.items);
     const offset = try wire.offsetFromPointer(pointer_word_index, target_word_index);
@@ -14121,7 +14121,7 @@ fn appendPointerListOfByteLists(allocator: std.mem.Allocator, file: *const File,
             else => return err,
         });
         defer allocator.free(bytes);
-        try appendByteListPointerAtWord(allocator, segment, list_start_words + index, bytes, text_items);
+        try appendByteListPointerAtWord(allocator, segment, try pointerListElementWordIndex(list_start_words, index), bytes, text_items);
     }
 }
 
@@ -14297,7 +14297,7 @@ fn appendScalarListPointer(allocator: std.mem.Allocator, file: *const File, scop
         .list => |child| {
             const list_start_words = try appendPointerListPointer(allocator, segment, pointer_index, data_words, object_start_words, items.len);
             for (items, 0..) |item, index| {
-                try appendScalarListPointer(allocator, file, scope, segment, 0, 0, list_start_words + index, child.*, item);
+                try appendScalarListPointer(allocator, file, scope, segment, 0, 0, try pointerListElementWordIndex(list_start_words, index), child.*, item);
             }
         },
         .named => |type_name| {
@@ -14642,6 +14642,10 @@ fn structPointerWordIndex(object_start_words: usize, data_words: u16, pointer_in
 
 fn rootPointerListElementWordIndex(index: usize) LayoutError!usize {
     return std.math.add(usize, 1, index) catch return error.SerializedSizeOverflow;
+}
+
+fn pointerListElementWordIndex(list_start_words: usize, index: usize) LayoutError!usize {
+    return std.math.add(usize, list_start_words, index) catch return error.SerializedSizeOverflow;
 }
 
 fn byteListPaddedLen(list_len: usize) LayoutError!usize {
@@ -25889,6 +25893,8 @@ test "schema list flats resolve scalar const item references" {
     try std.testing.expectError(error.SerializedSizeOverflow, structPointerWordIndex(std.math.maxInt(usize) - 1, 1, 1));
     try std.testing.expectEqual(@as(usize, 1), try rootPointerListElementWordIndex(0));
     try std.testing.expectError(error.SerializedSizeOverflow, rootPointerListElementWordIndex(std.math.maxInt(usize)));
+    try std.testing.expectEqual(@as(usize, 5), try pointerListElementWordIndex(3, 2));
+    try std.testing.expectError(error.SerializedSizeOverflow, pointerListElementWordIndex(std.math.maxInt(usize), 1));
 
     const source =
         \\const one :UInt32 = 1;
