@@ -32,6 +32,8 @@ that a complete RPC runtime exists.
   projects only the semantically-aligned subset into `State.apply()` events.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
   while still projecting to the simplified answer-resolving event.
+  Returns with `releaseParamCaps` release imports introduced by the matching
+  Call params cap table; callers can retain them when the flag is false.
   No-finish-needed returns without result capabilities mark the corresponding
   question finished so its ID can be reused.
   Release wire events preserve `referenceCount` so `State.applyWireEvent()` can

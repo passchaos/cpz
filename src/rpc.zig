@@ -444,6 +444,25 @@ pub fn capTableFromWireReturnResults(allocator: std.mem.Allocator, return_: anyt
     return capTableFromWirePayload(allocator, try return_.results());
 }
 
+fn capDescriptorImportIdsAlloc(allocator: std.mem.Allocator, descriptors: []const CapDescriptor) std.mem.Allocator.Error![]ImportId {
+    var count: usize = 0;
+    for (descriptors) |descriptor| switch (descriptor) {
+        .sender_hosted, .sender_promise => count += 1,
+        else => {},
+    };
+
+    const ids = try allocator.alloc(ImportId, count);
+    var index: usize = 0;
+    for (descriptors) |descriptor| switch (descriptor) {
+        .sender_hosted, .sender_promise => |id| {
+            ids[index] = id;
+            index += 1;
+        },
+        else => {},
+    };
+    return ids;
+}
+
 fn validateWirePayloadContent(payload: anytype, cap_count: usize) !void {
     const content = try payload.content();
     _ = try content.validateWithOptions(.{ .capability_count_limit = cap_count });
@@ -491,21 +510,28 @@ pub fn eventFromWireMessage(message: anytype) !WireEvent {
 }
 
 pub const State = struct {
+    allocator: std.mem.Allocator,
     questions: std.AutoHashMap(QuestionId, QuestionTracker),
     answers: std.AutoHashMap(AnswerId, AnswerTracker),
     exports: std.AutoHashMap(ExportId, ExportTracker),
     imports: std.AutoHashMap(ImportId, ImportTracker),
+    param_imports: std.AutoHashMap(QuestionId, []ImportId),
 
     pub fn init(allocator: std.mem.Allocator) State {
         return .{
+            .allocator = allocator,
             .questions = std.AutoHashMap(QuestionId, QuestionTracker).init(allocator),
             .answers = std.AutoHashMap(AnswerId, AnswerTracker).init(allocator),
             .exports = std.AutoHashMap(ExportId, ExportTracker).init(allocator),
             .imports = std.AutoHashMap(ImportId, ImportTracker).init(allocator),
+            .param_imports = std.AutoHashMap(QuestionId, []ImportId).init(allocator),
         };
     }
 
     pub fn deinit(self: *State) void {
+        var imports = self.param_imports.valueIterator();
+        while (imports.next()) |ids| self.allocator.free(ids.*);
+        self.param_imports.deinit();
         self.questions.deinit();
         self.answers.deinit();
         self.exports.deinit();
@@ -549,6 +575,12 @@ pub const State = struct {
         return self.imports.contains(id);
     }
 
+    fn clearParamImports(self: *State, id: QuestionId) void {
+        if (self.param_imports.fetchRemove(id)) |entry| {
+            self.allocator.free(entry.value);
+        }
+    }
+
     pub fn questionComplete(self: *const State, id: QuestionId) bool {
         const question = self.questions.get(id) orelse return false;
         const answer = self.answers.get(id) orelse return false;
@@ -575,6 +607,7 @@ pub const State = struct {
             // rpc.capnp permits the ID to be reused. Reset in place instead of
             // removing/reinserting so any allocation failure cannot leave the
             // two hash maps out of sync.
+            self.clearParamImports(id);
             existing_question.* = .{ .id = id };
             try existing_question.open(kind);
             existing_answer.* = .{ .id = id };
@@ -647,6 +680,24 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
     }
 
+    pub fn paramImportCount(self: *const State, id: QuestionId) usize {
+        const ids = self.param_imports.get(id) orelse return 0;
+        return ids.len;
+    }
+
+    fn trackParamImports(self: *State, question_id: QuestionId, descriptors: []const CapDescriptor) std.mem.Allocator.Error!void {
+        const ids = try capDescriptorImportIdsAlloc(self.allocator, descriptors);
+        errdefer self.allocator.free(ids);
+        if (self.param_imports.fetchRemove(question_id)) |old| self.allocator.free(old.value);
+        try self.param_imports.put(question_id, ids);
+    }
+
+    fn releaseParamImports(self: *State, question_id: QuestionId) Error!void {
+        const entry = self.param_imports.fetchRemove(question_id) orelse return;
+        defer self.allocator.free(entry.value);
+        for (entry.value) |id| try self.releaseImport(id);
+    }
+
     pub fn applyWireCallPayload(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
         const descriptors = try capTableFromWireCallParams(allocator, call);
         defer allocator.free(descriptors);
@@ -686,10 +737,12 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.openQuestion(question_id, .call);
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
+        try self.trackParamImports(question_id, descriptors);
     }
 
     pub fn applyWireReturn(self: *State, allocator: std.mem.Allocator, return_: anytype) !void {
         const answer_id = return_.answerId();
+        const release_param_caps = return_.releaseParamCaps();
         const no_finish_needed = return_.noFinishNeeded();
         const descriptors = try capTableFromWireReturnResults(allocator, return_);
         defer allocator.free(descriptors);
@@ -698,6 +751,7 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.resolveAnswer(answer_id, .return_);
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
+        if (release_param_caps) try self.releaseParamImports(answer_id);
         if (no_finish_needed and descriptors.len == 0) {
             try self.finishQuestion(answer_id);
         }
