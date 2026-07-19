@@ -47,6 +47,7 @@ pub const ProvideInfo = struct {
     target: CallTarget,
     has_recipient: bool,
     recipient_max_capability_count: usize,
+    recipient_capability: ?u32 = null,
 };
 
 pub const DisembargoContext = union(enum) {
@@ -530,12 +531,28 @@ pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
 
 pub fn provideInfoFromWireProvide(provide: anytype) !ProvideInfo {
     const has_recipient = provide.has_recipient();
+    const recipient_capability: ?u32 = if (has_recipient)
+        (try provide.recipientAsPointer()).getCapabilityIndex() catch |err| switch (err) {
+            error.InvalidPointerKind => null,
+            else => return err,
+        }
+    else
+        null;
     return .{
         .question_id = provide.questionId(),
         .target = try targetFromWireTargetedMessage(provide),
         .has_recipient = has_recipient,
         .recipient_max_capability_count = if (has_recipient) try provide.recipientMaxCapabilityCount() else 0,
+        .recipient_capability = recipient_capability,
     };
+}
+
+pub fn writeProvideInfoToWire(info: ProvideInfo, provide: anytype) !void {
+    try provide.set_questionId(info.question_id);
+    try writeCallTargetToWire(info.target, try provide.init_target());
+    if (info.recipient_capability) |index| {
+        (try provide.get_recipientAsPointer()).setCapability(index);
+    }
 }
 
 pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {

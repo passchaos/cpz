@@ -800,6 +800,7 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, info.target);
         try std.testing.expect(info.has_recipient);
         try std.testing.expectEqual(@as(usize, 3), info.recipient_max_capability_count);
+        try std.testing.expectEqual(@as(?u32, 2), info.recipient_capability);
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
         try std.testing.expectError(error.InvalidTransition, state.applyWireMessage(std.testing.allocator, message));
@@ -826,6 +827,28 @@ test "rpc top-level provide and join messages validate targets" {
         try state.applyWireMessage(std.testing.allocator, message);
         try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(62));
     }
+}
+
+test "rpc provide info helpers write targets and recipients" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const provide = try generated.Provide.initRootTyped(&builder);
+    try cpz.rpc.writeProvideInfoToWire(.{
+        .question_id = 69,
+        .target = .{ .imported_cap = 70 },
+        .has_recipient = true,
+        .recipient_max_capability_count = 3,
+        .recipient_capability = 2,
+    }, provide);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const provide_reader = generated.Provide.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.provideInfoFromWireProvide(provide_reader);
+    try std.testing.expectEqual(@as(u32, 69), info.question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, info.target);
+    try std.testing.expect(info.has_recipient);
+    try std.testing.expectEqual(@as(usize, 3), info.recipient_max_capability_count);
+    try std.testing.expectEqual(@as(?u32, 2), info.recipient_capability);
 }
 
 test "rpc top-level accept messages open questions" {

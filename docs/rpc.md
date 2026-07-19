@@ -48,8 +48,8 @@ that a complete RPC runtime exists.
   projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official
   `QuestionId` payloads rather than treating them as capability-table IDs.
-  Provide wire readers expose target and recipient pointer capability usage for
-  future third-party handoff validation.
+  Provide wire readers/builders expose target and recipient pointer capability
+  usage for future third-party handoff validation.
   Accept wire readers expose provision pointer presence/capability usage and
   optional embargo bytes alongside the question ID, and can write the question
   and embargo information back to generated builders, for future
