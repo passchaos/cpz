@@ -112,7 +112,8 @@ that a complete RPC runtime exists.
   an exception result. A single-message dispatcher can route generated
   Bootstrap/Call readers through those callbacks and apply other supported
   top-level wire messages to state.
-  Call initialization can include send-results routing and boolean call flags.
+  Call initialization can include send-results routing (including third-party
+  contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, and params capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result

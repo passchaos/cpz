@@ -251,6 +251,7 @@ pub const CallMethod = struct {
 pub const CallOptions = struct {
     method: CallMethod = .{},
     send_results_to: CallSendResultsTo = .caller,
+    send_results_to_third_party: ?AnyPointerUsage = null,
     flags: CallFlags = .{},
 };
 
@@ -989,7 +990,11 @@ pub fn initWireCallWithOptions(
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
     try writeCallMethodToWire(options.method, call);
-    try writeSendResultsToToWire(options.send_results_to, call);
+    if (options.send_results_to_third_party != null and options.send_results_to != .third_party) return error.InvalidTransition;
+    if (options.send_results_to_third_party) |usage|
+        try writeSendResultsToThirdPartyToWire(call, usage)
+    else
+        try writeSendResultsToToWire(options.send_results_to, call);
     try writeCallFlagsToWire(options.flags, call);
     const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
     defer allocator.free(descriptors);

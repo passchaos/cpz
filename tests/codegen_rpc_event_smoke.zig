@@ -942,6 +942,27 @@ test "rpc top-level call helpers initialize routing options and flags" {
     }, cpz.rpc.callFlagsFromWireCall(call));
 }
 
+test "rpc call options initialize third-party result routing" {
+    var registry: cpz.CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(std.testing.allocator);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageWithOptions(std.testing.allocator, root, 79, .{ .imported_cap = 5 }, &registry, .{
+        .send_results_to = .third_party,
+        .send_results_to_third_party = .{ .max_capability_count = 4, .capability = 3 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call = try generated.Message.fromReader(try reader.getRoot()).call();
+    try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, try cpz.rpc.sendResultsToFromWireCall(call));
+    try std.testing.expectEqual(
+        cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 },
+        (try cpz.rpc.sendResultsToThirdPartyUsageFromWireCall(call)).?,
+    );
+}
+
 test "rpc top-level call helpers initialize content capabilities" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
