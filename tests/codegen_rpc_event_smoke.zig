@@ -62,6 +62,42 @@ test "rpc wire events decode generated message union tags and ids" {
     }
 }
 
+test "rpc call target helpers decode imported caps and promised answers" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const call = try root.init_call();
+        try call.set_questionId(40);
+        const target = try call.init_target();
+        try target.set_importedCap(7);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const decoded = try cpz.rpc.callTargetFromWireCall(try message.call());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 7 }, decoded);
+        try std.testing.expectEqual(@as(?u32, 7), decoded.importId());
+        try std.testing.expectEqual(@as(?u32, null), decoded.promisedQuestionId());
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const call = try root.init_call();
+        try call.set_questionId(41);
+        const target = try call.init_target();
+        const promised = try target.init_promisedAnswer();
+        try promised.set_questionId(99);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const decoded = try cpz.rpc.callTargetFromWireCall(try message.call());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 99 } }, decoded);
+        try std.testing.expectEqual(@as(?u32, null), decoded.importId());
+        try std.testing.expectEqual(@as(?u32, 99), decoded.promisedQuestionId());
+    }
+}
+
 test "rpc provide accept and join wire events open questions" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

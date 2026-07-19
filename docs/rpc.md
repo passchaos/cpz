@@ -40,6 +40,8 @@ that a complete RPC runtime exists.
   while remaining distinct from ordinary Return events.
   Completed question IDs can be reused once both Finish and Return-like answer
   resolution have been observed.
+  Generated RPC `Call.target` readers can be decoded into a lightweight
+  `CallTarget` for imported capabilities and promised answers.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

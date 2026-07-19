@@ -24,6 +24,29 @@ pub const CapabilityRelease = struct {
     reference_count: u32,
 };
 
+pub const PromisedAnswerTarget = struct {
+    question_id: QuestionId,
+};
+
+pub const CallTarget = union(enum) {
+    imported_cap: ImportId,
+    promised_answer: PromisedAnswerTarget,
+
+    pub fn importId(self: CallTarget) ?ImportId {
+        return switch (self) {
+            .imported_cap => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn promisedQuestionId(self: CallTarget) ?QuestionId {
+        return switch (self) {
+            .promised_answer => |answer| answer.question_id,
+            else => null,
+        };
+    }
+};
+
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's
 /// `rpc.capnp`. Keeping the mapping here lets code generated from that schema
 /// be decoded without making this runtime module import a generated file.
@@ -327,6 +350,20 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
 
 pub const ExportTracker = CapabilityTracker(ExportId, error.ExportAlreadyReleased);
 pub const ImportTracker = CapabilityTracker(ImportId, error.ImportAlreadyReleased);
+
+pub fn targetFromWireMessageTarget(target: anytype) !CallTarget {
+    return switch (target.which() orelse return error.InvalidTransition) {
+        .importedCap => .{ .imported_cap = try target.importedCap() },
+        .promisedAnswer => blk: {
+            const promised_answer = try target.promisedAnswer();
+            break :blk .{ .promised_answer = .{ .question_id = promised_answer.questionId() } };
+        },
+    };
+}
+
+pub fn callTargetFromWireCall(call: anytype) !CallTarget {
+    return targetFromWireMessageTarget(try call.target());
+}
 
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
     const raw_discriminant = message.whichDiscriminant();

@@ -36,6 +36,7 @@ struct Bootstrap {
 
 struct Call {
   questionId @0 :QuestionId;
+  target @1 :MessageTarget;
 }
 
 struct Return {
@@ -68,5 +69,16 @@ struct ThirdPartyAnswer {
 }
 
 struct Join {
+  questionId @0 :QuestionId;
+}
+
+struct MessageTarget {
+  union {
+    importedCap @0 :ImportId;
+    promisedAnswer @1 :PromisedAnswer;
+  }
+}
+
+struct PromisedAnswer {
   questionId @0 :QuestionId;
 }
