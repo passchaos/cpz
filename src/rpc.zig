@@ -24,6 +24,11 @@ pub const CapabilityRelease = struct {
     reference_count: u32,
 };
 
+pub const Finish = struct {
+    question_id: QuestionId,
+    release_result_caps: bool,
+};
+
 pub const PromisedAnswerTarget = struct {
     question_id: QuestionId,
 };
@@ -82,7 +87,7 @@ pub const WireEvent = union(WireMessageTag) {
     bootstrap: QuestionId,
     call: QuestionId,
     return_: AnswerId,
-    finish: QuestionId,
+    finish: Finish,
     resolve: ExportId,
     release: CapabilityRelease,
     disembargo: void,
@@ -135,7 +140,8 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn questionId(self: WireEvent) ?QuestionId {
         return switch (self) {
-            .bootstrap, .call, .finish, .provide, .accept, .join => |id| id,
+            .bootstrap, .call, .provide, .accept, .join => |id| id,
+            .finish => |finish| finish.question_id,
             else => null,
         };
     }
@@ -178,7 +184,7 @@ pub const WireEvent = union(WireMessageTag) {
             .bootstrap => |id| .{ .bootstrap = id },
             .call => |id| .{ .call = id },
             .return_ => |id| .{ .return_ = id },
-            .finish => |id| .{ .finish = id },
+            .finish => |finish| .{ .finish = finish.question_id },
             .release => |release| if (release.reference_count == 1) .{ .release = .{ .import_id = release.id } } else null,
             else => null,
         };
@@ -431,7 +437,10 @@ pub fn eventFromWireMessage(message: anytype) !WireEvent {
         .bootstrap => .{ .bootstrap = (try message.bootstrap()).questionId() },
         .call => .{ .call = (try message.call()).questionId() },
         .return_ => .{ .return_ = (try message.return_()).answerId() },
-        .finish => .{ .finish = (try message.finish()).questionId() },
+        .finish => blk: {
+            const finish = try message.finish();
+            break :blk .{ .finish = .{ .question_id = finish.questionId(), .release_result_caps = finish.releaseResultCaps() } };
+        },
         .resolve => .{ .resolve = (try message.resolve()).promiseId() },
         .release => blk: {
             const release = try message.release();
@@ -1024,7 +1033,7 @@ test "rpc state applies only the semantically aligned wire event subset" {
 
     try state.applyWireEvent(.{ .bootstrap = 41 });
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(41));
-    try state.applyWireEvent(.{ .finish = 41 });
+    try state.applyWireEvent(.{ .finish = .{ .question_id = 41, .release_result_caps = true } });
     try state.applyWireEvent(.{ .return_ = 41 });
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(41));
 

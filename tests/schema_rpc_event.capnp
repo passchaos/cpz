@@ -47,6 +47,7 @@ struct Return {
 
 struct Finish {
   questionId @0 :QuestionId;
+  releaseResultCaps @1 :Bool = true;
 }
 
 struct Resolve {

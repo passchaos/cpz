@@ -34,6 +34,8 @@ that a complete RPC runtime exists.
   decrement import lifetimes without silently collapsing batched releases.
   Resolve wire events mark an existing export promise as resolved without
   conflating the official `ExportId` with answer IDs.
+  Finish wire events preserve the official `releaseResultCaps` flag while still
+  projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official
   `QuestionId` payloads rather than treating them as capability-table IDs.
   ThirdPartyAnswer wire events resolve existing answers by official `AnswerId`
