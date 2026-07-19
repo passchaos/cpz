@@ -57,10 +57,9 @@ that a complete RPC runtime exists.
   `QuestionId` payloads rather than treating them as capability-table IDs.
   Provide wire readers/builders expose target and recipient pointer capability
   usage for future third-party handoff validation.
-  Accept wire readers expose provision pointer presence/capability usage and
-  optional embargo bytes alongside the question ID, and can write the question
-  and embargo information back to generated builders, for future
-  provision/embargo handling.
+  Accept wire readers/builders expose provision pointer
+  presence/capability usage and optional embargo bytes alongside the question
+  ID, for future provision/embargo handling.
   Join wire readers/builders expose target and key-part pointer capability
   usage for future join result handling.
   Disembargo wire readers/builders can decode and write targets plus
@@ -128,8 +127,8 @@ that a complete RPC runtime exists.
 ## Next useful increments
 
 1. Model the remaining official RPC semantics that are still only structural:
-   `Resolve` target replacement, `Disembargo`, `Accept.provision`/`embargo`,
-   `Join` result handling, and third-party cap descriptors.
+   `Resolve` target replacement, `Disembargo`, full `Accept.provision`/embargo
+   state handling, `Join` result handling, and third-party cap descriptors.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation.

@@ -64,6 +64,7 @@ pub const AcceptInfo = struct {
     question_id: QuestionId,
     has_provision: bool,
     provision_max_capability_count: usize,
+    provision_capability: ?u32 = null,
     embargo: ?[]const u8,
 };
 
@@ -604,16 +605,24 @@ pub fn writeCallFlagsToWire(flags: CallFlags, call: anytype) !void {
 
 pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
     const has_provision = accept.has_provision();
+    const provision_usage = if (has_provision)
+        try anyPointerUsageFromWire(try accept.provisionAsPointer())
+    else
+        AnyPointerUsage{ .max_capability_count = 0 };
     return .{
         .question_id = accept.questionId(),
         .has_provision = has_provision,
-        .provision_max_capability_count = if (has_provision) try accept.provisionMaxCapabilityCount() else 0,
+        .provision_max_capability_count = provision_usage.max_capability_count,
+        .provision_capability = provision_usage.capability,
         .embargo = try accept.embargoOrNull(),
     };
 }
 
 pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
     try accept.set_questionId(info.question_id);
+    if (info.provision_capability) |index| {
+        (try accept.get_provisionAsPointer()).setCapability(index);
+    }
     try accept.set_embargoOrNull(info.embargo);
 }
 

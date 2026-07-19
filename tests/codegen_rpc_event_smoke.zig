@@ -1686,8 +1686,9 @@ test "rpc top-level handoff helpers initialize messages" {
         const root = try generated.Message.initRootTyped(&builder);
         try cpz.rpc.initWireAcceptMessage(root, .{
             .question_id = 92,
-            .has_provision = false,
-            .provision_max_capability_count = 0,
+            .has_provision = true,
+            .provision_max_capability_count = 2,
+            .provision_capability = 1,
             .embargo = "accept-92",
         });
 
@@ -1695,6 +1696,9 @@ test "rpc top-level handoff helpers initialize messages" {
         const message = generated.Message.fromReader(try reader.getRoot());
         const info = try cpz.rpc.acceptInfoFromWireAccept(try message.accept());
         try std.testing.expectEqual(@as(u32, 92), info.question_id);
+        try std.testing.expect(info.has_provision);
+        try std.testing.expectEqual(@as(usize, 2), info.provision_max_capability_count);
+        try std.testing.expectEqual(@as(?u32, 1), info.provision_capability);
         try std.testing.expectEqualStrings("accept-92", info.embargo.?);
     }
     {
@@ -1888,6 +1892,27 @@ test "rpc accept info helpers write question ids and embargoes" {
         try std.testing.expectEqual(@as(u32, 67), info.question_id);
         try std.testing.expect(info.embargo == null);
     }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const accept = try generated.Accept.initRootTyped(&builder);
+        try cpz.rpc.writeAcceptInfoToWire(.{
+            .question_id = 68,
+            .has_provision = true,
+            .provision_max_capability_count = 4,
+            .provision_capability = 3,
+            .embargo = "embargo-68",
+        }, accept);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const accept_reader = generated.Accept.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.acceptInfoFromWireAccept(accept_reader);
+        try std.testing.expectEqual(@as(u32, 68), info.question_id);
+        try std.testing.expect(info.has_provision);
+        try std.testing.expectEqual(@as(usize, 4), info.provision_max_capability_count);
+        try std.testing.expectEqual(@as(?u32, 3), info.provision_capability);
+        try std.testing.expectEqualStrings("embargo-68", info.embargo.?);
+    }
 }
 
 test "rpc accept info reports provision capability usage" {
@@ -1903,6 +1928,7 @@ test "rpc accept info reports provision capability usage" {
     try std.testing.expectEqual(@as(u32, 68), info.question_id);
     try std.testing.expect(info.has_provision);
     try std.testing.expectEqual(@as(usize, 3), info.provision_max_capability_count);
+    try std.testing.expectEqual(@as(?u32, 2), info.provision_capability);
 }
 
 test "rpc provide accept and join wire events open questions" {
