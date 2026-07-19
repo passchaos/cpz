@@ -23,9 +23,9 @@ that a complete RPC runtime exists.
   for assigning outgoing capability indexes before writing capability pointers
   into builders.
 - `cpz.rpc` defines a transport-independent state-machine vocabulary for RPC
-  message kinds, question/answer transitions, import/export lifetimes, and a
-  small in-flight question/answer `State`. It is intentionally not a networked
-  dispatcher yet.
+  message kinds, transport-independent `Event` values, question/answer
+  transitions, import/export lifetimes, and a small in-flight question/answer
+  `State`. It is intentionally not a networked dispatcher yet.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.
@@ -41,8 +41,9 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Connect `cpz.rpc.State` transitions to generated `rpc.capnp` message
-   builders/readers for bootstrap/call/return/finish smoke flows.
+1. Decode generated `rpc.capnp` messages into `cpz.rpc.Event` values and
+   apply them to `cpz.rpc.State` for bootstrap/call/return/finish smoke
+   flows.
 2. Add request/response builders that use `CapabilityTable(T)` and
    `CapabilityRegistry(T)` for import/export table validation.
 3. Add generated service skeleton types only after the runtime state machine can

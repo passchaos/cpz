@@ -50,6 +50,38 @@ pub const MessageKind = enum(u8) {
     }
 };
 
+pub const Event = union(MessageKind) {
+    bootstrap: QuestionId,
+    call: QuestionId,
+    return_: AnswerId,
+    finish: QuestionId,
+    resolve: AnswerId,
+    release: void,
+    disembargo: void,
+    provide: void,
+    accept: void,
+    join: void,
+    obsolete: void,
+
+    pub fn kind(self: Event) MessageKind {
+        return std.meta.activeTag(self);
+    }
+
+    pub fn questionId(self: Event) ?QuestionId {
+        return switch (self) {
+            .bootstrap, .call, .finish => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn answerId(self: Event) ?AnswerId {
+        return switch (self) {
+            .return_, .resolve => |id| id,
+            else => null,
+        };
+    }
+};
+
 pub const QuestionState = enum(u8) {
     idle,
     open,
@@ -196,6 +228,17 @@ pub const State = struct {
         const answer = self.answers.get(id) orelse return null;
         return answer.state;
     }
+
+    pub fn apply(self: *State, event: Event) (Error || std.mem.Allocator.Error)!void {
+        return switch (event) {
+            .bootstrap => |id| self.openQuestion(id, .bootstrap),
+            .call => |id| self.openQuestion(id, .call),
+            .finish => |id| self.finishQuestion(id),
+            .return_ => |id| self.resolveAnswer(id, .return_),
+            .resolve => |id| self.resolveAnswer(id, .resolve),
+            else => error.InvalidTransition,
+        };
+    }
 };
 
 test "rpc message kind predicates describe state-machine roles" {
@@ -207,6 +250,14 @@ test "rpc message kind predicates describe state-machine roles" {
     try testing.expect(MessageKind.resolve.isAnswerResolving());
     try testing.expect(MessageKind.release.isCapabilityTableMutation());
     try testing.expect(!MessageKind.disembargo.isQuestionOpening());
+
+    const call_event = Event{ .call = 12 };
+    try testing.expectEqual(MessageKind.call, call_event.kind());
+    try testing.expectEqual(@as(?QuestionId, 12), call_event.questionId());
+    try testing.expectEqual(@as(?AnswerId, null), call_event.answerId());
+    const return_event = Event{ .return_ = 12 };
+    try testing.expectEqual(MessageKind.return_, return_event.kind());
+    try testing.expectEqual(@as(?AnswerId, 12), return_event.answerId());
 }
 
 test "rpc question and answer trackers reject invalid transitions" {
@@ -264,4 +315,22 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(1));
     try testing.expectError(error.AnswerAlreadyResolved, state.resolveAnswer(1, .resolve));
     try testing.expectError(error.QuestionNotOpen, state.resolveAnswer(99, .return_));
+}
+
+test "rpc state applies transport-independent events" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try state.apply(.{ .bootstrap = 3 });
+    try testing.expectEqual(@as(?QuestionState, .open), state.questionState(3));
+    try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(3));
+    try testing.expectError(error.QuestionAlreadyOpen, state.apply(.{ .call = 3 }));
+
+    try state.apply(.{ .finish = 3 });
+    try testing.expectEqual(@as(?QuestionState, .finished), state.questionState(3));
+    try state.apply(.{ .resolve = 3 });
+    try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(3));
+    try testing.expectError(error.AnswerAlreadyResolved, state.apply(.{ .return_ = 3 }));
+    try testing.expectError(error.InvalidTransition, state.apply(.{ .release = {} }));
 }
