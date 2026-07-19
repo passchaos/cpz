@@ -87,7 +87,8 @@ that a complete RPC runtime exists.
   registry-backed results cap tables together, either at the Call/Return member
   level or through top-level Message builders. Top-level Bootstrap,
   Finish/Release builders can initialize their question IDs, flags, and
-  reference counts. A generated Call reader can also be applied as a unit:
+  reference counts, and a helper can build a bootstrap Return containing a
+  capability result. A generated Call reader can also be applied as a unit:
   target validation, question opening, and params capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route

@@ -81,6 +81,31 @@ test "rpc top-level bootstrap helpers initialize messages" {
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(10));
 }
 
+test "rpc bootstrap return helpers initialize capability results" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyWireEvent(.{ .bootstrap = 11 });
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initBootstrapReturnMessage(root, 11, 100);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const return_ = try message.return_();
+    const results = try return_.results();
+    try std.testing.expectEqual(@as(u32, 0), try (try results.content()).getCapabilityIndex());
+    const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, return_);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 100 }, descriptors[0]);
+
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(11));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
+}
+
 test "rpc call target helpers decode imported caps and promised answers" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
