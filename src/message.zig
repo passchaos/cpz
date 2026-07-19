@@ -4452,7 +4452,13 @@ pub const PointerReader = struct {
         if (landing_far.two_word_landing_pad) return error.InvalidFarPointer;
         const tag_raw = try self.message.readWord(far.segment_id, far.landing_pad_offset + 1);
         const target_segment_words = try self.message.segmentWords(landing_far.segment_id);
-        if (landing_far.landing_pad_offset >= target_segment_words) return error.InvalidFarPointer;
+        // The inner pointer in a double-far landing pad points at object content,
+        // not at another landing-pad word.  Cap'n Proto permits zero-word
+        // objects (for example void lists) to start exactly one-past the end of
+        // their segment.  The typed reader below will perform the size-aware
+        // bounds check after decoding the tag, so resolve only rejects offsets
+        // that are impossible even for an empty object.
+        if (@as(usize, landing_far.landing_pad_offset) > target_segment_words) return error.InvalidFarPointer;
         const adjusted_tag = switch (wire.pointerType(tag_raw)) {
             .struct_ptr => blk: {
                 const s = wire.decodeStruct(tag_raw);
@@ -6701,6 +6707,34 @@ test "builder creates multiple segments and reader follows far pointers" {
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     const read_root = try reader.getRoot();
     try testing.expectEqualSlices(u8, "far", try read_root.getPointerField(0).getText());
+}
+
+test "reader accepts double-far pointers to empty object at segment end" {
+    const testing = std.testing;
+
+    const root_words = [_]wire.Word{try wire.encodeFar(true, 0, 1)};
+    const landing_words = [_]wire.Word{
+        try wire.encodeFar(false, 0, 2),
+        try wire.encodeList(0, .void, 7),
+    };
+    const empty_target_words = [_]wire.Word{};
+    const segments = [_]serialize.ConstSegment{
+        std.mem.sliceAsBytes(&root_words),
+        std.mem.sliceAsBytes(&landing_words),
+        std.mem.sliceAsBytes(&empty_target_words),
+    };
+
+    var reader = MessageReader.init(&segments, .{});
+    const root = try reader.getRootList(.void);
+    try testing.expectEqual(@as(usize, 7), root.len());
+    try testing.expectEqual(@as(wire.ElementSize, .void), root.elementSize());
+
+    var validating_reader = MessageReader.init(&segments, .{});
+    const stats = try validating_reader.validate();
+    try testing.expectEqual(@as(usize, 1), stats.pointer_slots);
+    try testing.expectEqual(@as(usize, 1), stats.non_null_pointers);
+    try testing.expectEqual(@as(usize, 1), stats.lists);
+    try testing.expectEqual(@as(usize, 0), stats.total_words);
 }
 
 test "primitive and struct lists" {
