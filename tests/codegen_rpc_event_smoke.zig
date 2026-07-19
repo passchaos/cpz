@@ -468,6 +468,22 @@ test "rpc top-level wire messages apply calls and returns" {
         try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(60));
         try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(6));
         try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(8));
+        try std.testing.expectEqual(@as(usize, 1), state.resultImportCount(60));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const finish = try root.init_finish();
+        try finish.set_questionId(60);
+        try finish.set_releaseResultCaps(true);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(60));
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(8));
+        try std.testing.expectEqual(@as(usize, 0), state.resultImportCount(60));
     }
 }
 

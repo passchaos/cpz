@@ -34,6 +34,8 @@ that a complete RPC runtime exists.
   while still projecting to the simplified answer-resolving event.
   Returns with `releaseParamCaps` release imports introduced by the matching
   Call params cap table; callers can retain them when the flag is false.
+  Finish with `releaseResultCaps` releases imports introduced by matching
+  Return results.
   No-finish-needed returns without result capabilities mark the corresponding
   question finished so its ID can be reused.
   Release wire events preserve `referenceCount` so `State.applyWireEvent()` can

@@ -516,6 +516,7 @@ pub const State = struct {
     exports: std.AutoHashMap(ExportId, ExportTracker),
     imports: std.AutoHashMap(ImportId, ImportTracker),
     param_imports: std.AutoHashMap(QuestionId, []ImportId),
+    result_imports: std.AutoHashMap(AnswerId, []ImportId),
 
     pub fn init(allocator: std.mem.Allocator) State {
         return .{
@@ -525,10 +526,14 @@ pub const State = struct {
             .exports = std.AutoHashMap(ExportId, ExportTracker).init(allocator),
             .imports = std.AutoHashMap(ImportId, ImportTracker).init(allocator),
             .param_imports = std.AutoHashMap(QuestionId, []ImportId).init(allocator),
+            .result_imports = std.AutoHashMap(AnswerId, []ImportId).init(allocator),
         };
     }
 
     pub fn deinit(self: *State) void {
+        var result_imports = self.result_imports.valueIterator();
+        while (result_imports.next()) |ids| self.allocator.free(ids.*);
+        self.result_imports.deinit();
         var imports = self.param_imports.valueIterator();
         while (imports.next()) |ids| self.allocator.free(ids.*);
         self.param_imports.deinit();
@@ -581,6 +586,12 @@ pub const State = struct {
         }
     }
 
+    fn clearResultImports(self: *State, id: AnswerId) void {
+        if (self.result_imports.fetchRemove(id)) |entry| {
+            self.allocator.free(entry.value);
+        }
+    }
+
     pub fn questionComplete(self: *const State, id: QuestionId) bool {
         const question = self.questions.get(id) orelse return false;
         const answer = self.answers.get(id) orelse return false;
@@ -608,6 +619,7 @@ pub const State = struct {
             // removing/reinserting so any allocation failure cannot leave the
             // two hash maps out of sync.
             self.clearParamImports(id);
+            self.clearResultImports(id);
             existing_question.* = .{ .id = id };
             try existing_question.open(kind);
             existing_answer.* = .{ .id = id };
@@ -685,6 +697,11 @@ pub const State = struct {
         return ids.len;
     }
 
+    pub fn resultImportCount(self: *const State, id: AnswerId) usize {
+        const ids = self.result_imports.get(id) orelse return 0;
+        return ids.len;
+    }
+
     fn trackParamImports(self: *State, question_id: QuestionId, descriptors: []const CapDescriptor) std.mem.Allocator.Error!void {
         const ids = try capDescriptorImportIdsAlloc(self.allocator, descriptors);
         errdefer self.allocator.free(ids);
@@ -694,6 +711,19 @@ pub const State = struct {
 
     fn releaseParamImports(self: *State, question_id: QuestionId) Error!void {
         const entry = self.param_imports.fetchRemove(question_id) orelse return;
+        defer self.allocator.free(entry.value);
+        for (entry.value) |id| try self.releaseImport(id);
+    }
+
+    fn trackResultImports(self: *State, answer_id: AnswerId, descriptors: []const CapDescriptor) std.mem.Allocator.Error!void {
+        const ids = try capDescriptorImportIdsAlloc(self.allocator, descriptors);
+        errdefer self.allocator.free(ids);
+        if (self.result_imports.fetchRemove(answer_id)) |old| self.allocator.free(old.value);
+        try self.result_imports.put(answer_id, ids);
+    }
+
+    fn releaseResultImports(self: *State, answer_id: AnswerId) Error!void {
+        const entry = self.result_imports.fetchRemove(answer_id) orelse return;
         defer self.allocator.free(entry.value);
         for (entry.value) |id| try self.releaseImport(id);
     }
@@ -751,6 +781,7 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.resolveAnswer(answer_id, .return_);
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
+        try self.trackResultImports(answer_id, descriptors);
         if (release_param_caps) try self.releaseParamImports(answer_id);
         if (no_finish_needed and descriptors.len == 0) {
             try self.finishQuestion(answer_id);
@@ -776,6 +807,11 @@ pub const State = struct {
             .join => |id| self.applyWireTargetedQuestion(id, try message.join()),
             else => self.applyWireEvent(event),
         };
+    }
+
+    pub fn applyWireFinish(self: *State, finish: Finish) Error!void {
+        try self.finishQuestion(finish.question_id);
+        if (finish.release_result_caps) try self.releaseResultImports(finish.question_id);
     }
 
     pub fn releaseExport(self: *State, id: ExportId) Error!void {
@@ -852,6 +888,7 @@ pub const State = struct {
     pub fn applyWireEvent(self: *State, event: WireEvent) (Error || std.mem.Allocator.Error)!void {
         if (event == .resolve) return self.resolveExport(event.resolve);
         if (event == .release) return self.releaseImportCount(event.release);
+        if (event == .finish) return self.applyWireFinish(event.finish);
         if (event == .provide) return self.openQuestion(event.provide, .call);
         if (event == .accept) return self.openQuestion(event.accept, .call);
         if (event == .third_party_answer) return self.resolveAnswer(event.third_party_answer, .return_);
