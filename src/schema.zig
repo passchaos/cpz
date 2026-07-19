@@ -8496,13 +8496,22 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     }
     const runtime_import_literal = try zigRawStringLiteralAlloc(allocator, options.runtime_import_name);
     defer allocator.free(runtime_import_literal);
-    try appendFmt(allocator, &out,
-        \\const std = @import("std");
-        \\const cpz = @import({s});
-        \\const @"cpz.schema" = @This();
-        \\
-        \\
-    , .{runtime_import_literal});
+    if (options.namespace == null) {
+        try appendFmt(allocator, &out,
+            \\const std = @import("std");
+            \\const cpz = @import({s});
+            \\const @"cpz.schema" = @This();
+            \\
+            \\
+        , .{runtime_import_literal});
+    } else {
+        try appendFmt(allocator, &out,
+            \\const std = @import("std");
+            \\const cpz = @import({s});
+            \\
+            \\
+        , .{runtime_import_literal});
+    }
     if (options.namespace) |raw_namespace| {
         const namespace = try zigIdentAlloc(allocator, raw_namespace);
         defer allocator.free(namespace);

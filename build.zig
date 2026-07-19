@@ -158,6 +158,26 @@ pub fn build(b: *std.Build) void {
     const codegen_keyword_smoke_tests = b.addTest(.{ .root_module = codegen_keyword_smoke_mod });
     test_step.dependOn(&b.addRunArtifact(codegen_keyword_smoke_tests).step);
 
+    const run_namespace_schema_codegen = b.addRunArtifact(cpzc);
+    run_namespace_schema_codegen.addArgs(&.{ "--namespace", "api" });
+    run_namespace_schema_codegen.addFileArg(b.path("tests/schema_namespace.capnp"));
+    const generated_namespace_schema = b.createModule(.{
+        .root_source_file = run_namespace_schema_codegen.captureStdOut(.{ .basename = "schema_namespace.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const codegen_namespace_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_namespace_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "generated_namespace_schema", .module = generated_namespace_schema },
+        },
+    });
+    const codegen_namespace_smoke_tests = b.addTest(.{ .root_module = codegen_namespace_smoke_mod });
+    test_step.dependOn(&b.addRunArtifact(codegen_namespace_smoke_tests).step);
+
     const run_import_base_codegen = b.addRunArtifact(cpzc);
     run_import_base_codegen.addFileArg(b.path("tests/schema_import_base.capnp"));
     const generated_import_base = b.createModule(.{
