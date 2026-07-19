@@ -22,6 +22,9 @@ that a complete RPC runtime exists.
 - `CapabilityRegistry(T)` is an append-only application-owned handle registry
   for assigning outgoing capability indexes before writing capability pointers
   into builders.
+- `cpz.rpc` defines a transport-independent state-machine vocabulary for RPC
+  message kinds, question/answer transitions, and import/export lifetimes. It is
+  intentionally not a networked dispatcher yet.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.
@@ -37,9 +40,9 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Define an RPC transport-independent state-machine module around generated
-   `rpc.capnp` message shapes.
-2. Add request/response builders that use `CapabilityTable(T)` for import/export
-   table validation.
+1. Connect `cpz.rpc` state-machine events to generated `rpc.capnp` message
+   builders/readers for bootstrap/call/return/finish smoke flows.
+2. Add request/response builders that use `CapabilityTable(T)` and
+   `CapabilityRegistry(T)` for import/export table validation.
 3. Add generated service skeleton types only after the runtime state machine can
    execute a minimal bootstrap/call/return flow.
