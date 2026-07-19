@@ -306,7 +306,11 @@ test "rpc call helpers decode and write method ids" {
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const call_reader = generated.Call.fromReader(try reader.getRoot());
-    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0xfeed_beef, .method_id = 42 }, cpz.rpc.callMethodFromWireCall(call_reader));
+    const method = cpz.rpc.callMethodFromWireCall(call_reader);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0xfeed_beef, .method_id = 42 }, method);
+    try std.testing.expect(!method.isDefault());
+    try std.testing.expect(method.matches(0xfeed_beef, 42));
+    try std.testing.expect(!method.matches(0xfeed_beef, 41));
 }
 
 test "rpc allocating call target helpers decode promised-answer transforms" {

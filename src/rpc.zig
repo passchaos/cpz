@@ -287,6 +287,14 @@ pub const CallFlags = struct {
 pub const CallMethod = struct {
     interface_id: u64 = 0,
     method_id: u16 = 0,
+
+    pub fn isDefault(self: @This()) bool {
+        return self.interface_id == 0 and self.method_id == 0;
+    }
+
+    pub fn matches(self: @This(), interface_id: u64, method_id: u16) bool {
+        return self.interface_id == interface_id and self.method_id == method_id;
+    }
 };
 
 pub const CallOptions = struct {
