@@ -138,8 +138,9 @@ that a complete RPC runtime exists.
 
 ## Not implemented yet
 
-- RPC message loop, vats, bootstrap dispatch, protocol-complete question/answer
-  state machines, promise pipelining, embargo/disembargo, or tail calls.
+- RPC message loop, vats, generated/application service dispatch,
+  protocol-complete question/answer state machines, promise pipelining,
+  full embargo/disembargo queues, or tail calls.
 - Network transports or event-loop integration.
 - Application-level capability lifetime management beyond lightweight
   import/export bookkeeping and mapping wire indexes to handles supplied by the
