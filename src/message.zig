@@ -417,12 +417,27 @@ pub fn CapabilityTable(comptime T: type) type {
             return self.get(try pointer.getCapabilityIndex());
         }
 
+        pub fn getPointerOrNull(self: @This(), pointer: PointerReader) Error!?T {
+            if (pointer.isNull()) return null;
+            return try self.getPointer(pointer);
+        }
+
         pub fn getPointerBuilder(self: @This(), pointer: PointerBuilder) Error!T {
             return self.get(try pointer.getCapabilityIndex());
         }
 
+        pub fn getPointerBuilderOrNull(self: @This(), pointer: PointerBuilder) Error!?T {
+            if (pointer.isNull()) return null;
+            return try self.getPointerBuilder(pointer);
+        }
+
         pub fn getOrphan(self: @This(), orphan: Orphan) Error!T {
             return self.get(try orphan.getCapabilityIndex());
+        }
+
+        pub fn getOrphanOrNull(self: @This(), orphan: Orphan) Error!?T {
+            if (orphan.isNull()) return null;
+            return try self.getOrphan(orphan);
         }
 
         pub fn maxCount(self: @This()) usize {
@@ -455,9 +470,14 @@ test "capability table maps wire indexes to application handles" {
     defer builder.deinit();
     try builder.setRootCapability(2);
     try testing.expectEqualStrings("store", try table.getPointerBuilder(try builder.getRootPointer()));
+    var null_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 1 });
+    defer null_builder.deinit();
+    try testing.expectEqual(@as(?[]const u8, null), try table.getPointerBuilderOrNull(try null_builder.getRootPointer()));
 
     var reader = MessageReader.init(try builder.segmentsConst(), .{});
     try testing.expectEqualStrings("store", try table.getPointer(try reader.getRootPointer()));
+    var null_reader = MessageReader.init(try null_builder.segmentsConst(), .{});
+    try testing.expectEqual(@as(?[]const u8, null), try table.getPointerOrNull(try null_reader.getRootPointer()));
     const stats = try reader.validate();
     try testing.expect(table.satisfiesStats(stats));
     try table.validateStats(stats);
@@ -469,6 +489,8 @@ test "capability table maps wire indexes to application handles" {
     var orphan = (try builder.getRootPointer()).disown();
     defer orphan.release();
     try testing.expectEqualStrings("store", try table.getOrphan(orphan));
+    const null_orphan = Orphan{ .message = &null_builder, .segment_id = 0, .pointer_word_index = 0, .raw = 0 };
+    try testing.expectEqual(@as(?[]const u8, null), try table.getOrphanOrNull(null_orphan));
 }
 
 pub const OwnedMessageReader = struct {
