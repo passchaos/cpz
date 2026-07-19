@@ -1382,6 +1382,44 @@ test "rpc return releaseParamCaps validates before resolving answers" {
     }
 }
 
+test "rpc call dispatcher applies requests and builds capability returns" {
+    const Handler = struct {
+        fn handle(seen_question: *u32, call: anytype) !u32 {
+            seen_question.* = call.questionId();
+            return 104;
+        }
+    };
+
+    var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer request_builder.deinit();
+    const request_root = try generated.Message.initRootTyped(&request_builder);
+    const call = try request_root.init_call();
+    try call.set_questionId(15);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+
+    var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+    const request = generated.Message.fromReader(try request_reader.getRoot());
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+
+    var seen_question: u32 = 0;
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    try cpz.rpc.dispatchCallReturningCapability(&state, std.testing.allocator, response_root, try request.call(), &seen_question, Handler.handle);
+    try std.testing.expectEqual(@as(u32, 15), seen_question);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(15));
+
+    var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+    const response = generated.Message.fromReader(try response_reader.getRoot());
+    try state.applyWireMessage(std.testing.allocator, response);
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(15));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(104));
+}
+
 test "rpc top-level provide and join messages validate targets" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });

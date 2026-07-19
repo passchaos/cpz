@@ -922,6 +922,19 @@ pub fn dispatchBootstrap(
     try initBootstrapReturnForRequest(response_message, bootstrap, export_id);
 }
 
+pub fn dispatchCallReturningCapability(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const export_id = try handler(context, call);
+    try initCapabilityReturnMessage(response_message, call.questionId(), export_id);
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);
