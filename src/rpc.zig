@@ -644,6 +644,10 @@ pub fn writeResolveInfoToWire(info: ResolveInfo, resolve: anytype) !void {
     }
 }
 
+pub fn initWireResolveMessage(message: anytype, info: ResolveInfo) !void {
+    try writeResolveInfoToWire(info, try message.init_resolve());
+}
+
 pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !void {
     switch (descriptor) {
         .none => try builder.set_none(),
