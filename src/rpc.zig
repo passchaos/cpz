@@ -1908,12 +1908,25 @@ pub const State = struct {
         return self.callTargetResolution(target) != null;
     }
 
+    pub fn callTargetForwardTarget(self: *const State, target: CallTarget) ?CallTarget {
+        const resolution = self.callTargetResolution(target) orelse return null;
+        return switch (resolution) {
+            .sender_hosted, .sender_promise, .third_party_hosted => |id| .{ .imported_cap = id },
+            .receiver_answer => |answer| .{ .promised_answer = answer },
+            .none, .receiver_hosted => null,
+        };
+    }
+
     pub fn wireCallTargetResolution(self: *const State, call: anytype) !?CapDescriptor {
         return self.callTargetResolution(try callTargetFromWireCall(call));
     }
 
     pub fn wireCallTargetResolved(self: *const State, call: anytype) !bool {
         return self.callTargetResolved(try callTargetFromWireCall(call));
+    }
+
+    pub fn wireCallTargetForwardTarget(self: *const State, call: anytype) !?CallTarget {
+        return self.callTargetForwardTarget(try callTargetFromWireCall(call));
     }
 
     pub fn validateWireDisembargo(self: *const State, disembargo: anytype) !void {

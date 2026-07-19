@@ -2725,6 +2725,10 @@ test "rpc resolve cap descriptors replace imported promises" {
         cpz.rpc.CapDescriptor{ .sender_hosted = 100 },
         state.callTargetResolution(.{ .imported_cap = 99 }).?,
     );
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 100 },
+        state.callTargetForwardTarget(.{ .imported_cap = 99 }).?,
+    );
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
 }
 
