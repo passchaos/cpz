@@ -30,6 +30,7 @@ that a complete RPC runtime exists.
 - `cpz.rpc.eventFromWireMessage()` can decode the top-level `rpc.capnp` message
   union shape from generated readers into lightweight `WireEvent` values, and
   projects only the semantically-aligned subset into `State.apply()` events.
+  RPC exception helpers preserve reason, raw type, and optional trace text.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
   while still projecting to the simplified answer-resolving event.
   Return outcomes for exception, canceled, results-sent-elsewhere, and

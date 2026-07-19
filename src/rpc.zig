@@ -38,6 +38,7 @@ pub const Return = struct {
 pub const ExceptionInfo = struct {
     reason: ?[]const u8,
     type_raw: u16,
+    trace: ?[]const u8 = null,
 };
 
 pub const ReturnOutcome = union(enum) {
@@ -1275,12 +1276,14 @@ pub fn exceptionInfoFromWireException(exception: anytype) !ExceptionInfo {
     return .{
         .reason = try exception.reasonOrNull(),
         .type_raw = exception.type__raw(),
+        .trace = try exception.traceOrNull(),
     };
 }
 
 pub fn writeExceptionInfoToWire(info: ExceptionInfo, exception: anytype) !void {
     try exception.set_reason(info.reason orelse "");
     try exception.set_type__raw(info.type_raw);
+    try exception.set_traceOrNull(info.trace);
 }
 
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {

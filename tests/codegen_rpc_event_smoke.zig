@@ -1199,6 +1199,7 @@ test "rpc return outcomes without result payloads resolve answers" {
         const exception = try return_.init_exception();
         try exception.set_reason("network down");
         try exception.set_type__raw(2);
+        try exception.set_trace("stack line 1\nstack line 2");
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
@@ -1209,6 +1210,7 @@ test "rpc return outcomes without result payloads resolve answers" {
         };
         try std.testing.expectEqualStrings("network down", info.reason.?);
         try std.testing.expectEqual(@as(u16, 2), info.type_raw);
+        try std.testing.expectEqualStrings("stack line 1\nstack line 2", info.trace.?);
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
@@ -1338,6 +1340,7 @@ test "rpc return exception helpers write outcomes" {
     try cpz.rpc.initWireReturnException(return_, 86, true, false, .{
         .reason = "temporary overload",
         .type_raw = 1,
+        .trace = "retry later",
     });
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
@@ -1349,6 +1352,7 @@ test "rpc return exception helpers write outcomes" {
     };
     try std.testing.expectEqualStrings("temporary overload", info.reason.?);
     try std.testing.expectEqual(@as(u16, 1), info.type_raw);
+    try std.testing.expectEqualStrings("retry later", info.trace.?);
 }
 
 test "rpc non-result return helpers write outcomes" {
@@ -2393,6 +2397,7 @@ test "rpc resolve exceptions mark promise exports resolved" {
     const exception = try resolve.init_exception();
     try exception.set_reason("promise broken");
     try exception.set_type__raw(2);
+    try exception.set_trace("promise trace");
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const message = generated.Message.fromReader(try reader.getRoot());
@@ -2402,6 +2407,7 @@ test "rpc resolve exceptions mark promise exports resolved" {
     const decoded_exception = info.exception orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("promise broken", decoded_exception.reason.?);
     try std.testing.expectEqual(@as(u16, 2), decoded_exception.type_raw);
+    try std.testing.expectEqualStrings("promise trace", decoded_exception.trace.?);
 
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
@@ -2433,7 +2439,7 @@ test "rpc resolve info helpers write exceptions" {
     const resolve = try generated.Resolve.initRootTyped(&builder);
     try cpz.rpc.writeResolveInfoToWire(.{
         .promise_id = 97,
-        .exception = .{ .reason = "resolve failed", .type_raw = 3 },
+        .exception = .{ .reason = "resolve failed", .type_raw = 3, .trace = "resolve trace" },
     }, resolve);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
@@ -2444,6 +2450,7 @@ test "rpc resolve info helpers write exceptions" {
     const exception = info.exception orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("resolve failed", exception.reason.?);
     try std.testing.expectEqual(@as(u16, 3), exception.type_raw);
+    try std.testing.expectEqualStrings("resolve trace", exception.trace.?);
 }
 
 test "rpc top-level resolve helpers initialize messages" {

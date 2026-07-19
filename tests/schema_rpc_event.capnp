@@ -164,6 +164,7 @@ struct ThirdPartyCapDescriptor {
 struct Exception {
   reason @0 :Text;
   type @3 :Type;
+  trace @4 :Text;
 
   enum Type {
     failed @0;
