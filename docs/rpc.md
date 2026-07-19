@@ -41,7 +41,8 @@ that a complete RPC runtime exists.
   Completed question IDs can be reused once both Finish and Return-like answer
   resolution have been observed.
   Generated RPC `Call.target` readers can be decoded into a lightweight
-  `CallTarget` for imported capabilities and promised answers.
+  `CallTarget` for imported capabilities and promised answers, and validated
+  against tracked imports/answers.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver capability-table entries, and `Payload.capTable` can be
   decoded into a caller-owned descriptor slice. Decoded descriptor tables can be

@@ -598,6 +598,22 @@ pub const State = struct {
         try self.applyCapTable(descriptors);
     }
 
+    pub fn validateCallTarget(self: *const State, target: CallTarget) Error!void {
+        switch (target) {
+            .imported_cap => |id| {
+                const tracker = self.imports.get(id) orelse return error.InvalidTransition;
+                if (tracker.state != .live) return error.ImportAlreadyReleased;
+            },
+            .promised_answer => |answer| {
+                if (!self.answers.contains(answer.question_id)) return error.QuestionNotOpen;
+            },
+        }
+    }
+
+    pub fn validateWireCallTarget(self: *const State, call: anytype) !void {
+        try self.validateCallTarget(try callTargetFromWireCall(call));
+    }
+
     pub fn releaseExport(self: *State, id: ExportId) Error!void {
         const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
@@ -892,6 +908,22 @@ test "rpc state validates capability tables before mutating them" {
         .{ .receiver_hosted = 41 },
     });
     try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(40));
+}
+
+test "rpc state validates call targets against imports and answers" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try testing.expectError(error.InvalidTransition, state.validateCallTarget(.{ .imported_cap = 60 }));
+    try state.addImport(60);
+    try state.validateCallTarget(.{ .imported_cap = 60 });
+    try state.releaseImport(60);
+    try testing.expectError(error.ImportAlreadyReleased, state.validateCallTarget(.{ .imported_cap = 60 }));
+
+    try testing.expectError(error.QuestionNotOpen, state.validateCallTarget(.{ .promised_answer = .{ .question_id = 61 } }));
+    try state.openQuestion(61, .bootstrap);
+    try state.validateCallTarget(.{ .promised_answer = .{ .question_id = 61 } });
 }
 
 test "rpc state applies transport-independent events" {

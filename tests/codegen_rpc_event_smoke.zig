@@ -78,6 +78,12 @@ test "rpc call target helpers decode imported caps and promised answers" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 7 }, decoded);
         try std.testing.expectEqual(@as(?u32, 7), decoded.importId());
         try std.testing.expectEqual(@as(?u32, null), decoded.promisedQuestionId());
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try std.testing.expectError(error.InvalidTransition, state.validateWireCallTarget(try message.call()));
+        try state.addImport(7);
+        try state.validateWireCallTarget(try message.call());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -95,6 +101,12 @@ test "rpc call target helpers decode imported caps and promised answers" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 99 } }, decoded);
         try std.testing.expectEqual(@as(?u32, null), decoded.importId());
         try std.testing.expectEqual(@as(?u32, 99), decoded.promisedQuestionId());
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try std.testing.expectError(error.QuestionNotOpen, state.validateWireCallTarget(try message.call()));
+        try state.openQuestion(99, .bootstrap);
+        try state.validateWireCallTarget(try message.call());
     }
 }
 
