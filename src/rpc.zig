@@ -86,7 +86,7 @@ pub const JoinInfo = struct {
 
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
-        error.InvalidPointerKind => null,
+        error.InvalidPointerKind, error.NullPointer => null,
         else => return err,
     };
     return .{
@@ -191,6 +191,7 @@ pub const CapDescriptor = union(enum) {
 pub const CapDescriptorInfo = struct {
     descriptor: CapDescriptor,
     attached_fd: u8 = 0xff,
+    third_party_contact: ?AnyPointerUsage = null,
 };
 
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's
@@ -744,9 +745,18 @@ pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
 }
 
 pub fn capDescriptorInfoFromWire(descriptor: anytype) !CapDescriptorInfo {
+    const decoded = try capDescriptorFromWire(descriptor);
+    const third_party_contact: ?AnyPointerUsage = switch (decoded) {
+        .third_party_hosted => blk: {
+            const third_party = try descriptor.thirdPartyHosted();
+            break :blk if (third_party.has_id()) try anyPointerUsageFromWire(try third_party.idAsPointer()) else null;
+        },
+        else => null,
+    };
     return .{
-        .descriptor = try capDescriptorFromWire(descriptor),
+        .descriptor = decoded,
         .attached_fd = descriptor.attachedFd(),
+        .third_party_contact = third_party_contact,
     };
 }
 
@@ -801,7 +811,13 @@ pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !vo
 }
 
 pub fn writeCapDescriptorInfoToWire(info: CapDescriptorInfo, builder: anytype) !void {
+    if (info.third_party_contact != null and info.descriptor != .third_party_hosted) return error.InvalidTransition;
     try writeCapDescriptorToWire(info.descriptor, builder);
+    if (info.third_party_contact) |contact| {
+        if (contact.capability) |index| {
+            (try (try builder.get_thirdPartyHosted()).get_idAsPointer()).setCapability(index);
+        }
+    }
     try builder.set_attachedFd(info.attached_fd);
 }
 

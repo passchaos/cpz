@@ -4,6 +4,7 @@ using QuestionId = UInt32;
 using AnswerId = QuestionId;
 using ExportId = UInt32;
 using ImportId = ExportId;
+using ThirdPartyToContact = AnyPointer;
 
 struct Message {
   union {
@@ -153,6 +154,7 @@ struct CapDescriptor {
 }
 
 struct ThirdPartyCapDescriptor {
+  id @0 :ThirdPartyToContact;
   vineId @1 :ExportId;
 }
 
