@@ -44,7 +44,9 @@ that a complete RPC runtime exists.
   `CallTarget` for imported capabilities and promised answers.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver capability-table entries, and `Payload.capTable` can be
-  decoded into a caller-owned descriptor slice.
+  decoded into a caller-owned descriptor slice. Decoded descriptor tables can be
+  applied to `State` for basic import creation/reference counting and
+  receiver-hosted export/answer validation.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

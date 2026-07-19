@@ -163,6 +163,27 @@ test "rpc payload helpers decode capability descriptor tables" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 14 } }, descriptors[2]);
 }
 
+test "rpc decoded capability descriptor tables apply to state" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    const cap_table = try payload.init_capTable(2);
+    try (try cap_table.get(0)).set_senderHosted(20);
+    try (try cap_table.get(1)).set_receiverHosted(21);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(descriptors);
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addExport(21);
+    try state.applyCapTable(descriptors);
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(20));
+    try std.testing.expectEqual(@as(?u32, 1), state.importReferenceCount(20));
+}
+
 test "rpc provide accept and join wire events open questions" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

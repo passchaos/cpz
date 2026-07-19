@@ -541,6 +541,43 @@ pub const State = struct {
         try self.imports.put(id, .{ .id = id });
     }
 
+    pub fn receiveImport(self: *State, id: ImportId) (Error || std.mem.Allocator.Error)!void {
+        if (self.imports.getPtr(id)) |tracker| {
+            if (tracker.state != .live) return error.ImportAlreadyReleased;
+            if (tracker.reference_count == std.math.maxInt(u32)) return error.InvalidTransition;
+            tracker.reference_count += 1;
+            return;
+        }
+        try self.imports.put(id, .{ .id = id });
+    }
+
+    fn validateCapDescriptor(self: *const State, descriptor: CapDescriptor) Error!void {
+        switch (descriptor) {
+            .none, .sender_hosted, .sender_promise => {},
+            .receiver_hosted => |id| {
+                const tracker = self.exports.get(id) orelse return error.InvalidTransition;
+                if (tracker.state != .live) return error.ExportAlreadyReleased;
+            },
+            .receiver_answer => |answer| {
+                if (!self.answers.contains(answer.question_id)) return error.QuestionNotOpen;
+            },
+        }
+    }
+
+    pub fn applyCapDescriptor(self: *State, descriptor: CapDescriptor) (Error || std.mem.Allocator.Error)!void {
+        try self.validateCapDescriptor(descriptor);
+        return switch (descriptor) {
+            .none, .receiver_hosted, .receiver_answer => {},
+            .sender_hosted => |id| self.receiveImport(id),
+            .sender_promise => |id| self.receiveImport(id),
+        };
+    }
+
+    pub fn applyCapTable(self: *State, descriptors: []const CapDescriptor) (Error || std.mem.Allocator.Error)!void {
+        for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
+        for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
+    }
+
     pub fn releaseExport(self: *State, id: ExportId) Error!void {
         const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
@@ -792,6 +829,49 @@ test "rpc state tracks import and export lifetimes" {
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(20));
     try testing.expectError(error.ExportAlreadyReleased, state.releaseExport(10));
     try testing.expectError(error.ImportAlreadyReleased, state.releaseImport(20));
+}
+
+test "rpc state applies capability descriptors to table lifetimes" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try state.applyCapDescriptor(.{ .sender_hosted = 30 });
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(30));
+    try testing.expectEqual(@as(?u32, 1), state.importReferenceCount(30));
+    try state.applyCapDescriptor(.{ .sender_promise = 30 });
+    try testing.expectEqual(@as(?u32, 2), state.importReferenceCount(30));
+
+    try state.addExport(31);
+    try state.applyCapDescriptor(.{ .receiver_hosted = 31 });
+    try state.openQuestion(32, .call);
+    try state.applyCapDescriptor(.{ .receiver_answer = .{ .question_id = 32 } });
+    try state.applyCapDescriptor(.none);
+
+    try testing.expectError(error.InvalidTransition, state.applyCapDescriptor(.{ .receiver_hosted = 99 }));
+    try testing.expectError(error.QuestionNotOpen, state.applyCapDescriptor(.{ .receiver_answer = .{ .question_id = 99 } }));
+
+    try state.releaseExport(31);
+    try testing.expectError(error.ExportAlreadyReleased, state.applyCapDescriptor(.{ .receiver_hosted = 31 }));
+}
+
+test "rpc state validates capability tables before mutating them" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try testing.expectError(error.InvalidTransition, state.applyCapTable(&.{
+        .{ .sender_hosted = 40 },
+        .{ .receiver_hosted = 404 },
+    }));
+    try testing.expectEqual(@as(?CapabilityLifetime, null), state.importState(40));
+
+    try state.addExport(41);
+    try state.applyCapTable(&.{
+        .{ .sender_hosted = 40 },
+        .{ .receiver_hosted = 41 },
+    });
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(40));
 }
 
 test "rpc state applies transport-independent events" {
