@@ -124,7 +124,7 @@ test "decoded wire events can drive the supported state subset" {
         const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_bootstrap();
         try payload.set_questionId(31);
-        try state.apply((try decode(&builder)).toStateEvent().?);
+        try state.applyWireEvent(try decode(&builder));
         try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(31));
     }
     {
@@ -133,7 +133,7 @@ test "decoded wire events can drive the supported state subset" {
         const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_finish();
         try payload.set_questionId(31);
-        try state.apply((try decode(&builder)).toStateEvent().?);
+        try state.applyWireEvent(try decode(&builder));
         try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(31));
     }
     {
@@ -142,7 +142,7 @@ test "decoded wire events can drive the supported state subset" {
         const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_return_();
         try payload.set_answerId(31);
-        try state.apply((try decode(&builder)).toStateEvent().?);
+        try state.applyWireEvent(try decode(&builder));
         try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(31));
     }
 
@@ -153,7 +153,7 @@ test "decoded wire events can drive the supported state subset" {
         const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_release();
         try payload.set_id(32);
-        try state.apply((try decode(&builder)).toStateEvent().?);
+        try state.applyWireEvent(try decode(&builder));
         try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(32));
     }
 }

@@ -400,6 +400,11 @@ pub const State = struct {
             else => error.InvalidTransition,
         };
     }
+
+    pub fn applyWireEvent(self: *State, event: WireEvent) (Error || std.mem.Allocator.Error)!void {
+        const state_event = event.toStateEvent() orelse return error.InvalidTransition;
+        return self.apply(state_event);
+    }
 };
 
 test "rpc message kind predicates describe state-machine roles" {
@@ -540,4 +545,25 @@ test "rpc state applies transport-independent events" {
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(8));
     try testing.expectError(error.ExportAlreadyReleased, state.apply(.{ .release = .{ .export_id = 7 } }));
     try testing.expectError(error.InvalidTransition, state.apply(.{ .join = {} }));
+}
+
+test "rpc state applies only the semantically aligned wire event subset" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try state.applyWireEvent(.{ .bootstrap = 41 });
+    try testing.expectEqual(@as(?QuestionState, .open), state.questionState(41));
+    try state.applyWireEvent(.{ .finish = 41 });
+    try state.applyWireEvent(.{ .return_ = 41 });
+    try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(41));
+
+    try state.addImport(42);
+    try state.applyWireEvent(.{ .release = 42 });
+    try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(42));
+
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .resolve = 99 }));
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .provide = 99 }));
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .accept = 99 }));
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .join = 99 }));
 }
