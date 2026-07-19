@@ -1573,6 +1573,9 @@ pub const Orphan = struct {
             .data_words = list_reader.data_words,
             .pointer_count = list_reader.pointer_count,
             .step_bits = list_reader.step_bits,
+            .bit_offset = list_reader.bit_offset,
+            .element_data_bits = list_reader.element_data_bits,
+            .limit_element_data_bits = list_reader.limit_element_data_bits,
         };
     }
 
@@ -4504,6 +4507,8 @@ pub const StructBuilder = struct {
     pointer_start: usize,
     data_words: u16,
     pointer_count: u16,
+    data_bit_offset: usize = 0,
+    data_bit_len: usize = 0,
 
     /// Create a read-only view using a caller-owned MessageReader over the
     /// same message segments. The caller must keep `message_reader` alive for
@@ -4517,6 +4522,8 @@ pub const StructBuilder = struct {
             .data_words = self.data_words,
             .pointer_count = self.pointer_count,
             .nesting_left = message_reader.options.nesting_limit,
+            .data_bit_offset = self.data_bit_offset,
+            .data_bit_len = self.data_bit_len,
         };
     }
 
@@ -4635,7 +4642,8 @@ pub const StructBuilder = struct {
     pub fn setBool(self: StructBuilder, bit_offset: usize, value: bool, default_value: bool) Error!void {
         try self.checkDataBit(bit_offset);
         const encoded = value != default_value;
-        const abs_bit = try checkedWordBitOffset(self.data_start, bit_offset);
+        const relative_bit = std.math.add(usize, self.data_bit_offset, bit_offset) catch return error.MessageTooLarge;
+        const abs_bit = try checkedWordBitOffset(self.data_start, relative_bit);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         var word = try self.message.readWord(self.segment_id, word_index);
@@ -4689,7 +4697,8 @@ pub const StructBuilder = struct {
 
     pub fn getBool(self: StructBuilder, bit_offset: usize, default_value: bool) Error!bool {
         try self.checkDataBit(bit_offset);
-        const abs_bit = try checkedWordBitOffset(self.data_start, bit_offset);
+        const relative_bit = std.math.add(usize, self.data_bit_offset, bit_offset) catch return error.MessageTooLarge;
+        const abs_bit = try checkedWordBitOffset(self.data_start, relative_bit);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         const word = try self.message.readWord(self.segment_id, word_index);
@@ -4813,17 +4822,13 @@ pub const StructBuilder = struct {
     }
 
     fn setInt(self: StructBuilder, comptime T: type, byte_offset: usize, value: T, default_value: T) Error!void {
-        try self.checkDataBytes(byte_offset, @sizeOf(T));
+        const bytes = try self.dataFieldBytes(T, byte_offset);
         const encoded = value ^ default_value;
-        const data = try self.dataBytesChecked();
-        const bytes = data[byte_offset..][0..@sizeOf(T)];
         std.mem.writeInt(T, bytes, encoded, .little);
     }
 
     fn getInt(self: StructBuilder, comptime T: type, byte_offset: usize, default_value: T) Error!T {
-        try self.checkDataBytes(byte_offset, @sizeOf(T));
-        const data = try self.dataBytesChecked();
-        const bytes = data[byte_offset..][0..@sizeOf(T)];
+        const bytes = try self.dataFieldBytes(T, byte_offset);
         return std.mem.readInt(T, bytes, .little) ^ default_value;
     }
 
@@ -4832,8 +4837,16 @@ pub const StructBuilder = struct {
     }
 
     fn dataBytesChecked(self: StructBuilder) Error![]u8 {
-        const bounds = try self.dataWordBounds();
-        return std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items[bounds.start..bounds.end]);
+        _ = try self.dataWordBounds();
+        if (self.data_bit_offset % 8 != 0) return error.UnsupportedElementSize;
+        const bit_len = self.effectiveDataBits();
+        if (bit_len % 8 != 0) return error.UnsupportedElementSize;
+        const byte_start = try checkedWordByteOffset(self.data_start, self.data_bit_offset);
+        const byte_len = bit_len / 8;
+        if (self.segment_id >= self.message.segments.items.len) return error.SegmentOutOfBounds;
+        const segment_bytes = std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items);
+        if (byte_start > segment_bytes.len or segment_bytes.len - byte_start < byte_len) return error.PointerOutOfBounds;
+        return segment_bytes[byte_start..][0..byte_len];
     }
 
     fn dataWordBounds(self: StructBuilder) Error!struct { start: usize, end: usize } {
@@ -4847,14 +4860,33 @@ pub const StructBuilder = struct {
     }
 
     fn checkDataBit(self: StructBuilder, bit_offset: usize) Error!void {
-        if (bit_offset >= @as(usize, self.data_words) * wire.bits_per_word) return error.PointerOutOfBounds;
+        if (bit_offset >= self.effectiveDataBits()) return error.PointerOutOfBounds;
         _ = try self.dataWordBounds();
     }
 
     fn checkDataBytes(self: StructBuilder, byte_offset: usize, len: usize) Error!void {
-        const data_len = @as(usize, self.data_words) * wire.bytes_per_word;
+        const data_bits = self.effectiveDataBits();
+        if (data_bits % 8 != 0) return error.UnsupportedElementSize;
+        const data_len = data_bits / 8;
         if (byte_offset > data_len or data_len - byte_offset < len) return error.PointerOutOfBounds;
         _ = try self.dataWordBounds();
+    }
+
+    fn dataFieldBytes(self: StructBuilder, comptime T: type, byte_offset: usize) Error!*[@sizeOf(T)]u8 {
+        try self.checkDataBytes(byte_offset, @sizeOf(T));
+        const field_bit_offset = std.math.mul(usize, byte_offset, 8) catch return error.MessageTooLarge;
+        const absolute_bit_offset = std.math.add(usize, self.data_bit_offset, field_bit_offset) catch return error.MessageTooLarge;
+        if (absolute_bit_offset % 8 != 0) return error.UnsupportedElementSize;
+        const byte_start = try checkedWordByteOffset(self.data_start, absolute_bit_offset);
+        if (self.segment_id >= self.message.segments.items.len) return error.SegmentOutOfBounds;
+        const segment_bytes = std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items);
+        if (byte_start > segment_bytes.len or segment_bytes.len - byte_start < @sizeOf(T)) return error.PointerOutOfBounds;
+        return segment_bytes[byte_start..][0..@sizeOf(T)];
+    }
+
+    fn effectiveDataBits(self: StructBuilder) usize {
+        if (self.data_bit_len != 0) return self.data_bit_len;
+        return @as(usize, self.data_words) * wire.bits_per_word;
     }
 };
 
@@ -5087,6 +5119,9 @@ pub const ListBuilder = struct {
     data_words: u16,
     pointer_count: u16,
     step_bits: usize,
+    bit_offset: usize = 0,
+    element_data_bits: usize = 0,
+    limit_element_data_bits: bool = false,
 
     pub fn len(self: ListBuilder) usize {
         return self.element_count;
@@ -5228,17 +5263,14 @@ pub const ListBuilder = struct {
 
     pub fn slice(self: ListBuilder, start_index: usize, count: usize) Error!ListBuilder {
         if (start_index > self.element_count or self.element_count - start_index < count) return error.PointerOutOfBounds;
-        if (self.element_size != .pointer and self.element_size != .composite) {
-            const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
-            if (start_bits % wire.bits_per_word != 0) {
-                const copy = try self.orphanage().newList(self.element_size, count);
-                const list = try copy.getList(self.element_size);
-                try copyPrimitiveBuilderList(list, self, start_index);
-                return list;
-            }
+        const start_bits = std.math.add(usize, self.bit_offset, std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge) catch return error.MessageTooLarge;
+        if (self.element_size != .pointer and self.element_size != .composite and start_bits % wire.bits_per_word != 0) {
+            const copy = try self.orphanage().newList(self.element_size, count);
+            const list = try copy.getList(self.element_size);
+            try copyPrimitiveBuilderList(list, self, start_index);
+            return list;
         }
-        const start_bits = std.math.mul(usize, start_index, self.step_bits) catch return error.MessageTooLarge;
-        if (start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+        if ((self.element_size == .pointer or self.element_size == .composite) and start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
         const start_words = start_bits / wire.bits_per_word;
         const start = std.math.add(usize, self.start, start_words) catch return error.MessageTooLarge;
         return .{
@@ -5250,6 +5282,9 @@ pub const ListBuilder = struct {
             .data_words = self.data_words,
             .pointer_count = self.pointer_count,
             .step_bits = self.step_bits,
+            .bit_offset = start_bits % wire.bits_per_word,
+            .element_data_bits = self.element_data_bits,
+            .limit_element_data_bits = self.limit_element_data_bits,
         };
     }
 
@@ -5267,6 +5302,9 @@ pub const ListBuilder = struct {
             .pointer_count = self.pointer_count,
             .step_bits = self.step_bits,
             .nesting_left = message_reader.options.nesting_limit,
+            .bit_offset = self.bit_offset,
+            .element_data_bits = self.element_data_bits,
+            .limit_element_data_bits = self.limit_element_data_bits,
         };
     }
 
@@ -5296,12 +5334,14 @@ pub const ListBuilder = struct {
     }
 
     fn bytesChecked(self: ListBuilder) Error![]u8 {
-        const word_count = try checkedListWordLen(self.element_count, self.step_bits);
         if (self.segment_id >= self.message.segments.items.len) return error.SegmentOutOfBounds;
-        const words = self.message.segments.items[self.segment_id].words.items;
-        if (self.start > words.len or words.len - self.start < word_count) return error.PointerOutOfBounds;
-        const byte_len = try checkedListByteLen(self.element_count, self.step_bits);
-        return std.mem.sliceAsBytes(words[self.start .. self.start + word_count])[0..byte_len];
+        if (self.bit_offset % 8 != 0) return error.UnsupportedElementSize;
+        const bit_len = std.math.mul(usize, self.element_count, self.step_bits) catch return error.MessageTooLarge;
+        const byte_len = std.math.divCeil(usize, bit_len, 8) catch return error.MessageTooLarge;
+        const byte_start = try checkedWordByteOffset(self.start, self.bit_offset);
+        const segment = std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items);
+        if (byte_start > segment.len or segment.len - byte_start < byte_len) return error.PointerOutOfBounds;
+        return segment[byte_start..][0..byte_len];
     }
 
     pub fn rawPrimitiveBytes(self: ListBuilder) Error![]u8 {
@@ -5351,7 +5391,10 @@ pub const ListBuilder = struct {
 
     pub fn setBool(self: ListBuilder, index: usize, value: bool) Error!void {
         if (self.element_size != .bit or index >= self.element_count) return error.PointerOutOfBounds;
-        const abs_bit = try checkedWordBitOffset(self.start, index);
+        if (self.limit_element_data_bits and self.element_data_bits == 0) return error.PointerOutOfBounds;
+        const element_bits = std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge;
+        const relative_bit = std.math.add(usize, self.bit_offset, element_bits) catch return error.MessageTooLarge;
+        const abs_bit = try checkedWordBitOffset(self.start, relative_bit);
         const word_index = abs_bit / wire.bits_per_word;
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         var word = try self.message.readWord(self.segment_id, word_index);
@@ -5361,7 +5404,10 @@ pub const ListBuilder = struct {
 
     pub fn getBool(self: ListBuilder, index: usize) Error!bool {
         if (self.element_size != .bit or index >= self.element_count) return error.PointerOutOfBounds;
-        const abs_bit = try checkedWordBitOffset(self.start, index);
+        if (self.limit_element_data_bits and self.element_data_bits == 0) return error.PointerOutOfBounds;
+        const element_bits = std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge;
+        const relative_bit = std.math.add(usize, self.bit_offset, element_bits) catch return error.MessageTooLarge;
+        const abs_bit = try checkedWordBitOffset(self.start, relative_bit);
         const word = try self.message.readWord(self.segment_id, abs_bit / wire.bits_per_word);
         const bit: u6 = @intCast(abs_bit % wire.bits_per_word);
         return ((word >> bit) & 1) != 0;
@@ -5409,7 +5455,19 @@ pub const ListBuilder = struct {
 
     pub fn getPointerElement(self: ListBuilder, index: usize) Error!PointerBuilder {
         if (self.element_size != .pointer or index >= self.element_count) return error.PointerOutOfBounds;
-        const word_index = std.math.add(usize, self.start, index) catch return error.MessageTooLarge;
+        if (self.pointer_count == 0 and self.data_words == 0 and self.step_bits == wire.bits_per_word and self.bit_offset == 0) {
+            const word_index = std.math.add(usize, self.start, index) catch return error.MessageTooLarge;
+            return .{
+                .message = self.message,
+                .segment_id = self.segment_id,
+                .word_index = word_index,
+            };
+        }
+        if (self.pointer_count == 0) return error.PointerOutOfBounds;
+        const element_bits = std.math.add(usize, self.bit_offset, std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge) catch return error.MessageTooLarge;
+        if (element_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+        const element_word = std.math.add(usize, self.start, element_bits / wire.bits_per_word) catch return error.MessageTooLarge;
+        const word_index = std.math.add(usize, element_word, self.data_words) catch return error.MessageTooLarge;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
@@ -5459,10 +5517,11 @@ pub const ListBuilder = struct {
 
     pub fn getStructElement(self: ListBuilder, index: usize) Error!StructBuilder {
         if (self.element_size != .composite or index >= self.element_count) return error.PointerOutOfBounds;
-        const step_words = @as(usize, self.data_words) + @as(usize, self.pointer_count);
-        const relative_words = std.math.mul(usize, index, step_words) catch return error.MessageTooLarge;
-        const start = std.math.add(usize, self.start, relative_words) catch return error.MessageTooLarge;
+        const start_bits = std.math.add(usize, self.bit_offset, std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge) catch return error.MessageTooLarge;
+        if (self.pointer_count != 0 and start_bits % wire.bits_per_word != 0) return error.UnsupportedElementSize;
+        const start = std.math.add(usize, self.start, start_bits / wire.bits_per_word) catch return error.MessageTooLarge;
         const pointer_start = std.math.add(usize, start, self.data_words) catch return error.MessageTooLarge;
+        const data_bit_offset = start_bits % wire.bits_per_word;
         return .{
             .message = self.message,
             .segment_id = self.segment_id,
@@ -5470,6 +5529,8 @@ pub const ListBuilder = struct {
             .pointer_start = pointer_start,
             .data_words = self.data_words,
             .pointer_count = self.pointer_count,
+            .data_bit_offset = data_bit_offset,
+            .data_bit_len = if (self.limit_element_data_bits) self.element_data_bits else 0,
         };
     }
 
@@ -5542,14 +5603,16 @@ pub const ListBuilder = struct {
         if (self.element_size != source.element_size) return error.IncompatibleListShape;
         switch (self.element_size) {
             .byte, .two_bytes, .four_bytes, .eight_bytes => {
-                const bytes_per_element = wire.bitsPerElement(self.element_size) / 8;
-                const byte_count = std.math.mul(usize, count, bytes_per_element) catch return error.MessageTooLarge;
-                const dst_start = std.math.mul(usize, index, bytes_per_element) catch return error.MessageTooLarge;
-                const src_start = std.math.mul(usize, source_index, bytes_per_element) catch return error.MessageTooLarge;
-                const source_bytes = try source.rawPrimitiveBytes();
-                const dest_bytes = try self.rawPrimitiveBytes();
-                @memmove(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
-                return;
+                if (self.isCompactPrimitiveView() and source.isCompactPrimitiveView()) {
+                    const bytes_per_element = wire.bitsPerElement(self.element_size) / 8;
+                    const byte_count = std.math.mul(usize, count, bytes_per_element) catch return error.MessageTooLarge;
+                    const dst_start = std.math.mul(usize, index, bytes_per_element) catch return error.MessageTooLarge;
+                    const src_start = std.math.mul(usize, source_index, bytes_per_element) catch return error.MessageTooLarge;
+                    const source_bytes = try source.rawPrimitiveBytes();
+                    const dest_bytes = try self.rawPrimitiveBytes();
+                    @memmove(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
+                    return;
+                }
             },
             else => {},
         }
@@ -5605,14 +5668,16 @@ pub const ListBuilder = struct {
         if (self.element_size != source.element_size) return error.IncompatibleListShape;
         switch (self.element_size) {
             .byte, .two_bytes, .four_bytes, .eight_bytes => {
-                const bytes_per_element = wire.bitsPerElement(self.element_size) / 8;
-                const byte_count = std.math.mul(usize, count, bytes_per_element) catch return error.MessageTooLarge;
-                const dst_start = std.math.mul(usize, index, bytes_per_element) catch return error.MessageTooLarge;
-                const src_start = std.math.mul(usize, source_index, bytes_per_element) catch return error.MessageTooLarge;
-                const source_bytes = try source.rawPrimitiveBytes();
-                const dest_bytes = try self.rawPrimitiveBytes();
-                @memmove(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
-                return;
+                if (self.isCompactPrimitiveView() and source.isCompactPrimitiveView()) {
+                    const bytes_per_element = wire.bitsPerElement(self.element_size) / 8;
+                    const byte_count = std.math.mul(usize, count, bytes_per_element) catch return error.MessageTooLarge;
+                    const dst_start = std.math.mul(usize, index, bytes_per_element) catch return error.MessageTooLarge;
+                    const src_start = std.math.mul(usize, source_index, bytes_per_element) catch return error.MessageTooLarge;
+                    const source_bytes = try source.rawPrimitiveBytes();
+                    const dest_bytes = try self.rawPrimitiveBytes();
+                    @memmove(dest_bytes[dst_start..][0..byte_count], source_bytes[src_start..][0..byte_count]);
+                    return;
+                }
             },
             else => {},
         }
@@ -5637,19 +5702,35 @@ pub const ListBuilder = struct {
     fn setPrimitive(self: ListBuilder, comptime T: type, index: usize, value: T) Error!void {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
-        const byte_offset = std.math.mul(usize, index, @sizeOf(T)) catch return error.MessageTooLarge;
-        const data = try self.bytesChecked();
-        const target_bytes = data[byte_offset..][0..@sizeOf(T)];
+        const target_bytes = try self.primitiveElementBytes(T, index);
         std.mem.writeInt(T, target_bytes, value, .little);
     }
 
     fn getPrimitive(self: ListBuilder, comptime T: type, index: usize) Error!T {
         if (index >= self.element_count) return error.PointerOutOfBounds;
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
-        const byte_offset = std.math.mul(usize, index, @sizeOf(T)) catch return error.MessageTooLarge;
-        const data = try self.bytesChecked();
-        const source_bytes = data[byte_offset..][0..@sizeOf(T)];
+        const source_bytes = try self.primitiveElementBytes(T, index);
         return std.mem.readInt(T, source_bytes, .little);
+    }
+
+    fn primitiveElementBytes(self: ListBuilder, comptime T: type, index: usize) Error!*[@sizeOf(T)]u8 {
+        if (self.limit_element_data_bits and @bitSizeOf(T) > self.element_data_bits) return error.PointerOutOfBounds;
+        const element_bits = std.math.mul(usize, index, self.step_bits) catch return error.MessageTooLarge;
+        const bit_offset = std.math.add(usize, self.bit_offset, element_bits) catch return error.MessageTooLarge;
+        if (bit_offset % 8 != 0) return error.UnsupportedElementSize;
+        const byte_offset = std.math.add(usize, std.math.mul(usize, self.start, wire.bytes_per_word) catch return error.PointerOutOfBounds, bit_offset / 8) catch return error.PointerOutOfBounds;
+        if (self.segment_id >= self.message.segments.items.len) return error.SegmentOutOfBounds;
+        const segment = std.mem.sliceAsBytes(self.message.segments.items[self.segment_id].words.items);
+        if (byte_offset > segment.len or segment.len - byte_offset < @sizeOf(T)) return error.PointerOutOfBounds;
+        return segment[byte_offset..][0..@sizeOf(T)];
+    }
+
+    fn isCompactPrimitiveView(self: ListBuilder) bool {
+        return self.bit_offset == 0 and
+            !self.limit_element_data_bits and
+            self.element_size != .pointer and
+            self.element_size != .composite and
+            self.step_bits == wire.bitsPerElement(self.element_size);
     }
 };
 
@@ -5986,6 +6067,14 @@ pub const ListReader = struct {
         const segment = self.message.segments[self.segment_id];
         if (byte_offset > segment.len or segment.len - byte_offset < @sizeOf(T)) return error.PointerOutOfBounds;
         return std.mem.readInt(T, segment[byte_offset..][0..@sizeOf(T)], .little);
+    }
+
+    fn isCompactPrimitiveView(self: ListReader) bool {
+        return self.bit_offset == 0 and
+            !self.limit_element_data_bits and
+            self.element_size != .pointer and
+            self.element_size != .composite and
+            self.step_bits == wire.bitsPerElement(self.element_size);
     }
 
     pub fn validate(self: ListReader) Error!MessageStats {
@@ -9190,6 +9279,29 @@ test "non-bit primitive and pointer lists can be read as struct lists" {
     try testing.expect((try bit_structs.getStructElement(2)).getBool(0, false));
     try testing.expectEqual(@as(u8, 0xee), (try bit_structs.getStructElement(0)).getUInt8(0, 0xee));
     try testing.expectEqual(@as(usize, 1), (try bit_structs.totalSize()).word_count);
+
+    const half_words_as_bytes_builder = try (try root.getPointerField(3)).getList(.byte);
+    try testing.expectEqual(@as(usize, 2), half_words_as_bytes_builder.len());
+    try testing.expectEqual(@as(usize, 16), half_words_as_bytes_builder.elementBitCount());
+    try testing.expectEqual(@as(u8, 0x55), try half_words_as_bytes_builder.getUInt8(0));
+    try testing.expectEqual(@as(u8, 0x77), try half_words_as_bytes_builder.getUInt8(1));
+    try half_words_as_bytes_builder.setUInt8(1, 0x99);
+    try testing.expectEqual(@as(u16, 0x6699), try half_words.getUInt16(1));
+
+    const double_words_as_half_builder = try (try root.getPointerField(4)).getList(.two_bytes);
+    try testing.expectEqual(@as(u16, 0xaabb), try double_words_as_half_builder.getUInt16(0));
+    try testing.expectEqual(@as(u16, 0xeeff), try double_words_as_half_builder.getUInt16(1));
+    try double_words_as_half_builder.setUInt16(0, 0x1234);
+    try testing.expectEqual(@as(u32, 0x8899_1234), try double_words.getUInt32(0));
+
+    const double_word_structs_builder = try (try root.getPointerField(4)).getList(.composite);
+    try testing.expectEqual(@as(u32, 0x8899_1234), try (try double_word_structs_builder.getStructElement(0)).getUInt32(0, 0));
+    try (try double_word_structs_builder.getStructElement(1)).setUInt16(0, 0x1357, 0);
+    try testing.expectEqual(@as(u32, 0xccdd_1357), try double_words.getUInt32(1));
+
+    const bit_structs_builder = try (try root.getPointerField(5)).getList(.composite);
+    try (try bit_structs_builder.getStructElement(1)).setBool(0, true, false);
+    try testing.expect(try bits.getBool(1));
 }
 
 test "struct lists can be read as primitive and pointer lists" {
