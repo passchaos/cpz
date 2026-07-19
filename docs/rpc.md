@@ -92,11 +92,12 @@ that a complete RPC runtime exists.
   `Call.params.capTable` can be decoded through the same descriptor pipeline, as
   can `Return.results.capTable`; convenience helpers can apply those generated
   Call/Return payload tables directly to `State`, and generated Call/Return
-  builders can initialize those cap tables directly from descriptors. Generated
-  Call builders can initialize question ID, target, and registry-backed params
-  cap tables together; Return builders can initialize answer ID, flags, and
-  registry-backed results cap tables together, either at the Call/Return member
-  level or through top-level Message builders. Top-level Bootstrap,
+  builders can initialize those cap tables directly from descriptors or combine
+  them with payload content capability indexes. Generated Call builders can
+  initialize question ID, target, and registry-backed params cap tables together;
+  Return builders can initialize answer ID, flags, and registry-backed results
+  cap tables together, either at the Call/Return member level or through
+  top-level Message builders. Top-level Bootstrap,
   Finish/Release builders can initialize their question IDs, flags, and
   reference counts, and a helper can build a Return containing a single
   capability result directly from a Bootstrap request reader. A minimal

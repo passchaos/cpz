@@ -1063,8 +1063,24 @@ pub fn initWireCallParamsCapTable(call: anytype, descriptors: []const CapDescrip
     try initWirePayloadCapTable(try call.init_params(), descriptors);
 }
 
+pub fn initWireCallParamsCapability(call: anytype, capability_index: u32, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadCapability(try call.init_params(), capability_index, descriptors);
+}
+
+pub fn initWireCallParamsCapabilityInfo(call: anytype, capability_index: u32, infos: []const CapDescriptorInfo) !void {
+    try initWirePayloadCapabilityInfo(try call.init_params(), capability_index, infos);
+}
+
 pub fn initWireReturnResultsCapTable(return_: anytype, descriptors: []const CapDescriptor) !void {
     try initWirePayloadCapTable(try return_.init_results(), descriptors);
+}
+
+pub fn initWireReturnResultsCapability(return_: anytype, capability_index: u32, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadCapability(try return_.init_results(), capability_index, descriptors);
+}
+
+pub fn initWireReturnResultsCapabilityInfo(return_: anytype, capability_index: u32, infos: []const CapDescriptorInfo) !void {
+    try initWirePayloadCapabilityInfo(try return_.init_results(), capability_index, infos);
 }
 
 pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {
