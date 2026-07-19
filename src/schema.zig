@@ -2737,7 +2737,13 @@ pub const Parser = struct {
         if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
     }
 
-    fn splitMethodSignature(signature: []const u8) Error!struct { params: []const u8, results: []const u8, annotations: []const u8 } {
+    const MethodSignatureParts = struct {
+        params: []const u8,
+        results: []const u8,
+        annotations: []const u8,
+    };
+
+    fn splitMethodSignature(signature: []const u8) Error!MethodSignatureParts {
         var index = try skipTriviaIndex(signature, 0);
         if (index < signature.len and signature[index] == '[') {
             var bracket_depth: usize = 1;
@@ -2771,7 +2777,36 @@ pub const Parser = struct {
                 else => {},
             }
         }
-        return error.UnexpectedToken;
+        return splitNoResultMethodSignature(signature, params_start);
+    }
+
+    fn splitNoResultMethodSignature(signature: []const u8, params_start: usize) Error!MethodSignatureParts {
+        // Cap'n Proto allows methods whose return type is implicit Void to omit
+        // the `-> ()` suffix entirely (`done @0 ();`).  Treat this as an empty
+        // result struct while still requiring the parameter endpoint to be a
+        // normal parenthesized field list, so malformed `method @0 Type;`
+        // remains rejected rather than becoming a new endpoint shorthand.
+        var index = try skipTriviaIndex(signature, params_start);
+        if (index >= signature.len or signature[index] != '(') return error.UnexpectedToken;
+        var paren_depth: usize = 1;
+        index += 1;
+        while (index < signature.len and paren_depth != 0) : (index += 1) {
+            if (try skipRawStringOrCommentInPostLoop(signature, &index)) continue;
+            switch (signature[index]) {
+                '(' => paren_depth += 1,
+                ')' => paren_depth -= 1,
+                else => {},
+            }
+        }
+        if (paren_depth != 0) return error.UnexpectedToken;
+        const params = std.mem.trim(u8, signature[params_start..index], " \t\r\n");
+        if (params.len == 0) return error.UnexpectedToken;
+        const annotations_start = try skipTriviaIndex(signature, index);
+        return .{
+            .params = params,
+            .results = "()",
+            .annotations = if (annotations_start >= signature.len) "" else std.mem.trim(u8, signature[annotations_start..], " \t\r\n"),
+        };
     }
 
     fn splitResultAndAnnotations(raw: []const u8) Error!struct { results: []const u8, annotations: []const u8 } {
@@ -6837,7 +6872,7 @@ test "schema parser rejects malformed method signatures" {
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
-        \\  call @0 ();
+        \\  call @0;
         \\}
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
@@ -6997,6 +7032,31 @@ test "schema parser accepts comments before method annotations" {
     try std.testing.expectEqualStrings("stream", service.methods[2].results_signature);
     try std.testing.expect(service.methods[2].is_streaming);
     try std.testing.expectEqualStrings("$marker", service.methods[2].annotation_signature);
+}
+
+test "schema parser accepts methods with implicit void results" {
+    var file = try parse(std.testing.allocator,
+        \\annotation marker(method) :Void;
+        \\interface Service {
+        \\  end @0 ();
+        \\  ended @1 (byteCount :UInt64) $marker;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), file.interfaces.len);
+    try std.testing.expectEqual(@as(usize, 2), file.interfaces[0].methods.len);
+    const end = file.interfaces[0].methods[0];
+    try std.testing.expectEqualStrings("()", end.params_signature);
+    try std.testing.expectEqualStrings("()", end.results_signature);
+    try std.testing.expectEqual(@as(usize, 0), end.param_fields.len);
+    try std.testing.expectEqual(@as(usize, 0), end.result_fields.len);
+    const ended = file.interfaces[0].methods[1];
+    try std.testing.expectEqualStrings("(byteCount :UInt64)", ended.params_signature);
+    try std.testing.expectEqualStrings("()", ended.results_signature);
+    try std.testing.expectEqual(@as(usize, 1), ended.param_fields.len);
+    try std.testing.expectEqual(@as(usize, 0), ended.result_fields.len);
+    try std.testing.expectEqualStrings("$marker", ended.annotation_signature);
 }
 
 test "schema parser rejects malformed method field commas" {
