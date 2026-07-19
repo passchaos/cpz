@@ -218,7 +218,7 @@ pub const WireEvent = union(WireMessageTag) {
     finish: Finish,
     resolve: ExportId,
     release: CapabilityRelease,
-    disembargo: void,
+    disembargo: DisembargoInfo,
     obsolete_save: void,
     obsolete_delete: void,
     provide: QuestionId,
@@ -232,7 +232,7 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn isStateApplicable(self: WireEvent) bool {
         return switch (self) {
-            .bootstrap, .call, .return_, .finish, .resolve, .provide, .accept, .third_party_answer, .join => true,
+            .bootstrap, .call, .return_, .finish, .resolve, .disembargo, .provide, .accept, .third_party_answer, .join => true,
             .release => |release| release.reference_count != 0,
             else => false,
         };
@@ -1128,7 +1128,7 @@ pub fn eventFromWireMessage(message: anytype) !WireEvent {
             const release = try message.release();
             break :blk .{ .release = .{ .id = release.id(), .reference_count = release.referenceCount() } };
         },
-        .disembargo => .{ .disembargo = {} },
+        .disembargo => .{ .disembargo = try disembargoInfoFromWireDisembargo(try message.disembargo()) },
         .obsolete_save => .{ .obsolete_save = {} },
         .obsolete_delete => .{ .obsolete_delete = {} },
         .provide => .{ .provide = (try message.provide()).questionId() },
@@ -1475,6 +1475,7 @@ pub const State = struct {
             .call => self.applyWireCall(allocator, try message.call()),
             .return_ => self.applyWireReturn(allocator, try message.return_()),
             .resolve => self.applyWireResolve(try message.resolve()),
+            .disembargo => self.validateWireDisembargo(try message.disembargo()),
             .provide => |id| self.applyWireTargetedQuestion(id, try message.provide()),
             .accept => self.applyWireAccept(try message.accept()),
             .join => |id| self.applyWireTargetedQuestion(id, try message.join()),
@@ -1563,6 +1564,7 @@ pub const State = struct {
         if (event == .resolve) return self.resolveExport(event.resolve);
         if (event == .release) return self.releaseImportCount(event.release);
         if (event == .finish) return self.applyWireFinish(event.finish);
+        if (event == .disembargo) return self.validateCallTarget(event.disembargo.target);
         if (event == .provide) return self.openQuestion(event.provide, .call);
         if (event == .accept) return self.openQuestion(event.accept, .call);
         if (event == .third_party_answer) return self.resolveAnswer(event.third_party_answer, .return_);
@@ -1639,6 +1641,15 @@ test "rpc wire events expose classification and id helpers" {
     try testing.expect(join_event.isQuestionOpening());
     try testing.expect(join_event.toStateEvent() == null);
     try testing.expectEqual(@as(?QuestionId, 17), join_event.questionId());
+
+    const disembargo_event = WireEvent{ .disembargo = .{
+        .target = .{ .imported_cap = 19 },
+        .context = .{ .sender_loopback = 20 },
+    } };
+    try testing.expect(disembargo_event.isStateApplicable());
+    try testing.expect(!disembargo_event.isQuestionOpening());
+    try testing.expect(disembargo_event.toStateEvent() == null);
+    try testing.expectEqual(DisembargoContext{ .sender_loopback = 20 }, disembargo_event.disembargo.context);
 }
 
 test "rpc question and answer trackers reject invalid transitions" {
@@ -1849,6 +1860,16 @@ test "rpc state applies only the semantically aligned wire event subset" {
     try state.addImport(42);
     try state.applyWireEvent(.{ .release = .{ .id = 42, .reference_count = 1 } });
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(42));
+
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .disembargo = .{
+        .target = .{ .imported_cap = 43 },
+        .context = .{ .sender_loopback = 44 },
+    } }));
+    try state.addImport(43);
+    try state.applyWireEvent(.{ .disembargo = .{
+        .target = .{ .imported_cap = 43 },
+        .context = .{ .sender_loopback = 44 },
+    } });
 
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .resolve = 99 }));
     try state.applyWireEvent(.{ .provide = 99 });

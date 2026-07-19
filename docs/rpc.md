@@ -63,9 +63,9 @@ that a complete RPC runtime exists.
   ID, for future provision/embargo handling.
   Join wire readers/builders expose target and key-part pointer capability
   usage for future join result handling.
-  Disembargo wire readers/builders can decode and write targets plus
-  sender/receiver loopback context IDs and accept embargo bytes, though full
-  embargo queue handling remains future work. Disembargo targets can be
+  Disembargo wire readers/builders and wire events can decode and write targets
+  plus sender/receiver loopback context IDs and accept embargo bytes, though
+  full embargo queue handling remains future work. Disembargo targets are
   validated against tracked imports/answers before that queue exists.
   ThirdPartyAnswer wire events resolve existing answers by official `AnswerId`
   while remaining distinct from ordinary Return events.
