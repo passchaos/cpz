@@ -50,6 +50,7 @@ struct Return {
     canceled @4 :Void;
     resultsSentElsewhere @5 :Void;
     takeFromOtherQuestion @6 :QuestionId;
+    awaitFromThirdParty @7 :AnyPointer;
   }
 }
 

@@ -40,6 +40,12 @@ pub const ReturnOutcome = union(enum) {
     canceled,
     results_sent_elsewhere,
     take_from_other_question: QuestionId,
+    await_from_third_party: AnyPointerUsage,
+};
+
+pub const AnyPointerUsage = struct {
+    max_capability_count: usize,
+    capability: ?u32 = null,
 };
 
 pub const AcceptInfo = struct {
@@ -64,6 +70,17 @@ pub const JoinInfo = struct {
     key_part_max_capability_count: usize,
     key_part_capability: ?u32 = null,
 };
+
+fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
+    const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
+        error.InvalidPointerKind => null,
+        else => return err,
+    };
+    return .{
+        .max_capability_count = try pointer.maxCapabilityCount(),
+        .capability = capability,
+    };
+}
 
 pub const DisembargoContext = union(enum) {
     sender_loopback: u32,
@@ -797,6 +814,7 @@ pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
         .canceled => .canceled,
         .resultsSentElsewhere => .results_sent_elsewhere,
         .takeFromOtherQuestion => .{ .take_from_other_question = try return_.takeFromOtherQuestion() },
+        .awaitFromThirdParty => .{ .await_from_third_party = try anyPointerUsageFromWire(try return_.awaitFromThirdPartyAsPointer()) },
     };
 }
 
@@ -1165,7 +1183,7 @@ pub const State = struct {
                 try validateWirePayloadContent(try return_.results(), result_descriptors.len);
                 break :blk result_descriptors;
             },
-            .canceled, .results_sent_elsewhere, .take_from_other_question => &.{},
+            .canceled, .results_sent_elsewhere, .take_from_other_question, .await_from_third_party => &.{},
         };
 
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);

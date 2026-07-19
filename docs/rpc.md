@@ -34,7 +34,8 @@ that a complete RPC runtime exists.
   while still projecting to the simplified answer-resolving event.
   Return outcomes for canceled, results-sent-elsewhere, and
   take-from-other-question are decoded and can resolve tracked answers without a
-  results payload.
+  results payload. Await-from-third-party returns expose their pointer
+  capability usage for future third-party answer handling.
   Returns with `releaseParamCaps` release imports introduced by the matching
   Call params cap table; callers can retain them when the flag is false. These
   tracked releases are validated before answer/question state is mutated.

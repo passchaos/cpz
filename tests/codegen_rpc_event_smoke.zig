@@ -788,6 +788,30 @@ test "rpc return outcomes without result payloads resolve answers" {
         try state.applyWireMessage(std.testing.allocator, message);
         try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(82));
     }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try return_.set_answerId(84);
+        try return_.set_awaitFromThirdParty_capability(4);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
+        const usage = switch (outcome) {
+            .await_from_third_party => |value| value,
+            else => return error.TestUnexpectedResult,
+        };
+        try std.testing.expectEqual(@as(?u32, 4), usage.capability);
+        try std.testing.expectEqual(@as(usize, 5), usage.max_capability_count);
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.openQuestion(84, .call);
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(84));
+    }
 }
 
 test "rpc top-level finish and release helpers initialize messages" {
