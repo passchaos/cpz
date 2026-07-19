@@ -187,6 +187,33 @@ test "rpc payload helpers treat absent capability tables as empty" {
     try std.testing.expectEqual(@as(usize, 0), descriptors.len);
 }
 
+test "rpc payload validation bounds content capabilities by cap table length" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const payload = try generated.Payload.initRootTyped(&builder);
+        (try payload.get_contentAsPointer()).setCapability(0);
+        const cap_table = try payload.init_capTable(1);
+        try (try cap_table.get(0)).set_senderHosted(15);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+        try cpz.rpc.validateWirePayload(std.testing.allocator, payload_reader);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const payload = try generated.Payload.initRootTyped(&builder);
+        (try payload.get_contentAsPointer()).setCapability(1);
+        const cap_table = try payload.init_capTable(1);
+        try (try cap_table.get(0)).set_senderHosted(15);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+        try std.testing.expectError(error.InvalidCapabilityPointer, cpz.rpc.validateWirePayload(std.testing.allocator, payload_reader));
+    }
+}
+
 test "rpc decoded capability descriptor tables apply to state" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();

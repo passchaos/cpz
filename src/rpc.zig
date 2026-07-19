@@ -407,6 +407,17 @@ pub fn capTableFromWireReturnResults(allocator: std.mem.Allocator, return_: anyt
     return capTableFromWirePayload(allocator, try return_.results());
 }
 
+fn validateWirePayloadContent(payload: anytype, cap_count: usize) !void {
+    const content = try payload.content();
+    _ = try content.validateWithOptions(.{ .capability_count_limit = cap_count });
+}
+
+pub fn validateWirePayload(allocator: std.mem.Allocator, payload: anytype) !void {
+    const descriptors = try capTableFromWirePayload(allocator, payload);
+    defer allocator.free(descriptors);
+    try validateWirePayloadContent(payload, descriptors.len);
+}
+
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
     const raw_discriminant = message.whichDiscriminant();
     const tag = std.enums.fromInt(WireMessageTag, raw_discriminant) orelse return error.InvalidTransition;
@@ -624,6 +635,7 @@ pub const State = struct {
         defer allocator.free(descriptors);
 
         try self.validateCallTarget(target);
+        try validateWirePayloadContent(try call.params(), descriptors.len);
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.openQuestion(question_id, .call);
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
@@ -634,6 +646,7 @@ pub const State = struct {
         const descriptors = try capTableFromWireReturnResults(allocator, return_);
         defer allocator.free(descriptors);
 
+        try validateWirePayloadContent(try return_.results(), descriptors.len);
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.resolveAnswer(answer_id, .return_);
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
