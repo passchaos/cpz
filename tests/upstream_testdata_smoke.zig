@@ -575,3 +575,41 @@ test "upstream segmented fixtures work through streaming and writer wrappers" {
     try packed_view_from_reader.writePackedToWriterWithTableBuffer(&packed_table_buffer, &packed_writer);
     try expectEqualBytes(segmented_packed, std.Io.Writer.buffered(&packed_writer));
 }
+
+test "upstream segmented fixture normalizes to single segment and canonical bytes" {
+    const allocator = std.testing.allocator;
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+
+    var flat = try cpz.readFlatMessage(allocator, segmented);
+    defer flat.deinit(allocator);
+    var source = cpz.MessageReader.init(flat.segments, .{});
+
+    const single_segment_flat = try source.toSingleSegmentFlatBytes(allocator);
+    defer allocator.free(single_segment_flat);
+    try std.testing.expectEqual(@as(usize, 1), try cpz.segmentCountFromPrefix(single_segment_flat[0..4]));
+    try std.testing.expectEqual(@as(usize, 352), try cpz.expectedSizeInWordsFromPrefix(single_segment_flat[0..8]));
+    var normalized = try cpz.readFlatMessage(allocator, single_segment_flat);
+    defer normalized.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 1), normalized.segmentCount());
+    var normalized_reader = cpz.MessageReader.init(normalized.segments, .{});
+    try expectTestAllTypesRoot(try normalized_reader.getRoot());
+
+    var canonical_source = cpz.MessageReader.init(flat.segments, .{});
+    const canonical = try canonical_source.toCanonicalSegmentBytes(allocator);
+    defer allocator.free(canonical);
+    try std.testing.expectEqual(@as(usize, 1208), canonical.len);
+    var canonical_segments = [_]cpz.ConstSegment{canonical};
+    var canonical_reader = cpz.MessageReader.init(&canonical_segments, .{});
+    const canonical_root = try canonical_reader.getRoot();
+    try std.testing.expectEqual(@as(u16, 6), canonical_root.dataWordCount());
+    try std.testing.expectEqual(@as(u16, 19), canonical_root.pointerCount());
+    try std.testing.expectEqual(true, canonical_root.getBool(0, false));
+    try std.testing.expectEqual(@as(i32, -12345678), canonical_root.getInt32(4, 0));
+    try expectText(canonical_root.getPointerField(0), "foo");
+    try expectText((try canonical_root.getPointerField(2).getStruct(null)).getPointerField(0), "baz");
+    try expectInt8List(try canonical_root.getPointerField(5).getList(.byte), &.{ 111, -111 });
+    try expectTextList(try canonical_root.getPointerField(15).getList(.pointer), &.{ "plugh", "xyzzy", "thud" });
+    try expectEnumList(try canonical_root.getPointerField(18).getList(.two_bytes), &.{ 0, 7 });
+    try std.testing.expect(canonical_root.getPointerField(19).isNull());
+}
