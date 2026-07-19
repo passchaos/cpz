@@ -73,6 +73,7 @@ struct Resolve {
 
   union {
     cap @1 :CapDescriptor;
+    exception @2 :Exception;
   }
 }
 

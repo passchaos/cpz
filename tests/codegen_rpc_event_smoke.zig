@@ -2031,6 +2031,32 @@ test "rpc resolve cap descriptors replace promise exports" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(91));
 }
 
+test "rpc resolve exceptions mark promise exports resolved" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const resolve = try root.init_resolve();
+    try resolve.set_promiseId(96);
+    const exception = try resolve.init_exception();
+    try exception.set_reason("promise broken");
+    try exception.set_type__raw(2);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.resolveInfoFromWireResolve(try message.resolve());
+    try std.testing.expectEqual(@as(u32, 96), info.promise_id);
+    try std.testing.expect(info.cap == null);
+    const decoded_exception = info.exception orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("promise broken", decoded_exception.reason.?);
+    try std.testing.expectEqual(@as(u16, 2), decoded_exception.type_raw);
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addExport(96);
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?bool, true), state.exportResolved(96));
+}
+
 test "rpc resolve info helpers write cap descriptors" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
@@ -2045,6 +2071,25 @@ test "rpc resolve info helpers write cap descriptors" {
     const info = try cpz.rpc.resolveInfoFromWireResolve(resolve_reader);
     try std.testing.expectEqual(@as(u32, 92), info.promise_id);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_promise = 93 }, info.cap.?);
+}
+
+test "rpc resolve info helpers write exceptions" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const resolve = try generated.Resolve.initRootTyped(&builder);
+    try cpz.rpc.writeResolveInfoToWire(.{
+        .promise_id = 97,
+        .exception = .{ .reason = "resolve failed", .type_raw = 3 },
+    }, resolve);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const resolve_reader = generated.Resolve.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.resolveInfoFromWireResolve(resolve_reader);
+    try std.testing.expectEqual(@as(u32, 97), info.promise_id);
+    try std.testing.expect(info.cap == null);
+    const exception = info.exception orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("resolve failed", exception.reason.?);
+    try std.testing.expectEqual(@as(u16, 3), exception.type_raw);
 }
 
 test "rpc top-level resolve helpers initialize messages" {
@@ -2068,6 +2113,30 @@ test "rpc top-level resolve helpers initialize messages" {
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?bool, true), state.exportResolved(94));
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(95));
+}
+
+test "rpc top-level resolve helpers initialize exceptions" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireResolveMessage(root, .{
+        .promise_id = 98,
+        .exception = .{ .reason = null, .type_raw = 1 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.resolveInfoFromWireResolve(try message.resolve());
+    try std.testing.expectEqual(@as(u32, 98), info.promise_id);
+    const exception = info.exception orelse return error.TestUnexpectedResult;
+    try std.testing.expectEqualStrings("", exception.reason.?);
+    try std.testing.expectEqual(@as(u16, 1), exception.type_raw);
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addExport(98);
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?bool, true), state.exportResolved(98));
 }
 
 test "decoded wire events can drive the supported state subset" {

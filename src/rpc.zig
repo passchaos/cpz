@@ -108,7 +108,8 @@ pub const DisembargoInfo = struct {
 
 pub const ResolveInfo = struct {
     promise_id: ExportId,
-    cap: ?CapDescriptor,
+    cap: ?CapDescriptor = null,
+    exception: ?ExceptionInfo = null,
 };
 
 pub const PromisedAnswerTarget = struct {
@@ -737,15 +738,26 @@ pub fn resolveInfoFromWireResolve(resolve: anytype) !ResolveInfo {
             .promise_id = resolve.promiseId(),
             .cap = try capDescriptorFromWire(try resolve.cap()),
         },
+        .exception => .{
+            .promise_id = resolve.promiseId(),
+            .exception = try exceptionInfoFromWireException(try resolve.exception()),
+        },
     };
 }
 
 pub fn writeResolveInfoToWire(info: ResolveInfo, resolve: anytype) !void {
+    const has_cap = info.cap != null;
+    const has_exception = info.exception != null;
+    if (has_cap == has_exception) return error.InvalidTransition;
+
     try resolve.set_promiseId(info.promise_id);
     if (info.cap) |descriptor| {
         try writeCapDescriptorToWire(descriptor, try resolve.init_cap());
-    } else {
-        return error.InvalidTransition;
+        return;
+    }
+    if (info.exception) |exception| {
+        try writeExceptionInfoToWire(exception, try resolve.init_exception());
+        return;
     }
 }
 
@@ -871,8 +883,7 @@ pub fn initWireReturnException(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     const wire_exception = try return_.init_exception();
-    try wire_exception.set_reason(exception.reason orelse "");
-    try wire_exception.set_type__raw(exception.type_raw);
+    try writeExceptionInfoToWire(exception, wire_exception);
 }
 
 pub fn initWireReturnCanceled(return_: anytype, answer_id: AnswerId, release_param_caps: bool) !void {
@@ -1044,6 +1055,11 @@ pub fn exceptionInfoFromWireException(exception: anytype) !ExceptionInfo {
         .reason = try exception.reasonOrNull(),
         .type_raw = exception.type__raw(),
     };
+}
+
+pub fn writeExceptionInfoToWire(info: ExceptionInfo, exception: anytype) !void {
+    try exception.set_reason(info.reason orelse "");
+    try exception.set_type__raw(info.type_raw);
 }
 
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
