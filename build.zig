@@ -214,6 +214,33 @@ pub fn build(b: *std.Build) void {
     const codegen_import_smoke_tests = b.addTest(.{ .root_module = codegen_import_smoke_mod });
     test_step.dependOn(&b.addRunArtifact(codegen_import_smoke_tests).step);
 
+    const run_import_use_namespace_codegen = b.addRunArtifact(cpzc);
+    run_import_use_namespace_codegen.addArgs(&.{ "--namespace", "api" });
+    run_import_use_namespace_codegen.addFileArg(b.path("tests/schema_import_use.capnp"));
+    const generated_import_use_namespace = b.createModule(.{
+        .root_source_file = run_import_use_namespace_codegen.captureStdOut(.{ .basename = "schema_import_use_namespace.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "Base", .module = generated_import_base },
+            .{ .name = "schema_import_base", .module = generated_import_base },
+            .{ .name = "Child", .module = generated_import_base },
+            .{ .name = "Local", .module = generated_import_base },
+            .{ .name = "Extra", .module = generated_import_base },
+        },
+    });
+    const codegen_import_namespace_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_import_namespace_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "generated_import_use_namespace", .module = generated_import_use_namespace },
+        },
+    });
+    const codegen_import_namespace_smoke_tests = b.addTest(.{ .root_module = codegen_import_namespace_smoke_mod });
+    test_step.dependOn(&b.addRunArtifact(codegen_import_namespace_smoke_tests).step);
+
     const fmt_step = b.step("fmt", "Format Zig sources");
     const fmt = b.addFmt(.{
         .paths = &.{ "build.zig", "src", "examples", "tests" },
