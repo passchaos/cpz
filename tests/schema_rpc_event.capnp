@@ -42,6 +42,7 @@ struct Call {
 
 struct Return {
   answerId @0 :AnswerId;
+  results @2 :Payload;
 }
 
 struct Finish {
