@@ -147,6 +147,7 @@ pub const Field = struct {
     default_expression: []const u8 = "",
     annotations: []const u8 = "",
     union_index: ?u32 = null,
+    union_member_index: ?u32 = null,
     union_discriminant: u16 = 0,
 
     pub fn deinit(self: *Field, allocator: std.mem.Allocator) void {
@@ -642,7 +643,7 @@ const UnionBuilder = struct {
     name: []const u8 = "",
     ordinal: ?u32 = null,
     annotations: []const u8 = "",
-    next_discriminant: u16 = 0,
+    next_member_index: u32 = 0,
 
     fn init(allocator: std.mem.Allocator) UnionBuilder {
         return .{ .field_names = std.StringHashMap(void).init(allocator) };
@@ -1575,6 +1576,7 @@ pub const UnionLayout = struct {
     data_bit: usize = 0,
     data_bits: usize = 0,
     pointer: ?usize = null,
+    pointer_count: usize = 0,
 };
 
 pub const StructLayout = struct {
@@ -3447,7 +3449,7 @@ pub const Parser = struct {
                 try self.advance();
                 const union_index = try checkedUnionIndex(unions.items.len);
                 try unions.append(self.allocator, UnionBuilder.init(self.allocator));
-                try self.parseAnonymousUnion(&unions.items[union_index], &member_names, union_index);
+                try self.parseAnonymousUnion(&unions.items[union_index], &member_names, union_index, &groups);
                 continue;
             }
             if (try self.eatKeyword("const")) {
@@ -3495,12 +3497,12 @@ pub const Parser = struct {
         };
     }
 
-    fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
+    fn parseAnonymousUnion(self: *Parser, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32, groups: *std.ArrayList(GroupDecl)) Error!void {
         union_builder.name = "";
         union_builder.ordinal = null;
         union_builder.annotations = try self.takeAnnotationSuffixUntilLeftBrace();
         try self.expect(.l_brace);
-        try self.parseAnonymousUnionBody(union_builder, member_names, union_index);
+        try self.parseAnonymousUnionBody("", union_builder, member_names, union_index, groups);
     }
 
     fn parseNamedAggregate(
@@ -3547,13 +3549,13 @@ pub const Parser = struct {
             unions.items[union_index].name = name;
             unions.items[union_index].ordinal = ordinal;
             unions.items[union_index].annotations = try self.takeAnnotationSuffixUntilLeftBrace();
-            try self.parseNamedUnionBody(union_prefix, &unions.items[union_index], member_names, union_index);
+            try self.parseNamedUnionBody(union_prefix, &unions.items[union_index], member_names, union_index, groups);
             return;
         }
         return error.UnexpectedToken;
     }
 
-    fn parseNamedUnionBody(self: *Parser, union_prefix: []const u8, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
+    fn parseNamedUnionBody(self: *Parser, union_prefix: []const u8, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32, groups: *std.ArrayList(GroupDecl)) Error!void {
         try self.expect(.l_brace);
         var saw_field = false;
         while (self.lookahead.tag != .r_brace) {
@@ -3564,7 +3566,12 @@ pub const Parser = struct {
                 continue;
             }
             if (try self.isNamedAggregateStart()) {
-                try self.skipNamedAggregate();
+                if (try self.isNamedGroupStart()) {
+                    try self.parseUnionGroupMember(union_prefix, union_builder, member_names, union_index, groups);
+                    saw_field = true;
+                } else {
+                    try self.skipNamedAggregate();
+                }
                 continue;
             }
             if (try self.eatKeyword("using") or try self.eatKeyword("const") or try self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
@@ -3579,6 +3586,7 @@ pub const Parser = struct {
             field.name = synthetic_name;
             field.owns_name = true;
             field.union_index = union_index;
+            field.union_member_index = try takeUnionMemberIndex(union_builder);
             if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
             try union_builder.fields.append(self.allocator, field);
             keep_field = true;
@@ -3673,7 +3681,37 @@ pub const Parser = struct {
         return @intCast(ordinal_u64);
     }
 
-    fn parseAnonymousUnionBody(self: *Parser, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32) Error!void {
+    fn parseUnionGroupMember(
+        self: *Parser,
+        parent_prefix: []const u8,
+        union_builder: *UnionBuilder,
+        member_names: *std.StringHashMap(void),
+        union_index: u32,
+        groups: *std.ArrayList(GroupDecl),
+    ) Error!void {
+        const group_name = try self.expectIdentifier();
+        const ordinal = try self.parseOptionalOrdinalBang();
+        try self.expect(.colon);
+        const kind = try self.expectIdentifier();
+        if (!std.mem.eql(u8, kind, "group")) return error.UnexpectedToken;
+        if (member_names.contains(group_name)) return error.NameCollision;
+        const group_entry = try union_builder.field_names.getOrPut(group_name);
+        if (group_entry.found_existing) return error.NameCollision;
+        const group_prefix = if (parent_prefix.len != 0)
+            try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ parent_prefix, group_name })
+        else
+            try self.allocator.dupe(u8, group_name);
+        defer self.allocator.free(group_prefix);
+        const group_annotations = try self.takeAnnotationSuffixUntilLeftBrace();
+        try groups.append(self.allocator, .{
+            .index = groups.items.len,
+            .name = group_name,
+            .ordinal = ordinal,
+            .annotations = group_annotations,
+        });
+        const member_index = try takeUnionMemberIndex(union_builder);
+
+        try self.expect(.l_brace);
         var saw_field = false;
         while (self.lookahead.tag != .r_brace) {
             if (self.lookahead.tag == .eof) return error.UnexpectedToken;
@@ -3693,8 +3731,48 @@ pub const Parser = struct {
             var field = try self.parseField();
             var keep_field = false;
             errdefer if (!keep_field) field.deinit(self.allocator);
+            const synthetic_name = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ group_prefix, field.name });
+            field.name = synthetic_name;
+            field.owns_name = true;
+            field.union_index = union_index;
+            field.union_member_index = member_index;
+            if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
+            try union_builder.fields.append(self.allocator, field);
+            keep_field = true;
+            saw_field = true;
+        }
+        if (!saw_field) return error.UnexpectedToken;
+        try self.expect(.r_brace);
+    }
+
+    fn parseAnonymousUnionBody(self: *Parser, union_prefix: []const u8, union_builder: *UnionBuilder, member_names: *std.StringHashMap(void), union_index: u32, groups: *std.ArrayList(GroupDecl)) Error!void {
+        var saw_field = false;
+        while (self.lookahead.tag != .r_brace) {
+            if (self.lookahead.tag == .eof) return error.UnexpectedToken;
+            if ((self.isKeyword("struct") or self.isKeyword("enum") or self.isKeyword("interface")) and (try self.peekNext()).tag == .identifier) {
+                try self.advance();
+                try self.skipBracedDeclaration();
+                continue;
+            }
+            if (try self.isNamedAggregateStart()) {
+                if (try self.isNamedGroupStart()) {
+                    try self.parseUnionGroupMember(union_prefix, union_builder, member_names, union_index, groups);
+                    saw_field = true;
+                } else {
+                    try self.skipNamedAggregate();
+                }
+                continue;
+            }
+            if (try self.eatKeyword("using") or try self.eatKeyword("const") or try self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
+                try self.skipRawUntilSemicolon();
+                continue;
+            }
+            var field = try self.parseField();
+            var keep_field = false;
+            errdefer if (!keep_field) field.deinit(self.allocator);
             if (union_builder.field_names.contains(field.name) or member_names.contains(field.name)) return error.NameCollision;
             field.union_index = union_index;
+            field.union_member_index = try takeUnionMemberIndex(union_builder);
             if (try putFieldName(&union_builder.field_names, field.name)) return error.NameCollision;
             try union_builder.fields.append(self.allocator, field);
             keep_field = true;
@@ -3706,15 +3784,19 @@ pub const Parser = struct {
     }
 
     fn assignUnionDiscriminants(self: *Parser, fields: []Field) Error!void {
-        var assigned = try self.allocator.alloc(bool, fields.len);
-        defer self.allocator.free(assigned);
-        @memset(assigned, false);
-        for (0..fields.len) |discriminant| {
-            if (discriminant > std.math.maxInt(u16)) return error.InvalidOrdinal;
-            const field_index = try nextOrdinalFieldIndexChecked(fields, assigned);
-            assigned[field_index] = true;
-            fields[field_index].union_discriminant = @intCast(discriminant);
+        _ = self;
+        for (fields) |*field| {
+            const member_index = field.union_member_index orelse return error.InvalidOrdinal;
+            if (member_index > std.math.maxInt(u16)) return error.InvalidOrdinal;
+            field.union_discriminant = @intCast(member_index);
         }
+    }
+
+    fn takeUnionMemberIndex(union_builder: *UnionBuilder) Error!u32 {
+        const member_index = union_builder.next_member_index;
+        if (member_index > std.math.maxInt(u16)) return error.InvalidOrdinal;
+        union_builder.next_member_index = std.math.add(u32, union_builder.next_member_index, 1) catch return error.InvalidOrdinal;
+        return member_index;
     }
 
     fn parseEnum(self: *Parser, name_prefix: ?[]const u8) Error!EnumDecl {
@@ -3995,6 +4077,21 @@ pub const Parser = struct {
             if (token.tag == .l_brace) return true;
         }
         return false;
+    }
+
+    fn isNamedGroupStart(self: *const Parser) Error!bool {
+        if (self.lookahead.tag != .identifier) return false;
+        var lexer = self.lexer;
+        var token = try lexer.next();
+        if (token.tag == .at) {
+            token = try lexer.next();
+            if (token.tag != .integer) return false;
+            token = try lexer.next();
+            if (token.tag == .bang) token = try lexer.next();
+        }
+        if (token.tag != .colon) return false;
+        token = try lexer.next();
+        return token.tag == .identifier and std.mem.eql(u8, token.lexeme, "group");
     }
 
     fn isAnonymousUnionStart(self: *const Parser) Error!bool {
@@ -5295,6 +5392,8 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
     const union_requirements = try allocator.alloc(UnionRequirement, union_count);
     defer allocator.free(union_requirements);
     for (union_requirements) |*req| req.* = .{};
+    const union_relative_slots = try computeUnionRelativeSlotsAlloc(allocator, file, decl, union_requirements);
+    defer allocator.free(union_relative_slots);
     const union_allocated = try allocator.alloc(bool, union_count);
     defer allocator.free(union_allocated);
     @memset(union_allocated, false);
@@ -5313,9 +5412,6 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
     for (decl.fields) |*field| {
         const entry = try occupied_ordinals.getOrPut(field.ordinal);
         if (entry.found_existing) return error.OrdinalCollision;
-        if (field.union_index) |union_index| {
-            try addUnionRequirement(file, decl, &union_requirements[@intCast(union_index)], field.ty);
-        }
     }
 
     for (0..decl.fields.len) |_| {
@@ -5335,13 +5431,14 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
                     unions[index].data_bit = start;
                     unions[index].data_bits = union_requirements[index].data_bits;
                 }
-                if (union_requirements[index].has_pointer) {
+                if (union_requirements[index].pointer_count != 0) {
                     unions[index].pointer = next_pointer;
-                    next_pointer += 1;
+                    unions[index].pointer_count = union_requirements[index].pointer_count;
+                    next_pointer = std.math.add(usize, next_pointer, union_requirements[index].pointer_count) catch return error.InvalidOrdinal;
                 }
                 union_allocated[index] = true;
             }
-            break :blk try unionFieldSlot(file, decl, field.ty, unions[index]);
+            break :blk try absoluteUnionFieldSlot(union_relative_slots[field_index], unions[index]);
         } else switch (try classifyScoped(file, decl, field.ty)) {
             .void => .void,
             .data => |bits| blk: {
@@ -5373,7 +5470,7 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
 
 const UnionRequirement = struct {
     data_bits: usize = 0,
-    has_pointer: bool = false,
+    pointer_count: usize = 0,
 };
 
 fn countUnions(fields: []const Field) Error!usize {
@@ -5401,19 +5498,79 @@ fn hashMapCapacityCount(count: usize) Error!std.StringHashMap(void).Size {
     return @intCast(count);
 }
 
-fn addUnionRequirement(file: *const File, scope: ?*const Struct, req: *UnionRequirement, ty: Type) LayoutError!void {
-    switch (try classifyScoped(file, scope, ty)) {
-        .void => {},
-        .data => |bits| req.data_bits = @max(req.data_bits, @max(bits, @as(usize, 8))),
-        .pointer => req.has_pointer = true,
+fn computeUnionRelativeSlotsAlloc(allocator: std.mem.Allocator, file: *const File, decl: *const Struct, union_requirements: []UnionRequirement) LayoutError![]FieldSlot {
+    const slots = try allocator.alloc(FieldSlot, decl.fields.len);
+    errdefer allocator.free(slots);
+    @memset(slots, .void);
+
+    for (0..union_requirements.len) |union_index| {
+        const member_count = try countUnionMembers(decl.fields, @intCast(union_index));
+        if (member_count == 0) continue;
+        const member_data_offsets = try allocator.alloc(usize, member_count);
+        defer allocator.free(member_data_offsets);
+        const member_pointer_offsets = try allocator.alloc(usize, member_count);
+        defer allocator.free(member_pointer_offsets);
+        @memset(member_data_offsets, 0);
+        @memset(member_pointer_offsets, 0);
+
+        var assigned = try allocator.alloc(bool, decl.fields.len);
+        defer allocator.free(assigned);
+        @memset(assigned, false);
+        for (0..decl.fields.len) |_| {
+            const field_index = try nextOrdinalFieldIndexChecked(decl.fields, assigned);
+            assigned[field_index] = true;
+            const field = decl.fields[field_index];
+            if (field.union_index == null or field.union_index.? != union_index) continue;
+            const member_index = field.union_member_index orelse return error.InvalidOrdinal;
+            slots[field_index] = try unionMemberRelativeSlot(file, decl, field.ty, &member_data_offsets[member_index], &member_pointer_offsets[member_index]);
+        }
+        for (member_data_offsets) |data_bits| {
+            if (data_bits != 0) {
+                union_requirements[union_index].data_bits = @max(union_requirements[union_index].data_bits, @max(data_bits, @as(usize, 8)));
+            }
+        }
+        for (member_pointer_offsets) |pointer_count| {
+            union_requirements[union_index].pointer_count = @max(union_requirements[union_index].pointer_count, pointer_count);
+        }
     }
+
+    return slots;
 }
 
-fn unionFieldSlot(file: *const File, scope: ?*const Struct, ty: Type, layout: UnionLayout) LayoutError!FieldSlot {
+fn countUnionMembers(fields: []const Field, union_index: u32) Error!usize {
+    var count: usize = 0;
+    for (fields) |field| {
+        if (field.union_index == null or field.union_index.? != union_index) continue;
+        const member_index = field.union_member_index orelse return error.InvalidOrdinal;
+        const one_past = std.math.add(usize, @intCast(member_index), 1) catch return error.InvalidOrdinal;
+        count = @max(count, one_past);
+    }
+    return count;
+}
+
+fn unionMemberRelativeSlot(file: *const File, scope: ?*const Struct, ty: Type, next_data_bit: *usize, next_pointer: *usize) LayoutError!FieldSlot {
     return switch (try classifyScoped(file, scope, ty)) {
         .void => .void,
-        .data => |bits| if (bits == 1) .{ .data_bit = layout.data_bit } else .{ .data_byte = layout.data_bit / 8 },
-        .pointer => .{ .pointer = layout.pointer orelse return error.UnsupportedType },
+        .data => |bits| blk: {
+            next_data_bit.* = try alignForwardChecked(next_data_bit.*, bits);
+            const bit = next_data_bit.*;
+            next_data_bit.* = try dataRangeEnd(next_data_bit.*, bits);
+            break :blk if (bits == 1) .{ .data_bit = bit } else .{ .data_byte = bit / 8 };
+        },
+        .pointer => blk: {
+            const index = next_pointer.*;
+            next_pointer.* = std.math.add(usize, next_pointer.*, 1) catch return error.InvalidOrdinal;
+            break :blk .{ .pointer = index };
+        },
+    };
+}
+
+fn absoluteUnionFieldSlot(relative: FieldSlot, layout: UnionLayout) LayoutError!FieldSlot {
+    return switch (relative) {
+        .void => .void,
+        .data_bit => |bit| .{ .data_bit = try dataRangeEnd(layout.data_bit, bit) },
+        .data_byte => |byte| .{ .data_byte = layout.data_bit / 8 + byte },
+        .pointer => |index| .{ .pointer = (layout.pointer orelse return error.UnsupportedType) + index },
     };
 }
 
@@ -8611,6 +8768,54 @@ test "schema layout planner overlaps anonymous union fields" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 1 }, layout.fields[2].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 4 }, layout.fields[3].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 4 }, layout.fields[4].slot);
+}
+
+test "schema layout planner handles group members inside unions" {
+    var file = try parse(std.testing.allocator,
+        \\struct Choice {
+        \\  union {
+        \\    foo :group {
+        \\      id @0 :UInt32;
+        \\      text @2 :Text;
+        \\    }
+        \\    bar :group {
+        \\      label @1 :Text;
+        \\      count @3 :UInt64;
+        \\    }
+        \\    plain @4 :UInt16;
+        \\  }
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 5), file.structs[0].fields.len);
+    try std.testing.expectEqual(@as(usize, 2), file.structs[0].groups.len);
+    try std.testing.expectEqualStrings("foo", file.structs[0].groups[0].name);
+    try std.testing.expectEqualStrings("bar", file.structs[0].groups[1].name);
+    try std.testing.expectEqualStrings("foo_id", file.structs[0].fields[0].name);
+    try std.testing.expectEqualStrings("foo_text", file.structs[0].fields[1].name);
+    try std.testing.expectEqualStrings("bar_label", file.structs[0].fields[2].name);
+    try std.testing.expectEqualStrings("bar_count", file.structs[0].fields[3].name);
+    try std.testing.expectEqual(@as(u16, 0), file.structs[0].fields[0].union_discriminant);
+    try std.testing.expectEqual(@as(u16, 0), file.structs[0].fields[1].union_discriminant);
+    try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[2].union_discriminant);
+    try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[3].union_discriminant);
+    try std.testing.expectEqual(@as(u16, 2), file.structs[0].fields[4].union_discriminant);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    const layout = layouts.structs[0];
+    try std.testing.expectEqual(@as(u16, 2), layout.data_words);
+    try std.testing.expectEqual(@as(u16, 1), layout.pointer_count);
+    try std.testing.expectEqual(@as(usize, 1), layout.unions.len);
+    try std.testing.expectEqual(@as(usize, 64), layout.unions[0].data_bit);
+    try std.testing.expectEqual(@as(usize, 64), layout.unions[0].data_bits);
+    try std.testing.expectEqual(@as(usize, 1), layout.unions[0].pointer_count);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[0].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, layout.fields[1].slot);
+    try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, layout.fields[2].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[3].slot);
+    try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[4].slot);
 }
 
 test "schema layout planner reuses alignment padding holes" {
