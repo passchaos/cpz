@@ -8984,6 +8984,9 @@ test "schema layout planner resolves relative nested enum defaults" {
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 0 }, layouts.structs[1].fields[0].slot);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "Outer_Inner_State") != null);
 }
 
 test "schema layout planner binds outer generic args for nested struct defaults" {
@@ -20564,8 +20567,8 @@ fn emitDataGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         .float32 => try scalarGetter(allocator, out, field_name, "f32", "getFloat32", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f32"), union_layout, field.union_discriminant),
         .float64 => try scalarGetter(allocator, out, field_name, "f64", "getFloat64", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f64"), union_layout, field.union_discriminant),
         .named => |type_name| {
-            const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            const enum_decl = findEnumRelative(file, layout.decl.name, type_name) orelse return error.UnsupportedType;
+            const zig_type = try zigTypeRefAlloc(allocator, file, enum_decl.name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !{s} {{
@@ -24168,8 +24171,8 @@ fn emitDataBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
         .float32 => try scalarSetter(allocator, out, field_name, "f32", "getFloat32", "setFloat32", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f32"), union_layout, field),
         .float64 => try scalarSetter(allocator, out, field_name, "f64", "getFloat64", "setFloat64", byte, resolvedFieldDefaultFloatLiteral(file, layout.decl, field, "f64"), union_layout, field),
         .named => |type_name| {
-            const enum_decl = findEnum(file, type_name) orelse return error.UnsupportedType;
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            const enum_decl = findEnumRelative(file, layout.decl.name, type_name) orelse return error.UnsupportedType;
+            const zig_type = try zigTypeRefAlloc(allocator, file, enum_decl.name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !{s} {{
