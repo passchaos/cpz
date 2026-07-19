@@ -4,7 +4,7 @@ The implementation follows Cap'n Proto's published encoding and the C++ runtime 
 
 ## Milestone 1 runtime
 
-- `wire.zig` encodes/decodes the four pointer families: struct, list, far, and capability; `message.zig` exposes low-level capability pointer accessors plus a lightweight `CapabilityTable(T)` view for mapping wire capability indexes to application-owned handles.
+- `wire.zig` encodes/decodes the four pointer families: struct, list, far, and capability; `message.zig` exposes low-level capability pointer accessors plus lightweight `CapabilityTable(T)` / `CapabilityRegistry(T)` views for mapping wire capability indexes to application-owned handles and assigning outgoing indexes.
 - `serialize.zig` implements the standard stream segment table (`segment count - 1`, segment word sizes, padding, segment bytes) with bounded segment-count parsing and packed stream framing helpers layered on `packing.zig`, with direct `std.Io.Reader`/`std.Io.Writer` streaming for flat and packed messages (including single-message packed reader semantics) and matching `MessageBuilder` byte and writer convenience methods.
 - `message.toSingleSegmentFlatBytes()` validates and recursively copies a message into one segment, removing far pointers while preserving data; `toCanonicalSegmentBytes()` additionally omits the stream table and truncates trailing zero struct and struct-list sections.
 - `packing.zig` implements Cap'n Proto packing/unpacking with the `0x00` zero-run and `0xff` raw-run special cases, including caller-buffer `packInto`/`unpackInto` paths.

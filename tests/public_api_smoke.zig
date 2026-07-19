@@ -48,3 +48,15 @@ test "top-level capability table resolves capability pointers" {
     var null_reader = cpz.MessageReader.init(try null_builder.segmentsConst(), .{});
     try std.testing.expectEqual(@as(?u32, null), try table.getPointerOrNull(try null_reader.getRootPointer()));
 }
+
+test "top-level capability registry assigns indexes" {
+    var registry: cpz.CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(std.testing.allocator);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{});
+    defer builder.deinit();
+    try std.testing.expectEqual(@as(u32, 0), try registry.registerRoot(std.testing.allocator, &builder, "root"));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    try std.testing.expectEqualStrings("root", try registry.asTable().getPointer(try reader.getRootPointer()));
+}

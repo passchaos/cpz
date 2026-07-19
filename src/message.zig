@@ -470,6 +470,54 @@ pub fn CapabilityTable(comptime T: type) type {
     };
 }
 
+pub fn CapabilityRegistry(comptime T: type) type {
+    return struct {
+        entries: std.ArrayList(T) = .empty,
+
+        pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+            self.entries.deinit(allocator);
+            self.* = undefined;
+        }
+
+        pub fn asTable(self: *const @This()) CapabilityTable(T) {
+            return .init(self.entries.items);
+        }
+
+        pub fn len(self: *const @This()) usize {
+            return self.entries.items.len;
+        }
+
+        pub fn isEmpty(self: *const @This()) bool {
+            return self.entries.items.len == 0;
+        }
+
+        pub fn register(self: *@This(), allocator: std.mem.Allocator, handle: T) Error!u32 {
+            if (self.entries.items.len > std.math.maxInt(u32)) return error.CountOutOfRange;
+            const index: u32 = @intCast(self.entries.items.len);
+            try self.entries.append(allocator, handle);
+            return index;
+        }
+
+        pub fn registerPointer(self: *@This(), allocator: std.mem.Allocator, pointer: PointerBuilder, handle: T) Error!u32 {
+            // Validate the destination slot before mutating the registry so an
+            // invalid builder pointer cannot leak an unreachable handle.
+            _ = try pointer.message.readWord(pointer.segment_id, pointer.word_index);
+            const index = try self.register(allocator, handle);
+            try pointer.message.writePtr(pointer.segment_id, pointer.word_index, wire.encodeCapability(index));
+            return index;
+        }
+
+        pub fn registerRoot(self: *@This(), allocator: std.mem.Allocator, builder: *MessageBuilder, handle: T) Error!u32 {
+            const root = try builder.getRootPointer();
+            return self.registerPointer(allocator, root, handle);
+        }
+
+        pub fn registerListElement(self: *@This(), allocator: std.mem.Allocator, list: ListBuilder, index: usize, handle: T) Error!u32 {
+            return self.registerPointer(allocator, try list.getPointerElement(index), handle);
+        }
+    };
+}
+
 test "capability table maps wire indexes to application handles" {
     const testing = std.testing;
     const handles = [_][]const u8{ "bootstrap", "logger", "store" };
@@ -520,6 +568,33 @@ test "capability table maps wire indexes to application handles" {
     try testing.expectEqualStrings("store", try table.getOrphan(cap_orphan));
     const null_orphan = Orphan{ .message = &null_builder, .segment_id = 0, .pointer_word_index = 0, .raw = 0 };
     try testing.expectEqual(@as(?[]const u8, null), try table.getOrphanOrNull(null_orphan));
+}
+
+test "capability registry assigns wire indexes for builders" {
+    const testing = std.testing;
+    var registry: CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(testing.allocator);
+
+    var root_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 4 });
+    defer root_builder.deinit();
+    try testing.expectEqual(@as(u32, 0), try registry.registerRoot(testing.allocator, &root_builder, "root"));
+
+    var root_reader = MessageReader.init(try root_builder.segmentsConst(), .{});
+    try testing.expectEqualStrings("root", try registry.asTable().getPointer(try root_reader.getRootPointer()));
+
+    var list_builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
+    defer list_builder.deinit();
+    const list = try list_builder.initRootList(.pointer, 2);
+    try testing.expectEqual(@as(u32, 1), try registry.registerListElement(testing.allocator, list, 0, "first"));
+    try testing.expectEqual(@as(u32, 2), try registry.registerListElement(testing.allocator, list, 1, "second"));
+    try testing.expectEqual(@as(usize, 3), registry.len());
+
+    var list_reader_message = MessageReader.init(try list_builder.segmentsConst(), .{});
+    const read_list = try list_reader_message.getRootList(.pointer);
+    const table = registry.asTable();
+    try testing.expectEqualStrings("first", try table.getListElement(read_list, 0));
+    try testing.expectEqualStrings("second", try table.getListElement(read_list, 1));
+    try testing.expect(table.satisfiesStats(try list_reader_message.validate()));
 }
 
 pub const OwnedMessageReader = struct {

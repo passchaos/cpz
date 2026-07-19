@@ -60,6 +60,7 @@ pub const BuilderOptions = message.BuilderOptions;
 pub const MessageStats = message.MessageStats;
 pub const MessageSize = message.MessageSize;
 pub const CapabilityTable = message.CapabilityTable;
+pub const CapabilityRegistry = message.CapabilityRegistry;
 pub const maxPackedSize = packing.maxPackedSize;
 pub const packedSize = packing.packedSize;
 pub const unpackedSize = packing.unpackedSize;
