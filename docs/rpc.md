@@ -33,7 +33,8 @@ that a complete RPC runtime exists.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
   while still projecting to the simplified answer-resolving event.
   Returns with `releaseParamCaps` release imports introduced by the matching
-  Call params cap table; callers can retain them when the flag is false.
+  Call params cap table; callers can retain them when the flag is false. These
+  tracked releases are validated before answer/question state is mutated.
   Finish with `releaseResultCaps` releases imports introduced by matching
   Return results.
   No-finish-needed returns without result capabilities mark the corresponding

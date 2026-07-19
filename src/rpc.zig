@@ -896,6 +896,18 @@ pub const State = struct {
         for (entry.value) |id| try self.releaseImport(id);
     }
 
+    fn validateTrackedImports(self: *const State, ids: []const ImportId) Error!void {
+        for (ids) |id| {
+            const tracker = self.imports.get(id) orelse return error.InvalidTransition;
+            if (tracker.state != .live) return error.ImportAlreadyReleased;
+        }
+    }
+
+    fn validateParamImports(self: *const State, question_id: QuestionId) Error!void {
+        const ids = self.param_imports.get(question_id) orelse return;
+        try self.validateTrackedImports(ids);
+    }
+
     fn trackResultImports(self: *State, answer_id: AnswerId, descriptors: []const CapDescriptor) std.mem.Allocator.Error!void {
         const ids = try capDescriptorImportIdsAlloc(self.allocator, descriptors);
         errdefer self.allocator.free(ids);
@@ -907,6 +919,11 @@ pub const State = struct {
         const entry = self.result_imports.fetchRemove(answer_id) orelse return;
         defer self.allocator.free(entry.value);
         for (entry.value) |id| try self.releaseImport(id);
+    }
+
+    fn validateResultImports(self: *const State, answer_id: AnswerId) Error!void {
+        const ids = self.result_imports.get(answer_id) orelse return;
+        try self.validateTrackedImports(ids);
     }
 
     pub fn applyWireCallPayload(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
@@ -965,6 +982,7 @@ pub const State = struct {
 
         try validateWirePayloadContent(try return_.results(), descriptors.len);
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
+        if (release_param_caps) try self.validateParamImports(answer_id);
         try self.resolveAnswer(answer_id, .return_);
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
         try self.trackResultImports(answer_id, descriptors);
@@ -1005,6 +1023,7 @@ pub const State = struct {
     }
 
     pub fn applyWireFinish(self: *State, finish: Finish) Error!void {
+        if (finish.release_result_caps) try self.validateResultImports(finish.question_id);
         try self.finishQuestion(finish.question_id);
         if (finish.release_result_caps) try self.releaseResultImports(finish.question_id);
     }
