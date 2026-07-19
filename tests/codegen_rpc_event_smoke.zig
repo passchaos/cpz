@@ -834,6 +834,8 @@ test "rpc top-level accept messages open questions" {
     const message = generated.Message.fromReader(try reader.getRoot());
     const info = try cpz.rpc.acceptInfoFromWireAccept(try message.accept());
     try std.testing.expectEqual(@as(u32, 64), info.question_id);
+    try std.testing.expect(!info.has_provision);
+    try std.testing.expectEqual(@as(usize, 0), info.provision_max_capability_count);
     try std.testing.expectEqualStrings("embargo-64", info.embargo.?);
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
@@ -933,7 +935,7 @@ test "rpc accept info helpers write question ids and embargoes" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const accept = try generated.Accept.initRootTyped(&builder);
-        try cpz.rpc.writeAcceptInfoToWire(.{ .question_id = 66, .embargo = "embargo-66" }, accept);
+        try cpz.rpc.writeAcceptInfoToWire(.{ .question_id = 66, .has_provision = false, .provision_max_capability_count = 0, .embargo = "embargo-66" }, accept);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const accept_reader = generated.Accept.fromReader(try reader.getRoot());
@@ -945,7 +947,7 @@ test "rpc accept info helpers write question ids and embargoes" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const accept = try generated.Accept.initRootTyped(&builder);
-        try cpz.rpc.writeAcceptInfoToWire(.{ .question_id = 67, .embargo = null }, accept);
+        try cpz.rpc.writeAcceptInfoToWire(.{ .question_id = 67, .has_provision = false, .provision_max_capability_count = 0, .embargo = null }, accept);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const accept_reader = generated.Accept.fromReader(try reader.getRoot());
@@ -953,6 +955,21 @@ test "rpc accept info helpers write question ids and embargoes" {
         try std.testing.expectEqual(@as(u32, 67), info.question_id);
         try std.testing.expect(info.embargo == null);
     }
+}
+
+test "rpc accept info reports provision capability usage" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const accept = try generated.Accept.initRootTyped(&builder);
+    try accept.set_questionId(68);
+    (try accept.get_provisionAsPointer()).setCapability(2);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const accept_reader = generated.Accept.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.acceptInfoFromWireAccept(accept_reader);
+    try std.testing.expectEqual(@as(u32, 68), info.question_id);
+    try std.testing.expect(info.has_provision);
+    try std.testing.expectEqual(@as(usize, 3), info.provision_max_capability_count);
 }
 
 test "rpc provide accept and join wire events open questions" {

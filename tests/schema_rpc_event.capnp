@@ -82,6 +82,7 @@ struct Provide {
 
 struct Accept {
   questionId @0 :QuestionId;
+  provision @1 :AnyPointer;
   embargo @2 :Data;
 }
 

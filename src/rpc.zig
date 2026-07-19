@@ -37,6 +37,8 @@ pub const Return = struct {
 
 pub const AcceptInfo = struct {
     question_id: QuestionId,
+    has_provision: bool,
+    provision_max_capability_count: usize,
     embargo: ?[]const u8,
 };
 
@@ -505,8 +507,11 @@ pub fn callTargetFromWireCallAlloc(allocator: std.mem.Allocator, call: anytype) 
 }
 
 pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
+    const has_provision = accept.has_provision();
     return .{
         .question_id = accept.questionId(),
+        .has_provision = has_provision,
+        .provision_max_capability_count = if (has_provision) try accept.provisionMaxCapabilityCount() else 0,
         .embargo = try accept.embargoOrNull(),
     };
 }

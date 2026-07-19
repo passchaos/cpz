@@ -48,8 +48,9 @@ that a complete RPC runtime exists.
   projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official
   `QuestionId` payloads rather than treating them as capability-table IDs.
-  Accept wire readers expose their optional embargo bytes alongside the question
-  ID, and can write that information back to generated builders, for future
+  Accept wire readers expose provision pointer presence/capability usage and
+  optional embargo bytes alongside the question ID, and can write the question
+  and embargo information back to generated builders, for future
   provision/embargo handling.
   Disembargo wire readers/builders can decode and write targets plus
   sender/receiver loopback context IDs and accept embargo bytes, though full
