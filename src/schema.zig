@@ -14640,6 +14640,10 @@ fn structPointerWordIndex(object_start_words: usize, data_words: u16, pointer_in
     return std.math.add(usize, pointer_section_start, pointer_index) catch return error.SerializedSizeOverflow;
 }
 
+fn rootPointerListElementWordIndex(index: usize) LayoutError!usize {
+    return std.math.add(usize, 1, index) catch return error.SerializedSizeOverflow;
+}
+
 fn byteListPaddedLen(list_len: usize) LayoutError!usize {
     const padded_words = std.math.divCeil(usize, list_len, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
     return std.math.mul(usize, padded_words, @sizeOf(u64)) catch return error.SerializedSizeOverflow;
@@ -15022,7 +15026,7 @@ fn listTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *const File,
         else
             try decodedStringBytesAlloc(allocator, item.literal));
         defer allocator.free(bytes);
-        try appendByteListPointer(allocator, &segment, 0, 0, bytes, nul_terminated, 1 + item.index);
+        try appendByteListPointer(allocator, &segment, 0, 0, bytes, nul_terminated, try rootPointerListElementWordIndex(item.index));
     }
 
     const segment_words = segment.items.len / @sizeOf(u64);
@@ -16050,7 +16054,7 @@ fn listOptionalTextOrDataFlatBytesAlloc(allocator: std.mem.Allocator, file: *con
         if (item.index >= items.len) return error.InvalidToken;
         const bytes = try optionalBlobConstItemBytesAlloc(allocator, file, scope, item, is_text) orelse continue;
         defer allocator.free(bytes);
-        try appendByteListPointer(allocator, &segment, 0, 0, bytes, is_text, 1 + item.index);
+        try appendByteListPointer(allocator, &segment, 0, 0, bytes, is_text, try rootPointerListElementWordIndex(item.index));
     }
 
     const segment_words = segment.items.len / @sizeOf(u64);
@@ -16578,7 +16582,7 @@ fn listTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator, file: 
         else
             try inlineDataBytesAlloc(allocator, item);
         defer allocator.free(bytes);
-        try appendByteListPointerAtWord(allocator, &segment, 1 + index, bytes, is_text);
+        try appendByteListPointerAtWord(allocator, &segment, try rootPointerListElementWordIndex(index), bytes, is_text);
     }
 
     const segment_words = segment.items.len / @sizeOf(u64);
@@ -16613,7 +16617,7 @@ fn listOptionalTextOrDataFieldDefaultFlatBytesAlloc(allocator: std.mem.Allocator
         else
             try inlineDataBytesAlloc(allocator, resolved_item);
         defer allocator.free(bytes);
-        try appendByteListPointerAtWord(allocator, &segment, 1 + index, bytes, is_text);
+        try appendByteListPointerAtWord(allocator, &segment, try rootPointerListElementWordIndex(index), bytes, is_text);
     }
 
     const segment_words = segment.items.len / @sizeOf(u64);
@@ -25883,6 +25887,8 @@ test "schema list flats resolve scalar const item references" {
     try std.testing.expectEqual(@as(usize, 4), try structPointerWordIndex(1, 2, 1));
     try std.testing.expectError(error.SerializedSizeOverflow, structPointerWordIndex(std.math.maxInt(usize), 1, 0));
     try std.testing.expectError(error.SerializedSizeOverflow, structPointerWordIndex(std.math.maxInt(usize) - 1, 1, 1));
+    try std.testing.expectEqual(@as(usize, 1), try rootPointerListElementWordIndex(0));
+    try std.testing.expectError(error.SerializedSizeOverflow, rootPointerListElementWordIndex(std.math.maxInt(usize)));
 
     const source =
         \\const one :UInt32 = 1;
