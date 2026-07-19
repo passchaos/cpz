@@ -869,6 +869,27 @@ test "rpc top-level finish and release helpers initialize messages" {
     }
 }
 
+test "rpc return exception helpers write outcomes" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const return_ = try root.init_return_();
+    try cpz.rpc.initWireReturnException(return_, 86, true, false, .{
+        .reason = "temporary overload",
+        .type_raw = 1,
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
+    const info = switch (outcome) {
+        .exception => |value| value,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqualStrings("temporary overload", info.reason.?);
+    try std.testing.expectEqual(@as(u16, 1), info.type_raw);
+}
+
 test "rpc await-from-third-party return helpers write outcomes" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

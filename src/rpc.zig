@@ -761,6 +761,21 @@ pub fn initWireReturnAwaitFromThirdParty(
     try return_.set_awaitFromThirdParty_capability(capability_index);
 }
 
+pub fn initWireReturnException(
+    return_: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    exception: ExceptionInfo,
+) !void {
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    const wire_exception = try return_.init_exception();
+    try wire_exception.set_reason(exception.reason orelse "");
+    try wire_exception.set_type__raw(exception.type_raw);
+}
+
 pub fn initWireReturnMessage(
     allocator: std.mem.Allocator,
     message: anytype,
