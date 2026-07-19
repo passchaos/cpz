@@ -330,6 +330,32 @@ test "rpc payload helpers write capability descriptor tables" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 20 }, descriptors[5]);
 }
 
+test "rpc payload helpers build sender-hosted descriptors from registries" {
+    var registry: cpz.CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u32, 0), try registry.register(std.testing.allocator, "alpha"));
+    try std.testing.expectEqual(@as(u32, 1), try registry.register(std.testing.allocator, "beta"));
+
+    const generated_descriptors = try cpz.rpc.senderHostedDescriptorsFromRegistryAlloc(std.testing.allocator, &registry);
+    defer std.testing.allocator.free(generated_descriptors);
+    try std.testing.expectEqual(@as(usize, 2), generated_descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, generated_descriptors[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 1 }, generated_descriptors[1]);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    try cpz.rpc.initWirePayloadCapTable(payload, generated_descriptors);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    const decoded = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(decoded);
+    try std.testing.expectEqual(generated_descriptors.len, decoded.len);
+    try std.testing.expectEqual(generated_descriptors[0], decoded[0]);
+    try std.testing.expectEqual(generated_descriptors[1], decoded[1]);
+}
+
 test "rpc payload helpers treat absent capability tables as empty" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

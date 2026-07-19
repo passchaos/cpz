@@ -668,6 +668,16 @@ pub fn initWirePayloadCapTable(payload: anytype, descriptors: []const CapDescrip
     }
 }
 
+pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, registry: anytype) ![]CapDescriptor {
+    const descriptors = try allocator.alloc(CapDescriptor, registry.len());
+    errdefer allocator.free(descriptors);
+    for (descriptors, 0..) |*descriptor, index| {
+        const export_id = std.math.cast(u32, index) orelse return error.InvalidTransition;
+        descriptor.* = .{ .sender_hosted = export_id };
+    }
+    return descriptors;
+}
+
 pub fn initWireCallParamsCapTable(call: anytype, descriptors: []const CapDescriptor) !void {
     try initWirePayloadCapTable(try call.init_params(), descriptors);
 }
