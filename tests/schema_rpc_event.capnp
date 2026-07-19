@@ -38,6 +38,11 @@ struct Call {
   questionId @0 :QuestionId;
   target @1 :MessageTarget;
   params @4 :Payload;
+
+  union {
+    sendResultsTo_caller @5 :Void;
+    sendResultsTo_yourself @6 :Void;
+  }
 }
 
 struct Return {

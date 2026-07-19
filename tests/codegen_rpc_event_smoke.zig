@@ -154,6 +154,32 @@ test "rpc call target helpers decode imported caps and promised answers" {
     }
 }
 
+test "rpc call helpers decode and write send-results-to targets" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const call = try generated.Call.initRootTyped(&builder);
+        try cpz.rpc.writeSendResultsToToWire(.yourself, call);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call_reader = generated.Call.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(call_reader));
+    }
+    {
+        var registry: cpz.CapabilityRegistry([]const u8) = .{};
+        defer registry.deinit(std.testing.allocator);
+
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const call = try generated.Call.initRootTyped(&builder);
+        try cpz.rpc.initWireCall(std.testing.allocator, call, 43, .{ .imported_cap = 1 }, &registry);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call_reader = generated.Call.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.caller, try cpz.rpc.sendResultsToFromWireCall(call_reader));
+    }
+}
+
 test "rpc allocating call target helpers decode promised-answer transforms" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();

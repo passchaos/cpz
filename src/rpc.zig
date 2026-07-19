@@ -155,6 +155,11 @@ pub const CallTargetOwned = union(enum) {
     }
 };
 
+pub const CallSendResultsTo = enum {
+    caller,
+    yourself,
+};
+
 pub const CapDescriptor = union(enum) {
     none,
     sender_hosted: ExportId,
@@ -552,6 +557,20 @@ pub fn callTargetFromWireCallAlloc(allocator: std.mem.Allocator, call: anytype) 
     return targetFromWireMessageTargetAlloc(allocator, try call.target());
 }
 
+pub fn sendResultsToFromWireCall(call: anytype) !CallSendResultsTo {
+    return switch (call.which() orelse return error.InvalidTransition) {
+        .sendResultsTo_caller => .caller,
+        .sendResultsTo_yourself => .yourself,
+    };
+}
+
+pub fn writeSendResultsToToWire(value: CallSendResultsTo, call: anytype) !void {
+    switch (value) {
+        .caller => try call.set_sendResultsTo_caller(),
+        .yourself => try call.set_sendResultsTo_yourself(),
+    }
+}
+
 pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
     const has_provision = accept.has_provision();
     return .{
@@ -731,6 +750,7 @@ pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, re
 pub fn initWireCall(allocator: std.mem.Allocator, call: anytype, question_id: QuestionId, target: CallTarget, registry: anytype) !void {
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
+    try writeSendResultsToToWire(.caller, call);
     const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
     defer allocator.free(descriptors);
     try initWireCallParamsCapTable(call, descriptors);
