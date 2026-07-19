@@ -21854,6 +21854,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
             \\        }}
             \\
+            \\        pub fn getAsCapabilityFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            \\            return @"cpz.table".getListElement(self.list, @"cpz.index");
+            \\        }}
+            \\
         , .{}),
         .any_struct => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.StructReader {{
@@ -21888,6 +21892,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
             \\        }}
             \\
+            \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            \\            return @"cpz.table".getListElement(self.list, @"cpz.index");
+            \\        }}
+            \\
         , .{}),
         .list => try appendFmt(allocator, out,
             \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.ListReader {{
@@ -21912,6 +21920,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !u32 {{
                 \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+                \\            return @"cpz.table".getListElement(self.list, @"cpz.index");
                 \\        }}
                 \\
             , .{});
@@ -21984,6 +21996,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return try @"cpz.pointer".getCapabilityIndex();
                 \\        }}
                 \\
+                \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+                \\            return @"cpz.table".getListElement(self.list, @"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn getOrNullFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+                \\            return @"cpz.table".getListElementOrNull(self.list, @"cpz.index");
+                \\        }}
+                \\
             , .{}),
             .named => |type_name| if (findInterface(file, type_name) != null) try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !u32 {{
@@ -21994,6 +22014,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
                 \\            if (@"cpz.pointer".isNull()) return null;
                 \\            return try @"cpz.pointer".getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+                \\            return @"cpz.table".getListElement(self.list, @"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn getOrNullFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+                \\            return @"cpz.table".getListElementOrNull(self.list, @"cpz.index");
                 \\        }}
                 \\
             , .{}) else if (isStructLikeName(file, type_name)) {
@@ -22765,6 +22793,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
             \\        }}
             \\
+            \\        pub fn getAsCapabilityFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            \\            return @"cpz.table".getListBuilderElement(self.list, @"cpz.index");
+            \\        }}
+            \\
             \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: cpz.PointerReader) !void {{
             \\            return (try self.list.getPointerElement(@"cpz.index")).copyFrom(new_value);
             \\        }}
@@ -22967,6 +22999,10 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
             \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
             \\        }}
             \\
+            \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+            \\            return @"cpz.table".getListBuilderElement(self.list, @"cpz.index");
+            \\        }}
+            \\
             \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: u32) !void {{
             \\            return (try self.list.getPointerElement(@"cpz.index")).setCapability(new_value);
             \\        }}
@@ -23086,6 +23122,11 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !u32 {{
                 \\            return (try self.list.getPointerElement(@"cpz.index")).getCapabilityIndex();
                 \\        }}
+                \\
+                \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+                \\            return @"cpz.table".getListBuilderElement(self.list, @"cpz.index");
+                \\        }}
+                \\
                 \\
                 \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: u32) !void {{
                 \\            return (try self.list.getPointerElement(@"cpz.index")).setCapability(new_value);

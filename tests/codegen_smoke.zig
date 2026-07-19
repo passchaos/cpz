@@ -4373,6 +4373,7 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqual(cpz.wire.PointerType.other, cpz.wire.pointerType(cap_element_raw));
     try std.testing.expectEqual(@as(u32, 88), (try caps.elementDecodedPointer(0)).?.other.index);
     try std.testing.expectEqual(@as(u32, 99), try caps.elementAsCapability(1));
+    try std.testing.expectEqual(@as(u32, 199), try caps.getFromTable(1, u32, cap_table));
     try std.testing.expectError(error.InvalidCapabilityPointer, caps.validateWithOptions(.{ .capability_count_limit = 90 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, caps.totalSizeWithOptions(.{ .capability_count_limit = 90 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, caps.elementStatsWithOptions(1, .{ .capability_count_limit = 90 }));
@@ -4425,6 +4426,7 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.elementStatsWithOptions(1, .{ .capability_count_limit = 90 }));
     try std.testing.expectError(error.InvalidCapabilityPointer, read_caps.elementTotalSizeWithOptions(1, .{ .capability_count_limit = 90 }));
     try std.testing.expectEqual(@as(u32, 88), try read_caps.elementAsCapability(0));
+    try std.testing.expectEqual(@as(u32, 188), try read_caps.getFromTable(0, u32, cap_table));
 
     const any_items = try box_builder.init_anyListItems(8);
     try any_items.setText(0, "list any text");
@@ -4454,6 +4456,11 @@ test "generated builtin any and capability accessors round-trip" {
     try std.testing.expectEqualSlices(u8, "list any text", try any_items.getAsText(0));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(1));
     try std.testing.expectEqual(@as(u32, 6060), try any_items.getAsCapability(2));
+    var any_cap_handles = try std.ArrayList(u32).initCapacity(std.testing.allocator, 6061);
+    defer any_cap_handles.deinit(std.testing.allocator);
+    for (0..6061) |index| any_cap_handles.appendAssumeCapacity(@intCast(index + 10));
+    const any_cap_table = cpz.CapabilityTable(u32).init(any_cap_handles.items);
+    try std.testing.expectEqual(@as(u32, 6070), try any_items.getAsCapabilityFromTable(2, u32, any_cap_table));
     try std.testing.expectEqual(@as(u32, 0x7777), (try any_items.getAsStruct(3)).getUInt32(0, 0));
     try std.testing.expectEqual(@as(u32, 5151), (try any_items.getAsList(4, .four_bytes)).getUInt32(0));
     try std.testing.expectEqualSlices(u8, "dynamic", try any_items.getAsText(5));
@@ -5307,6 +5314,7 @@ test "generated interface capability accessors round-trip" {
     try std.testing.expectEqualStrings("primary", try box_builder.get_serviceFromTable([]const u8, service_table));
     try std.testing.expectEqual(@as(?[]const u8, "primary"), try box_builder.get_serviceOrNullFromTable([]const u8, service_table));
     try std.testing.expectEqual(@as(u32, 3456), try services.get(1));
+    try std.testing.expectEqualStrings("backup", try services.getFromTable(1, []const u8, service_table));
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const box = generated.InterfaceBox.fromReader(try reader.getRoot());
@@ -5317,6 +5325,7 @@ test "generated interface capability accessors round-trip" {
     const read_services = try box.services();
     try std.testing.expectEqual(@as(u32, 2345), try read_services.get(0));
     try std.testing.expectEqual(@as(u32, 3456), try read_services.get(1));
+    try std.testing.expectEqualStrings("backup", try read_services.getFromTable(1, []const u8, service_table));
 }
 
 test "generated nested declarations use qualified Zig names and local aliases" {
