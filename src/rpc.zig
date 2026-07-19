@@ -49,6 +49,12 @@ pub const ReturnOutcome = union(enum) {
     await_from_third_party: AnyPointerUsage,
 };
 
+pub const DispatchResult = union(enum) {
+    empty,
+    capability: ExportId,
+    exception: ExceptionInfo,
+};
+
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
@@ -910,6 +916,14 @@ pub fn initEmptyReturnMessage(message: anytype, answer_id: AnswerId, release_par
     _ = try return_.init_results();
 }
 
+pub fn initDispatchReturnMessage(message: anytype, answer_id: AnswerId, result: DispatchResult) !void {
+    return switch (result) {
+        .empty => initEmptyReturnMessage(message, answer_id, true, true),
+        .capability => |export_id| initCapabilityReturnMessage(message, answer_id, export_id),
+        .exception => |exception| initWireReturnException(try message.init_return_(), answer_id, true, false, exception),
+    };
+}
+
 pub fn initBootstrapReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
     try initCapabilityReturnMessage(message, answer_id, export_id);
 }
@@ -954,6 +968,19 @@ pub fn dispatchCallReturningEmpty(
     try state.applyWireCall(allocator, call);
     try handler(context, call);
     try initEmptyReturnMessage(response_message, call.questionId(), true, true);
+}
+
+pub fn dispatchCall(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const result = try handler(context, call);
+    try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
