@@ -96,6 +96,7 @@ pub const AcceptTracker = struct {
     has_provision: bool,
     provision: ?AnyPointerUsage = null,
     embargo: ?[]const u8 = null,
+    embargo_released: bool = false,
 
     pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
         if (self.embargo) |bytes| allocator.free(bytes);
@@ -1698,6 +1699,25 @@ pub const State = struct {
         });
     }
 
+    fn markAcceptedEmbargoReleased(self: *State, embargo: []const u8) void {
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.embargo) |tracked| {
+                if (std.mem.eql(u8, tracked, embargo)) {
+                    accept.embargo_released = true;
+                }
+            }
+        }
+    }
+
+    fn applyDisembargoInfo(self: *State, info: DisembargoInfo) Error!void {
+        try self.validateCallTarget(info.target);
+        switch (info.context) {
+            .accept => |embargo| self.markAcceptedEmbargoReleased(embargo),
+            else => {},
+        }
+    }
+
     pub fn applyWireCallPayload(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
         const descriptors = try capTableFromWireCallParams(allocator, call);
         defer allocator.free(descriptors);
@@ -1729,6 +1749,10 @@ pub const State = struct {
     pub fn validateWireDisembargo(self: *const State, disembargo: anytype) !void {
         const info = try disembargoInfoFromWireDisembargo(disembargo);
         try self.validateCallTarget(info.target);
+    }
+
+    pub fn applyWireDisembargo(self: *State, disembargo: anytype) !void {
+        try self.applyDisembargoInfo(try disembargoInfoFromWireDisembargo(disembargo));
     }
 
     pub fn applyWireCall(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
@@ -1799,7 +1823,7 @@ pub const State = struct {
             .call => self.applyWireCall(allocator, try message.call()),
             .return_ => self.applyWireReturn(allocator, try message.return_()),
             .resolve => self.applyWireResolve(try message.resolve()),
-            .disembargo => self.validateWireDisembargo(try message.disembargo()),
+            .disembargo => self.applyWireDisembargo(try message.disembargo()),
             .provide => |id| self.applyWireTargetedQuestion(id, try message.provide()),
             .accept => self.applyWireAccept(try message.accept()),
             .join => |id| self.applyWireTargetedQuestion(id, try message.join()),
@@ -1888,6 +1912,11 @@ pub const State = struct {
         return self.accepts.count();
     }
 
+    pub fn acceptEmbargoReleased(self: *const State, id: QuestionId) ?bool {
+        const tracker = self.accepts.get(id) orelse return null;
+        return tracker.embargo_released;
+    }
+
     pub fn apply(self: *State, event: Event) (Error || std.mem.Allocator.Error)!void {
         return switch (event) {
             .bootstrap => |id| self.openQuestion(id, .bootstrap),
@@ -1906,7 +1935,7 @@ pub const State = struct {
         if (event == .resolve) return self.resolveExport(event.resolve);
         if (event == .release) return self.releaseImportCount(event.release);
         if (event == .finish) return self.applyWireFinish(event.finish);
-        if (event == .disembargo) return self.validateCallTarget(event.disembargo.target);
+        if (event == .disembargo) return self.applyDisembargoInfo(event.disembargo);
         if (event == .provide) return self.openQuestion(event.provide, .call);
         if (event == .accept) return self.openQuestion(event.accept, .call);
         if (event == .third_party_answer) return self.resolveAnswer(event.third_party_answer, .return_);

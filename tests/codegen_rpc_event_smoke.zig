@@ -2204,6 +2204,22 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expect(tracked.has_provision);
     try std.testing.expectEqual(@as(?u32, 2), tracked.provision_capability);
     try std.testing.expectEqualStrings("embargo-64", tracked.embargo.?);
+    try std.testing.expectEqual(@as(?bool, false), state.acceptEmbargoReleased(64));
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    const disembargo = try disembargo_root.init_disembargo();
+    const target = try disembargo.init_target();
+    try target.set_importedCap(5);
+    try disembargo.set_accept("embargo-64");
+
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+    try std.testing.expectError(error.InvalidTransition, state.applyWireMessage(std.testing.allocator, disembargo_message));
+    try state.addImport(5);
+    try state.applyWireMessage(std.testing.allocator, disembargo_message);
+    try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));
 }
 
 test "rpc disembargo helpers decode targets and loopback contexts" {

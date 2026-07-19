@@ -120,8 +120,9 @@ that a complete RPC runtime exists.
   call/return payload-aware application or simpler state events; Provide/Join
   top-level messages validate their targets before opening questions, while
   Accept top-level messages record provision pointer usage and owned embargo
-  bytes for future provision/embargo handling. Join result returns can
-  initialize and decode their result capability payloads. Top-level
+  bytes, and matching Disembargo.accept contexts mark those embargos released
+  for future provision handling. Join result returns can initialize and decode
+  their result capability payloads. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
   currently-structured handoff fields.
 - Generated accessors for capability and named-interface fields and list
