@@ -90,10 +90,13 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Extend decoded `WireEvent` application beyond the currently safe
-   bootstrap/call/return/finish/release subset once `State` models official
-   `Resolve`, `Provide`, `Accept`, and `Join` semantics precisely.
-2. Add request/response builders that use `CapabilityTable(T)` and
-   `CapabilityRegistry(T)` for import/export table validation.
-3. Add generated service skeleton types only after the runtime state machine can
-   execute a minimal bootstrap/call/return flow.
+1. Model the remaining official RPC semantics that are still only structural:
+   `Resolve` target replacement, `Disembargo`, `Accept.provision`/`embargo`,
+   `Join` result handling, and third-party cap descriptors.
+2. Add higher-level generated request/response builders that combine
+   `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
+   emission, and state validation.
+3. Add a minimal dispatch loop for bootstrap/call/return over an application
+   callback before attempting promise pipelining, vats, or network transports.
+4. Add generated service skeleton types only after the runtime can execute and
+   validate that minimal bootstrap/call/return flow.
