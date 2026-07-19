@@ -1230,6 +1230,32 @@ pub fn dispatchCall(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchWireMessage(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    request_message: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+) !bool {
+    switch (try eventFromWireMessage(request_message)) {
+        .bootstrap => {
+            try dispatchBootstrap(state, response_message, try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+            return true;
+        },
+        .call => {
+            try dispatchCall(state, allocator, response_message, try request_message.call(), call_context, call_handler);
+            return true;
+        },
+        else => {
+            try state.applyWireMessage(allocator, request_message);
+            return false;
+        },
+    }
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);

@@ -109,7 +109,9 @@ that a complete RPC runtime exists.
   bootstrap dispatcher can apply the request and invoke an application callback
   that returns the bootstrap export ID. A minimal Call dispatcher can do the
   same for calls that return a single capability, an empty no-finish result, or
-  an exception result.
+  an exception result. A single-message dispatcher can route generated
+  Bootstrap/Call readers through those callbacks and apply other supported
+  top-level wire messages to state.
   Call initialization can include send-results routing and boolean call flags.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, and params capability-table bookkeeping.
