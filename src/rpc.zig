@@ -19,6 +19,65 @@ pub const CapabilityRef = union(enum) {
     import_id: ImportId,
 };
 
+/// Numeric tags from the top-level `Message` union in Cap'n Proto's
+/// `rpc.capnp`. Keeping the mapping here lets code generated from that schema
+/// be decoded without making this runtime module import a generated file.
+pub const WireMessageTag = enum(u16) {
+    unimplemented = 0,
+    abort = 1,
+    bootstrap = 2,
+    call = 3,
+    return_ = 4,
+    finish = 5,
+    resolve = 6,
+    release = 7,
+    disembargo = 8,
+    obsolete_save = 9,
+    obsolete_delete = 10,
+    provide = 11,
+    accept = 12,
+    third_party_answer = 13,
+    join = 14,
+};
+
+pub const WireEvent = union(WireMessageTag) {
+    unimplemented: void,
+    abort: void,
+    bootstrap: QuestionId,
+    call: QuestionId,
+    return_: AnswerId,
+    finish: QuestionId,
+    resolve: ExportId,
+    release: ImportId,
+    disembargo: void,
+    obsolete_save: void,
+    obsolete_delete: void,
+    provide: QuestionId,
+    accept: QuestionId,
+    third_party_answer: AnswerId,
+    join: QuestionId,
+
+    pub fn tag(self: WireEvent) WireMessageTag {
+        return std.meta.activeTag(self);
+    }
+
+    /// Project the decoded wire event into the small `State.apply()` vocabulary
+    /// only when the ID semantics line up. Some rpc.capnp messages that look
+    /// similar by name intentionally stay wire-only here: e.g. `Resolve` carries
+    /// an `ExportId`, while the simplified state-machine `Event.resolve` still
+    /// represents answer completion.
+    pub fn toStateEvent(self: WireEvent) ?Event {
+        return switch (self) {
+            .bootstrap => |id| .{ .bootstrap = id },
+            .call => |id| .{ .call = id },
+            .return_ => |id| .{ .return_ = id },
+            .finish => |id| .{ .finish = id },
+            .release => |id| .{ .release = .{ .import_id = id } },
+            else => null,
+        };
+    }
+};
+
 /// Transport-independent subset of rpc.capnp message variants. This is only a
 /// state-machine vocabulary; it deliberately does not read sockets, schedule
 /// promises, or dispatch application methods.
@@ -177,6 +236,28 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
 
 pub const ExportTracker = CapabilityTracker(ExportId, error.ExportAlreadyReleased);
 pub const ImportTracker = CapabilityTracker(ImportId, error.ImportAlreadyReleased);
+
+pub fn eventFromWireMessage(message: anytype) !WireEvent {
+    const raw_discriminant = message.whichDiscriminant();
+    const tag = std.enums.fromInt(WireMessageTag, raw_discriminant) orelse return error.InvalidTransition;
+    return switch (tag) {
+        .unimplemented => .{ .unimplemented = {} },
+        .abort => .{ .abort = {} },
+        .bootstrap => .{ .bootstrap = (try message.bootstrap()).questionId() },
+        .call => .{ .call = (try message.call()).questionId() },
+        .return_ => .{ .return_ = (try message.return_()).answerId() },
+        .finish => .{ .finish = (try message.finish()).questionId() },
+        .resolve => .{ .resolve = (try message.resolve()).promiseId() },
+        .release => .{ .release = (try message.release()).id() },
+        .disembargo => .{ .disembargo = {} },
+        .obsolete_save => .{ .obsolete_save = {} },
+        .obsolete_delete => .{ .obsolete_delete = {} },
+        .provide => .{ .provide = (try message.provide()).questionId() },
+        .accept => .{ .accept = (try message.accept()).questionId() },
+        .third_party_answer => .{ .third_party_answer = (try message.thirdPartyAnswer()).answerId() },
+        .join => .{ .join = (try message.join()).questionId() },
+    };
+}
 
 pub const State = struct {
     questions: std.AutoHashMap(QuestionId, QuestionTracker),

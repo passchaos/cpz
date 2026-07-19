@@ -166,6 +166,26 @@ pub fn build(b: *std.Build) void {
     const codegen_capability_table_smoke_tests = b.addTest(.{ .root_module = codegen_capability_table_smoke_mod });
     test_step.dependOn(&addTestRun(b, codegen_capability_table_smoke_tests).step);
 
+    const run_rpc_event_codegen = b.addRunArtifact(cpzc_host);
+    run_rpc_event_codegen.addFileArg(b.path("tests/schema_rpc_event.capnp"));
+    const generated_rpc_event_schema = b.createModule(.{
+        .root_source_file = run_rpc_event_codegen.captureStdOut(.{ .basename = "schema_rpc_event.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const codegen_rpc_event_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_rpc_event_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "generated_rpc_event_schema", .module = generated_rpc_event_schema },
+        },
+    });
+    const codegen_rpc_event_smoke_tests = b.addTest(.{ .root_module = codegen_rpc_event_smoke_mod });
+    test_step.dependOn(&addTestRun(b, codegen_rpc_event_smoke_tests).step);
+
     const run_no_file_id_codegen = b.addRunArtifact(cpzc_host);
     run_no_file_id_codegen.addFileArg(b.path("tests/schema_no_file_id.capnp"));
     const generated_no_file_id_schema = b.createModule(.{

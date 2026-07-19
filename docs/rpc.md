@@ -27,6 +27,9 @@ that a complete RPC runtime exists.
   transitions, import/export lifetimes, and a small `State` that tracks
   in-flight questions/answers plus accepted/provided capability lifetimes. It is
   intentionally not a networked dispatcher yet.
+- `cpz.rpc.eventFromWireMessage()` can decode the top-level `rpc.capnp` message
+  union shape from generated readers into lightweight `WireEvent` values, and
+  projects only the semantically-aligned subset into `State.apply()` events.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.
@@ -43,9 +46,9 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Decode generated `rpc.capnp` messages into `cpz.rpc.Event` values and
-   apply them to `cpz.rpc.State` for bootstrap/call/return/finish plus
-   provide/accept/release smoke flows.
+1. Extend decoded `WireEvent` application beyond the currently safe
+   bootstrap/call/return/finish/release subset once `State` models official
+   `Resolve`, `Provide`, `Accept`, and `Join` semantics precisely.
 2. Add request/response builders that use `CapabilityTable(T)` and
    `CapabilityRegistry(T)` for import/export table validation.
 3. Add generated service skeleton types only after the runtime state machine can
