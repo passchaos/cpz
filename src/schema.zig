@@ -23280,6 +23280,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            return try @"cpz.pointer".getCapabilityIndex();
                 \\        }}
                 \\
+                \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+                \\            return @"cpz.table".getListBuilderElement(self.list, @"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn getOrNullFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+                \\            return @"cpz.table".getListBuilderElementOrNull(self.list, @"cpz.index");
+                \\        }}
+                \\
                 \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: u32) !void {{
                 \\            return (try self.list.getPointerElement(@"cpz.index")).setCapability(new_value);
                 \\        }}
@@ -23303,6 +23311,14 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\            const @"cpz.pointer" = try self.list.getPointerElement(@"cpz.index");
                 \\            if (@"cpz.pointer".isNull()) return null;
                 \\            return try @"cpz.pointer".getCapabilityIndex();
+                \\        }}
+                \\
+                \\        pub fn getFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !T {{
+                \\            return @"cpz.table".getListBuilderElement(self.list, @"cpz.index");
+                \\        }}
+                \\
+                \\        pub fn getOrNullFromTable(self: @This(), @"cpz.index": usize, comptime T: type, @"cpz.table": cpz.CapabilityTable(T)) !?T {{
+                \\            return @"cpz.table".getListBuilderElementOrNull(self.list, @"cpz.index");
                 \\        }}
                 \\
                 \\        pub fn set(self: @This(), @"cpz.index": usize, new_value: u32) !void {{

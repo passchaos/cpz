@@ -145,6 +145,26 @@ pub fn build(b: *std.Build) void {
     const codegen_scalar_const_lists_smoke_tests = b.addTest(.{ .root_module = codegen_scalar_const_lists_smoke_mod });
     test_step.dependOn(&addTestRun(b, codegen_scalar_const_lists_smoke_tests).step);
 
+    const run_capability_table_codegen = b.addRunArtifact(cpzc_host);
+    run_capability_table_codegen.addFileArg(b.path("tests/schema_capability_table.capnp"));
+    const generated_capability_table_schema = b.createModule(.{
+        .root_source_file = run_capability_table_codegen.captureStdOut(.{ .basename = "schema_capability_table.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const codegen_capability_table_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_capability_table_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "generated_capability_table_schema", .module = generated_capability_table_schema },
+        },
+    });
+    const codegen_capability_table_smoke_tests = b.addTest(.{ .root_module = codegen_capability_table_smoke_mod });
+    test_step.dependOn(&addTestRun(b, codegen_capability_table_smoke_tests).step);
+
     const run_no_file_id_codegen = b.addRunArtifact(cpzc_host);
     run_no_file_id_codegen.addFileArg(b.path("tests/schema_no_file_id.capnp"));
     const generated_no_file_id_schema = b.createModule(.{
