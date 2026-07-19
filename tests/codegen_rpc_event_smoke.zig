@@ -240,6 +240,31 @@ test "rpc call helpers decode and write send-results-to targets" {
         try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(call_reader));
     }
     {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const call = try generated.Call.initRootTyped(&builder);
+        try cpz.rpc.writeSendResultsToThirdPartyToWire(call, .{ .max_capability_count = 4, .capability = 3 });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call_reader = generated.Call.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, try cpz.rpc.sendResultsToFromWireCall(call_reader));
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, (try cpz.rpc.sendResultsToThirdPartyUsageFromWireCall(call_reader)).?);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const call = try generated.Call.initRootTyped(&builder);
+        try cpz.rpc.writeSendResultsToToWire(.third_party, call);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call_reader = generated.Call.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, try cpz.rpc.sendResultsToFromWireCall(call_reader));
+        try std.testing.expectEqual(
+            cpz.rpc.AnyPointerUsage{ .max_capability_count = 0, .capability = null },
+            (try cpz.rpc.sendResultsToThirdPartyUsageFromWireCall(call_reader)).?,
+        );
+    }
+    {
         var registry: cpz.CapabilityRegistry([]const u8) = .{};
         defer registry.deinit(std.testing.allocator);
 

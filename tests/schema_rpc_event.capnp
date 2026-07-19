@@ -47,6 +47,7 @@ struct Call {
   union {
     sendResultsTo_caller @5 :Void;
     sendResultsTo_yourself @6 :Void;
+    sendResultsTo_thirdParty @7 :ThirdPartyToContact;
   }
 }
 

@@ -95,8 +95,12 @@ fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
         error.InvalidPointerKind, error.NullPointer => null,
         else => return err,
     };
+    const max_capability_count = pointer.maxCapabilityCount() catch |err| switch (err) {
+        error.NullPointer => 0,
+        else => return err,
+    };
     return .{
-        .max_capability_count = try pointer.maxCapabilityCount(),
+        .max_capability_count = max_capability_count,
         .capability = capability,
     };
 }
@@ -172,6 +176,7 @@ pub const CallTargetOwned = union(enum) {
 pub const CallSendResultsTo = enum {
     caller,
     yourself,
+    third_party,
 };
 
 pub const CallFlags = struct {
@@ -598,6 +603,7 @@ pub fn sendResultsToFromWireCall(call: anytype) !CallSendResultsTo {
     return switch (call.which() orelse return error.InvalidTransition) {
         .sendResultsTo_caller => .caller,
         .sendResultsTo_yourself => .yourself,
+        .sendResultsTo_thirdParty => .third_party,
     };
 }
 
@@ -605,6 +611,19 @@ pub fn writeSendResultsToToWire(value: CallSendResultsTo, call: anytype) !void {
     switch (value) {
         .caller => try call.set_sendResultsTo_caller(),
         .yourself => try call.set_sendResultsTo_yourself(),
+        .third_party => try call.clear_sendResultsTo_thirdParty(),
+    }
+}
+
+pub fn sendResultsToThirdPartyUsageFromWireCall(call: anytype) !?AnyPointerUsage {
+    if ((try sendResultsToFromWireCall(call)) != .third_party) return null;
+    return try anyPointerUsageFromWire(try call.sendResultsTo_thirdParty());
+}
+
+pub fn writeSendResultsToThirdPartyToWire(call: anytype, usage: AnyPointerUsage) !void {
+    try call.clear_sendResultsTo_thirdParty();
+    if (usage.capability) |index| {
+        (try call.get_sendResultsTo_thirdPartyAsPointer()).setCapability(index);
     }
 }
 

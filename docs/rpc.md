@@ -73,7 +73,8 @@ that a complete RPC runtime exists.
   distinct from ordinary Return events.
   Completed question IDs can be reused once both Finish and Return-like answer
   resolution have been observed.
-  Call `sendResultsTo` caller/yourself targets can be decoded and written.
+  Call `sendResultsTo` caller/yourself/third-party targets can be decoded and
+  written, including third-party contact pointer capability usage.
   Generated RPC `Call.target` readers can be decoded into a lightweight
   `CallTarget` for imported capabilities and promised answers, written back into
   generated target builders, and validated against tracked imports/answers. An
