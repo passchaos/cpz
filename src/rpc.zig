@@ -68,7 +68,7 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn isStateApplicable(self: WireEvent) bool {
         return switch (self) {
-            .bootstrap, .call, .return_, .finish, .resolve, .provide, .accept => true,
+            .bootstrap, .call, .return_, .finish, .resolve, .provide, .accept, .join => true,
             .release => |release| release.reference_count != 0,
             else => false,
         };
@@ -76,7 +76,7 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn isQuestionOpening(self: WireEvent) bool {
         return switch (self) {
-            .bootstrap, .call, .provide, .accept => true,
+            .bootstrap, .call, .provide, .accept, .join => true,
             else => false,
         };
     }
@@ -520,6 +520,7 @@ pub const State = struct {
         if (event == .release) return self.releaseImportCount(event.release);
         if (event == .provide) return self.openQuestion(event.provide, .call);
         if (event == .accept) return self.openQuestion(event.accept, .call);
+        if (event == .join) return self.openQuestion(event.join, .call);
         const state_event = event.toStateEvent() orelse return error.InvalidTransition;
         return self.apply(state_event);
     }
@@ -580,6 +581,12 @@ test "rpc wire events expose classification and id helpers" {
     try testing.expect(provide_event.isQuestionOpening());
     try testing.expect(provide_event.toStateEvent() == null);
     try testing.expectEqual(@as(?QuestionId, 16), provide_event.questionId());
+
+    const join_event = WireEvent{ .join = 17 };
+    try testing.expect(join_event.isStateApplicable());
+    try testing.expect(join_event.isQuestionOpening());
+    try testing.expect(join_event.toStateEvent() == null);
+    try testing.expectEqual(@as(?QuestionId, 17), join_event.questionId());
 }
 
 test "rpc question and answer trackers reject invalid transitions" {
@@ -717,10 +724,11 @@ test "rpc state applies only the semantically aligned wire event subset" {
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(99));
     try state.applyWireEvent(.{ .accept = 100 });
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(100));
-    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .join = 99 }));
+    try state.applyWireEvent(.{ .join = 101 });
+    try testing.expectEqual(@as(?QuestionState, .open), state.questionState(101));
 }
 
-test "rpc wire provide and accept open questions without projecting to capability events" {
+test "rpc wire provide accept and join open questions without projecting to capability events" {
     const testing = std.testing;
     var state = State.init(testing.allocator);
     defer state.deinit();
@@ -736,6 +744,12 @@ test "rpc wire provide and accept open questions without projecting to capabilit
     try state.applyWireEvent(accept);
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(72));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(72));
+
+    const join = WireEvent{ .join = 73 };
+    try testing.expect(join.toStateEvent() == null);
+    try state.applyWireEvent(join);
+    try testing.expectEqual(@as(?QuestionState, .open), state.questionState(73));
+    try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(73));
 
     try testing.expectError(error.QuestionAlreadyOpen, state.applyWireEvent(.{ .provide = 71 }));
 }

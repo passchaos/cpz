@@ -34,8 +34,8 @@ that a complete RPC runtime exists.
   decrement import lifetimes without silently collapsing batched releases.
   Resolve wire events mark an existing export promise as resolved without
   conflating the official `ExportId` with answer IDs.
-  Provide/Accept wire events open questions using their official `QuestionId`
-  payloads rather than treating them as capability-table IDs.
+  Provide/Accept/Join wire events open questions using their official
+  `QuestionId` payloads rather than treating them as capability-table IDs.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.
