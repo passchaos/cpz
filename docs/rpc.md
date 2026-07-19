@@ -54,6 +54,8 @@ that a complete RPC runtime exists.
   optional embargo bytes alongside the question ID, and can write the question
   and embargo information back to generated builders, for future
   provision/embargo handling.
+  Join wire readers expose target and key-part pointer capability usage for
+  future join result handling.
   Disembargo wire readers/builders can decode and write targets plus
   sender/receiver loopback context IDs and accept embargo bytes, though full
   embargo queue handling remains future work. Disembargo targets can be

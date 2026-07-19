@@ -50,6 +50,14 @@ pub const ProvideInfo = struct {
     recipient_capability: ?u32 = null,
 };
 
+pub const JoinInfo = struct {
+    question_id: QuestionId,
+    target: CallTarget,
+    has_key_part: bool,
+    key_part_max_capability_count: usize,
+    key_part_capability: ?u32 = null,
+};
+
 pub const DisembargoContext = union(enum) {
     sender_loopback: u32,
     receiver_loopback: u32,
@@ -553,6 +561,24 @@ pub fn writeProvideInfoToWire(info: ProvideInfo, provide: anytype) !void {
     if (info.recipient_capability) |index| {
         (try provide.get_recipientAsPointer()).setCapability(index);
     }
+}
+
+pub fn joinInfoFromWireJoin(join: anytype) !JoinInfo {
+    const has_key_part = join.has_keyPart();
+    const key_part_capability: ?u32 = if (has_key_part)
+        (try join.keyPartAsPointer()).getCapabilityIndex() catch |err| switch (err) {
+            error.InvalidPointerKind => null,
+            else => return err,
+        }
+    else
+        null;
+    return .{
+        .question_id = join.questionId(),
+        .target = try targetFromWireTargetedMessage(join),
+        .has_key_part = has_key_part,
+        .key_part_max_capability_count = if (has_key_part) try join.keyPartMaxCapabilityCount() else 0,
+        .key_part_capability = key_part_capability,
+    };
 }
 
 pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {

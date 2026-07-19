@@ -94,6 +94,7 @@ struct ThirdPartyAnswer {
 struct Join {
   questionId @0 :QuestionId;
   target @1 :MessageTarget;
+  keyPart @2 :AnyPointer;
 }
 
 struct MessageTarget {

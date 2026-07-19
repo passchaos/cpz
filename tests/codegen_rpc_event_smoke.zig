@@ -817,9 +817,16 @@ test "rpc top-level provide and join messages validate targets" {
         const target = try join.init_target();
         const promised = try target.init_promisedAnswer();
         try promised.set_questionId(63);
+        (try join.get_keyPartAsPointer()).setCapability(4);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
+        const info = try cpz.rpc.joinInfoFromWireJoin(try message.join());
+        try std.testing.expectEqual(@as(u32, 62), info.question_id);
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 63 } }, info.target);
+        try std.testing.expect(info.has_key_part);
+        try std.testing.expectEqual(@as(usize, 5), info.key_part_max_capability_count);
+        try std.testing.expectEqual(@as(?u32, 4), info.key_part_capability);
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
         try std.testing.expectError(error.QuestionNotOpen, state.applyWireMessage(std.testing.allocator, message));
