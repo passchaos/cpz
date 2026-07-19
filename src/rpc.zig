@@ -1635,6 +1635,9 @@ pub const State = struct {
     pub fn finishQuestion(self: *State, id: QuestionId) Error!void {
         const question = self.questions.getPtr(id) orelse return error.QuestionNotOpen;
         try question.finish();
+        self.clearAccept(id);
+        self.clearJoin(id);
+        self.clearProvide(id);
     }
 
     pub fn resolveAnswer(self: *State, id: AnswerId, kind: MessageKind) Error!void {

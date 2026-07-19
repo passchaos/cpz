@@ -2145,6 +2145,8 @@ test "rpc top-level provide and join messages validate targets" {
         const tracked = state.provideInfo(61).?;
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 2), tracked.recipient_capability);
+        try state.finishQuestion(61);
+        try std.testing.expect(state.provideInfo(61) == null);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -2174,6 +2176,8 @@ test "rpc top-level provide and join messages validate targets" {
         const tracked = state.joinInfo(62).?;
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 63 } }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 4), tracked.key_part_capability);
+        try state.finishQuestion(62);
+        try std.testing.expect(state.joinInfo(62) == null);
     }
 }
 
@@ -2341,6 +2345,8 @@ test "rpc top-level accept messages open questions" {
     try state.applyWireMessage(std.testing.allocator, disembargo_message);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
+    try state.finishQuestion(64);
+    try std.testing.expect(state.acceptInfo(64) == null);
 }
 
 test "rpc disembargo helpers decode targets and loopback contexts" {

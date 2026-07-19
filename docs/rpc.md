@@ -126,7 +126,8 @@ that a complete RPC runtime exists.
   for future provision handling; callers can query when an accepted provision is
   ready for completion. Join top-level messages record target and key-part
   pointer usage, and Join result returns can initialize and decode their result
-  capability payloads. Top-level
+  capability payloads. Finish clears recorded Provide/Accept/Join handoff
+  bookkeeping for the finished question. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
   currently-structured handoff fields.
 - Generated accessors for capability and named-interface fields and list
