@@ -229,7 +229,7 @@ pub fn messageToPackedBytes(allocator: std.mem.Allocator, segments: []const Cons
     const out = try allocator.alloc(u8, packed_len);
     errdefer allocator.free(out);
     const written = try messageToPackedBytesInto(table, out, segments);
-    std.debug.assert(written == packed_len);
+    if (written != packed_len) return error.PackedOutputLengthMismatch;
     return out;
 }
 
