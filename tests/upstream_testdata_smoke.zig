@@ -673,3 +673,28 @@ test "upstream segmented fixtures serialize into caller buffers" {
     try std.testing.expectError(error.SegmentTableTruncated, reader.toPackedBytesInto(table_buffer[0..16], &packed_buffer));
     try std.testing.expectError(error.PackedOutputTooSmall, reader.toPackedBytesInto(&table_buffer, packed_buffer[0 .. segmented_packed.len - 1]));
 }
+
+test "upstream segmented view readers reject undersized caller buffers" {
+    const allocator = std.testing.allocator;
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+    const segmented_packed = try readFixture(allocator, "segmented-packed");
+    defer allocator.free(segmented_packed);
+
+    var short_segments: [124]cpz.ConstSegment = undefined;
+    try std.testing.expectError(error.SegmentTableTruncated, cpz.MessageReaderView.initFlatInto(&short_segments, segmented, .{}));
+
+    var enough_segments: [128]cpz.ConstSegment = undefined;
+    var too_small_flat_buffer: [5519]u8 = undefined;
+    var flat_stream = std.Io.Reader.fixed(segmented);
+    try std.testing.expectError(error.SerializedOutputTooSmall, cpz.MessageReaderView.initFromReaderInto(&enough_segments, &too_small_flat_buffer, &flat_stream, .{}));
+
+    var short_packed_segments: [124]cpz.ConstSegment = undefined;
+    var packed_flat_buffer: [8192]u8 = undefined;
+    try std.testing.expectError(error.SegmentTableTruncated, cpz.MessageReaderView.initPackedInto(&short_packed_segments, &packed_flat_buffer, segmented_packed, .{}));
+
+    var packed_stream_segments: [128]cpz.ConstSegment = undefined;
+    var too_small_packed_flat_buffer: [5519]u8 = undefined;
+    var packed_stream = std.Io.Reader.fixed(segmented_packed);
+    try std.testing.expectError(error.PackedOutputTooSmall, cpz.MessageReaderView.initPackedFromReaderInto(&packed_stream_segments, &too_small_packed_flat_buffer, &packed_stream, .{}));
+}
