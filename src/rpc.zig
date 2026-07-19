@@ -690,6 +690,7 @@ pub const State = struct {
 
     pub fn applyWireReturn(self: *State, allocator: std.mem.Allocator, return_: anytype) !void {
         const answer_id = return_.answerId();
+        const no_finish_needed = return_.noFinishNeeded();
         const descriptors = try capTableFromWireReturnResults(allocator, return_);
         defer allocator.free(descriptors);
 
@@ -697,6 +698,9 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.resolveAnswer(answer_id, .return_);
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
+        if (no_finish_needed and descriptors.len == 0) {
+            try self.finishQuestion(answer_id);
+        }
     }
 
     pub fn applyWireTargetedQuestion(self: *State, question_id: QuestionId, targeted: anytype) !void {

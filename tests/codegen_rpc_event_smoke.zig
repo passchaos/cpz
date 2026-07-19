@@ -405,6 +405,26 @@ test "rpc wire returns resolve answers and apply result cap tables" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(34));
 }
 
+test "rpc no-finish-needed returns complete questions without result caps" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const return_ = try root.init_return_();
+    try return_.set_answerId(54);
+    try return_.set_noFinishNeeded(true);
+    _ = try return_.init_results();
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(54, .call);
+    try state.applyWireReturn(std.testing.allocator, try message.return_());
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(54));
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(54));
+    try std.testing.expect(state.canReuseQuestionId(54));
+}
+
 test "rpc top-level wire messages apply calls and returns" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
