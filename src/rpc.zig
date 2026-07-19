@@ -54,6 +54,8 @@ pub const DispatchResult = union(enum) {
     empty,
     capability: ExportId,
     exception: ExceptionInfo,
+    canceled,
+    results_sent_elsewhere,
 };
 
 pub const AnyPointerUsage = struct {
@@ -1208,6 +1210,8 @@ pub fn initDispatchReturnMessage(message: anytype, answer_id: AnswerId, result: 
         .empty => initEmptyReturnMessage(message, answer_id, true, true),
         .capability => |export_id| initCapabilityReturnMessage(message, answer_id, export_id),
         .exception => |exception| initWireReturnException(try message.init_return_(), answer_id, true, false, exception),
+        .canceled => initWireReturnCanceled(try message.init_return_(), answer_id, true),
+        .results_sent_elsewhere => initWireReturnResultsSentElsewhere(try message.init_return_(), answer_id, true),
     };
 }
 

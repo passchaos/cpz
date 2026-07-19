@@ -1938,6 +1938,33 @@ test "rpc generic call dispatcher builds capability returns" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(105));
 }
 
+test "rpc generic dispatch return helper builds non-result outcomes" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initDispatchReturnMessage(root, 22, .canceled);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const return_ = try message.return_();
+        try std.testing.expect(return_.releaseParamCaps());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.canceled, try cpz.rpc.returnOutcomeFromWireReturn(return_));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initDispatchReturnMessage(root, 23, .results_sent_elsewhere);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const return_ = try message.return_();
+        try std.testing.expect(return_.releaseParamCaps());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results_sent_elsewhere, try cpz.rpc.returnOutcomeFromWireReturn(return_));
+    }
+}
+
 test "rpc single-message dispatcher routes calls and applies returns" {
     const BootstrapHandler = struct {
         fn handle(_: *u32, bootstrap: anytype) !u32 {
