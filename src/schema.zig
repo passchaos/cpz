@@ -5207,7 +5207,7 @@ fn findStructFieldByNameOrGroupFirst(decl: *const Struct, name: []const u8) ?*co
 pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!StructLayout {
     const fields = try allocator.alloc(FieldLayout, decl.fields.len);
     errdefer allocator.free(fields);
-    const union_count = countUnions(decl.fields);
+    const union_count = try countUnions(decl.fields);
     const unions = try allocator.alloc(UnionLayout, union_count);
     errdefer allocator.free(unions);
     for (unions, 0..) |*u, index| u.* = .{
@@ -5300,10 +5300,13 @@ const UnionRequirement = struct {
     has_pointer: bool = false,
 };
 
-fn countUnions(fields: []const Field) usize {
+fn countUnions(fields: []const Field) Error!usize {
     var count: usize = 0;
     for (fields) |field| {
-        if (field.union_index) |union_index| count = @max(count, @as(usize, @intCast(union_index)) + 1);
+        if (field.union_index) |union_index| {
+            const one_past = std.math.add(usize, @intCast(union_index), 1) catch return error.InvalidOrdinal;
+            count = @max(count, one_past);
+        }
     }
     return count;
 }
@@ -8163,10 +8166,19 @@ test "schema parser lowers anonymous unions and tolerates group blocks inside st
     try std.testing.expectEqualStrings("id", file.structs[0].fields[3].name);
     try std.testing.expectEqual(@as(?u32, 0), file.structs[0].fields[3].union_index);
     try std.testing.expectEqual(@as(u16, 1), file.structs[0].fields[3].union_discriminant);
+    try std.testing.expectEqual(@as(usize, 1), try countUnions(file.structs[0].fields));
     try std.testing.expectEqual(@as(u32, 0), try checkedUnionIndex(0));
     try std.testing.expectEqual(std.math.maxInt(u32), try checkedUnionIndex(std.math.maxInt(u32)));
     if (@bitSizeOf(usize) > @bitSizeOf(u32)) {
         try std.testing.expectError(error.InvalidOrdinal, checkedUnionIndex(@as(usize, std.math.maxInt(u32)) + 1));
+    } else {
+        const huge_union_field = [_]Field{.{
+            .name = "huge",
+            .ordinal = 0,
+            .ty = .void,
+            .union_index = std.math.maxInt(u32),
+        }};
+        try std.testing.expectError(error.InvalidOrdinal, countUnions(&huge_union_field));
     }
     try std.testing.expectEqual(@as(std.StringHashMap(void).Size, 0), try hashMapCapacityCount(0));
     try std.testing.expectEqual(std.math.maxInt(std.StringHashMap(void).Size), try hashMapCapacityCount(std.math.maxInt(std.StringHashMap(void).Size)));
