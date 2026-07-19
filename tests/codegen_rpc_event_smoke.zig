@@ -176,6 +176,30 @@ test "rpc payload helpers decode capability descriptor tables" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 14 } }, descriptors[2]);
 }
 
+test "rpc payload helpers write capability descriptor tables" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    try cpz.rpc.initWirePayloadCapTable(payload, &.{
+        .none,
+        .{ .sender_hosted = 16 },
+        .{ .sender_promise = 17 },
+        .{ .receiver_hosted = 18 },
+        .{ .receiver_answer = .{ .question_id = 19 } },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 5), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor.none, descriptors[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 16 }, descriptors[1]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_promise = 17 }, descriptors[2]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 18 }, descriptors[3]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 19 } }, descriptors[4]);
+}
+
 test "rpc payload helpers treat absent capability tables as empty" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

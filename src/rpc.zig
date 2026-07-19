@@ -396,6 +396,26 @@ pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
     };
 }
 
+pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !void {
+    switch (descriptor) {
+        .none => try builder.set_none(),
+        .sender_hosted => |id| try builder.set_senderHosted(id),
+        .sender_promise => |id| try builder.set_senderPromise(id),
+        .receiver_hosted => |id| try builder.set_receiverHosted(id),
+        .receiver_answer => |answer| {
+            const receiver_answer = try builder.init_receiverAnswer();
+            try receiver_answer.set_questionId(answer.question_id);
+        },
+    }
+}
+
+pub fn initWirePayloadCapTable(payload: anytype, descriptors: []const CapDescriptor) !void {
+    const cap_table = try payload.init_capTable(descriptors.len);
+    for (descriptors, 0..) |descriptor, index| {
+        try writeCapDescriptorToWire(descriptor, try cap_table.get(index));
+    }
+}
+
 pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {
     const cap_table = payload.capTable() catch |err| switch (err) {
         error.NullPointer => return allocator.alloc(CapDescriptor, 0),
