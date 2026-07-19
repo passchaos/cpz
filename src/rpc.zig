@@ -742,6 +742,19 @@ pub fn initWireReturn(
     try initWireReturnResultsCapTable(return_, descriptors);
 }
 
+pub fn initWireReturnAwaitFromThirdParty(
+    return_: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+) !void {
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try return_.set_awaitFromThirdParty_capability(capability_index);
+}
+
 pub fn initWireReturnMessage(
     allocator: std.mem.Allocator,
     message: anytype,

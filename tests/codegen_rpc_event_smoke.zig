@@ -843,6 +843,28 @@ test "rpc top-level finish and release helpers initialize messages" {
     }
 }
 
+test "rpc await-from-third-party return helpers write outcomes" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const return_ = try root.init_return_();
+    try cpz.rpc.initWireReturnAwaitFromThirdParty(return_, 85, false, true, 6);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    const return_reader = try message.return_();
+    try std.testing.expectEqual(@as(u32, 85), return_reader.answerId());
+    try std.testing.expect(!return_reader.releaseParamCaps());
+    try std.testing.expect(return_reader.noFinishNeeded());
+    const outcome = try cpz.rpc.returnOutcomeFromWireReturn(return_reader);
+    const usage = switch (outcome) {
+        .await_from_third_party => |value| value,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqual(@as(?u32, 6), usage.capability);
+    try std.testing.expectEqual(@as(usize, 7), usage.max_capability_count);
+}
+
 test "rpc wire returns resolve answers and apply result cap tables" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
