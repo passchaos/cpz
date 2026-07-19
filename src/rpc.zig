@@ -61,6 +61,66 @@ pub const WireEvent = union(WireMessageTag) {
         return std.meta.activeTag(self);
     }
 
+    pub fn isStateApplicable(self: WireEvent) bool {
+        return self.toStateEvent() != null;
+    }
+
+    pub fn isQuestionOpening(self: WireEvent) bool {
+        return switch (self) {
+            .bootstrap, .call => true,
+            else => false,
+        };
+    }
+
+    pub fn isQuestionClosing(self: WireEvent) bool {
+        return switch (self) {
+            .finish => true,
+            else => false,
+        };
+    }
+
+    pub fn isAnswerResolving(self: WireEvent) bool {
+        return switch (self) {
+            .return_ => true,
+            else => false,
+        };
+    }
+
+    pub fn isCapabilityRelease(self: WireEvent) bool {
+        return switch (self) {
+            .release => true,
+            else => false,
+        };
+    }
+
+    pub fn questionId(self: WireEvent) ?QuestionId {
+        return switch (self) {
+            .bootstrap, .call, .finish, .provide, .accept, .join => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn answerId(self: WireEvent) ?AnswerId {
+        return switch (self) {
+            .return_, .third_party_answer => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn exportId(self: WireEvent) ?ExportId {
+        return switch (self) {
+            .resolve => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn importId(self: WireEvent) ?ImportId {
+        return switch (self) {
+            .release => |id| id,
+            else => null,
+        };
+    }
+
     /// Project the decoded wire event into the small `State.apply()` vocabulary
     /// only when the ID semantics line up. Some rpc.capnp messages that look
     /// similar by name intentionally stay wire-only here: e.g. `Resolve` carries
@@ -430,6 +490,34 @@ test "rpc message kind predicates describe state-machine roles" {
     try testing.expectEqual(CapabilityRef{ .export_id = 5 }, provide_event.capabilityRef().?);
     const accept_event = Event{ .accept = 6 };
     try testing.expectEqual(CapabilityRef{ .import_id = 6 }, accept_event.capabilityRef().?);
+}
+
+test "rpc wire events expose classification and id helpers" {
+    const testing = std.testing;
+
+    const bootstrap = WireEvent{ .bootstrap = 12 };
+    try testing.expectEqual(WireMessageTag.bootstrap, bootstrap.tag());
+    try testing.expect(bootstrap.isStateApplicable());
+    try testing.expect(bootstrap.isQuestionOpening());
+    try testing.expect(!bootstrap.isQuestionClosing());
+    try testing.expectEqual(@as(?QuestionId, 12), bootstrap.questionId());
+
+    const return_event = WireEvent{ .return_ = 13 };
+    try testing.expect(return_event.isAnswerResolving());
+    try testing.expectEqual(@as(?AnswerId, 13), return_event.answerId());
+
+    const release_event = WireEvent{ .release = 14 };
+    try testing.expect(release_event.isCapabilityRelease());
+    try testing.expectEqual(@as(?ImportId, 14), release_event.importId());
+    try testing.expectEqual(@as(?ExportId, null), release_event.exportId());
+
+    const resolve_event = WireEvent{ .resolve = 15 };
+    try testing.expect(!resolve_event.isStateApplicable());
+    try testing.expectEqual(@as(?ExportId, 15), resolve_event.exportId());
+
+    const provide_event = WireEvent{ .provide = 16 };
+    try testing.expect(!provide_event.isStateApplicable());
+    try testing.expectEqual(@as(?QuestionId, 16), provide_event.questionId());
 }
 
 test "rpc question and answer trackers reject invalid transitions" {
