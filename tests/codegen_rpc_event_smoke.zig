@@ -2260,6 +2260,13 @@ test "rpc handoff info writers reject inconsistent capability flags" {
             .recipient_max_capability_count = 0,
             .recipient_capability = 0,
         }, provide));
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeProvideInfoToWire(.{
+            .question_id = 1,
+            .target = .{ .imported_cap = 2 },
+            .has_recipient = true,
+            .recipient_max_capability_count = 1,
+            .recipient_capability = null,
+        }, provide));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -2270,6 +2277,13 @@ test "rpc handoff info writers reject inconsistent capability flags" {
             .has_provision = false,
             .provision_max_capability_count = 0,
             .provision_capability = 0,
+            .embargo = null,
+        }, accept));
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeAcceptInfoToWire(.{
+            .question_id = 1,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = null,
             .embargo = null,
         }, accept));
     }
@@ -2284,6 +2298,13 @@ test "rpc handoff info writers reject inconsistent capability flags" {
             .key_part_max_capability_count = 0,
             .key_part_capability = 0,
         }, join));
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeJoinInfoToWire(.{
+            .question_id = 1,
+            .target = .{ .imported_cap = 2 },
+            .has_key_part = true,
+            .key_part_max_capability_count = 1,
+            .key_part_capability = null,
+        }, join));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -2293,6 +2314,11 @@ test "rpc handoff info writers reject inconsistent capability flags" {
             .answer_id = 1,
             .has_completion = false,
             .completion = .{ .max_capability_count = 1, .capability = 0 },
+        }, third_party_answer));
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeThirdPartyAnswerInfoToWire(.{
+            .answer_id = 1,
+            .has_completion = true,
+            .completion = .{ .max_capability_count = 1, .capability = null },
         }, third_party_answer));
     }
 }
