@@ -572,7 +572,11 @@ fn parseConstStructFieldsAlloc(allocator: std.mem.Allocator, expression: []const
         if (source[index] == ',') {
             index += 1;
             index = try skipTriviaIndex(source, index);
-            if (index >= source.len or source[index] == ')') return error.UnexpectedToken;
+            if (index >= source.len) return error.UnexpectedToken;
+            if (source[index] == ')') {
+                index += 1;
+                break;
+            }
             continue;
         }
         if (source[index] == ')') {
@@ -6630,7 +6634,7 @@ test "schema parser rejects malformed struct field defaults" {
         \\  id @0 :UInt32;
         \\}
         \\struct Bad {
-        \\  item @0 :Item = (id = 1,);
+        \\  item @0 :Item = (id = 1, = 2);
         \\}
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
@@ -6654,7 +6658,7 @@ test "schema parser rejects malformed struct field defaults" {
         \\struct Item {
         \\  id @0 :UInt32;
         \\}
-        \\const bad :Item = (id = 1,);
+        \\const bad :Item = (id = 1, = 2);
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\const bad :List(UInt32) = [1,];
@@ -7400,7 +7404,7 @@ test "schema parser rejects empty method field defaults" {
     ));
     try std.testing.expectError(error.UnexpectedToken, parse(std.testing.allocator,
         \\interface Bad {
-        \\  call @0 (item :Item = (id = 1,)) -> ();
+        \\  call @0 (item :Item = (id = 1, = 2)) -> ();
         \\}
         \\struct Item {
         \\  id @0 :UInt32;
@@ -8475,6 +8479,24 @@ test "schema parser tolerates list and struct field defaults" {
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_nums(self: Builder, @\"cpz.count\": usize)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn init_child(self: Builder)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "getDataDefault(\"bar\")") != null);
+}
+
+test "schema parser accepts trailing commas in struct defaults" {
+    var file = try parse(std.testing.allocator,
+        \\struct Pair {
+        \\  left @0 :Text;
+        \\  right @1 :Text;
+        \\}
+        \\const pair :Pair = (
+        \\  left = "a",
+        \\  right = "b",
+        \\);
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 1), file.consts.len);
+    try std.testing.expectEqual(@as(usize, 2), file.consts[0].struct_fields.?.len);
+    try std.testing.expectEqualStrings("right", file.consts[0].struct_fields.?[1].name);
 }
 
 test "schema parser rejects duplicate const struct field names" {
