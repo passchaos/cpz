@@ -15,6 +15,7 @@ pub const Error = wire.Error || std.mem.Allocator.Error || error{
     NestingLimitExceeded,
     TraversalLimitExceeded,
     SerializedSizeOverflow,
+    SegmentNotWordAligned,
     InvalidDefaultValue,
     TextNotNulTerminated,
     TextContainsInteriorNul,
@@ -2904,10 +2905,17 @@ pub const MessageReader = struct {
     /// The traversal consumes this reader's traversal budget just like normal
     /// accessor calls.
     pub fn validate(self: *MessageReader) Error!MessageStats {
+        try self.validateSegmentAlignment();
         var stats: MessageStats = .{};
         const root = PointerReader{ .message = self, .segment_id = 0, .word_index = 0, .nesting_left = self.options.nesting_limit };
         try validatePointer(root, &stats);
         return stats;
+    }
+
+    fn validateSegmentAlignment(self: *const MessageReader) Error!void {
+        for (self.segments) |segment| {
+            if (segment.len % wire.bytes_per_word != 0) return error.SegmentNotWordAligned;
+        }
     }
 
     pub fn validateWithOptions(self: *const MessageReader, options: ReaderOptions) Error!MessageStats {
@@ -3051,7 +3059,7 @@ pub const MessageReader = struct {
     fn segmentWords(self: *const MessageReader, segment_id: u32) Error!usize {
         if (segment_id >= self.segments.len) return error.SegmentOutOfBounds;
         const segment = self.segments[segment_id];
-        if (segment.len % wire.bytes_per_word != 0) return error.SegmentOutOfBounds;
+        if (segment.len % wire.bytes_per_word != 0) return error.SegmentNotWordAligned;
         return segment.len / wire.bytes_per_word;
     }
 
@@ -7932,6 +7940,11 @@ test "validation reports traversal budget and bounds failures" {
     const bad_segments = [_]serialize.ConstSegment{std.mem.sliceAsBytes(&bad_words)};
     var invalid = MessageReader.init(&bad_segments, .{});
     try testing.expectError(error.PointerOutOfBounds, invalid.validate());
+
+    const misaligned_segment = [_]u8{ 0, 0, 0, 0 };
+    var misaligned = MessageReader.init(&.{&misaligned_segment}, .{});
+    try testing.expectError(error.SegmentNotWordAligned, misaligned.validate());
+    try testing.expectError(error.SegmentNotWordAligned, misaligned.segmentWordLen(0));
 }
 
 test "message builder deep-copies from a reader" {
