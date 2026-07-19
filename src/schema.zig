@@ -5251,11 +5251,11 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
             const index: usize = @intCast(union_index);
             if (!union_allocated[index]) {
                 const discriminant_start = try allocateDataBits(allocator, &data_ranges, 16);
-                data_end_bit = @max(data_end_bit, discriminant_start + 16);
+                data_end_bit = @max(data_end_bit, try dataRangeEnd(discriminant_start, 16));
                 unions[index].discriminant_byte = discriminant_start / 8;
                 if (union_requirements[index].data_bits != 0) {
                     const start = try allocateDataBits(allocator, &data_ranges, union_requirements[index].data_bits);
-                    data_end_bit = @max(data_end_bit, start + union_requirements[index].data_bits);
+                    data_end_bit = @max(data_end_bit, try dataRangeEnd(start, union_requirements[index].data_bits));
                     unions[index].data_bit = start;
                     unions[index].data_bits = union_requirements[index].data_bits;
                 }
@@ -5270,7 +5270,7 @@ pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *
             .void => .void,
             .data => |bits| blk: {
                 const start = try allocateDataBits(allocator, &data_ranges, bits);
-                data_end_bit = @max(data_end_bit, start + bits);
+                data_end_bit = @max(data_end_bit, try dataRangeEnd(start, bits));
                 if (bits == 1) break :blk .{ .data_bit = start };
                 break :blk .{ .data_byte = start / 8 };
             },
@@ -5311,6 +5311,10 @@ fn countUnions(fields: []const Field) Error!usize {
     return count;
 }
 
+fn dataRangeEnd(start: usize, bits: usize) Error!usize {
+    return std.math.add(usize, start, bits) catch return error.InvalidOrdinal;
+}
+
 fn checkedUnionIndex(index: usize) Error!u32 {
     if (index > std.math.maxInt(u32)) return error.InvalidOrdinal;
     return @intCast(index);
@@ -5346,7 +5350,7 @@ fn allocateDataBits(allocator: std.mem.Allocator, ranges: *std.ArrayList(BitRang
     var start: usize = 0;
     while (true) {
         start = try alignForwardChecked(start, bits);
-        const end = std.math.add(usize, start, bits) catch return error.InvalidOrdinal;
+        const end = try dataRangeEnd(start, bits);
         var advanced = false;
         for (ranges.items) |range| {
             if (rangesOverlap(start, end, range.start, range.end)) {
@@ -8460,6 +8464,8 @@ test "schema layout planner reuses alignment padding holes" {
 
 test "schema layout planner reports alignment overflow" {
     try std.testing.expectError(error.InvalidOrdinal, alignForwardChecked(std.math.maxInt(usize), 64));
+    try std.testing.expectEqual(@as(usize, 65), try dataRangeEnd(1, 64));
+    try std.testing.expectError(error.InvalidOrdinal, dataRangeEnd(std.math.maxInt(usize), 1));
 
     var ranges = std.ArrayList(BitRange).empty;
     defer ranges.deinit(std.testing.allocator);
