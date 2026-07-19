@@ -33,6 +33,10 @@ fn readSingleSegmentFixture(allocator: std.mem.Allocator, name: []const u8, is_p
     return try cpz.unpack(allocator, bytes);
 }
 
+fn expectEqualBytes(expected: []const u8, actual: []const u8) !void {
+    try std.testing.expectEqualSlices(u8, expected, actual);
+}
+
 fn validateStreamFixture(name: []const u8, is_packed: bool) !void {
     var flat = try readStreamFixture(std.testing.allocator, name, is_packed);
     defer flat.deinit(std.testing.allocator);
@@ -260,4 +264,43 @@ test "upstream C++ binary fixtures parse and expose TestAllTypes values" {
     // validation is still valuable because it walks all reachable pointers.
     try validateStreamFixture("lists.binary", false);
     try validateStreamFixture("annotated-json.binary", false);
+}
+
+test "upstream C++ fixture bytes match cpz packing and framing" {
+    const allocator = std.testing.allocator;
+
+    const binary = try readFixture(allocator, "binary");
+    defer allocator.free(binary);
+    const packed_fixture = try readFixture(allocator, "packed");
+    defer allocator.free(packed_fixture);
+    const flat = try readFixture(allocator, "flat");
+    defer allocator.free(flat);
+    const packedflat = try readFixture(allocator, "packedflat");
+    defer allocator.free(packedflat);
+
+    const unpacked_packed = try cpz.unpack(allocator, packed_fixture);
+    defer allocator.free(unpacked_packed);
+    try expectEqualBytes(binary, unpacked_packed);
+
+    const repacked_binary = try cpz.pack(allocator, binary);
+    defer allocator.free(repacked_binary);
+    try expectEqualBytes(packed_fixture, repacked_binary);
+
+    const unpacked_packedflat = try cpz.unpack(allocator, packedflat);
+    defer allocator.free(unpacked_packedflat);
+    try expectEqualBytes(flat, unpacked_packedflat);
+
+    const repacked_flat = try cpz.pack(allocator, flat);
+    defer allocator.free(repacked_flat);
+    try expectEqualBytes(packedflat, repacked_flat);
+
+    var flat_message = try cpz.readFlatMessage(allocator, binary);
+    defer flat_message.deinit(allocator);
+    const reserialized_binary = try cpz.messageToFlatBytes(allocator, flat_message.segments);
+    defer allocator.free(reserialized_binary);
+    try expectEqualBytes(binary, reserialized_binary);
+
+    const reserialized_packed = try cpz.messageToPackedBytes(allocator, flat_message.segments);
+    defer allocator.free(reserialized_packed);
+    try expectEqualBytes(packed_fixture, reserialized_packed);
 }
