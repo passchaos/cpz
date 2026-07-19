@@ -98,6 +98,50 @@ test "rpc call target helpers decode imported caps and promised answers" {
     }
 }
 
+fn decodeCapDescriptor(builder: *cpz.MessageBuilder) !cpz.rpc.CapDescriptor {
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const descriptor = generated.CapDescriptor.fromReader(try reader.getRoot());
+    return cpz.rpc.capDescriptorFromWire(descriptor);
+}
+
+test "rpc cap descriptor helpers decode common capability table entries" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        _ = try generated.CapDescriptor.initRootTyped(&builder);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor.none, try decodeCapDescriptor(&builder));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
+        try descriptor.set_senderHosted(8);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 8 }, try decodeCapDescriptor(&builder));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
+        try descriptor.set_senderPromise(9);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_promise = 9 }, try decodeCapDescriptor(&builder));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
+        try descriptor.set_receiverHosted(10);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 10 }, try decodeCapDescriptor(&builder));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
+        const answer = try descriptor.init_receiverAnswer();
+        try answer.set_questionId(11);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 11 } }, try decodeCapDescriptor(&builder));
+    }
+}
+
 test "rpc provide accept and join wire events open questions" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

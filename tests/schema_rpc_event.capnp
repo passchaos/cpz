@@ -82,3 +82,18 @@ struct MessageTarget {
 struct PromisedAnswer {
   questionId @0 :QuestionId;
 }
+
+struct Payload {
+  content @0 :AnyPointer;
+  capTable @1 :List(CapDescriptor);
+}
+
+struct CapDescriptor {
+  union {
+    none @0 :Void;
+    senderHosted @1 :ExportId;
+    senderPromise @2 :ExportId;
+    receiverHosted @3 :ImportId;
+    receiverAnswer @4 :PromisedAnswer;
+  }
+}

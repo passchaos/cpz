@@ -47,6 +47,14 @@ pub const CallTarget = union(enum) {
     }
 };
 
+pub const CapDescriptor = union(enum) {
+    none,
+    sender_hosted: ExportId,
+    sender_promise: ExportId,
+    receiver_hosted: ImportId,
+    receiver_answer: PromisedAnswerTarget,
+};
+
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's
 /// `rpc.capnp`. Keeping the mapping here lets code generated from that schema
 /// be decoded without making this runtime module import a generated file.
@@ -363,6 +371,19 @@ pub fn targetFromWireMessageTarget(target: anytype) !CallTarget {
 
 pub fn callTargetFromWireCall(call: anytype) !CallTarget {
     return targetFromWireMessageTarget(try call.target());
+}
+
+pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
+    return switch (descriptor.which() orelse return error.InvalidTransition) {
+        .none => .none,
+        .senderHosted => .{ .sender_hosted = try descriptor.senderHosted() },
+        .senderPromise => .{ .sender_promise = try descriptor.senderPromise() },
+        .receiverHosted => .{ .receiver_hosted = try descriptor.receiverHosted() },
+        .receiverAnswer => blk: {
+            const promised_answer = try descriptor.receiverAnswer();
+            break :blk .{ .receiver_answer = .{ .question_id = promised_answer.questionId() } };
+        },
+    };
 }
 
 pub fn eventFromWireMessage(message: anytype) !WireEvent {

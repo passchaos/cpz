@@ -42,6 +42,8 @@ that a complete RPC runtime exists.
   resolution have been observed.
   Generated RPC `Call.target` readers can be decoded into a lightweight
   `CallTarget` for imported capabilities and promised answers.
+  Generated RPC `CapDescriptor` readers can be decoded for the common
+  none/sender/receiver capability-table entries.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.
