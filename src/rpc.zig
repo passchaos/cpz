@@ -577,11 +577,13 @@ pub const QuestionTracker = struct {
 pub const AnswerTracker = struct {
     id: AnswerId,
     state: AnswerState = .unresolved,
+    kind: ?MessageKind = null,
 
     pub fn resolve(self: *AnswerTracker, kind: MessageKind) Error!void {
         if (!kind.isAnswerResolving()) return error.InvalidTransition;
         if (!self.state.canResolve()) return error.AnswerAlreadyResolved;
         self.state = .resolved;
+        self.kind = kind;
     }
 };
 
@@ -2171,6 +2173,11 @@ pub const State = struct {
         return answer.state;
     }
 
+    pub fn answerKind(self: *const State, id: AnswerId) ?MessageKind {
+        const answer = self.answers.get(id) orelse return null;
+        return answer.kind;
+    }
+
     pub fn exportState(self: *const State, id: ExportId) ?CapabilityLifetime {
         const tracker = self.exports.get(id) orelse return null;
         return tracker.state;
@@ -2426,6 +2433,7 @@ test "rpc state tracks in-flight questions and answers" {
 
     try state.resolveAnswer(1, .return_);
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(1));
+    try testing.expectEqual(@as(?MessageKind, .return_), state.answerKind(1));
     try testing.expect(state.answerComplete(1));
     try testing.expectError(error.AnswerAlreadyResolved, state.resolveAnswer(1, .resolve));
     try testing.expectError(error.QuestionNotOpen, state.resolveAnswer(99, .return_));
@@ -2444,6 +2452,7 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(1));
     try testing.expectEqual(@as(?MessageKind, .bootstrap), state.questionKind(1));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
+    try testing.expectEqual(@as(?MessageKind, null), state.answerKind(1));
     try testing.expect(!state.answerComplete(1));
     try testing.expect(!state.canReuseQuestionId(1));
 }
