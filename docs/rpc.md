@@ -30,6 +30,8 @@ that a complete RPC runtime exists.
 - `cpz.rpc.eventFromWireMessage()` can decode the top-level `rpc.capnp` message
   union shape from generated readers into lightweight `WireEvent` values, and
   projects only the semantically-aligned subset into `State.apply()` events.
+  Release wire events preserve `referenceCount` so `State.applyWireEvent()` can
+  decrement import lifetimes without silently collapsing batched releases.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

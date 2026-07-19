@@ -19,6 +19,11 @@ pub const CapabilityRef = union(enum) {
     import_id: ImportId,
 };
 
+pub const CapabilityRelease = struct {
+    id: ImportId,
+    reference_count: u32,
+};
+
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's
 /// `rpc.capnp`. Keeping the mapping here lets code generated from that schema
 /// be decoded without making this runtime module import a generated file.
@@ -48,7 +53,7 @@ pub const WireEvent = union(WireMessageTag) {
     return_: AnswerId,
     finish: QuestionId,
     resolve: ExportId,
-    release: ImportId,
+    release: CapabilityRelease,
     disembargo: void,
     obsolete_save: void,
     obsolete_delete: void,
@@ -62,7 +67,11 @@ pub const WireEvent = union(WireMessageTag) {
     }
 
     pub fn isStateApplicable(self: WireEvent) bool {
-        return self.toStateEvent() != null;
+        return switch (self) {
+            .bootstrap, .call, .return_, .finish => true,
+            .release => |release| release.reference_count != 0,
+            else => false,
+        };
     }
 
     pub fn isQuestionOpening(self: WireEvent) bool {
@@ -116,7 +125,14 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn importId(self: WireEvent) ?ImportId {
         return switch (self) {
-            .release => |id| id,
+            .release => |release| release.id,
+            else => null,
+        };
+    }
+
+    pub fn releaseReferenceCount(self: WireEvent) ?u32 {
+        return switch (self) {
+            .release => |release| release.reference_count,
             else => null,
         };
     }
@@ -132,7 +148,7 @@ pub const WireEvent = union(WireMessageTag) {
             .call => |id| .{ .call = id },
             .return_ => |id| .{ .return_ = id },
             .finish => |id| .{ .finish = id },
-            .release => |id| .{ .release = .{ .import_id = id } },
+            .release => |release| if (release.reference_count == 1) .{ .release = .{ .import_id = release.id } } else null,
             else => null,
         };
     }
@@ -282,10 +298,18 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
     return struct {
         id: Id,
         state: CapabilityLifetime = .live,
+        reference_count: u32 = 1,
 
         pub fn release(self: *@This()) Error!void {
+            return self.releaseCount(1);
+        }
+
+        pub fn releaseCount(self: *@This(), count: u32) Error!void {
+            if (count == 0) return error.InvalidTransition;
             if (self.state != .live) return already_released_error;
-            self.state = .released;
+            if (count > self.reference_count) return error.InvalidTransition;
+            self.reference_count -= count;
+            if (self.reference_count == 0) self.state = .released;
         }
 
         pub fn isLive(self: @This()) bool {
@@ -308,7 +332,10 @@ pub fn eventFromWireMessage(message: anytype) !WireEvent {
         .return_ => .{ .return_ = (try message.return_()).answerId() },
         .finish => .{ .finish = (try message.finish()).questionId() },
         .resolve => .{ .resolve = (try message.resolve()).promiseId() },
-        .release => .{ .release = (try message.release()).id() },
+        .release => blk: {
+            const release = try message.release();
+            break :blk .{ .release = .{ .id = release.id(), .reference_count = release.referenceCount() } };
+        },
         .disembargo => .{ .disembargo = {} },
         .obsolete_save => .{ .obsolete_save = {} },
         .obsolete_delete => .{ .obsolete_delete = {} },
@@ -420,6 +447,11 @@ pub const State = struct {
         try tracker.release();
     }
 
+    pub fn releaseImportCount(self: *State, release: CapabilityRelease) Error!void {
+        const tracker = self.imports.getPtr(release.id) orelse return error.InvalidTransition;
+        try tracker.releaseCount(release.reference_count);
+    }
+
     pub fn releaseCapability(self: *State, capability: CapabilityRef) Error!void {
         return switch (capability) {
             .export_id => |id| self.releaseExport(id),
@@ -447,6 +479,11 @@ pub const State = struct {
         return tracker.state;
     }
 
+    pub fn importReferenceCount(self: *const State, id: ImportId) ?u32 {
+        const tracker = self.imports.get(id) orelse return null;
+        return tracker.reference_count;
+    }
+
     pub fn apply(self: *State, event: Event) (Error || std.mem.Allocator.Error)!void {
         return switch (event) {
             .bootstrap => |id| self.openQuestion(id, .bootstrap),
@@ -462,6 +499,7 @@ pub const State = struct {
     }
 
     pub fn applyWireEvent(self: *State, event: WireEvent) (Error || std.mem.Allocator.Error)!void {
+        if (event == .release) return self.releaseImportCount(event.release);
         const state_event = event.toStateEvent() orelse return error.InvalidTransition;
         return self.apply(state_event);
     }
@@ -506,9 +544,10 @@ test "rpc wire events expose classification and id helpers" {
     try testing.expect(return_event.isAnswerResolving());
     try testing.expectEqual(@as(?AnswerId, 13), return_event.answerId());
 
-    const release_event = WireEvent{ .release = 14 };
+    const release_event = WireEvent{ .release = .{ .id = 14, .reference_count = 3 } };
     try testing.expect(release_event.isCapabilityRelease());
     try testing.expectEqual(@as(?ImportId, 14), release_event.importId());
+    try testing.expectEqual(@as(?u32, 3), release_event.releaseReferenceCount());
     try testing.expectEqual(@as(?ExportId, null), release_event.exportId());
 
     const resolve_event = WireEvent{ .resolve = 15 };
@@ -647,11 +686,31 @@ test "rpc state applies only the semantically aligned wire event subset" {
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(41));
 
     try state.addImport(42);
-    try state.applyWireEvent(.{ .release = 42 });
+    try state.applyWireEvent(.{ .release = .{ .id = 42, .reference_count = 1 } });
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(42));
 
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .resolve = 99 }));
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .provide = 99 }));
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .accept = 99 }));
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .join = 99 }));
+}
+
+test "rpc wire release counts decrement import references" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try state.imports.put(50, .{ .id = 50, .reference_count = 3 });
+    try state.applyWireEvent(.{ .release = .{ .id = 50, .reference_count = 2 } });
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(50));
+    try testing.expectEqual(@as(?u32, 1), state.importReferenceCount(50));
+
+    try state.applyWireEvent(.{ .release = .{ .id = 50, .reference_count = 1 } });
+    try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(50));
+    try testing.expectEqual(@as(?u32, 0), state.importReferenceCount(50));
+    try testing.expectError(error.ImportAlreadyReleased, state.applyWireEvent(.{ .release = .{ .id = 50, .reference_count = 1 } }));
+
+    try state.imports.put(51, .{ .id = 51, .reference_count = 1 });
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .release = .{ .id = 51, .reference_count = 0 } }));
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .release = .{ .id = 51, .reference_count = 2 } }));
 }

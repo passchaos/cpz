@@ -55,8 +55,9 @@ test "rpc wire events decode generated message union tags and ids" {
         const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_release();
         try payload.set_id(15);
+        try payload.set_referenceCount(1);
         const event = try decode(&builder);
-        try std.testing.expectEqual(cpz.rpc.WireEvent{ .release = 15 }, event);
+        try std.testing.expectEqual(cpz.rpc.WireEvent{ .release = .{ .id = 15, .reference_count = 1 } }, event);
         try std.testing.expectEqual(cpz.rpc.Event{ .release = .{ .import_id = 15 } }, event.toStateEvent().?);
     }
 }
@@ -153,7 +154,28 @@ test "decoded wire events can drive the supported state subset" {
         const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_release();
         try payload.set_id(32);
+        try payload.set_referenceCount(1);
         try state.applyWireEvent(try decode(&builder));
         try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(32));
     }
+}
+
+test "rpc release wire events preserve reference counts" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.imports.put(41, .{ .id = 41, .reference_count = 3 });
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const payload = try root.init_release();
+    try payload.set_id(41);
+    try payload.set_referenceCount(2);
+
+    const event = try decode(&builder);
+    try std.testing.expectEqual(cpz.rpc.WireEvent{ .release = .{ .id = 41, .reference_count = 2 } }, event);
+    try std.testing.expect(event.toStateEvent() == null);
+    try state.applyWireEvent(event);
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(41));
+    try std.testing.expectEqual(@as(?u32, 1), state.importReferenceCount(41));
 }
