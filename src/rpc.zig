@@ -1686,6 +1686,10 @@ pub const State = struct {
         return question.state == .finished and answer.state == .resolved;
     }
 
+    pub fn questionReadyToForget(self: *const State, id: QuestionId) bool {
+        return self.questionComplete(id);
+    }
+
     pub fn answerComplete(self: *const State, id: AnswerId) bool {
         const answer = self.answers.get(id) orelse return false;
         return answer.state == .resolved;
@@ -1697,7 +1701,7 @@ pub const State = struct {
 
     pub fn forgetQuestion(self: *State, id: QuestionId) Error!void {
         if (!self.questions.contains(id) and !self.answers.contains(id)) return error.QuestionNotOpen;
-        if (!self.questionComplete(id)) return error.InvalidTransition;
+        if (!self.questionReadyToForget(id)) return error.InvalidTransition;
         self.clearParamImports(id);
         self.clearResultImports(id);
         self.clearAccept(id);
@@ -2439,6 +2443,7 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectError(error.QuestionNotOpen, state.resolveAnswer(99, .return_));
 
     try testing.expect(state.questionComplete(1));
+    try testing.expect(state.questionReadyToForget(1));
     try testing.expect(state.canReuseQuestionId(1));
     try state.forgetQuestion(1);
     try testing.expect(!state.hasQuestion(1));
@@ -2454,6 +2459,7 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
     try testing.expectEqual(@as(?MessageKind, null), state.answerKind(1));
     try testing.expect(!state.answerComplete(1));
+    try testing.expect(!state.questionReadyToForget(1));
     try testing.expect(!state.canReuseQuestionId(1));
 }
 
