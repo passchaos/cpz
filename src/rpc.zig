@@ -386,6 +386,16 @@ pub fn capDescriptorFromWire(descriptor: anytype) !CapDescriptor {
     };
 }
 
+pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {
+    const cap_table = try payload.capTable();
+    const descriptors = try allocator.alloc(CapDescriptor, cap_table.len());
+    errdefer allocator.free(descriptors);
+    for (descriptors, 0..) |*descriptor, index| {
+        descriptor.* = try capDescriptorFromWire(try cap_table.get(index));
+    }
+    return descriptors;
+}
+
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
     const raw_discriminant = message.whichDiscriminant();
     const tag = std.enums.fromInt(WireMessageTag, raw_discriminant) orelse return error.InvalidTransition;
