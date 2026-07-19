@@ -142,6 +142,44 @@ test "rpc allocating call target helpers decode promised-answer transforms" {
     try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp{ .get_pointer_field = 2 }, promised_decoded.transform[1]);
 }
 
+test "rpc call target helpers write message targets" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const target = try generated.MessageTarget.initRootTyped(&builder);
+        try cpz.rpc.writeCallTargetToWire(.{ .imported_cap = 44 }, target);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const target_reader = generated.MessageTarget.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 44 }, try cpz.rpc.targetFromWireMessageTarget(target_reader));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const target = try generated.MessageTarget.initRootTyped(&builder);
+        var ops = [_]cpz.rpc.PromisedAnswerOp{.{ .get_pointer_field = 6 }};
+        const owned = cpz.rpc.CallTargetOwned{
+            .promised_answer = .{
+                .question_id = 45,
+                .transform = ops[0..],
+            },
+        };
+        try cpz.rpc.writeCallTargetOwnedToWire(owned, target);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const target_reader = generated.MessageTarget.fromReader(try reader.getRoot());
+        var decoded = try cpz.rpc.targetFromWireMessageTargetAlloc(std.testing.allocator, target_reader);
+        defer decoded.deinit(std.testing.allocator);
+        const promised = switch (decoded) {
+            .promised_answer => |answer| answer,
+            else => return error.TestUnexpectedResult,
+        };
+        try std.testing.expectEqual(@as(u32, 45), promised.question_id);
+        try std.testing.expectEqual(@as(usize, 1), promised.transform.len);
+        try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp{ .get_pointer_field = 6 }, promised.transform[0]);
+    }
+}
+
 test "rpc promised answer helpers decode transform paths" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });

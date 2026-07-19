@@ -425,6 +425,27 @@ pub fn targetFromWireMessageTargetAlloc(allocator: std.mem.Allocator, target: an
     };
 }
 
+pub fn writeCallTargetToWire(target: CallTarget, builder: anytype) !void {
+    switch (target) {
+        .imported_cap => |id| try builder.set_importedCap(id),
+        .promised_answer => |answer| {
+            const promised_answer = try builder.init_promisedAnswer();
+            try promised_answer.set_questionId(answer.question_id);
+        },
+    }
+}
+
+pub fn writeCallTargetOwnedToWire(target: CallTargetOwned, builder: anytype) !void {
+    switch (target) {
+        .imported_cap => |id| try builder.set_importedCap(id),
+        .promised_answer => |answer| {
+            const promised_answer = try builder.init_promisedAnswer();
+            try promised_answer.set_questionId(answer.question_id);
+            try initWirePromisedAnswerTransform(promised_answer, answer.transform);
+        },
+    }
+}
+
 pub fn promisedAnswerTransformFromWireAlloc(allocator: std.mem.Allocator, promised_answer: anytype) ![]PromisedAnswerOp {
     const transform = promised_answer.transform() catch |err| switch (err) {
         error.NullPointer => return allocator.alloc(PromisedAnswerOp, 0),
