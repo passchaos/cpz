@@ -2656,7 +2656,34 @@ pub const Parser = struct {
         };
 
         for (struct_fields) |const_field| {
+            if (structFieldByName(struct_decl, const_field.name)) |schema_field| {
+                try self.validateDefaultLiteralForTypeSyntax(schema_field.ty, const_field.literal);
+                continue;
+            }
+            if (structHasFlattenedGroupName(struct_decl, const_field.name) and std.mem.trim(u8, const_field.literal, " \t\r\n")[0] == '(') {
+                try self.validateFlattenedGroupDefaultForTypeSyntax(struct_decl, const_field.name, const_field.literal);
+                continue;
+            }
             const schema_field = structFieldByNameOrGroupFirst(struct_decl, const_field.name) orelse return error.UnexpectedToken;
+            try self.validateDefaultLiteralForTypeSyntax(schema_field.ty, const_field.literal);
+        }
+    }
+
+    fn validateFlattenedGroupDefaultForTypeSyntax(self: *Parser, struct_decl: *const Struct, group_name: []const u8, expression: []const u8) Error!void {
+        const struct_fields = try parseConstStructFieldsAlloc(self.allocator, expression);
+        defer self.allocator.free(struct_fields);
+        for (struct_fields) |const_field| {
+            const flattened_name = try std.fmt.allocPrint(self.allocator, "{s}_{s}", .{ group_name, const_field.name });
+            defer self.allocator.free(flattened_name);
+            if (structFieldByName(struct_decl, flattened_name)) |schema_field| {
+                try self.validateDefaultLiteralForTypeSyntax(schema_field.ty, const_field.literal);
+                continue;
+            }
+            if (structHasFlattenedGroupName(struct_decl, flattened_name) and std.mem.trim(u8, const_field.literal, " \t\r\n")[0] == '(') {
+                try self.validateFlattenedGroupDefaultForTypeSyntax(struct_decl, flattened_name, const_field.literal);
+                continue;
+            }
+            const schema_field = structFieldByNameOrGroupFirst(struct_decl, flattened_name) orelse return error.UnexpectedToken;
             try self.validateDefaultLiteralForTypeSyntax(schema_field.ty, const_field.literal);
         }
     }
@@ -2669,10 +2696,27 @@ pub const Parser = struct {
         return null;
     }
 
-    fn structFieldByNameOrGroupFirst(decl: *const Struct, name: []const u8) ?*const Field {
+    fn structFieldByName(decl: *const Struct, name: []const u8) ?*const Field {
         for (decl.fields) |*field| {
             if (std.mem.eql(u8, field.name, name)) return field;
         }
+        return null;
+    }
+
+    fn structHasFlattenedGroupName(decl: *const Struct, name: []const u8) bool {
+        for (decl.fields) |field| {
+            if (field.name.len > name.len + 1 and
+                std.mem.startsWith(u8, field.name, name) and
+                field.name[name.len] == '_')
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn structFieldByNameOrGroupFirst(decl: *const Struct, name: []const u8) ?*const Field {
+        if (structFieldByName(decl, name)) |field| return field;
         for (decl.fields) |*field| {
             if (field.name.len > name.len + 1 and
                 std.mem.startsWith(u8, field.name, name) and
@@ -8826,6 +8870,31 @@ test "schema layout planner handles group members inside unions" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, layout.fields[2].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[3].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[4].slot);
+}
+
+test "schema parser validates defaults for flattened union groups" {
+    var file = try parse(std.testing.allocator,
+        \\struct Choice {
+        \\  selected :union {
+        \\    foo :group {
+        \\      id @0 :UInt32;
+        \\      label @1 :Text;
+        \\    }
+        \\    bar :group {
+        \\      flag @2 :Bool;
+        \\    }
+        \\  }
+        \\}
+        \\struct Defaults {
+        \\  choice @0 :Choice = (selected = (foo = (id = 123, label = "ok")));
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 2), file.structs.len);
+    try std.testing.expectEqualStrings("(selected = (foo = (id = 123, label = \"ok\")))", file.structs[1].fields[0].default_expression);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
 }
 
 test "schema layout planner reuses alignment padding holes" {
