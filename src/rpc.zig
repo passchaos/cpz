@@ -581,6 +581,14 @@ pub fn joinInfoFromWireJoin(join: anytype) !JoinInfo {
     };
 }
 
+pub fn writeJoinInfoToWire(info: JoinInfo, join: anytype) !void {
+    try join.set_questionId(info.question_id);
+    try writeCallTargetToWire(info.target, try join.init_target());
+    if (info.key_part_capability) |index| {
+        (try join.get_keyPartAsPointer()).setCapability(index);
+    }
+}
+
 pub fn disembargoInfoFromWireDisembargo(disembargo: anytype) !DisembargoInfo {
     const target = try targetFromWireTargetedMessage(disembargo);
     const context: DisembargoContext = switch (disembargo.which() orelse return error.InvalidTransition) {

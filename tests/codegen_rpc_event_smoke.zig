@@ -858,6 +858,28 @@ test "rpc provide info helpers write targets and recipients" {
     try std.testing.expectEqual(@as(?u32, 2), info.recipient_capability);
 }
 
+test "rpc join info helpers write targets and key parts" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const join = try generated.Join.initRootTyped(&builder);
+    try cpz.rpc.writeJoinInfoToWire(.{
+        .question_id = 71,
+        .target = .{ .imported_cap = 72 },
+        .has_key_part = true,
+        .key_part_max_capability_count = 6,
+        .key_part_capability = 5,
+    }, join);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const join_reader = generated.Join.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.joinInfoFromWireJoin(join_reader);
+    try std.testing.expectEqual(@as(u32, 71), info.question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 72 }, info.target);
+    try std.testing.expect(info.has_key_part);
+    try std.testing.expectEqual(@as(usize, 6), info.key_part_max_capability_count);
+    try std.testing.expectEqual(@as(?u32, 5), info.key_part_capability);
+}
+
 test "rpc top-level accept messages open questions" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
