@@ -48,10 +48,11 @@ that a complete RPC runtime exists.
   question finished so its ID can be reused.
   Release wire events preserve `referenceCount` so `State.applyWireEvent()` can
   decrement import lifetimes without silently collapsing batched releases.
-  Resolve wire events mark an existing export promise as resolved, can decode,
-  write, and apply replacement cap descriptors or broken-promise exceptions,
-  can initialize top-level Resolve messages, and do not conflate the official
-  `ExportId` with answer IDs.
+  Resolve wire events mark an existing export promise as resolved, remember the
+  replacement cap descriptor for future forwarding, can decode/write/apply
+  replacement cap descriptors or broken-promise exceptions, can initialize
+  top-level Resolve messages, and do not conflate the official `ExportId` with
+  answer IDs.
   Finish wire events preserve the official `releaseResultCaps` flag while still
   projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official
@@ -128,8 +129,9 @@ that a complete RPC runtime exists.
 ## Next useful increments
 
 1. Model the remaining official RPC semantics that are still only structural:
-   `Resolve` target replacement, `Disembargo`, full `Accept.provision`/embargo
-   state handling, `Join` result handling, and third-party cap descriptors.
+   `Resolve` forwarding to remembered targets, full `Disembargo`,
+   `Accept.provision`/embargo state handling, `Join` result handling, and
+   third-party cap descriptors.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation.

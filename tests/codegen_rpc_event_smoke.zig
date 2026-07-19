@@ -2037,6 +2037,7 @@ test "rpc resolve cap descriptors replace promise exports" {
     try state.addExport(90);
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?bool, true), state.exportResolved(90));
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 91 }, state.exportResolution(90).?);
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(91));
 }
 
@@ -2064,6 +2065,7 @@ test "rpc resolve exceptions mark promise exports resolved" {
     try state.addExport(96);
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?bool, true), state.exportResolved(96));
+    try std.testing.expect(state.exportResolution(96) == null);
 }
 
 test "rpc resolve info helpers write cap descriptors" {
@@ -2121,6 +2123,7 @@ test "rpc top-level resolve helpers initialize messages" {
     try state.addExport(94);
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?bool, true), state.exportResolved(94));
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 95 }, state.exportResolution(94).?);
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(95));
 }
 
@@ -2146,6 +2149,7 @@ test "rpc top-level resolve helpers initialize exceptions" {
     try state.addExport(98);
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?bool, true), state.exportResolved(98));
+    try std.testing.expect(state.exportResolution(98) == null);
 }
 
 test "decoded wire events can drive the supported state subset" {

@@ -466,6 +466,7 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
         state: CapabilityLifetime = .live,
         reference_count: u32 = 1,
         resolved: bool = false,
+        resolution: ?CapDescriptor = null,
 
         pub fn release(self: *@This()) Error!void {
             return self.releaseCount(1);
@@ -480,9 +481,14 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
         }
 
         pub fn resolve(self: *@This()) Error!void {
+            try self.resolveTo(null);
+        }
+
+        pub fn resolveTo(self: *@This(), resolution: ?CapDescriptor) Error!void {
             if (self.state != .live) return error.InvalidTransition;
             if (self.resolved) return error.InvalidTransition;
             self.resolved = true;
+            self.resolution = resolution;
         }
 
         pub fn isLive(self: @This()) bool {
@@ -1455,7 +1461,7 @@ pub const State = struct {
     pub fn applyWireResolve(self: *State, resolve: anytype) !void {
         const info = try resolveInfoFromWireResolve(resolve);
         if (info.cap) |descriptor| try self.validateCapDescriptor(descriptor);
-        try self.resolveExport(info.promise_id);
+        try self.resolveExportTo(info.promise_id, info.cap);
         if (info.cap) |descriptor| try self.applyCapDescriptor(descriptor);
     }
 
@@ -1495,8 +1501,12 @@ pub const State = struct {
     }
 
     pub fn resolveExport(self: *State, id: ExportId) Error!void {
+        try self.resolveExportTo(id, null);
+    }
+
+    pub fn resolveExportTo(self: *State, id: ExportId, resolution: ?CapDescriptor) Error!void {
         const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
-        try tracker.resolve();
+        try tracker.resolveTo(resolution);
     }
 
     pub fn releaseImport(self: *State, id: ImportId) Error!void {
@@ -1534,6 +1544,11 @@ pub const State = struct {
     pub fn exportResolved(self: *const State, id: ExportId) ?bool {
         const tracker = self.exports.get(id) orelse return null;
         return tracker.resolved;
+    }
+
+    pub fn exportResolution(self: *const State, id: ExportId) ?CapDescriptor {
+        const tracker = self.exports.get(id) orelse return null;
+        return tracker.resolution;
     }
 
     pub fn importState(self: *const State, id: ImportId) ?CapabilityLifetime {
@@ -1928,9 +1943,11 @@ test "rpc wire resolve marks existing exports resolved" {
 
     try state.addExport(48);
     try testing.expectEqual(@as(?bool, false), state.exportResolved(48));
+    try testing.expect(state.exportResolution(48) == null);
     try state.applyWireEvent(.{ .resolve = 48 });
     try testing.expectEqual(@as(?CapabilityLifetime, .live), state.exportState(48));
     try testing.expectEqual(@as(?bool, true), state.exportResolved(48));
+    try testing.expect(state.exportResolution(48) == null);
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .resolve = 48 }));
 
     try state.addExport(49);
