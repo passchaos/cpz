@@ -382,6 +382,95 @@ test "message size byte helper methods" {
     try testing.expect(size.hasCapabilities());
 }
 
+pub fn CapabilityTable(comptime T: type) type {
+    return struct {
+        /// Application-owned capability handles indexed by wire capability
+        /// pointer values.  The table is intentionally a non-owning slice: RPC
+        /// systems decide handle lifetime and synchronization, while cpz only
+        /// provides the safe index-to-handle bridge.
+        entries: []const T = &.{},
+
+        pub fn init(entries: []const T) @This() {
+            return .{ .entries = entries };
+        }
+
+        pub fn len(self: @This()) usize {
+            return self.entries.len;
+        }
+
+        pub fn isEmpty(self: @This()) bool {
+            return self.entries.len == 0;
+        }
+
+        pub fn hasIndex(self: @This(), index: u32) bool {
+            const usize_index = std.math.cast(usize, index) orelse return false;
+            return usize_index < self.entries.len;
+        }
+
+        pub fn get(self: @This(), index: u32) Error!T {
+            const usize_index = std.math.cast(usize, index) orelse return error.InvalidCapabilityPointer;
+            if (usize_index >= self.entries.len) return error.InvalidCapabilityPointer;
+            return self.entries[usize_index];
+        }
+
+        pub fn getPointer(self: @This(), pointer: PointerReader) Error!T {
+            return self.get(try pointer.getCapabilityIndex());
+        }
+
+        pub fn getPointerBuilder(self: @This(), pointer: PointerBuilder) Error!T {
+            return self.get(try pointer.getCapabilityIndex());
+        }
+
+        pub fn getOrphan(self: @This(), orphan: Orphan) Error!T {
+            return self.get(try orphan.getCapabilityIndex());
+        }
+
+        pub fn maxCount(self: @This()) usize {
+            return self.entries.len;
+        }
+
+        pub fn satisfiesStats(self: @This(), stats: MessageStats) bool {
+            return stats.maxCapabilityCount() <= self.entries.len;
+        }
+
+        pub fn validateStats(self: @This(), stats: MessageStats) Error!void {
+            if (!self.satisfiesStats(stats)) return error.InvalidCapabilityPointer;
+        }
+    };
+}
+
+test "capability table maps wire indexes to application handles" {
+    const testing = std.testing;
+    const handles = [_][]const u8{ "bootstrap", "logger", "store" };
+    const table = CapabilityTable([]const u8).init(&handles);
+
+    try testing.expectEqual(@as(usize, 3), table.len());
+    try testing.expect(!table.isEmpty());
+    try testing.expect(table.hasIndex(2));
+    try testing.expect(!table.hasIndex(3));
+    try testing.expectEqualStrings("logger", try table.get(1));
+    try testing.expectError(error.InvalidCapabilityPointer, table.get(3));
+
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 4 });
+    defer builder.deinit();
+    try builder.setRootCapability(2);
+    try testing.expectEqualStrings("store", try table.getPointerBuilder(try builder.getRootPointer()));
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    try testing.expectEqualStrings("store", try table.getPointer(try reader.getRootPointer()));
+    const stats = try reader.validate();
+    try testing.expect(table.satisfiesStats(stats));
+    try table.validateStats(stats);
+
+    const short_table = CapabilityTable([]const u8).init(handles[0..2]);
+    try testing.expect(!short_table.satisfiesStats(stats));
+    try testing.expectError(error.InvalidCapabilityPointer, short_table.validateStats(stats));
+
+    var orphan = (try builder.getRootPointer()).disown();
+    defer orphan.release();
+    try testing.expectEqualStrings("store", try table.getOrphan(orphan));
+}
+
 pub const OwnedMessageReader = struct {
     flat: serialize.FlatMessage,
     reader: MessageReader,

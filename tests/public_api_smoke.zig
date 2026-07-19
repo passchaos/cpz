@@ -22,3 +22,17 @@ test "top-level pointer encode decode aliases match wire helpers" {
     try std.testing.expectEqual(try cpz.decodeCapabilityPointer(cap_raw), try cpz.wire.decodeOther(cap_raw));
     try std.testing.expectEqual((try cpz.decodePointer(cap_raw)).other, try cpz.decodeCapabilityPointer(cap_raw));
 }
+
+test "top-level capability table resolves capability pointers" {
+    const handles = [_]u32{ 10, 20, 30 };
+    const table = cpz.CapabilityTable(u32).init(&handles);
+    try std.testing.expectEqual(@as(usize, 3), table.maxCount());
+    try std.testing.expectEqual(@as(u32, 30), try table.get(2));
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{});
+    defer builder.deinit();
+    try builder.setRootCapability(1);
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 20), try table.getPointer(try reader.getRootPointer()));
+    try std.testing.expect(table.satisfiesStats(try reader.validate()));
+}
