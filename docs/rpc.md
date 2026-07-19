@@ -117,8 +117,8 @@ that a complete RPC runtime exists.
   target validation, question opening, and params capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
-  call/return payload-aware application or simpler state events; Provide/Join
-  top-level messages validate their targets before opening questions, while
+  call/return payload-aware application or simpler state events; Provide
+  top-level messages validate targets and record recipient pointer usage.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
   for future provision handling. Join top-level messages record target and

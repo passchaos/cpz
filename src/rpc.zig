@@ -131,6 +131,23 @@ pub const JoinTracker = struct {
     }
 };
 
+pub const ProvideTracker = struct {
+    question_id: QuestionId,
+    target: CallTarget,
+    has_recipient: bool,
+    recipient: ?AnyPointerUsage = null,
+
+    pub fn info(self: @This()) ProvideInfo {
+        return .{
+            .question_id = self.question_id,
+            .target = self.target,
+            .has_recipient = self.has_recipient,
+            .recipient_max_capability_count = if (self.recipient) |recipient| recipient.max_capability_count else 0,
+            .recipient_capability = if (self.recipient) |recipient| recipient.capability else null,
+        };
+    }
+};
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -1457,6 +1474,7 @@ pub const State = struct {
     result_imports: std.AutoHashMap(AnswerId, []ImportId),
     accepts: std.AutoHashMap(QuestionId, AcceptTracker),
     joins: std.AutoHashMap(QuestionId, JoinTracker),
+    provides: std.AutoHashMap(QuestionId, ProvideTracker),
 
     pub fn init(allocator: std.mem.Allocator) State {
         return .{
@@ -1469,10 +1487,12 @@ pub const State = struct {
             .result_imports = std.AutoHashMap(AnswerId, []ImportId).init(allocator),
             .accepts = std.AutoHashMap(QuestionId, AcceptTracker).init(allocator),
             .joins = std.AutoHashMap(QuestionId, JoinTracker).init(allocator),
+            .provides = std.AutoHashMap(QuestionId, ProvideTracker).init(allocator),
         };
     }
 
     pub fn deinit(self: *State) void {
+        self.provides.deinit();
         self.joins.deinit();
         var accepts = self.accepts.valueIterator();
         while (accepts.next()) |accept| accept.deinit(self.allocator);
@@ -1549,6 +1569,10 @@ pub const State = struct {
         _ = self.joins.remove(id);
     }
 
+    fn clearProvide(self: *State, id: QuestionId) void {
+        _ = self.provides.remove(id);
+    }
+
     pub fn questionComplete(self: *const State, id: QuestionId) bool {
         const question = self.questions.get(id) orelse return false;
         const answer = self.answers.get(id) orelse return false;
@@ -1579,6 +1603,7 @@ pub const State = struct {
             self.clearResultImports(id);
             self.clearAccept(id);
             self.clearJoin(id);
+            self.clearProvide(id);
             existing_question.* = .{ .id = id };
             try existing_question.open(kind);
             existing_answer.* = .{ .id = id };
@@ -1737,6 +1762,19 @@ pub const State = struct {
         });
     }
 
+    fn trackProvide(self: *State, info: ProvideInfo) std.mem.Allocator.Error!void {
+        _ = self.provides.remove(info.question_id);
+        try self.provides.put(info.question_id, .{
+            .question_id = info.question_id,
+            .target = info.target,
+            .has_recipient = info.has_recipient,
+            .recipient = if (info.has_recipient) .{
+                .max_capability_count = info.recipient_max_capability_count,
+                .capability = info.recipient_capability,
+            } else null,
+        });
+    }
+
     fn markAcceptedEmbargoReleased(self: *State, embargo: []const u8) void {
         var iterator = self.accepts.valueIterator();
         while (iterator.next()) |accept| {
@@ -1849,6 +1887,13 @@ pub const State = struct {
         try self.openQuestion(question_id, .call);
     }
 
+    pub fn applyWireProvide(self: *State, provide: anytype) !void {
+        const info = try provideInfoFromWireProvide(provide);
+        try self.validateCallTarget(info.target);
+        try self.openQuestion(info.question_id, .call);
+        try self.trackProvide(info);
+    }
+
     pub fn applyWireAccept(self: *State, accept: anytype) !void {
         const info = try acceptInfoFromWireAccept(accept);
         try self.openQuestion(info.question_id, .call);
@@ -1869,7 +1914,7 @@ pub const State = struct {
             .return_ => self.applyWireReturn(allocator, try message.return_()),
             .resolve => self.applyWireResolve(try message.resolve()),
             .disembargo => self.applyWireDisembargo(try message.disembargo()),
-            .provide => |id| self.applyWireTargetedQuestion(id, try message.provide()),
+            .provide => self.applyWireProvide(try message.provide()),
             .accept => self.applyWireAccept(try message.accept()),
             .join => self.applyWireJoin(try message.join()),
             else => self.applyWireEvent(event),
@@ -1969,6 +2014,15 @@ pub const State = struct {
 
     pub fn joinCount(self: *const State) usize {
         return self.joins.count();
+    }
+
+    pub fn provideInfo(self: *const State, id: QuestionId) ?ProvideInfo {
+        const tracker = self.provides.get(id) orelse return null;
+        return tracker.info();
+    }
+
+    pub fn provideCount(self: *const State) usize {
+        return self.provides.count();
     }
 
     pub fn apply(self: *State, event: Event) (Error || std.mem.Allocator.Error)!void {
@@ -2315,6 +2369,7 @@ test "rpc wire provide accept and join open questions without projecting to capa
     try state.applyWireEvent(provide);
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(71));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(71));
+    try testing.expectEqual(@as(usize, 0), state.provideCount());
 
     const accept = WireEvent{ .accept = 72 };
     try testing.expect(accept.toStateEvent() == null);

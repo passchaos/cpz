@@ -2065,6 +2065,9 @@ test "rpc top-level provide and join messages validate targets" {
         try state.addImport(70);
         try state.applyWireMessage(std.testing.allocator, message);
         try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(61));
+        const tracked = state.provideInfo(61).?;
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, tracked.target);
+        try std.testing.expectEqual(@as(?u32, 2), tracked.recipient_capability);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
