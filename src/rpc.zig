@@ -181,6 +181,14 @@ pub const ProvideTracker = struct {
     }
 };
 
+pub const CallInfo = struct {
+    question_id: QuestionId,
+    target: CallTarget,
+    method: CallMethod,
+    send_results_to: CallSendResultsTo,
+    flags: CallFlags,
+};
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -1563,6 +1571,7 @@ pub const State = struct {
     accepts: std.AutoHashMap(QuestionId, AcceptTracker),
     joins: std.AutoHashMap(QuestionId, JoinTracker),
     provides: std.AutoHashMap(QuestionId, ProvideTracker),
+    calls: std.AutoHashMap(QuestionId, CallInfo),
 
     pub fn init(allocator: std.mem.Allocator) State {
         return .{
@@ -1576,10 +1585,12 @@ pub const State = struct {
             .accepts = std.AutoHashMap(QuestionId, AcceptTracker).init(allocator),
             .joins = std.AutoHashMap(QuestionId, JoinTracker).init(allocator),
             .provides = std.AutoHashMap(QuestionId, ProvideTracker).init(allocator),
+            .calls = std.AutoHashMap(QuestionId, CallInfo).init(allocator),
         };
     }
 
     pub fn deinit(self: *State) void {
+        self.calls.deinit();
         self.provides.deinit();
         self.joins.deinit();
         var accepts = self.accepts.valueIterator();
@@ -1661,6 +1672,10 @@ pub const State = struct {
         _ = self.provides.remove(id);
     }
 
+    fn clearCallInfo(self: *State, id: QuestionId) void {
+        _ = self.calls.remove(id);
+    }
+
     pub fn questionComplete(self: *const State, id: QuestionId) bool {
         const question = self.questions.get(id) orelse return false;
         const answer = self.answers.get(id) orelse return false;
@@ -1704,6 +1719,7 @@ pub const State = struct {
             self.clearAccept(id);
             self.clearJoin(id);
             self.clearProvide(id);
+            self.clearCallInfo(id);
             existing_question.* = .{ .id = id };
             try existing_question.open(kind);
             existing_answer.* = .{ .id = id };
@@ -1725,6 +1741,7 @@ pub const State = struct {
         self.clearAccept(id);
         self.clearJoin(id);
         self.clearProvide(id);
+        self.clearCallInfo(id);
     }
 
     pub fn resolveAnswer(self: *State, id: AnswerId, kind: MessageKind) Error!void {
@@ -1878,6 +1895,11 @@ pub const State = struct {
         });
     }
 
+    fn trackCallInfo(self: *State, info: CallInfo) std.mem.Allocator.Error!void {
+        _ = self.calls.remove(info.question_id);
+        try self.calls.put(info.question_id, info);
+    }
+
     fn markAcceptedEmbargoReleased(self: *State, embargo: []const u8) void {
         var iterator = self.accepts.valueIterator();
         while (iterator.next()) |accept| {
@@ -1969,6 +1991,9 @@ pub const State = struct {
     pub fn applyWireCall(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
         const question_id = call.questionId();
         const target = try callTargetFromWireCall(call);
+        const method = callMethodFromWireCall(call);
+        const send_results_to = try sendResultsToFromWireCall(call);
+        const flags = callFlagsFromWireCall(call);
         const descriptors = try capTableFromWireCallParams(allocator, call);
         defer allocator.free(descriptors);
 
@@ -1976,6 +2001,13 @@ pub const State = struct {
         try validateWirePayloadContent(try call.params(), descriptors.len);
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.openQuestion(question_id, .call);
+        try self.trackCallInfo(.{
+            .question_id = question_id,
+            .target = target,
+            .method = method,
+            .send_results_to = send_results_to,
+            .flags = flags,
+        });
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
         try self.trackParamImports(question_id, descriptors);
     }
@@ -2199,6 +2231,14 @@ pub const State = struct {
 
     pub fn provideCount(self: *const State) usize {
         return self.provides.count();
+    }
+
+    pub fn callInfo(self: *const State, id: QuestionId) ?CallInfo {
+        return self.calls.get(id);
+    }
+
+    pub fn callInfoCount(self: *const State) usize {
+        return self.calls.count();
     }
 
     pub fn apply(self: *State, event: Event) (Error || std.mem.Allocator.Error)!void {

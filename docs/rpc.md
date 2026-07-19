@@ -120,7 +120,8 @@ that a complete RPC runtime exists.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
-  target validation, question opening, and params capability-table bookkeeping.
+  target validation, question opening, method/routing metadata recording, and
+  params capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application or simpler state events; Provide

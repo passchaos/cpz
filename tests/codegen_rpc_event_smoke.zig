@@ -1022,6 +1022,8 @@ test "rpc wire calls apply target and params state together" {
     const root = try generated.Message.initRootTyped(&builder);
     const call = try root.init_call();
     try call.set_questionId(50);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x50, .method_id = 5 }, call);
+    try cpz.rpc.writeCallFlagsToWire(.{ .no_promise_pipelining = true }, call);
     const target = try call.init_target();
     try target.set_importedCap(5);
     const params = try call.init_params();
@@ -1038,6 +1040,10 @@ test "rpc wire calls apply target and params state together" {
     try state.applyWireCall(std.testing.allocator, try message.call());
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(50));
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(6));
+    const tracked = state.callInfo(50).?;
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x50, .method_id = 5 }, tracked.method);
+    try std.testing.expect(tracked.flags.no_promise_pipelining);
 }
 
 test "rpc return results expose capability descriptor tables" {
