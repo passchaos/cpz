@@ -47,6 +47,7 @@ struct Return {
 
   union {
     results @2 :Payload;
+    exception @3 :Exception;
     canceled @4 :Void;
     resultsSentElsewhere @5 :Void;
     takeFromOtherQuestion @6 :QuestionId;
@@ -142,4 +143,16 @@ struct CapDescriptor {
 
 struct ThirdPartyCapDescriptor {
   vineId @1 :ExportId;
+}
+
+struct Exception {
+  reason @0 :Text;
+  type @3 :Type;
+
+  enum Type {
+    failed @0;
+    overloaded @1;
+    disconnected @2;
+    unimplemented @3;
+  }
 }

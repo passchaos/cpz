@@ -730,6 +730,32 @@ test "rpc top-level return helpers initialize messages" {
 
 test "rpc return outcomes without result payloads resolve answers" {
     {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try return_.set_answerId(79);
+        const exception = try return_.init_exception();
+        try exception.set_reason("network down");
+        try exception.set_type__raw(2);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
+        const info = switch (outcome) {
+            .exception => |value| value,
+            else => return error.TestUnexpectedResult,
+        };
+        try std.testing.expectEqualStrings("network down", info.reason.?);
+        try std.testing.expectEqual(@as(u16, 2), info.type_raw);
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.openQuestion(79, .call);
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(79));
+    }
+    {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);

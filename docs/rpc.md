@@ -32,7 +32,7 @@ that a complete RPC runtime exists.
   projects only the semantically-aligned subset into `State.apply()` events.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
   while still projecting to the simplified answer-resolving event.
-  Return outcomes for canceled, results-sent-elsewhere, and
+  Return outcomes for exception, canceled, results-sent-elsewhere, and
   take-from-other-question are decoded and can resolve tracked answers without a
   results payload. Await-from-third-party returns expose their pointer
   capability usage and can be written for future third-party answer handling.

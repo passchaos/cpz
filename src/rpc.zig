@@ -35,8 +35,14 @@ pub const Return = struct {
     no_finish_needed: bool,
 };
 
+pub const ExceptionInfo = struct {
+    reason: ?[]const u8,
+    type_raw: u16,
+};
+
 pub const ReturnOutcome = union(enum) {
     results,
+    exception: ExceptionInfo,
     canceled,
     results_sent_elsewhere,
     take_from_other_question: QuestionId,
@@ -821,9 +827,17 @@ pub fn capTableFromWireReturnResults(allocator: std.mem.Allocator, return_: anyt
     return capTableFromWirePayload(allocator, try return_.results());
 }
 
+pub fn exceptionInfoFromWireException(exception: anytype) !ExceptionInfo {
+    return .{
+        .reason = try exception.reasonOrNull(),
+        .type_raw = exception.type__raw(),
+    };
+}
+
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
     return switch (return_.which() orelse return error.InvalidTransition) {
         .results => .results,
+        .exception => .{ .exception = try exceptionInfoFromWireException(try return_.exception()) },
         .canceled => .canceled,
         .resultsSentElsewhere => .results_sent_elsewhere,
         .takeFromOtherQuestion => .{ .take_from_other_question = try return_.takeFromOtherQuestion() },
@@ -1196,7 +1210,7 @@ pub const State = struct {
                 try validateWirePayloadContent(try return_.results(), result_descriptors.len);
                 break :blk result_descriptors;
             },
-            .canceled, .results_sent_elsewhere, .take_from_other_question, .await_from_third_party => &.{},
+            .exception, .canceled, .results_sent_elsewhere, .take_from_other_question, .await_from_third_party => &.{},
         };
 
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
