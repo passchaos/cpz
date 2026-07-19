@@ -462,6 +462,21 @@ test "rpc top-level provide and join messages validate targets" {
     }
 }
 
+test "rpc top-level accept messages open questions" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const accept = try root.init_accept();
+    try accept.set_questionId(64);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(64));
+}
+
 test "rpc provide accept and join wire events open questions" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

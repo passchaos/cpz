@@ -661,12 +661,17 @@ pub const State = struct {
         try self.openQuestion(question_id, .call);
     }
 
+    pub fn applyWireAccept(self: *State, accept: anytype) !void {
+        try self.openQuestion(accept.questionId(), .call);
+    }
+
     pub fn applyWireMessage(self: *State, allocator: std.mem.Allocator, message: anytype) !void {
         const event = try eventFromWireMessage(message);
         return switch (event) {
             .call => self.applyWireCall(allocator, try message.call()),
             .return_ => self.applyWireReturn(allocator, try message.return_()),
             .provide => |id| self.applyWireTargetedQuestion(id, try message.provide()),
+            .accept => self.applyWireAccept(try message.accept()),
             .join => |id| self.applyWireTargetedQuestion(id, try message.join()),
             else => self.applyWireEvent(event),
         };
