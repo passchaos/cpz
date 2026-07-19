@@ -60,6 +60,11 @@ pub const DispatchResult = union(enum) {
     await_from_third_party: u32,
 };
 
+pub const WireDispatchOutcome = enum {
+    response_initialized,
+    state_applied,
+};
+
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
@@ -1278,6 +1283,32 @@ pub fn dispatchCall(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchWireMessageOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    request_message: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+) !WireDispatchOutcome {
+    switch (try eventFromWireMessage(request_message)) {
+        .bootstrap => {
+            try dispatchBootstrap(state, response_message, try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+            return .response_initialized;
+        },
+        .call => {
+            try dispatchCall(state, allocator, response_message, try request_message.call(), call_context, call_handler);
+            return .response_initialized;
+        },
+        else => {
+            try state.applyWireMessage(allocator, request_message);
+            return .state_applied;
+        },
+    }
+}
+
 pub fn dispatchWireMessage(
     state: *State,
     allocator: std.mem.Allocator,
@@ -1288,20 +1319,16 @@ pub fn dispatchWireMessage(
     call_context: anytype,
     call_handler: anytype,
 ) !bool {
-    switch (try eventFromWireMessage(request_message)) {
-        .bootstrap => {
-            try dispatchBootstrap(state, response_message, try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
-            return true;
-        },
-        .call => {
-            try dispatchCall(state, allocator, response_message, try request_message.call(), call_context, call_handler);
-            return true;
-        },
-        else => {
-            try state.applyWireMessage(allocator, request_message);
-            return false;
-        },
-    }
+    return (try dispatchWireMessageOutcome(
+        state,
+        allocator,
+        response_message,
+        request_message,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+    )) == .response_initialized;
 }
 
 pub fn initWireFinish(finish: anytype, value: Finish) !void {

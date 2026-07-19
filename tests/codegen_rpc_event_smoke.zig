@@ -2061,7 +2061,7 @@ test "rpc single-message dispatcher routes calls and applies returns" {
 
         var bootstrap_seen: u32 = 0;
         var call_seen: u32 = 0;
-        try std.testing.expect(try cpz.rpc.dispatchWireMessage(
+        try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, try cpz.rpc.dispatchWireMessageOutcome(
             &state,
             std.testing.allocator,
             response_root,
@@ -2136,7 +2136,7 @@ test "rpc single-message dispatcher routes calls and applies returns" {
         const unused_response = try generated.Message.initRootTyped(&unused_response_builder);
         var bootstrap_seen: u32 = 0;
         var call_seen: u32 = 0;
-        try std.testing.expect(!try cpz.rpc.dispatchWireMessage(
+        try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.state_applied, try cpz.rpc.dispatchWireMessageOutcome(
             &state,
             std.testing.allocator,
             unused_response,
