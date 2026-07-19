@@ -2798,6 +2798,10 @@ test "rpc resolve cap descriptors replace imported promises" {
     try state.applyCapDescriptor(.{ .sender_promise = 99 });
     try std.testing.expectEqual(@as(?bool, false), state.importResolved(99));
     try std.testing.expect(!state.callTargetResolved(.{ .imported_cap = 99 }));
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 99 },
+        state.effectiveCallTarget(.{ .imported_cap = 99 }),
+    );
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?bool, true), state.importResolved(99));
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 100 }, state.importResolution(99).?);
@@ -2809,6 +2813,10 @@ test "rpc resolve cap descriptors replace imported promises" {
     try std.testing.expectEqual(
         cpz.rpc.CallTarget{ .imported_cap = 100 },
         state.callTargetForwardTarget(.{ .imported_cap = 99 }).?,
+    );
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 100 },
+        state.effectiveCallTarget(.{ .imported_cap = 99 }),
     );
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
 }

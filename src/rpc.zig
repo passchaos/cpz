@@ -1967,6 +1967,10 @@ pub const State = struct {
         };
     }
 
+    pub fn effectiveCallTarget(self: *const State, target: CallTarget) CallTarget {
+        return self.callTargetForwardTarget(target) orelse target;
+    }
+
     pub fn wireCallTargetResolution(self: *const State, call: anytype) !?CapDescriptor {
         return self.callTargetResolution(try callTargetFromWireCall(call));
     }
@@ -1977,6 +1981,10 @@ pub const State = struct {
 
     pub fn wireCallTargetForwardTarget(self: *const State, call: anytype) !?CallTarget {
         return self.callTargetForwardTarget(try callTargetFromWireCall(call));
+    }
+
+    pub fn effectiveWireCallTarget(self: *const State, call: anytype) !CallTarget {
+        return self.effectiveCallTarget(try callTargetFromWireCall(call));
     }
 
     pub fn validateWireDisembargo(self: *const State, disembargo: anytype) !void {

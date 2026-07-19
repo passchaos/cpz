@@ -52,7 +52,7 @@ that a complete RPC runtime exists.
   Resolve wire events mark an existing import or export promise as resolved,
   remember the replacement cap descriptor for future forwarding, expose
   remembered imported-cap target resolution queries/predicates and next-hop
-  target mapping helpers, can decode/write/apply
+  target/effective-target mapping helpers, can decode/write/apply
   replacement cap descriptors or broken-promise exceptions, can initialize
   top-level Resolve messages, and do not conflate the official `ExportId` with
   answer IDs.
