@@ -418,6 +418,11 @@ pub const State = struct {
         return question.state == .finished and answer.state == .resolved;
     }
 
+    pub fn answerComplete(self: *const State, id: AnswerId) bool {
+        const answer = self.answers.get(id) orelse return false;
+        return answer.state == .resolved;
+    }
+
     pub fn canReuseQuestionId(self: *const State, id: QuestionId) bool {
         return (!self.questions.contains(id) and !self.answers.contains(id)) or self.questionComplete(id);
     }
@@ -676,6 +681,7 @@ test "rpc state tracks in-flight questions and answers" {
 
     try state.resolveAnswer(1, .return_);
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(1));
+    try testing.expect(state.answerComplete(1));
     try testing.expectError(error.AnswerAlreadyResolved, state.resolveAnswer(1, .resolve));
     try testing.expectError(error.QuestionNotOpen, state.resolveAnswer(99, .return_));
 
@@ -686,6 +692,7 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectEqual(@as(usize, 1), state.answerCount());
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(1));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
+    try testing.expect(!state.answerComplete(1));
     try testing.expect(!state.canReuseQuestionId(1));
 }
 
