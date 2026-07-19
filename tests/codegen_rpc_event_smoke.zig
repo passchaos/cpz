@@ -741,9 +741,13 @@ test "rpc top-level accept messages open questions" {
     const root = try generated.Message.initRootTyped(&builder);
     const accept = try root.init_accept();
     try accept.set_questionId(64);
+    try accept.set_embargo("embargo-64");
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const message = generated.Message.fromReader(try reader.getRoot());
+    const info = try cpz.rpc.acceptInfoFromWireAccept(try message.accept());
+    try std.testing.expectEqual(@as(u32, 64), info.question_id);
+    try std.testing.expectEqualStrings("embargo-64", info.embargo.?);
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
     try state.applyWireMessage(std.testing.allocator, message);

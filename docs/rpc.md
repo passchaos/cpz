@@ -46,6 +46,8 @@ that a complete RPC runtime exists.
   projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official
   `QuestionId` payloads rather than treating them as capability-table IDs.
+  Accept wire readers expose their optional embargo bytes alongside the question
+  ID for future provision/embargo handling.
   ThirdPartyAnswer wire events resolve existing answers by official `AnswerId`
   while remaining distinct from ordinary Return events.
   Completed question IDs can be reused once both Finish and Return-like answer

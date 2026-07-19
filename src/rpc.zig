@@ -35,6 +35,11 @@ pub const Return = struct {
     no_finish_needed: bool,
 };
 
+pub const AcceptInfo = struct {
+    question_id: QuestionId,
+    embargo: ?[]const u8,
+};
+
 pub const PromisedAnswerTarget = struct {
     question_id: QuestionId,
 };
@@ -483,6 +488,13 @@ pub fn callTargetFromWireCallAlloc(allocator: std.mem.Allocator, call: anytype) 
     return targetFromWireMessageTargetAlloc(allocator, try call.target());
 }
 
+pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
+    return .{
+        .question_id = accept.questionId(),
+        .embargo = try accept.embargoOrNull(),
+    };
+}
+
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
     return targetFromWireMessageTarget(try message.target());
 }
@@ -905,7 +917,8 @@ pub const State = struct {
     }
 
     pub fn applyWireAccept(self: *State, accept: anytype) !void {
-        try self.openQuestion(accept.questionId(), .call);
+        const info = try acceptInfoFromWireAccept(accept);
+        try self.openQuestion(info.question_id, .call);
     }
 
     pub fn applyWireMessage(self: *State, allocator: std.mem.Allocator, message: anytype) !void {

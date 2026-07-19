@@ -68,6 +68,7 @@ struct Provide {
 
 struct Accept {
   questionId @0 :QuestionId;
+  embargo @2 :Data;
 }
 
 struct ThirdPartyAnswer {
