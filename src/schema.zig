@@ -4129,44 +4129,86 @@ pub const Parser = struct {
         return .{ .default_expression = std.mem.trim(u8, raw, " \t\r\n"), .annotations = "" };
     }
 
+    fn parseAnnotationIdentifierIndex(raw: []const u8, start: usize) Error!usize {
+        if (start >= raw.len or !isIdentStart(raw[start])) return error.UnexpectedToken;
+        var index = start + 1;
+        while (index < raw.len and isIdentContinue(raw[index])) index += 1;
+        return index;
+    }
+
+    fn parseAnnotationNameIndex(raw: []const u8, start: usize) Error!usize {
+        var index = try parseAnnotationIdentifierIndex(raw, start);
+        while (index < raw.len and raw[index] == '.') {
+            index += 1;
+            index = try parseAnnotationIdentifierIndex(raw, index);
+        }
+        return index;
+    }
+
+    fn parseAnnotationImportNameIndex(raw: []const u8, start: usize) Error!?usize {
+        const import_keyword = "import";
+        if (!std.mem.startsWith(u8, raw[start..], import_keyword)) return null;
+        const after_keyword = start + import_keyword.len;
+        if (after_keyword < raw.len and isIdentContinue(raw[after_keyword])) return null;
+
+        const path_start = try skipTriviaIndex(raw, after_keyword);
+        if (path_start >= raw.len or raw[path_start] != '"') return null;
+        const path_end = try skipRawStringIndex(raw, path_start);
+        // This branch models Cap'n Proto's inline import expression used in
+        // annotation references, e.g. `$import "c++.capnp".namespace(...)`.
+        // Keep the same non-empty path invariant as `parseInlineImportType()`
+        // instead of accepting a syntactically well-balanced but unusable
+        // import designator.
+        if (path_end == path_start + 2) return error.UnexpectedToken;
+
+        var index = try skipTriviaIndex(raw, path_end);
+        if (index >= raw.len or raw[index] != '.') return error.UnexpectedToken;
+        index += 1;
+        index = try skipTriviaIndex(raw, index);
+        return try parseAnnotationNameIndex(raw, index);
+    }
+
+    fn parseAnnotationDesignatorIndex(raw: []const u8, start: usize) Error!usize {
+        if (try parseAnnotationImportNameIndex(raw, start)) |index| return index;
+        return parseAnnotationNameIndex(raw, start);
+    }
+
+    fn skipAnnotationArgumentListIndex(raw: []const u8, start: usize) Error!usize {
+        var index = start;
+        var paren_depth: usize = 0;
+        while (index < raw.len) {
+            if (try skipRawStringOrCommentIndex(raw, index)) |next| {
+                index = next;
+                continue;
+            }
+            switch (raw[index]) {
+                '(' => paren_depth += 1,
+                ')' => {
+                    if (paren_depth == 0) return error.UnexpectedToken;
+                    paren_depth -= 1;
+                    index += 1;
+                    if (paren_depth == 0) return index;
+                    continue;
+                },
+                else => {},
+            }
+            index += 1;
+        }
+        return error.UnexpectedToken;
+    }
+
     fn validateAnnotationSuffix(raw: []const u8) Error!void {
         var index = try skipTriviaIndex(raw, 0);
         while (index < raw.len) {
             if (raw[index] != '$') return error.UnexpectedToken;
             index += 1;
 
-            if (index >= raw.len or !isIdentStart(raw[index])) return error.UnexpectedToken;
-            index += 1;
-            while (index < raw.len and isIdentContinue(raw[index])) index += 1;
-            while (index < raw.len and raw[index] == '.') {
-                index += 1;
-                if (index >= raw.len or !isIdentStart(raw[index])) return error.UnexpectedToken;
-                index += 1;
-                while (index < raw.len and isIdentContinue(raw[index])) index += 1;
-            }
+            index = try skipTriviaIndex(raw, index);
+            index = try parseAnnotationDesignatorIndex(raw, index);
 
             index = try skipTriviaIndex(raw, index);
             if (index < raw.len and raw[index] == '(') {
-                var paren_depth: usize = 0;
-                while (index < raw.len) {
-                    if (try skipRawStringOrCommentIndex(raw, index)) |next| {
-                        index = next;
-                        continue;
-                    }
-                    switch (raw[index]) {
-                        '(' => paren_depth += 1,
-                        ')' => {
-                            if (paren_depth == 0) return error.UnexpectedToken;
-                            paren_depth -= 1;
-                            index += 1;
-                            if (paren_depth == 0) break;
-                            continue;
-                        },
-                        else => {},
-                    }
-                    index += 1;
-                }
-                if (paren_depth != 0) return error.UnexpectedToken;
+                index = try skipAnnotationArgumentListIndex(raw, index);
             }
 
             index = try skipTriviaIndex(raw, index);
@@ -6164,6 +6206,25 @@ test "schema parser accepts file id after top-level using" {
     try std.testing.expectEqual(@as(usize, 1), file.annotations_raw.len);
     try std.testing.expectEqualStrings("$Cxx.namespace(\"example\")", file.annotations_raw[0]);
     try std.testing.expectEqual(@as(usize, 2), file.structs.len);
+}
+
+test "schema parser accepts inline import annotation designators" {
+    var file = try parse(std.testing.allocator,
+        \\@0xb8630836983feed7;
+        \\$import "/capnp/c++.capnp".namespace("capnp");
+        \\
+        \\struct Example $import "/capnp/c++.capnp".name("Example") {
+        \\  value @0 :UInt32 $import "/capnp/c++.capnp".name("value");
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(?u64, 0xb8630836983feed7), file.id);
+    try std.testing.expectEqual(@as(usize, 0), file.imports.len);
+    try std.testing.expectEqual(@as(usize, 1), file.annotations_raw.len);
+    try std.testing.expectEqualStrings("$import \"/capnp/c++.capnp\".namespace(\"capnp\")", file.annotations_raw[0]);
+    try std.testing.expectEqualStrings("$import \"/capnp/c++.capnp\".name(\"Example\")", file.structs[0].annotations);
+    try std.testing.expectEqualStrings("$import \"/capnp/c++.capnp\".name(\"value\")", file.structs[0].fields[0].annotations);
 }
 
 test "schema parser rejects duplicate declaration ids" {
