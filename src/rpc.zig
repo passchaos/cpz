@@ -2055,6 +2055,12 @@ pub const State = struct {
         try tracker.release();
     }
 
+    pub fn forgetReleasedExport(self: *State, id: ExportId) Error!void {
+        const tracker = self.exports.get(id) orelse return error.InvalidTransition;
+        if (tracker.state != .released) return error.InvalidTransition;
+        _ = self.exports.remove(id);
+    }
+
     pub fn resolveExport(self: *State, id: ExportId) Error!void {
         try self.resolveExportTo(id, null);
     }
@@ -2072,6 +2078,12 @@ pub const State = struct {
     pub fn releaseImport(self: *State, id: ImportId) Error!void {
         const tracker = self.imports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
+    }
+
+    pub fn forgetReleasedImport(self: *State, id: ImportId) Error!void {
+        const tracker = self.imports.get(id) orelse return error.InvalidTransition;
+        if (tracker.state != .released) return error.InvalidTransition;
+        _ = self.imports.remove(id);
     }
 
     pub fn releaseImportCount(self: *State, release: CapabilityRelease) Error!void {
@@ -2384,6 +2396,12 @@ test "rpc state tracks import and export lifetimes" {
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(20));
     try testing.expectError(error.ExportAlreadyReleased, state.releaseExport(10));
     try testing.expectError(error.ImportAlreadyReleased, state.releaseImport(20));
+    try state.forgetReleasedExport(10);
+    try state.forgetReleasedImport(20);
+    try testing.expect(!state.hasExport(10));
+    try testing.expect(!state.hasImport(20));
+    try testing.expectError(error.InvalidTransition, state.forgetReleasedExport(10));
+    try testing.expectError(error.InvalidTransition, state.forgetReleasedImport(20));
 }
 
 test "rpc state applies capability descriptors to table lifetimes" {

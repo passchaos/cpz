@@ -146,8 +146,8 @@ that a complete RPC runtime exists.
   full embargo/disembargo queues, or tail calls.
 - Network transports or event-loop integration.
 - Application-level capability lifetime management beyond lightweight
-  import/export bookkeeping and mapping wire indexes to handles supplied by the
-  caller.
+  import/export bookkeeping, explicit released-tombstone cleanup, and mapping
+  wire indexes to handles supplied by the caller.
 - Generated service stubs/skeletons for dispatching interface methods.
 
 ## Next useful increments
