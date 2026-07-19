@@ -44,6 +44,16 @@ pub const PromisedAnswerOp = union(enum) {
     get_pointer_field: u16,
 };
 
+pub const PromisedAnswerTargetOwned = struct {
+    question_id: QuestionId,
+    transform: []PromisedAnswerOp,
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        allocator.free(self.transform);
+        self.* = undefined;
+    }
+};
+
 pub const CallTarget = union(enum) {
     imported_cap: ImportId,
     promised_answer: PromisedAnswerTarget,
@@ -60,6 +70,19 @@ pub const CallTarget = union(enum) {
             .promised_answer => |answer| answer.question_id,
             else => null,
         };
+    }
+};
+
+pub const CallTargetOwned = union(enum) {
+    imported_cap: ImportId,
+    promised_answer: PromisedAnswerTargetOwned,
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .promised_answer => |*answer| answer.deinit(allocator),
+            else => {},
+        }
+        self.* = undefined;
     }
 };
 
@@ -387,6 +410,21 @@ pub fn targetFromWireMessageTarget(target: anytype) !CallTarget {
     };
 }
 
+pub fn targetFromWireMessageTargetAlloc(allocator: std.mem.Allocator, target: anytype) !CallTargetOwned {
+    return switch (target.which() orelse return error.InvalidTransition) {
+        .importedCap => .{ .imported_cap = try target.importedCap() },
+        .promisedAnswer => blk: {
+            const promised_answer = try target.promisedAnswer();
+            const transform = try promisedAnswerTransformFromWireAlloc(allocator, promised_answer);
+            errdefer allocator.free(transform);
+            break :blk .{ .promised_answer = .{
+                .question_id = promised_answer.questionId(),
+                .transform = transform,
+            } };
+        },
+    };
+}
+
 pub fn promisedAnswerTransformFromWireAlloc(allocator: std.mem.Allocator, promised_answer: anytype) ![]PromisedAnswerOp {
     const transform = promised_answer.transform() catch |err| switch (err) {
         error.NullPointer => return allocator.alloc(PromisedAnswerOp, 0),
@@ -417,6 +455,10 @@ pub fn initWirePromisedAnswerTransform(promised_answer: anytype, ops: []const Pr
 
 pub fn callTargetFromWireCall(call: anytype) !CallTarget {
     return targetFromWireMessageTarget(try call.target());
+}
+
+pub fn callTargetFromWireCallAlloc(allocator: std.mem.Allocator, call: anytype) !CallTargetOwned {
+    return targetFromWireMessageTargetAlloc(allocator, try call.target());
 }
 
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
