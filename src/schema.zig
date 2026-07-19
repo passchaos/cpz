@@ -3724,6 +3724,12 @@ pub const Parser = struct {
                 try self.skipNamedAggregate();
                 continue;
             }
+            if (try self.isAnonymousUnionStart()) {
+                try self.advance();
+                _ = try self.takeAnnotationSuffixUntilLeftBrace();
+                try self.skipCurrentBracedBody();
+                continue;
+            }
             if (try self.eatKeyword("using") or try self.eatKeyword("const") or try self.eatKeyword("annotation") or self.lookahead.tag == .dollar) {
                 try self.skipRawUntilSemicolon();
                 continue;
@@ -8777,6 +8783,10 @@ test "schema layout planner handles group members inside unions" {
         \\    foo :group {
         \\      id @0 :UInt32;
         \\      text @2 :Text;
+        \\      union {
+        \\        nested @5 :Text;
+        \\        other @6 :UInt16;
+        \\      }
         \\    }
         \\    bar :group {
         \\      label @1 :Text;
