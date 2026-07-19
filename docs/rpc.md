@@ -36,6 +36,8 @@ that a complete RPC runtime exists.
   conflating the official `ExportId` with answer IDs.
   Provide/Accept/Join wire events open questions using their official
   `QuestionId` payloads rather than treating them as capability-table IDs.
+  ThirdPartyAnswer wire events resolve existing answers by official `AnswerId`
+  while remaining distinct from ordinary Return events.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

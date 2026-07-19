@@ -62,19 +62,6 @@ test "rpc wire events decode generated message union tags and ids" {
     }
 }
 
-test "rpc wire-only events stay separate from simplified state events" {
-    {
-        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
-        defer builder.deinit();
-        const root = try generated.Message.initRootTyped(&builder);
-        const payload = try root.init_thirdPartyAnswer();
-        try payload.set_answerId(24);
-        const event = try decode(&builder);
-        try std.testing.expectEqual(cpz.rpc.WireEvent{ .third_party_answer = 24 }, event);
-        try std.testing.expect(event.toStateEvent() == null);
-    }
-}
-
 test "rpc provide accept and join wire events open questions" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
@@ -115,6 +102,23 @@ test "rpc provide accept and join wire events open questions" {
         try state.applyWireEvent(event);
         try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(25));
     }
+}
+
+test "rpc third-party answer wire events resolve answers" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(24, .call);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const payload = try root.init_thirdPartyAnswer();
+    try payload.set_answerId(24);
+    const event = try decode(&builder);
+    try std.testing.expectEqual(cpz.rpc.WireEvent{ .third_party_answer = 24 }, event);
+    try std.testing.expect(event.toStateEvent() == null);
+    try state.applyWireEvent(event);
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(24));
 }
 
 test "rpc resolve wire events mark exports without projecting to Event.resolve" {

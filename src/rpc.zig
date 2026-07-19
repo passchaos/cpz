@@ -68,7 +68,7 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn isStateApplicable(self: WireEvent) bool {
         return switch (self) {
-            .bootstrap, .call, .return_, .finish, .resolve, .provide, .accept, .join => true,
+            .bootstrap, .call, .return_, .finish, .resolve, .provide, .accept, .third_party_answer, .join => true,
             .release => |release| release.reference_count != 0,
             else => false,
         };
@@ -90,7 +90,7 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn isAnswerResolving(self: WireEvent) bool {
         return switch (self) {
-            .return_ => true,
+            .return_, .third_party_answer => true,
             else => false,
         };
     }
@@ -520,6 +520,7 @@ pub const State = struct {
         if (event == .release) return self.releaseImportCount(event.release);
         if (event == .provide) return self.openQuestion(event.provide, .call);
         if (event == .accept) return self.openQuestion(event.accept, .call);
+        if (event == .third_party_answer) return self.resolveAnswer(event.third_party_answer, .return_);
         if (event == .join) return self.openQuestion(event.join, .call);
         const state_event = event.toStateEvent() orelse return error.InvalidTransition;
         return self.apply(state_event);
@@ -564,6 +565,12 @@ test "rpc wire events expose classification and id helpers" {
     const return_event = WireEvent{ .return_ = 13 };
     try testing.expect(return_event.isAnswerResolving());
     try testing.expectEqual(@as(?AnswerId, 13), return_event.answerId());
+
+    const third_party_answer = WireEvent{ .third_party_answer = 18 };
+    try testing.expect(third_party_answer.isStateApplicable());
+    try testing.expect(third_party_answer.isAnswerResolving());
+    try testing.expect(third_party_answer.toStateEvent() == null);
+    try testing.expectEqual(@as(?AnswerId, 18), third_party_answer.answerId());
 
     const release_event = WireEvent{ .release = .{ .id = 14, .reference_count = 3 } };
     try testing.expect(release_event.isCapabilityRelease());
@@ -715,6 +722,10 @@ test "rpc state applies only the semantically aligned wire event subset" {
     try state.applyWireEvent(.{ .return_ = 41 });
     try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(41));
 
+    try state.openQuestion(102, .call);
+    try state.applyWireEvent(.{ .third_party_answer = 102 });
+    try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(102));
+
     try state.addImport(42);
     try state.applyWireEvent(.{ .release = .{ .id = 42, .reference_count = 1 } });
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(42));
@@ -752,6 +763,21 @@ test "rpc wire provide accept and join open questions without projecting to capa
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(73));
 
     try testing.expectError(error.QuestionAlreadyOpen, state.applyWireEvent(.{ .provide = 71 }));
+}
+
+test "rpc wire third-party answers resolve existing answers without projecting to returns" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    const answer = WireEvent{ .third_party_answer = 81 };
+    try testing.expect(answer.toStateEvent() == null);
+    try testing.expectError(error.QuestionNotOpen, state.applyWireEvent(answer));
+
+    try state.openQuestion(81, .call);
+    try state.applyWireEvent(answer);
+    try testing.expectEqual(@as(?AnswerState, .resolved), state.answerState(81));
+    try testing.expectError(error.AnswerAlreadyResolved, state.applyWireEvent(answer));
 }
 
 test "rpc wire resolve marks existing exports resolved" {
