@@ -85,15 +85,16 @@ that a complete RPC runtime exists.
   Call builders can initialize question ID, target, and registry-backed params
   cap tables together; Return builders can initialize answer ID, flags, and
   registry-backed results cap tables together, either at the Call/Return member
-  level or through top-level Message builders. Top-level Finish/Release builders
-  can initialize their flags and reference counts. A generated Call reader can
-  also be applied as a unit: target validation, question opening, and params
-  capability-table bookkeeping. A generated Return reader can resolve its answer
-  and apply result capability-table bookkeeping. A generated top-level Message
-  reader can route call/return payload-aware application or simpler state
-  events; Provide/Join top-level messages validate their targets before opening
-  questions, while Accept top-level messages have an explicit question-opening
-  route ready for future provision/embargo handling.
+  level or through top-level Message builders. Top-level Bootstrap,
+  Finish/Release builders can initialize their question IDs, flags, and
+  reference counts. A generated Call reader can also be applied as a unit:
+  target validation, question opening, and params capability-table bookkeeping.
+  A generated Return reader can resolve its answer and apply result
+  capability-table bookkeeping. A generated top-level Message reader can route
+  call/return payload-aware application or simpler state events; Provide/Join
+  top-level messages validate their targets before opening questions, while
+  Accept top-level messages have an explicit question-opening route ready for
+  future provision/embargo handling.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

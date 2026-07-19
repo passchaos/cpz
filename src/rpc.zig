@@ -690,6 +690,14 @@ pub fn initWireCallMessage(allocator: std.mem.Allocator, message: anytype, quest
     try initWireCall(allocator, try message.init_call(), question_id, target, registry);
 }
 
+pub fn initWireBootstrap(bootstrap: anytype, question_id: QuestionId) !void {
+    try bootstrap.set_questionId(question_id);
+}
+
+pub fn initWireBootstrapMessage(message: anytype, question_id: QuestionId) !void {
+    try initWireBootstrap(try message.init_bootstrap(), question_id);
+}
+
 pub fn initWireReturn(
     allocator: std.mem.Allocator,
     return_: anytype,

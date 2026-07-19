@@ -65,6 +65,22 @@ test "rpc wire events decode generated message union tags and ids" {
     }
 }
 
+test "rpc top-level bootstrap helpers initialize messages" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireBootstrapMessage(root, 10);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(cpz.rpc.WireEvent{ .bootstrap = 10 }, try cpz.rpc.eventFromWireMessage(message));
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(10));
+}
+
 test "rpc call target helpers decode imported caps and promised answers" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
