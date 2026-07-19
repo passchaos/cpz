@@ -555,11 +555,13 @@ pub const CapabilityLifetime = enum(u8) {
 pub const QuestionTracker = struct {
     id: QuestionId,
     state: QuestionState = .idle,
+    kind: ?MessageKind = null,
 
     pub fn open(self: *QuestionTracker, kind: MessageKind) Error!void {
         if (!kind.isQuestionOpening()) return error.InvalidTransition;
         if (self.state != .idle) return error.QuestionAlreadyOpen;
         self.state = .open;
+        self.kind = kind;
     }
 
     pub fn finish(self: *QuestionTracker) Error!void {
@@ -2159,6 +2161,11 @@ pub const State = struct {
         return question.state;
     }
 
+    pub fn questionKind(self: *const State, id: QuestionId) ?MessageKind {
+        const question = self.questions.get(id) orelse return null;
+        return question.kind;
+    }
+
     pub fn answerState(self: *const State, id: AnswerId) ?AnswerState {
         const answer = self.answers.get(id) orelse return null;
         return answer.state;
@@ -2405,6 +2412,7 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectEqual(@as(usize, 1), state.questionCount());
     try testing.expectEqual(@as(usize, 1), state.answerCount());
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(1));
+    try testing.expectEqual(@as(?MessageKind, .call), state.questionKind(1));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
 
     try testing.expectError(error.QuestionAlreadyOpen, state.openQuestion(1, .bootstrap));
@@ -2434,6 +2442,7 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectEqual(@as(usize, 1), state.questionCount());
     try testing.expectEqual(@as(usize, 1), state.answerCount());
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(1));
+    try testing.expectEqual(@as(?MessageKind, .bootstrap), state.questionKind(1));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
     try testing.expect(!state.answerComplete(1));
     try testing.expect(!state.canReuseQuestionId(1));

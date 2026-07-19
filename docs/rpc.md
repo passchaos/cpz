@@ -76,6 +76,8 @@ that a complete RPC runtime exists.
   distinct from ordinary Return events.
   Completed question IDs can be reused or explicitly forgotten once both Finish
   and Return-like answer resolution have been observed.
+  Open questions remember the RPC message kind that created them, giving later
+  protocol-state code a typed hook for bootstrap/call/handoff-specific rules.
   Call `sendResultsTo` caller/yourself/third-party targets can be decoded and
   written, including third-party contact pointer capability usage.
   Generated RPC `Call.target` readers can be decoded into a lightweight
