@@ -32,6 +32,8 @@ that a complete RPC runtime exists.
   projects only the semantically-aligned subset into `State.apply()` events.
   Release wire events preserve `referenceCount` so `State.applyWireEvent()` can
   decrement import lifetimes without silently collapsing batched releases.
+  Resolve wire events mark an existing export promise as resolved without
+  conflating the official `ExportId` with answer IDs.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

@@ -67,16 +67,6 @@ test "rpc wire-only events stay separate from simplified state events" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        const payload = try root.init_resolve();
-        try payload.set_promiseId(21);
-        const event = try decode(&builder);
-        try std.testing.expectEqual(cpz.rpc.WireEvent{ .resolve = 21 }, event);
-        try std.testing.expect(event.toStateEvent() == null);
-    }
-    {
-        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
-        defer builder.deinit();
-        const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_provide();
         try payload.set_questionId(22);
         const event = try decode(&builder);
@@ -113,6 +103,24 @@ test "rpc wire-only events stay separate from simplified state events" {
         try std.testing.expectEqual(cpz.rpc.WireEvent{ .join = 25 }, event);
         try std.testing.expect(event.toStateEvent() == null);
     }
+}
+
+test "rpc resolve wire events mark exports without projecting to Event.resolve" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addExport(21);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const payload = try root.init_resolve();
+    try payload.set_promiseId(21);
+
+    const event = try decode(&builder);
+    try std.testing.expectEqual(cpz.rpc.WireEvent{ .resolve = 21 }, event);
+    try std.testing.expect(event.toStateEvent() == null);
+    try state.applyWireEvent(event);
+    try std.testing.expectEqual(@as(?bool, true), state.exportResolved(21));
 }
 
 test "decoded wire events can drive the supported state subset" {

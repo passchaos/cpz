@@ -68,7 +68,7 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn isStateApplicable(self: WireEvent) bool {
         return switch (self) {
-            .bootstrap, .call, .return_, .finish => true,
+            .bootstrap, .call, .return_, .finish, .resolve => true,
             .release => |release| release.reference_count != 0,
             else => false,
         };
@@ -299,6 +299,7 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
         id: Id,
         state: CapabilityLifetime = .live,
         reference_count: u32 = 1,
+        resolved: bool = false,
 
         pub fn release(self: *@This()) Error!void {
             return self.releaseCount(1);
@@ -310,6 +311,12 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
             if (count > self.reference_count) return error.InvalidTransition;
             self.reference_count -= count;
             if (self.reference_count == 0) self.state = .released;
+        }
+
+        pub fn resolve(self: *@This()) Error!void {
+            if (self.state != .live) return error.InvalidTransition;
+            if (self.resolved) return error.InvalidTransition;
+            self.resolved = true;
         }
 
         pub fn isLive(self: @This()) bool {
@@ -442,6 +449,11 @@ pub const State = struct {
         try tracker.release();
     }
 
+    pub fn resolveExport(self: *State, id: ExportId) Error!void {
+        const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
+        try tracker.resolve();
+    }
+
     pub fn releaseImport(self: *State, id: ImportId) Error!void {
         const tracker = self.imports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
@@ -474,6 +486,11 @@ pub const State = struct {
         return tracker.state;
     }
 
+    pub fn exportResolved(self: *const State, id: ExportId) ?bool {
+        const tracker = self.exports.get(id) orelse return null;
+        return tracker.resolved;
+    }
+
     pub fn importState(self: *const State, id: ImportId) ?CapabilityLifetime {
         const tracker = self.imports.get(id) orelse return null;
         return tracker.state;
@@ -499,6 +516,7 @@ pub const State = struct {
     }
 
     pub fn applyWireEvent(self: *State, event: WireEvent) (Error || std.mem.Allocator.Error)!void {
+        if (event == .resolve) return self.resolveExport(event.resolve);
         if (event == .release) return self.releaseImportCount(event.release);
         const state_event = event.toStateEvent() orelse return error.InvalidTransition;
         return self.apply(state_event);
@@ -551,7 +569,8 @@ test "rpc wire events expose classification and id helpers" {
     try testing.expectEqual(@as(?ExportId, null), release_event.exportId());
 
     const resolve_event = WireEvent{ .resolve = 15 };
-    try testing.expect(!resolve_event.isStateApplicable());
+    try testing.expect(resolve_event.isStateApplicable());
+    try testing.expect(resolve_event.toStateEvent() == null);
     try testing.expectEqual(@as(?ExportId, 15), resolve_event.exportId());
 
     const provide_event = WireEvent{ .provide = 16 };
@@ -693,6 +712,23 @@ test "rpc state applies only the semantically aligned wire event subset" {
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .provide = 99 }));
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .accept = 99 }));
     try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .join = 99 }));
+}
+
+test "rpc wire resolve marks existing exports resolved" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try state.addExport(48);
+    try testing.expectEqual(@as(?bool, false), state.exportResolved(48));
+    try state.applyWireEvent(.{ .resolve = 48 });
+    try testing.expectEqual(@as(?CapabilityLifetime, .live), state.exportState(48));
+    try testing.expectEqual(@as(?bool, true), state.exportResolved(48));
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .resolve = 48 }));
+
+    try state.addExport(49);
+    try state.releaseExport(49);
+    try testing.expectError(error.InvalidTransition, state.applyWireEvent(.{ .resolve = 49 }));
 }
 
 test "rpc wire release counts decrement import references" {
