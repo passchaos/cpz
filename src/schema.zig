@@ -4320,11 +4320,24 @@ pub const Parser = struct {
 
     fn parseAnnotationNameIndex(raw: []const u8, start: usize) Error!usize {
         var index = try parseAnnotationIdentifierIndex(raw, start);
-        while (index < raw.len and raw[index] == '.') {
+        while (true) {
+            if (try skipAnnotationTypeApplicationBeforeDotIndex(raw, index)) |after_app| {
+                index = after_app;
+            }
+            if (index >= raw.len or raw[index] != '.') break;
             index += 1;
+            index = try skipTriviaIndex(raw, index);
             index = try parseAnnotationIdentifierIndex(raw, index);
         }
         return index;
+    }
+
+    fn skipAnnotationTypeApplicationBeforeDotIndex(raw: []const u8, start: usize) Error!?usize {
+        const index = try skipTriviaIndex(raw, start);
+        if (index >= raw.len or raw[index] != '(') return null;
+        const after_args = try skipAnnotationArgumentListIndex(raw, index);
+        const after_trivia = try skipTriviaIndex(raw, after_args);
+        return if (after_trivia < raw.len and raw[after_trivia] == '.') after_trivia else null;
     }
 
     fn parseAnnotationImportNameIndex(raw: []const u8, start: usize) Error!?usize {
@@ -6468,6 +6481,22 @@ test "schema parser accepts inline import annotation designators" {
     try std.testing.expectEqualStrings("$import \"/capnp/c++.capnp\".namespace(\"capnp\")", file.annotations_raw[0]);
     try std.testing.expectEqualStrings("$import \"/capnp/c++.capnp\".name(\"Example\")", file.structs[0].annotations);
     try std.testing.expectEqualStrings("$import \"/capnp/c++.capnp\".name(\"value\")", file.structs[0].fields[0].annotations);
+}
+
+test "schema parser accepts type-applied annotation designators" {
+    var file = try parse(std.testing.allocator,
+        \\struct Generic(T, U) {
+        \\  annotation ann(struct) :Text;
+        \\}
+        \\
+        \\struct Use $Generic(Text, Data).ann("used") {
+        \\  value @0 :Text;
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 2), file.structs.len);
+    try std.testing.expectEqualStrings("$Generic(Text, Data).ann(\"used\")", file.structs[1].annotations);
 }
 
 test "schema parser rejects duplicate declaration ids" {
