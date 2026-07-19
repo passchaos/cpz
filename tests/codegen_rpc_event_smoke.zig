@@ -890,6 +890,47 @@ test "rpc return exception helpers write outcomes" {
     try std.testing.expectEqual(@as(u16, 1), info.type_raw);
 }
 
+test "rpc non-result return helpers write outcomes" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try cpz.rpc.initWireReturnCanceled(return_, 86, true);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.canceled, try cpz.rpc.returnOutcomeFromWireReturn(try message.return_()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try cpz.rpc.initWireReturnResultsSentElsewhere(return_, 87, false);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const return_reader = try message.return_();
+        try std.testing.expect(!return_reader.releaseParamCaps());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results_sent_elsewhere, try cpz.rpc.returnOutcomeFromWireReturn(return_reader));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try cpz.rpc.initWireReturnTakeFromOtherQuestion(return_, 88, true, 89);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(
+            cpz.rpc.ReturnOutcome{ .take_from_other_question = 89 },
+            try cpz.rpc.returnOutcomeFromWireReturn(try message.return_()),
+        );
+    }
+}
+
 test "rpc await-from-third-party return helpers write outcomes" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

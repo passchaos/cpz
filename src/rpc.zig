@@ -776,6 +776,29 @@ pub fn initWireReturnException(
     try wire_exception.set_type__raw(exception.type_raw);
 }
 
+pub fn initWireReturnCanceled(return_: anytype, answer_id: AnswerId, release_param_caps: bool) !void {
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_canceled();
+}
+
+pub fn initWireReturnResultsSentElsewhere(return_: anytype, answer_id: AnswerId, release_param_caps: bool) !void {
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_resultsSentElsewhere();
+}
+
+pub fn initWireReturnTakeFromOtherQuestion(
+    return_: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    other_question_id: QuestionId,
+) !void {
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_takeFromOtherQuestion(other_question_id);
+}
+
 pub fn initWireReturnMessage(
     allocator: std.mem.Allocator,
     message: anytype,
