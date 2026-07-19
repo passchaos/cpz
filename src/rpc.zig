@@ -56,6 +56,7 @@ pub const DispatchResult = union(enum) {
     exception: ExceptionInfo,
     canceled,
     results_sent_elsewhere,
+    take_from_other_question: QuestionId,
 };
 
 pub const AnyPointerUsage = struct {
@@ -1212,6 +1213,7 @@ pub fn initDispatchReturnMessage(message: anytype, answer_id: AnswerId, result: 
         .exception => |exception| initWireReturnException(try message.init_return_(), answer_id, true, false, exception),
         .canceled => initWireReturnCanceled(try message.init_return_(), answer_id, true),
         .results_sent_elsewhere => initWireReturnResultsSentElsewhere(try message.init_return_(), answer_id, true),
+        .take_from_other_question => |question_id| initWireReturnTakeFromOtherQuestion(try message.init_return_(), answer_id, true, question_id),
     };
 }
 
