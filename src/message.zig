@@ -8084,6 +8084,16 @@ test "validation reports traversal budget and bounds failures" {
     var limited = MessageReader.init(try builder.segmentsConst(), .{ .traversal_limit_words = 1 });
     try testing.expectError(error.TraversalLimitExceeded, limited.validate());
 
+    var shared = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 64 });
+    defer shared.deinit();
+    const shared_root = try shared.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+    const shared_list = try (try shared_root.getPointerField(0)).initList(.eight_bytes, 10);
+    for (0..10) |i| try shared_list.setUInt64(i, @intCast(i));
+    var shared_reader_for_copy = MessageReader.init(try shared.segmentsConst(), .{});
+    try (try shared_root.getPointerField(1)).copyFrom((try shared_root.getPointerField(0)).asReader(&shared_reader_for_copy));
+    var shared_limited = MessageReader.init(try shared.segmentsConst(), .{ .traversal_limit_words = 12 });
+    try testing.expectError(error.TraversalLimitExceeded, shared_limited.validate());
+
     var bad_words = [_]wire.Word{try wire.encodeStruct(10, 1, 0)};
     const bad_segments = [_]serialize.ConstSegment{std.mem.sliceAsBytes(&bad_words)};
     var invalid = MessageReader.init(&bad_segments, .{});
