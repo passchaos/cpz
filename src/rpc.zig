@@ -35,6 +35,13 @@ pub const Return = struct {
     no_finish_needed: bool,
 };
 
+pub const ReturnOutcome = union(enum) {
+    results,
+    canceled,
+    results_sent_elsewhere,
+    take_from_other_question: QuestionId,
+};
+
 pub const AcceptInfo = struct {
     question_id: QuestionId,
     has_provision: bool,
@@ -784,6 +791,15 @@ pub fn capTableFromWireReturnResults(allocator: std.mem.Allocator, return_: anyt
     return capTableFromWirePayload(allocator, try return_.results());
 }
 
+pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
+    return switch (return_.which() orelse return error.InvalidTransition) {
+        .results => .results,
+        .canceled => .canceled,
+        .resultsSentElsewhere => .results_sent_elsewhere,
+        .takeFromOtherQuestion => .{ .take_from_other_question = try return_.takeFromOtherQuestion() },
+    };
+}
+
 fn capDescriptorImportIdsAlloc(allocator: std.mem.Allocator, descriptors: []const CapDescriptor) std.mem.Allocator.Error![]ImportId {
     var count: usize = 0;
     for (descriptors) |descriptor| switch (descriptor) {
@@ -1137,10 +1153,21 @@ pub const State = struct {
         const answer_id = return_.answerId();
         const release_param_caps = return_.releaseParamCaps();
         const no_finish_needed = return_.noFinishNeeded();
-        const descriptors = try capTableFromWireReturnResults(allocator, return_);
-        defer allocator.free(descriptors);
+        const outcome = try returnOutcomeFromWireReturn(return_);
+        if (outcome == .take_from_other_question and !self.answers.contains(outcome.take_from_other_question)) return error.QuestionNotOpen;
 
-        try validateWirePayloadContent(try return_.results(), descriptors.len);
+        var allocated_descriptors: ?[]CapDescriptor = null;
+        defer if (allocated_descriptors) |descriptors| allocator.free(descriptors);
+        const descriptors: []const CapDescriptor = switch (outcome) {
+            .results => blk: {
+                const result_descriptors = try capTableFromWireReturnResults(allocator, return_);
+                allocated_descriptors = result_descriptors;
+                try validateWirePayloadContent(try return_.results(), result_descriptors.len);
+                break :blk result_descriptors;
+            },
+            .canceled, .results_sent_elsewhere, .take_from_other_question => &.{},
+        };
+
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         if (release_param_caps) try self.validateParamImports(answer_id);
         try self.resolveAnswer(answer_id, .return_);

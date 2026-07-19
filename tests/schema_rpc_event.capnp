@@ -43,8 +43,14 @@ struct Call {
 struct Return {
   answerId @0 :AnswerId;
   releaseParamCaps @1 :Bool = true;
-  results @2 :Payload;
   noFinishNeeded @8 :Bool = false;
+
+  union {
+    results @2 :Payload;
+    canceled @4 :Void;
+    resultsSentElsewhere @5 :Void;
+    takeFromOtherQuestion @6 :QuestionId;
+  }
 }
 
 struct Finish {
