@@ -9356,6 +9356,11 @@ test "schema layout planner handles group members inside unions" {
     try std.testing.expectEqual(FieldSlot{ .pointer = 0 }, layout.fields[2].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[3].slot);
     try std.testing.expectEqual(FieldSlot{ .data_byte = 8 }, layout.fields[4].slot);
+
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, code, "foo_id = 0,"));
+    try std.testing.expectEqual(@as(usize, 0), std.mem.count(u8, code, "foo_text = 0,"));
 }
 
 test "schema parser validates defaults for flattened union groups" {
@@ -13499,6 +13504,7 @@ fn aliasValueTypeAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?
         .any_struct => allocator.dupe(u8, "cpz.StructReader"),
         .any_list => allocator.dupe(u8, "cpz.ListReader"),
         .named => |type_name| {
+            if (parameterNameInScope(file, scope, type_name)) return allocator.dupe(u8, "cpz.PointerReader");
             if (findInterface(file, type_name) != null) return allocator.dupe(u8, "u32");
             return zigTypeRefAlloc(allocator, file, type_name);
         },
@@ -13535,6 +13541,10 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
         .any_list => try aliasLine(allocator, out, indent, alias_name, "cpz.ListReader"),
         .capability => try aliasLine(allocator, out, indent, alias_name, "u32"),
         .named => |type_name| {
+            if (parameterNameInScope(file, scope, type_name)) {
+                try aliasLine(allocator, out, indent, alias_name, "cpz.PointerReader");
+                return;
+            }
             if (findInterface(file, type_name) != null) {
                 const local_name = anonymousAliasName(.{ .named = type_name }) orelse type_name;
                 const local_ident = try zigIdentAlloc(allocator, local_name);
@@ -20392,9 +20402,13 @@ fn emitUnionDeclarations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
             \\    pub const Union{} = enum(u16) {{
             \\
         , .{union_index});
+        var emitted_discriminants = std.AutoHashMap(u16, void).init(allocator);
+        defer emitted_discriminants.deinit();
         for (layout.fields) |field_layout| {
             const field = field_layout.field;
             if (field.union_index == null or field.union_index.? != union_index) continue;
+            const entry = try emitted_discriminants.getOrPut(field.union_discriminant);
+            if (entry.found_existing) continue;
             const field_name = try zigIdentAlloc(allocator, field.name);
             defer allocator.free(field_name);
             try appendFmt(allocator, out,
@@ -26448,6 +26462,7 @@ test "schema code generator lowers generic type parameters to pointer accessors"
     const source =
         \\using T = UInt32;
         \\struct Box(T) {
+        \\  using AliasT = T;
         \\  item @0 :T;
         \\  items @1 :List(T);
         \\}
@@ -26470,6 +26485,7 @@ test "schema code generator lowers generic type parameters to pointer accessors"
     try std.testing.expect(std.mem.indexOf(u8, code, "getPointerField(1).getList(.pointer)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get(self: @This(), @\"cpz.index\": usize) !cpz.PointerReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_items(self: Builder, @\"cpz.values\": []const cpz.PointerReader)") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const AliasT = cpz.PointerReader;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.field.item.resolvedType\": []const u8 = \"T\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.field.item.resolvedType\": []const u8 = \"U\"") != null);
 }
