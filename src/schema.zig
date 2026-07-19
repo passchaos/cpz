@@ -5522,6 +5522,41 @@ fn resolveQualifiedAliasSuffixAlloc(
     return resolveAliasSuffixAlloc(allocator, file, scope, owner_decl.name, raw_owner, owner_decl.aliases, owner_decl.parameters, &.{}, suffix, owned_names);
 }
 
+fn namedTypeResolvesToGenericParameter(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8) LayoutError!bool {
+    var owned_names = std.ArrayList([]const u8).empty;
+    defer {
+        for (owned_names.items) |name| allocator.free(name);
+        owned_names.deinit(allocator);
+    }
+    const resolved_const =
+        (try resolveAppliedAliasInScopeAlloc(allocator, file, scope, type_name, &owned_names)) orelse
+        (try resolveQualifiedAliasSuffixAlloc(allocator, file, scope, type_name, &owned_names)) orelse
+        (try resolveTypeApplicationSuffixAliasAlloc(allocator, file, scope, type_name, &owned_names)) orelse
+        return false;
+    var resolved = resolved_const;
+    defer resolved.deinit(allocator);
+    return resolved == .named and parameterNameInScope(file, scope, resolved.named);
+}
+
+fn effectiveNamedTypeNameAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8) LayoutError![]const u8 {
+    var owned_names = std.ArrayList([]const u8).empty;
+    defer {
+        for (owned_names.items) |name| allocator.free(name);
+        owned_names.deinit(allocator);
+    }
+    const resolved_const =
+        (try resolveAppliedAliasInScopeAlloc(allocator, file, scope, type_name, &owned_names)) orelse
+        (try resolveQualifiedAliasSuffixAlloc(allocator, file, scope, type_name, &owned_names)) orelse
+        (try resolveTypeApplicationSuffixAliasAlloc(allocator, file, scope, type_name, &owned_names)) orelse
+        return allocator.dupe(u8, type_name);
+    var resolved = resolved_const;
+    defer resolved.deinit(allocator);
+    return switch (resolved) {
+        .named => |name| allocator.dupe(u8, name),
+        else => allocator.dupe(u8, type_name),
+    };
+}
+
 fn prefixRelativeAliasTargetAlloc(
     allocator: std.mem.Allocator,
     file: *const File,
@@ -9100,6 +9135,9 @@ test "schema layout planner resolves alias suffix type references" {
     var layouts = try planLayouts(std.testing.allocator, &file);
     defer layouts.deinit(std.testing.allocator);
     try std.testing.expect(layouts.structs.len >= 2);
+    const code = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(code);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub fn revFoo(self: @This()) !cpz.PointerReader") != null);
 }
 
 test "schema layout planner resolves qualified alias suffixes" {
@@ -13484,6 +13522,20 @@ fn aliasLine(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []co
     return appendFmt(allocator, out, "{s}pub const {s} = {s};\n\n", .{ indent, alias_name, value });
 }
 
+fn nestedTypeNameInScopeAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, type_name: []const u8) LayoutError![]const u8 {
+    const owner = scope orelse return allocator.dupe(u8, type_name);
+    const head = try aliasReferenceHeadAlloc(allocator, type_name);
+    defer allocator.free(head);
+    if (findStructInOwnerScope(file, owner.name, head) == null and
+        findInterfaceInOwnerScope(file, owner.name, head) == null and
+        !isEnumDirectInOwnerScope(file, owner.name, head) and
+        !isAnnotationDirectInOwnerScope(file, owner.name, head))
+    {
+        return allocator.dupe(u8, type_name);
+    }
+    return std.fmt.allocPrint(allocator, "{s}.{s}", .{ owner.name, type_name });
+}
+
 fn aliasValueTypeAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, ty: Type) LayoutError![]u8 {
     return switch (resolveTypeScoped(file, scope, ty)) {
         .void => allocator.dupe(u8, "void"),
@@ -13506,7 +13558,9 @@ fn aliasValueTypeAlloc(allocator: std.mem.Allocator, file: *const File, scope: ?
         .named => |type_name| {
             if (parameterNameInScope(file, scope, type_name)) return allocator.dupe(u8, "cpz.PointerReader");
             if (findInterface(file, type_name) != null) return allocator.dupe(u8, "u32");
-            return zigTypeRefAlloc(allocator, file, type_name);
+            const effective_name = try nestedTypeNameInScopeAlloc(allocator, file, scope, type_name);
+            defer allocator.free(effective_name);
+            return zigTypeRefAlloc(allocator, file, effective_name);
         },
         .list => |child| {
             const child_type = try aliasValueTypeAlloc(allocator, file, scope, child.*);
@@ -13554,7 +13608,9 @@ fn emitAliasTarget(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                     return;
                 }
             }
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            const effective_name = try nestedTypeNameInScopeAlloc(allocator, file, scope, type_name);
+            defer allocator.free(effective_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, effective_name);
             defer allocator.free(zig_type);
             try aliasLine(allocator, out, indent, alias_name, zig_type);
         },
@@ -21419,7 +21475,7 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\    }}
                 \\
             , .{index});
-        } else if (!isStructLikeName(file, type_name)) {
+        } else if (!isStructLikeName(file, type_name) or try namedTypeResolvesToGenericParameter(allocator, file, layout.decl, type_name)) {
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !cpz.PointerReader {{
             , .{field_name});
@@ -21430,7 +21486,9 @@ fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file
                 \\
             , .{index});
         } else {
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            const effective_type_name = try effectiveNamedTypeNameAlloc(allocator, file, layout.decl, type_name);
+            defer allocator.free(effective_type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, effective_type_name);
             defer allocator.free(zig_type);
             try appendFmt(allocator, out,
                 \\    pub fn {s}(self: @This()) !{s} {{
@@ -21815,7 +21873,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{});
-        } else if (!isStructLikeName(file, type_name)) {
+        } else if (!isStructLikeName(file, type_name) or try namedTypeResolvesToGenericParameter(allocator, file, scope, type_name)) {
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerReader {{
                 \\            return self.list.getPointerElement(@"cpz.index");
@@ -23004,7 +23062,7 @@ fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
                 \\        }}
                 \\
             , .{});
-        } else if (!isStructLikeName(file, type_name)) {
+        } else if (!isStructLikeName(file, type_name) or try namedTypeResolvesToGenericParameter(allocator, file, scope, type_name)) {
             try appendFmt(allocator, out,
                 \\        pub fn get(self: @This(), @"cpz.index": usize) !cpz.PointerBuilder {{
                 \\            return self.list.getPointerElement(@"cpz.index");
@@ -23352,7 +23410,7 @@ fn emitListSliceSetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
             , .{index});
         } else if (findInterface(file, type_name) != null) {
             try emitCapabilitySliceSetter(allocator, out, field_name, field, index);
-        } else if (!isStructLikeName(file, type_name)) {
+        } else if (!isStructLikeName(file, type_name) or try namedTypeResolvesToGenericParameter(allocator, file, scope, type_name)) {
             try emitListPointerSliceSetter(allocator, out, field_name, field, index, "cpz.PointerReader", "copyFrom");
         } else {
             const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
@@ -25540,7 +25598,7 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\        }}
                 \\
             , .{ index, field_name });
-        } else if (!isStructLikeName(file, type_name)) {
+        } else if (!isStructLikeName(file, type_name) or try namedTypeResolvesToGenericParameter(allocator, file, layout.decl, type_name)) {
             try appendFmt(allocator, out,
                 \\        pub fn get_{s}(self: Builder) !cpz.PointerBuilder {{
             , .{field_name});
@@ -25595,7 +25653,9 @@ fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayList(u8
                 \\
             , .{ index, field_name, field_name, field_name, field_name });
         } else {
-            const zig_type = try zigTypeRefAlloc(allocator, file, type_name);
+            const effective_type_name = try effectiveNamedTypeNameAlloc(allocator, file, layout.decl, type_name);
+            defer allocator.free(effective_type_name);
+            const zig_type = try zigTypeRefAlloc(allocator, file, effective_type_name);
             defer allocator.free(zig_type);
             const has_default_flat = try structFieldDefaultFlatIsEmitted(allocator, file, layout, field, type_name);
             try appendFmt(allocator, out,
@@ -26463,8 +26523,13 @@ test "schema code generator lowers generic type parameters to pointer accessors"
         \\using T = UInt32;
         \\struct Box(T) {
         \\  using AliasT = T;
+        \\  using AliasInner = Inner;
+        \\  using AliasInnerText = Inner(Text);
         \\  item @0 :T;
         \\  items @1 :List(T);
+        \\  struct Inner(U) {
+        \\    value @0 :U;
+        \\  }
         \\}
         \\struct Outer {
         \\  using U = UInt32;
@@ -26486,6 +26551,7 @@ test "schema code generator lowers generic type parameters to pointer accessors"
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn get(self: @This(), @\"cpz.index\": usize) !cpz.PointerReader") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub fn set_items(self: Builder, @\"cpz.values\": []const cpz.PointerReader)") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const AliasT = cpz.PointerReader;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, code, "pub const AliasInnerText = @\"cpz.schema\".Box_Inner;") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.field.item.resolvedType\": []const u8 = \"T\"") != null);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.field.item.resolvedType\": []const u8 = \"U\"") != null);
 }
