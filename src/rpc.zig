@@ -1953,7 +1953,11 @@ pub const State = struct {
     pub fn applyWireResolve(self: *State, resolve: anytype) !void {
         const info = try resolveInfoFromWireResolve(resolve);
         if (info.cap) |descriptor| try self.validateCapDescriptor(descriptor);
-        try self.resolveExportTo(info.promise_id, info.cap);
+        if (self.imports.contains(info.promise_id)) {
+            try self.resolveImportTo(info.promise_id, info.cap);
+        } else {
+            try self.resolveExportTo(info.promise_id, info.cap);
+        }
         if (info.cap) |descriptor| try self.applyCapDescriptor(descriptor);
     }
 
@@ -2016,6 +2020,11 @@ pub const State = struct {
         try tracker.resolveTo(resolution);
     }
 
+    pub fn resolveImportTo(self: *State, id: ImportId, resolution: ?CapDescriptor) Error!void {
+        const tracker = self.imports.getPtr(id) orelse return error.InvalidTransition;
+        try tracker.resolveTo(resolution);
+    }
+
     pub fn releaseImport(self: *State, id: ImportId) Error!void {
         const tracker = self.imports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
@@ -2066,6 +2075,16 @@ pub const State = struct {
     pub fn importReferenceCount(self: *const State, id: ImportId) ?u32 {
         const tracker = self.imports.get(id) orelse return null;
         return tracker.reference_count;
+    }
+
+    pub fn importResolved(self: *const State, id: ImportId) ?bool {
+        const tracker = self.imports.get(id) orelse return null;
+        return tracker.resolved;
+    }
+
+    pub fn importResolution(self: *const State, id: ImportId) ?CapDescriptor {
+        const tracker = self.imports.get(id) orelse return null;
+        return tracker.resolution;
     }
 
     pub fn acceptInfo(self: *const State, id: QuestionId) ?AcceptInfo {

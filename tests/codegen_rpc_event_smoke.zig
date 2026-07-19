@@ -2701,6 +2701,27 @@ test "rpc resolve cap descriptors replace promise exports" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(91));
 }
 
+test "rpc resolve cap descriptors replace imported promises" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const resolve = try root.init_resolve();
+    try resolve.set_promiseId(99);
+    const cap = try resolve.init_cap();
+    try cap.set_senderHosted(100);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyCapDescriptor(.{ .sender_promise = 99 });
+    try std.testing.expectEqual(@as(?bool, false), state.importResolved(99));
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?bool, true), state.importResolved(99));
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 100 }, state.importResolution(99).?);
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
+}
+
 test "rpc resolve exceptions mark promise exports resolved" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();
