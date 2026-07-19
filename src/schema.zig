@@ -5880,6 +5880,7 @@ fn validateSimpleNamedTypeExists(file: *const File, scope: ?*const Struct, name:
     if (isImportedAliasName(file, name)) return;
     if (scope) |owner| {
         if (declHasParameter(owner.parameters, name)) return;
+        if (parameterNameInScope(file, scope, name)) return;
         if (findStructDirect(file, owner.name) != null) {
             if (isStructDirectInOwnerScope(file, owner.name, name)) return;
             if (isEnumDirectInOwnerScope(file, owner.name, name)) return;
@@ -7429,6 +7430,31 @@ test "schema layout planner rejects scalar defaults for generic parameters" {
     );
     defer const_file.deinit(std.testing.allocator);
     try std.testing.expectError(error.UnexpectedToken, planLayouts(std.testing.allocator, &const_file));
+}
+
+test "schema layout planner accepts interface parameters in nested structs" {
+    var file = try parse(std.testing.allocator,
+        \\interface Persistent(SturdyRef, Owner) {
+        \\  save @0 SaveParams -> SaveResults;
+        \\
+        \\  struct SaveParams {
+        \\    sealFor @0 :Owner;
+        \\  }
+        \\
+        \\  struct SaveResults {
+        \\    sturdyRef @0 :SturdyRef;
+        \\  }
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    try std.testing.expectEqual(@as(usize, 2), file.structs.len);
+    try std.testing.expectEqualStrings("Owner", file.structs[0].fields[0].ty.named);
+    try std.testing.expectEqualStrings("SturdyRef", file.structs[1].fields[0].ty.named);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(u16, 1), layouts.structs[0].pointer_count);
+    try std.testing.expectEqual(@as(u16, 1), layouts.structs[1].pointer_count);
 }
 
 test "schema parser rejects duplicate field names" {
