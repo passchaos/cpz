@@ -14,7 +14,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     const unit_tests = b.addTest(.{ .root_module = test_mod });
-    const run_unit_tests = b.addRunArtifact(unit_tests);
+    const run_unit_tests = addTestRun(b, unit_tests);
 
     const example_mod = b.createModule(.{
         .root_source_file = b.path("examples/addressbook.zig"),
@@ -87,7 +87,7 @@ pub fn build(b: *std.Build) void {
         .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
     });
     const cpzc_tests = b.addTest(.{ .root_module = cpzc_test_mod });
-    test_step.dependOn(&b.addRunArtifact(cpzc_tests).step);
+    test_step.dependOn(&addTestRun(b, cpzc_tests).step);
 
     const run_schema_codegen = b.addRunArtifact(cpzc_host);
     run_schema_codegen.addFileArg(b.path("tests/schema_smoke.capnp"));
@@ -107,7 +107,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const codegen_smoke_tests = b.addTest(.{ .root_module = codegen_smoke_mod });
-    test_step.dependOn(&b.addRunArtifact(codegen_smoke_tests).step);
+    test_step.dependOn(&addTestRun(b, codegen_smoke_tests).step);
 
     const run_method_defaults_codegen = b.addRunArtifact(cpzc_host);
     run_method_defaults_codegen.addFileArg(b.path("tests/schema_method_defaults.capnp"));
@@ -127,7 +127,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const codegen_method_defaults_smoke_tests = b.addTest(.{ .root_module = codegen_method_defaults_smoke_mod });
-    test_step.dependOn(&b.addRunArtifact(codegen_method_defaults_smoke_tests).step);
+    test_step.dependOn(&addTestRun(b, codegen_method_defaults_smoke_tests).step);
 
     const run_scalar_const_lists_codegen = b.addRunArtifact(cpzc_host);
     run_scalar_const_lists_codegen.addFileArg(b.path("tests/schema_scalar_const_lists.capnp"));
@@ -147,7 +147,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const codegen_scalar_const_lists_smoke_tests = b.addTest(.{ .root_module = codegen_scalar_const_lists_smoke_mod });
-    test_step.dependOn(&b.addRunArtifact(codegen_scalar_const_lists_smoke_tests).step);
+    test_step.dependOn(&addTestRun(b, codegen_scalar_const_lists_smoke_tests).step);
 
     const run_keyword_schema_codegen = b.addRunArtifact(cpzc_host);
     run_keyword_schema_codegen.addFileArg(b.path("tests/schema_keywords.capnp"));
@@ -167,7 +167,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const codegen_keyword_smoke_tests = b.addTest(.{ .root_module = codegen_keyword_smoke_mod });
-    test_step.dependOn(&b.addRunArtifact(codegen_keyword_smoke_tests).step);
+    test_step.dependOn(&addTestRun(b, codegen_keyword_smoke_tests).step);
 
     const run_namespace_schema_codegen = b.addRunArtifact(cpzc_host);
     run_namespace_schema_codegen.addArgs(&.{ "--namespace", "api" });
@@ -187,7 +187,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const codegen_namespace_smoke_tests = b.addTest(.{ .root_module = codegen_namespace_smoke_mod });
-    test_step.dependOn(&b.addRunArtifact(codegen_namespace_smoke_tests).step);
+    test_step.dependOn(&addTestRun(b, codegen_namespace_smoke_tests).step);
 
     const run_import_base_codegen = b.addRunArtifact(cpzc_host);
     run_import_base_codegen.addFileArg(b.path("tests/schema_import_base.capnp"));
@@ -223,7 +223,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const codegen_import_smoke_tests = b.addTest(.{ .root_module = codegen_import_smoke_mod });
-    test_step.dependOn(&b.addRunArtifact(codegen_import_smoke_tests).step);
+    test_step.dependOn(&addTestRun(b, codegen_import_smoke_tests).step);
 
     const run_import_use_namespace_codegen = b.addRunArtifact(cpzc_host);
     run_import_use_namespace_codegen.addArgs(&.{ "--namespace", "api" });
@@ -250,7 +250,7 @@ pub fn build(b: *std.Build) void {
         },
     });
     const codegen_import_namespace_smoke_tests = b.addTest(.{ .root_module = codegen_import_namespace_smoke_mod });
-    test_step.dependOn(&b.addRunArtifact(codegen_import_namespace_smoke_tests).step);
+    test_step.dependOn(&addTestRun(b, codegen_import_namespace_smoke_tests).step);
 
     const fmt_step = b.step("fmt", "Format Zig sources");
     const fmt = b.addFmt(.{
@@ -268,4 +268,13 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(test_step);
     check_step.dependOn(&example.step);
     check_step.dependOn(&bench.step);
+}
+
+fn addTestRun(b: *std.Build, test_exe: *std.Build.Step.Compile) *std.Build.Step.Run {
+    const run = b.addRunArtifact(test_exe);
+    // Cross-target builds should still compile every test artifact, but a Linux
+    // host cannot execute e.g. Windows test binaries without an external runner.
+    // Let Zig mark those run steps skipped instead of failing the entire build.
+    run.skip_foreign_checks = true;
+    return run;
 }
