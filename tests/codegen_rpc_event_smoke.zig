@@ -306,6 +306,50 @@ test "rpc wire returns resolve answers and apply result cap tables" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(34));
 }
 
+test "rpc top-level wire messages apply calls and returns" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    try state.addExport(7);
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const call = try root.init_call();
+        try call.set_questionId(60);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        const params = try call.init_params();
+        const cap_table = try params.init_capTable(2);
+        try (try cap_table.get(0)).set_senderHosted(6);
+        try (try cap_table.get(1)).set_receiverHosted(7);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(60));
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(6));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try return_.set_answerId(60);
+        const results = try return_.init_results();
+        const cap_table = try results.init_capTable(2);
+        try (try cap_table.get(0)).set_senderHosted(8);
+        try (try cap_table.get(1)).set_receiverHosted(7);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(60));
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(8));
+    }
+}
+
 test "rpc provide accept and join wire events open questions" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

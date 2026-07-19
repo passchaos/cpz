@@ -636,6 +636,15 @@ pub const State = struct {
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
     }
 
+    pub fn applyWireMessage(self: *State, allocator: std.mem.Allocator, message: anytype) !void {
+        const event = try eventFromWireMessage(message);
+        return switch (event) {
+            .call => self.applyWireCall(allocator, try message.call()),
+            .return_ => self.applyWireReturn(allocator, try message.return_()),
+            else => self.applyWireEvent(event),
+        };
+    }
+
     pub fn releaseExport(self: *State, id: ExportId) Error!void {
         const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
