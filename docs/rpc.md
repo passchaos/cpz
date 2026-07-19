@@ -50,7 +50,8 @@ that a complete RPC runtime exists.
   receiver-hosted export/answer validation. `Call.params.capTable` can be
   decoded through the same descriptor pipeline, as can `Return.results.capTable`;
   convenience helpers can apply those generated Call/Return payload tables
-  directly to `State`.
+  directly to `State`. A generated Call reader can also be applied as a unit:
+  target validation, question opening, and params capability-table bookkeeping.
 - Generated accessors for capability and named-interface fields and list
   elements include `FromTable` / `OrNullFromTable` helpers that delegate to
   `CapabilityTable(T)`.

@@ -614,6 +614,18 @@ pub const State = struct {
         try self.validateCallTarget(try callTargetFromWireCall(call));
     }
 
+    pub fn applyWireCall(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
+        const question_id = call.questionId();
+        const target = try callTargetFromWireCall(call);
+        const descriptors = try capTableFromWireCallParams(allocator, call);
+        defer allocator.free(descriptors);
+
+        try self.validateCallTarget(target);
+        for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
+        try self.openQuestion(question_id, .call);
+        for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
+    }
+
     pub fn releaseExport(self: *State, id: ExportId) Error!void {
         const tracker = self.exports.getPtr(id) orelse return error.InvalidTransition;
         try tracker.release();
