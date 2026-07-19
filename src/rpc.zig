@@ -1897,6 +1897,17 @@ pub const State = struct {
         try self.validateCallTarget(try callTargetFromWireCall(call));
     }
 
+    pub fn callTargetResolution(self: *const State, target: CallTarget) ?CapDescriptor {
+        return switch (target) {
+            .imported_cap => |id| self.importResolution(id),
+            .promised_answer => null,
+        };
+    }
+
+    pub fn wireCallTargetResolution(self: *const State, call: anytype) !?CapDescriptor {
+        return self.callTargetResolution(try callTargetFromWireCall(call));
+    }
+
     pub fn validateWireDisembargo(self: *const State, disembargo: anytype) !void {
         const info = try disembargoInfoFromWireDisembargo(disembargo);
         try self.validateCallTarget(info.target);
