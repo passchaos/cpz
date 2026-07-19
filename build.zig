@@ -98,6 +98,15 @@ pub fn build(b: *std.Build) void {
     const malformed_input_smoke_tests = b.addTest(.{ .root_module = malformed_input_smoke_mod });
     test_step.dependOn(&addTestRun(b, malformed_input_smoke_tests).step);
 
+    const public_api_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/public_api_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const public_api_smoke_tests = b.addTest(.{ .root_module = public_api_smoke_mod });
+    test_step.dependOn(&addTestRun(b, public_api_smoke_tests).step);
+
     const upstream_testdata_smoke_mod = b.createModule(.{
         .root_source_file = b.path("tests/upstream_testdata_smoke.zig"),
         .target = target,
