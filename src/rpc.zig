@@ -160,6 +160,12 @@ pub const CallSendResultsTo = enum {
     yourself,
 };
 
+pub const CallFlags = struct {
+    allow_third_party_tail_call: bool = false,
+    no_promise_pipelining: bool = false,
+    only_promise_pipeline: bool = false,
+};
+
 pub const CapDescriptor = union(enum) {
     none,
     sender_hosted: ExportId,
@@ -569,6 +575,20 @@ pub fn writeSendResultsToToWire(value: CallSendResultsTo, call: anytype) !void {
         .caller => try call.set_sendResultsTo_caller(),
         .yourself => try call.set_sendResultsTo_yourself(),
     }
+}
+
+pub fn callFlagsFromWireCall(call: anytype) CallFlags {
+    return .{
+        .allow_third_party_tail_call = call.allowThirdPartyTailCall(),
+        .no_promise_pipelining = call.noPromisePipelining(),
+        .only_promise_pipeline = call.onlyPromisePipeline(),
+    };
+}
+
+pub fn writeCallFlagsToWire(flags: CallFlags, call: anytype) !void {
+    try call.set_allowThirdPartyTailCall(flags.allow_third_party_tail_call);
+    try call.set_noPromisePipelining(flags.no_promise_pipelining);
+    try call.set_onlyPromisePipeline(flags.only_promise_pipeline);
 }
 
 pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {

@@ -180,6 +180,25 @@ test "rpc call helpers decode and write send-results-to targets" {
     }
 }
 
+test "rpc call helpers decode and write boolean flags" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const call = try generated.Call.initRootTyped(&builder);
+    try cpz.rpc.writeCallFlagsToWire(.{
+        .allow_third_party_tail_call = true,
+        .no_promise_pipelining = true,
+        .only_promise_pipeline = true,
+    }, call);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call_reader = generated.Call.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(cpz.rpc.CallFlags{
+        .allow_third_party_tail_call = true,
+        .no_promise_pipelining = true,
+        .only_promise_pipeline = true,
+    }, cpz.rpc.callFlagsFromWireCall(call_reader));
+}
+
 test "rpc allocating call target helpers decode promised-answer transforms" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();

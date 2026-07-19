@@ -37,6 +37,8 @@ that a complete RPC runtime exists.
   results payload; these non-result outcomes can also be written.
   Await-from-third-party returns expose their pointer capability usage and can be
   written for future third-party answer handling.
+  Call routing flags for third-party tail calls, no-promise-pipelining, and
+  only-promise-pipeline can be decoded and written.
   Returns with `releaseParamCaps` release imports introduced by the matching
   Call params cap table; callers can retain them when the flag is false. These
   tracked releases are validated before answer/question state is mutated.

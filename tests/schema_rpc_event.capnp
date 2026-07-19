@@ -38,6 +38,9 @@ struct Call {
   questionId @0 :QuestionId;
   target @1 :MessageTarget;
   params @4 :Payload;
+  allowThirdPartyTailCall @8 :Bool = false;
+  noPromisePipelining @9 :Bool = false;
+  onlyPromisePipeline @10 :Bool = false;
 
   union {
     sendResultsTo_caller @5 :Void;
