@@ -57,6 +57,7 @@ pub const DispatchResult = union(enum) {
     canceled,
     results_sent_elsewhere,
     take_from_other_question: QuestionId,
+    await_from_third_party: u32,
 };
 
 pub const AnyPointerUsage = struct {
@@ -1214,6 +1215,7 @@ pub fn initDispatchReturnMessage(message: anytype, answer_id: AnswerId, result: 
         .canceled => initWireReturnCanceled(try message.init_return_(), answer_id, true),
         .results_sent_elsewhere => initWireReturnResultsSentElsewhere(try message.init_return_(), answer_id, true),
         .take_from_other_question => |question_id| initWireReturnTakeFromOtherQuestion(try message.init_return_(), answer_id, true, question_id),
+        .await_from_third_party => |capability_index| initWireReturnAwaitFromThirdParty(try message.init_return_(), answer_id, true, false, capability_index),
     };
 }
 

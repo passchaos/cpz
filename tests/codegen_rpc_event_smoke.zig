@@ -1975,6 +1975,23 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         try std.testing.expect(return_.releaseParamCaps());
         try std.testing.expectEqual(cpz.rpc.ReturnOutcome{ .take_from_other_question = 25 }, try cpz.rpc.returnOutcomeFromWireReturn(return_));
     }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initDispatchReturnMessage(root, 26, .{ .await_from_third_party = 4 });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        const return_ = try message.return_();
+        try std.testing.expect(return_.releaseParamCaps());
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(return_);
+        const usage = switch (outcome) {
+            .await_from_third_party => |value| value,
+            else => return error.TestUnexpectedResult,
+        };
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, usage);
+    }
 }
 
 test "rpc single-message dispatcher routes calls and applies returns" {

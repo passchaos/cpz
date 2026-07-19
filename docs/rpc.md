@@ -110,9 +110,9 @@ that a complete RPC runtime exists.
   that returns the bootstrap export ID. A minimal Call dispatcher can do the
   same for calls that return a single capability, an empty no-finish result,
   exceptions, cancellation, results-sent-elsewhere, or take-from-other-question
-  outcomes. A single-message dispatcher can route generated Bootstrap/Call
-  readers through those callbacks and apply other supported top-level wire
-  messages to state.
+  outcomes, including await-from-third-party tail-call handoffs. A
+  single-message dispatcher can route generated Bootstrap/Call readers through
+  those callbacks and apply other supported top-level wire messages to state.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
