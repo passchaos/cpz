@@ -6354,7 +6354,7 @@ fn validateRawTypeReference(allocator: std.mem.Allocator, file: *const File, sco
         const base = try canonicalTypeNameAlloc(allocator, raw_base);
         defer allocator.free(base);
         if (!std.mem.eql(u8, base, "List") and !isBuiltinTypeApplicationBase(base) and !isEnumTypeApplicationBase(file, scope, base)) {
-            try validateSimpleNamedTypeExists(file, scope, base);
+            try validateSimpleNamedTypeExists(allocator, file, scope, base);
         }
         const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return error.UnsupportedType;
         defer {
@@ -6366,7 +6366,7 @@ fn validateRawTypeReference(allocator: std.mem.Allocator, file: *const File, sco
     }
     const canonical = try canonicalTypeNameAlloc(allocator, trimmed);
     defer allocator.free(canonical);
-    try validateSimpleNamedTypeExists(file, scope, canonical);
+    try validateSimpleNamedTypeExists(allocator, file, scope, canonical);
 }
 
 fn validateMethodFieldTypeReference(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, method_parameters: []const []const u8, raw: []const u8) LayoutError!void {
@@ -6380,7 +6380,7 @@ fn validateMethodFieldTypeReference(allocator: std.mem.Allocator, file: *const F
         const base = try canonicalTypeNameAlloc(allocator, raw_base);
         defer allocator.free(base);
         if (!std.mem.eql(u8, base, "List") and !isBuiltinTypeApplicationBase(base) and !isEnumTypeApplicationBase(file, scope, base)) {
-            try validateSimpleNamedTypeExists(file, scope, base);
+            try validateSimpleNamedTypeExists(allocator, file, scope, base);
         }
         const args = (try splitTypeApplicationArgsAlloc(allocator, trimmed)) orelse return error.UnsupportedType;
         defer {
@@ -6395,7 +6395,7 @@ fn validateMethodFieldTypeReference(allocator: std.mem.Allocator, file: *const F
     for (method_parameters) |parameter| {
         if (std.mem.eql(u8, parameter, canonical)) return;
     }
-    try validateSimpleNamedTypeExists(file, scope, canonical);
+    try validateSimpleNamedTypeExists(allocator, file, scope, canonical);
 }
 
 fn validateMethodTypeReference(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, method_parameters: []const []const u8, ty: Type) LayoutError!void {
@@ -6406,7 +6406,7 @@ fn validateMethodTypeReference(allocator: std.mem.Allocator, file: *const File, 
     }
 }
 
-fn validateSimpleNamedTypeExists(file: *const File, scope: ?*const Struct, name: []const u8) LayoutError!void {
+fn validateSimpleNamedTypeExists(allocator: std.mem.Allocator, file: *const File, scope: ?*const Struct, name: []const u8) LayoutError!void {
     if (isBuiltinSchemaTypeName(name)) return;
     if (isImportedTypeName(file, name)) return;
     if (isImportedAliasName(file, name)) return;
@@ -6431,6 +6431,17 @@ fn validateSimpleNamedTypeExists(file: *const File, scope: ?*const Struct, name:
     if (findInterfaceDirect(file, name) != null) return;
     if (findAnnotationDirect(file, name) != null) return;
     if (resolveNamedAlias(file, scope, name, 0) != null) return;
+    var owned_names = std.ArrayList([]const u8).empty;
+    defer {
+        for (owned_names.items) |owned_name| allocator.free(owned_name);
+        owned_names.deinit(allocator);
+    }
+    if (try resolveAppliedAliasInScopeAlloc(allocator, file, scope, name, &owned_names)) |resolved_ty_const| {
+        var resolved_ty = resolved_ty_const;
+        defer resolved_ty.deinit(allocator);
+        try validateTypeReference(allocator, file, scope, resolved_ty);
+        return;
+    }
     return error.UnsupportedType;
 }
 
@@ -9027,6 +9038,24 @@ test "schema layout planner binds generic aliases in default types" {
         }
     }
     try std.testing.expect(saw_defaults);
+}
+
+test "schema layout planner resolves alias suffix type references" {
+    var file = try parse(std.testing.allocator,
+        \\struct Box(Foo, Bar) {
+        \\  using AliasFoo = Foo;
+        \\  using AliasRev = Box(Bar, Foo);
+        \\
+        \\  struct UseAliases {
+        \\    revFoo @0 :AliasRev.AliasFoo;
+        \\  }
+        \\}
+    );
+    defer file.deinit(std.testing.allocator);
+
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+    try std.testing.expect(layouts.structs.len >= 2);
 }
 
 test "schema resolver inherits aliases from ancestor declaration scopes" {
