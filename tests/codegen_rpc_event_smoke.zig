@@ -593,6 +593,59 @@ test "rpc no-finish-needed returns complete questions without result caps" {
     try std.testing.expect(state.canReuseQuestionId(54));
 }
 
+test "rpc top-level no-finish flow permits question id reuse" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const call = try root.init_call();
+        try call.set_questionId(55);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(55));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try return_.set_answerId(55);
+        try return_.set_noFinishNeeded(true);
+        _ = try return_.init_results();
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expect(state.questionComplete(55));
+        try std.testing.expect(state.canReuseQuestionId(55));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const call = try root.init_call();
+        try call.set_questionId(55);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try state.applyWireMessage(std.testing.allocator, message);
+        try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(55));
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .unresolved), state.answerState(55));
+    }
+}
+
 test "rpc top-level wire messages apply calls and returns" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
