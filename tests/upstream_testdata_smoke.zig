@@ -263,6 +263,60 @@ fn expectTestListsStreamFixture(name: []const u8) !void {
     try expectTestListsRoot(try reader.getRoot());
 }
 
+fn expectAnnotatedJsonRoot(root: cpz.StructReader) !void {
+    try std.testing.expectEqual(@as(u16, 4), root.dataWordCount());
+    try std.testing.expectEqual(@as(u16, 16), root.pointerCount());
+
+    try expectText(root.getPointerField(0), "foo");
+    try std.testing.expectEqual(@as(u32, 123), root.getUInt32(0, 0));
+    try expectText(root.getPointerField(1), "abc");
+    try std.testing.expect(root.getBool(32, false));
+    try expectText(root.getPointerField(2), "cba");
+
+    try expectText(root.getPointerField(3), "this is a long string in order to force multi-line pretty printing");
+    try std.testing.expectEqual(@as(u32, 321), root.getUInt32(8, 0));
+    try std.testing.expect(root.getBool(33, false));
+    try expectText(root.getPointerField(4), "fed");
+
+    try std.testing.expectEqual(@as(u16, 1), root.getUInt16(6, 0));
+    try std.testing.expectEqual(@as(u32, 789), root.getUInt32(12, 0));
+    try expectText(root.getPointerField(5), "ghi");
+
+    const dependency = try root.getPointerField(6).getStruct(null);
+    try expectText(dependency.getPointerField(0), "corge");
+    try std.testing.expect(dependency.getPointerField(1).isNull());
+
+    try expectText(root.getPointerField(7), "garply");
+    try expectEnumList(try root.getPointerField(8).getList(.two_bytes), &.{ 3, 1, 0, 2 });
+
+    const inner_json = try root.getPointerField(9).getStruct(null);
+    try std.testing.expectEqual(@as(u16, 4), inner_json.getUInt16(0, 0));
+    const inner_json_list = try inner_json.getPointerField(0).getList(.composite);
+    try std.testing.expectEqual(@as(usize, 3), inner_json_list.len());
+
+    try std.testing.expect(root.getPointerField(10).isNull());
+    try expectData(root.getPointerField(11), "fred");
+    try expectData(root.getPointerField(12), "plugh");
+
+    try std.testing.expectEqual(@as(u16, 1), root.getUInt16(16, 0));
+    try std.testing.expect(root.getPointerField(13).isNull());
+    try std.testing.expectEqual(@as(u32, 678), root.getUInt32(20, 0));
+
+    const external_union = try root.getPointerField(14).getStruct(null);
+    try std.testing.expectEqual(@as(u16, 1), external_union.getUInt16(4, 0));
+    try expectText((try external_union.getPointerField(0).getStruct(null)).getPointerField(0), "cba");
+
+    try std.testing.expectEqual(@as(u16, 1), root.getUInt16(18, 0));
+    try std.testing.expect(root.getPointerField(15).isNull());
+}
+
+fn expectAnnotatedJsonFixture() !void {
+    var flat = try readStreamFixture(std.testing.allocator, "annotated-json.binary", false);
+    defer flat.deinit(std.testing.allocator);
+    var reader = cpz.MessageReader.init(flat.segments, .{});
+    try expectAnnotatedJsonRoot(try reader.getRoot());
+}
+
 fn expectTestAllTypesRoot(root: cpz.StructReader) !void {
     try std.testing.expectEqual(@as(u16, 6), root.dataWordCount());
     try std.testing.expectEqual(@as(u16, 20), root.pointerCount());
@@ -346,10 +400,6 @@ test "upstream C++ binary fixtures parse and expose TestAllTypes values" {
     try expectTestAllTypesStreamFixture("segmented-packed", true);
     try expectTestAllTypesSingleSegmentFixture("flat", false);
     try expectTestAllTypesSingleSegmentFixture("packedflat", true);
-
-    // Additional upstream fixtures use different schemas; schema-agnostic
-    // validation is still valuable because it walks all reachable pointers.
-    try validateStreamFixture("annotated-json.binary", false);
 }
 
 test "upstream C++ fixture bytes match cpz packing and framing" {
@@ -412,4 +462,8 @@ test "upstream C++ fixture bytes match cpz packing and framing" {
 
 test "upstream C++ TestLists fixture exposes nested list values" {
     try expectTestListsStreamFixture("lists.binary");
+}
+
+test "upstream C++ annotated JSON fixture exposes flattened fields" {
+    try expectAnnotatedJsonFixture();
 }
