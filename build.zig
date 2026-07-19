@@ -149,6 +149,25 @@ pub fn build(b: *std.Build) void {
     const codegen_scalar_const_lists_smoke_tests = b.addTest(.{ .root_module = codegen_scalar_const_lists_smoke_mod });
     test_step.dependOn(&addTestRun(b, codegen_scalar_const_lists_smoke_tests).step);
 
+    const run_lazy_codegen = b.addRunArtifact(cpzc_host);
+    run_lazy_codegen.addFileArg(b.path("tests/schema_lazy_codegen.capnp"));
+    const generated_lazy_schema = b.createModule(.{
+        .root_source_file = run_lazy_codegen.captureStdOut(.{ .basename = "schema_lazy_codegen.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const codegen_lazy_smoke_mod = b.createModule(.{
+        .root_source_file = b.path("tests/codegen_lazy_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "generated_lazy_schema", .module = generated_lazy_schema },
+        },
+    });
+    const codegen_lazy_smoke_tests = b.addTest(.{ .root_module = codegen_lazy_smoke_mod });
+    test_step.dependOn(&addTestRun(b, codegen_lazy_smoke_tests).step);
+
     const run_keyword_schema_codegen = b.addRunArtifact(cpzc_host);
     run_keyword_schema_codegen.addFileArg(b.path("tests/schema_keywords.capnp"));
     const generated_keyword_schema = b.createModule(.{
