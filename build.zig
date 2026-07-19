@@ -80,41 +80,10 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
-    const cpzc_test_mod = b.createModule(.{
-        .root_source_file = b.path("src/cpzc.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const cpzc_tests = b.addTest(.{ .root_module = cpzc_test_mod });
-    test_step.dependOn(&addTestRun(b, cpzc_tests).step);
-
-    const malformed_input_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/malformed_input_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const malformed_input_smoke_tests = b.addTest(.{ .root_module = malformed_input_smoke_mod });
-    test_step.dependOn(&addTestRun(b, malformed_input_smoke_tests).step);
-
-    const public_api_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/public_api_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const public_api_smoke_tests = b.addTest(.{ .root_module = public_api_smoke_mod });
-    test_step.dependOn(&addTestRun(b, public_api_smoke_tests).step);
-
-    const upstream_testdata_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/upstream_testdata_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const upstream_testdata_smoke_tests = b.addTest(.{ .root_module = upstream_testdata_smoke_mod });
-    test_step.dependOn(&addTestRun(b, upstream_testdata_smoke_tests).step);
+    addCpzOnlyTest(b, test_step, "src/cpzc.zig", target, optimize, cpz_mod);
+    addCpzOnlyTest(b, test_step, "tests/malformed_input_smoke.zig", target, optimize, cpz_mod);
+    addCpzOnlyTest(b, test_step, "tests/public_api_smoke.zig", target, optimize, cpz_mod);
+    addCpzOnlyTest(b, test_step, "tests/upstream_testdata_smoke.zig", target, optimize, cpz_mod);
 
     const run_schema_codegen = b.addRunArtifact(cpzc_host);
     run_schema_codegen.addFileArg(b.path("tests/schema_smoke.capnp"));
@@ -340,4 +309,22 @@ fn addTestRun(b: *std.Build, test_exe: *std.Build.Step.Compile) *std.Build.Step.
     // Let Zig mark those run steps skipped instead of failing the entire build.
     run.skip_foreign_checks = true;
     return run;
+}
+
+fn addCpzOnlyTest(
+    b: *std.Build,
+    test_step: *std.Build.Step,
+    root_source_file: []const u8,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    cpz_mod: *std.Build.Module,
+) void {
+    const test_mod = b.createModule(.{
+        .root_source_file = b.path(root_source_file),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const tests = b.addTest(.{ .root_module = test_mod });
+    test_step.dependOn(&addTestRun(b, tests).step);
 }
