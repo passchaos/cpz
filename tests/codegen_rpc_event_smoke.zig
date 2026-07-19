@@ -1935,6 +1935,42 @@ test "rpc single-message dispatcher routes calls and applies returns" {
     try state.addImport(5);
 
     {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        try cpz.rpc.initWireBootstrapMessage(request_root, 22);
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+
+        var bootstrap_seen: u32 = 0;
+        var call_seen: u32 = 0;
+        try std.testing.expect(try cpz.rpc.dispatchWireMessage(
+            &state,
+            std.testing.allocator,
+            response_root,
+            request,
+            &bootstrap_seen,
+            BootstrapHandler.handle,
+            &call_seen,
+            CallHandler.handle,
+        ));
+        try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+        try std.testing.expectEqual(@as(u32, 0), call_seen);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 1022 }, descriptors[0]);
+        try state.applyWireMessage(std.testing.allocator, response);
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(22));
+    }
+    {
         var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer request_builder.deinit();
         const request_root = try generated.Message.initRootTyped(&request_builder);
