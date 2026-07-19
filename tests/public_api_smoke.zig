@@ -36,6 +36,13 @@ test "top-level capability table resolves capability pointers" {
     try std.testing.expectEqual(@as(u32, 20), try table.getPointer(try reader.getRootPointer()));
     try std.testing.expect(table.satisfiesStats(try reader.validate()));
 
+    const list = try (try builder.getRootPointer()).initList(.pointer, 1);
+    (try list.getPointerElement(0)).setCapability(2);
+    try std.testing.expectEqual(@as(u32, 30), try table.getListBuilderElement(list, 0));
+    var list_reader_message = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const read_list = try (try list_reader_message.getRootPointer()).getList(.pointer);
+    try std.testing.expectEqual(@as(u32, 30), try table.getListElement(read_list, 0));
+
     var null_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{});
     defer null_builder.deinit();
     var null_reader = cpz.MessageReader.init(try null_builder.segmentsConst(), .{});

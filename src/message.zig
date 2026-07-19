@@ -431,6 +431,22 @@ pub fn CapabilityTable(comptime T: type) type {
             return try self.getPointerBuilder(pointer);
         }
 
+        pub fn getListElement(self: @This(), list: ListReader, index: usize) Error!T {
+            return self.getPointer(try list.getPointerElement(index));
+        }
+
+        pub fn getListElementOrNull(self: @This(), list: ListReader, index: usize) Error!?T {
+            return self.getPointerOrNull(try list.getPointerElement(index));
+        }
+
+        pub fn getListBuilderElement(self: @This(), list: ListBuilder, index: usize) Error!T {
+            return self.getPointerBuilder(try list.getPointerElement(index));
+        }
+
+        pub fn getListBuilderElementOrNull(self: @This(), list: ListBuilder, index: usize) Error!?T {
+            return self.getPointerBuilderOrNull(try list.getPointerElement(index));
+        }
+
         pub fn getOrphan(self: @This(), orphan: Orphan) Error!T {
             return self.get(try orphan.getCapabilityIndex());
         }
@@ -486,9 +502,22 @@ test "capability table maps wire indexes to application handles" {
     try testing.expect(!short_table.satisfiesStats(stats));
     try testing.expectError(error.InvalidCapabilityPointer, short_table.validateStats(stats));
 
+    const cap_list = try (try builder.getRootPointer()).initList(.pointer, 2);
+    (try cap_list.getPointerElement(0)).setCapability(1);
+    try cap_list.clearPointerElement(1);
+    try testing.expectEqualStrings("logger", try table.getListBuilderElement(cap_list, 0));
+    try testing.expectEqual(@as(?[]const u8, null), try table.getListBuilderElementOrNull(cap_list, 1));
+    var list_reader_message = MessageReader.init(try builder.segmentsConst(), .{});
+    const cap_list_reader = try (try list_reader_message.getRootPointer()).getList(.pointer);
+    try testing.expectEqualStrings("logger", try table.getListElement(cap_list_reader, 0));
+    try testing.expectEqual(@as(?[]const u8, null), try table.getListElementOrNull(cap_list_reader, 1));
+
     var orphan = (try builder.getRootPointer()).disown();
     defer orphan.release();
-    try testing.expectEqualStrings("store", try table.getOrphan(orphan));
+    try testing.expectError(error.InvalidPointerKind, table.getOrphan(orphan));
+    var cap_orphan = try builder.newOrphanCapability(2);
+    defer cap_orphan.release();
+    try testing.expectEqualStrings("store", try table.getOrphan(cap_orphan));
     const null_orphan = Orphan{ .message = &null_builder, .segment_id = 0, .pointer_word_index = 0, .raw = 0 };
     try testing.expectEqual(@as(?[]const u8, null), try table.getOrphanOrNull(null_orphan));
 }
