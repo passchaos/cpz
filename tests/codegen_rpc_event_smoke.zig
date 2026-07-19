@@ -2046,6 +2046,7 @@ test "rpc single-message dispatcher routes calls and applies returns" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
     try state.addImport(5);
+    var stats: cpz.rpc.WireDispatchStats = .{};
 
     {
         var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -2061,7 +2062,7 @@ test "rpc single-message dispatcher routes calls and applies returns" {
 
         var bootstrap_seen: u32 = 0;
         var call_seen: u32 = 0;
-        try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, try cpz.rpc.dispatchWireMessageOutcome(
+        const outcome = try cpz.rpc.dispatchWireMessageOutcome(
             &state,
             std.testing.allocator,
             response_root,
@@ -2070,7 +2071,9 @@ test "rpc single-message dispatcher routes calls and applies returns" {
             BootstrapHandler.handle,
             &call_seen,
             CallHandler.handle,
-        ));
+        );
+        stats.record(outcome);
+        try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, outcome);
         try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
         try std.testing.expectEqual(@as(u32, 0), call_seen);
 
@@ -2113,6 +2116,7 @@ test "rpc single-message dispatcher routes calls and applies returns" {
         ));
         try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
         try std.testing.expectEqual(@as(u32, 20), call_seen);
+        stats.record(.response_initialized);
 
         var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
         const response = generated.Message.fromReader(try response_reader.getRoot());
@@ -2136,7 +2140,7 @@ test "rpc single-message dispatcher routes calls and applies returns" {
         const unused_response = try generated.Message.initRootTyped(&unused_response_builder);
         var bootstrap_seen: u32 = 0;
         var call_seen: u32 = 0;
-        try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.state_applied, try cpz.rpc.dispatchWireMessageOutcome(
+        const outcome = try cpz.rpc.dispatchWireMessageOutcome(
             &state,
             std.testing.allocator,
             unused_response,
@@ -2145,12 +2149,17 @@ test "rpc single-message dispatcher routes calls and applies returns" {
             BootstrapHandler.handle,
             &call_seen,
             CallHandler.handle,
-        ));
+        );
+        stats.record(outcome);
+        try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.state_applied, outcome);
         try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
         try std.testing.expectEqual(@as(u32, 0), call_seen);
         try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(21));
         try std.testing.expect(state.questionComplete(21));
     }
+    try std.testing.expectEqual(@as(usize, 2), stats.response_initialized);
+    try std.testing.expectEqual(@as(usize, 1), stats.state_applied);
+    try std.testing.expectEqual(@as(usize, 3), stats.total());
 }
 
 test "rpc top-level provide and join messages validate targets" {

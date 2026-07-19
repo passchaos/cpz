@@ -65,6 +65,22 @@ pub const WireDispatchOutcome = enum {
     state_applied,
 };
 
+pub const WireDispatchStats = struct {
+    response_initialized: usize = 0,
+    state_applied: usize = 0,
+
+    pub fn record(self: *@This(), outcome: WireDispatchOutcome) void {
+        switch (outcome) {
+            .response_initialized => self.response_initialized += 1,
+            .state_applied => self.state_applied += 1,
+        }
+    }
+
+    pub fn total(self: @This()) usize {
+        return self.response_initialized + self.state_applied;
+    }
+};
+
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
