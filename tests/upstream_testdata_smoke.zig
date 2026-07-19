@@ -467,3 +467,24 @@ test "upstream C++ TestLists fixture exposes nested list values" {
 test "upstream C++ annotated JSON fixture exposes flattened fields" {
     try expectAnnotatedJsonFixture();
 }
+
+test "upstream segmented prefix sizing exposes segment table" {
+    const allocator = std.testing.allocator;
+    const segmented = try readFixture(allocator, "segmented");
+    defer allocator.free(segmented);
+
+    try std.testing.expectEqual(@as(usize, 8), try cpz.serialize.expectedSize(segmented[0..0]));
+    try std.testing.expectEqual(@as(usize, 504), try cpz.serialize.expectedSize(segmented[0..4]));
+    try std.testing.expectEqual(@as(usize, 504), try cpz.segmentTableByteLenFromPrefix(segmented[0..4]));
+    try std.testing.expectEqual(@as(usize, 125), try cpz.segmentCountFromPrefix(segmented[0..4]));
+
+    const table_prefix = segmented[0..504];
+    try std.testing.expectEqual(segmented.len, try cpz.serialize.expectedSize(table_prefix));
+    try std.testing.expectEqual(segmented.len / cpz.wire.bytes_per_word, try cpz.expectedSizeInWordsFromPrefix(table_prefix));
+    try std.testing.expectEqual(@as(usize, 1), try cpz.segmentWordLenFromPrefix(table_prefix, 0));
+    try std.testing.expectEqual(@as(usize, 26), try cpz.segmentWordLenFromPrefix(table_prefix, 1));
+    try std.testing.expectEqual(@as(usize, 2), try cpz.segmentWordLenFromPrefix(table_prefix, 124));
+    try std.testing.expectEqual(@as(usize, 16), try cpz.segmentByteLenFromPrefix(table_prefix, 124));
+    try std.testing.expectError(error.SegmentOutOfBounds, cpz.segmentWordLenFromPrefix(table_prefix, 125));
+    try std.testing.expectError(error.SegmentTableTruncated, cpz.segmentWordLenFromPrefix(segmented[0..128], 124));
+}
