@@ -902,6 +902,14 @@ pub fn initCapabilityReturnMessage(message: anytype, answer_id: AnswerId, export
     try initWirePayloadCapTable(results, &.{.{ .sender_hosted = export_id }});
 }
 
+pub fn initEmptyReturnMessage(message: anytype, answer_id: AnswerId, release_param_caps: bool, no_finish_needed: bool) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    _ = try return_.init_results();
+}
+
 pub fn initBootstrapReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
     try initCapabilityReturnMessage(message, answer_id, export_id);
 }
@@ -933,6 +941,19 @@ pub fn dispatchCallReturningCapability(
     try state.applyWireCall(allocator, call);
     const export_id = try handler(context, call);
     try initCapabilityReturnMessage(response_message, call.questionId(), export_id);
+}
+
+pub fn dispatchCallReturningEmpty(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    try handler(context, call);
+    try initEmptyReturnMessage(response_message, call.questionId(), true, true);
 }
 
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
