@@ -2016,6 +2016,11 @@ pub const State = struct {
         return tracker.embargo_released;
     }
 
+    pub fn acceptReady(self: *const State, id: QuestionId) ?bool {
+        const tracker = self.accepts.get(id) orelse return null;
+        return tracker.embargo == null or tracker.embargo_released;
+    }
+
     pub fn joinInfo(self: *const State, id: QuestionId) ?JoinInfo {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.info();

@@ -2295,6 +2295,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?u32, 2), tracked.provision_capability);
     try std.testing.expectEqualStrings("embargo-64", tracked.embargo.?);
     try std.testing.expectEqual(@as(?bool, false), state.acceptEmbargoReleased(64));
+    try std.testing.expectEqual(@as(?bool, false), state.acceptReady(64));
 
     var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer disembargo_builder.deinit();
@@ -2310,6 +2311,7 @@ test "rpc top-level accept messages open questions" {
     try state.addImport(5);
     try state.applyWireMessage(std.testing.allocator, disembargo_message);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));
+    try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
 }
 
 test "rpc disembargo helpers decode targets and loopback contexts" {

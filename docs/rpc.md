@@ -122,9 +122,10 @@ that a complete RPC runtime exists.
   top-level messages validate targets and record recipient pointer usage.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
-  for future provision handling. Join top-level messages record target and
-  key-part pointer usage, and Join result returns can initialize and decode
-  their result capability payloads. Top-level
+  for future provision handling; callers can query when an accepted provision is
+  ready for completion. Join top-level messages record target and key-part
+  pointer usage, and Join result returns can initialize and decode their result
+  capability payloads. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
   currently-structured handoff fields.
 - Generated accessors for capability and named-interface fields and list
