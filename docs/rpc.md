@@ -83,8 +83,10 @@ that a complete RPC runtime exists.
   `attachedFd` index metadata, and written back into generated payload builders.
   `CapabilityRegistry(T)` can seed sender-hosted descriptor tables for outgoing
   payloads. `Payload.capTable` can be decoded into caller-owned descriptor or
-  descriptor-info slices, with absent tables treated as empty. Payload content
-  capability indexes can be validated against the decoded cap table length.
+  descriptor-info slices, with absent tables treated as empty; helpers can
+  initialize payload content capability indexes together with descriptor tables.
+  Payload content capability indexes can be decoded and validated against the
+  decoded cap table length.
   Decoded descriptor tables can be applied to `State` for basic import
   creation/reference counting and receiver-hosted export/answer validation.
   `Call.params.capTable` can be decoded through the same descriptor pipeline, as

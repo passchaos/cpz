@@ -559,6 +559,44 @@ test "rpc payload info helpers write attached fd metadata" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .third_party_hosted = 22 }, .attached_fd = 0xff }, infos[1]);
 }
 
+test "rpc payload helpers initialize content capability with descriptor tables" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    try cpz.rpc.initWirePayloadCapability(payload, 1, &.{
+        .{ .sender_hosted = 23 },
+        .{ .sender_promise = 24 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(@as(?u32, 1), try cpz.rpc.payloadContentCapabilityIndex(payload_reader));
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 2), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 23 }, descriptors[0]);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_promise = 24 }, descriptors[1]);
+    try cpz.rpc.validateWirePayload(std.testing.allocator, payload_reader);
+}
+
+test "rpc payload info helpers initialize content capability with descriptor metadata" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    try cpz.rpc.initWirePayloadCapabilityInfo(payload, 0, &.{
+        .{ .descriptor = .{ .sender_hosted = 25 }, .attached_fd = 5 },
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.payloadContentCapabilityIndex(payload_reader));
+    const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(infos);
+    try std.testing.expectEqual(@as(usize, 1), infos.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 25 }, .attached_fd = 5 }, infos[0]);
+    try cpz.rpc.validateWirePayload(std.testing.allocator, payload_reader);
+}
+
 test "rpc payload helpers build sender-hosted descriptors from registries" {
     var registry: cpz.CapabilityRegistry([]const u8) = .{};
     defer registry.deinit(std.testing.allocator);
@@ -595,6 +633,7 @@ test "rpc payload helpers treat absent capability tables as empty" {
     const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
     defer std.testing.allocator.free(descriptors);
     try std.testing.expectEqual(@as(usize, 0), descriptors.len);
+    try std.testing.expect((try cpz.rpc.payloadContentCapabilityIndex(payload_reader)) == null);
 }
 
 test "rpc payload validation bounds content capabilities by cap table length" {

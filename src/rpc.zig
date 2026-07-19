@@ -819,6 +819,16 @@ pub fn initWirePayloadCapTableInfo(payload: anytype, infos: []const CapDescripto
     }
 }
 
+pub fn initWirePayloadCapability(payload: anytype, capability_index: u32, descriptors: []const CapDescriptor) !void {
+    (try payload.get_contentAsPointer()).setCapability(capability_index);
+    try initWirePayloadCapTable(payload, descriptors);
+}
+
+pub fn initWirePayloadCapabilityInfo(payload: anytype, capability_index: u32, infos: []const CapDescriptorInfo) !void {
+    (try payload.get_contentAsPointer()).setCapability(capability_index);
+    try initWirePayloadCapTableInfo(payload, infos);
+}
+
 pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, registry: anytype) ![]CapDescriptor {
     const descriptors = try allocator.alloc(CapDescriptor, registry.len());
     errdefer allocator.free(descriptors);
@@ -953,9 +963,7 @@ pub fn initWireReturnMessage(
 pub fn initCapabilityReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
     const return_ = try message.init_return_();
     try return_.set_answerId(answer_id);
-    const results = try return_.init_results();
-    (try results.get_contentAsPointer()).setCapability(0);
-    try initWirePayloadCapTable(results, &.{.{ .sender_hosted = export_id }});
+    try initWirePayloadCapability(try return_.init_results(), 0, &.{.{ .sender_hosted = export_id }});
 }
 
 pub fn initEmptyReturnMessage(message: anytype, answer_id: AnswerId, release_param_caps: bool, no_finish_needed: bool) !void {
@@ -1091,6 +1099,13 @@ pub fn capTableFromWireCallParams(allocator: std.mem.Allocator, call: anytype) !
 
 pub fn capTableFromWireReturnResults(allocator: std.mem.Allocator, return_: anytype) ![]CapDescriptor {
     return capTableFromWirePayload(allocator, try return_.results());
+}
+
+pub fn payloadContentCapabilityIndex(payload: anytype) !?u32 {
+    return (try payload.content()).getCapabilityIndex() catch |err| switch (err) {
+        error.InvalidPointerKind, error.NullPointer => null,
+        else => return err,
+    };
 }
 
 pub fn exceptionInfoFromWireException(exception: anytype) !ExceptionInfo {
