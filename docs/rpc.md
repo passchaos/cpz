@@ -121,7 +121,8 @@ that a complete RPC runtime exists.
   top-level messages validate their targets before opening questions, while
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
-  for future provision handling. Join result returns can initialize and decode
+  for future provision handling. Join top-level messages record target and
+  key-part pointer usage, and Join result returns can initialize and decode
   their result capability payloads. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
   currently-structured handoff fields.
