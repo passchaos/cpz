@@ -6791,6 +6791,8 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseSlots());
     try std.testing.expectEqual(@as(usize, 1), stats.denseForwardSlots());
     try std.testing.expectEqual(@as(usize, 3), stats.denseOutputSlots());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, stats.denseResponseRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
     try stats.validateDenseResponseCapacity(2);
     try stats.validateDenseForwardCapacity(1);
     try stats.validateDenseOutputCapacity(2, 1);
@@ -6819,6 +6821,9 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 1), turn_plan.stateOnlyMessages());
     try std.testing.expectEqual(@as(usize, 3), turn_plan.totalOutputMessages());
     try std.testing.expectEqual(@as(usize, 0), turn_plan.disembargoMessages());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, turn_plan.responseMessageRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, turn_plan.forwardedMessageRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 3, .end = 3 }, turn_plan.disembargoMessageRange());
     try turn_plan.validateOutputCapacity(2, 1);
     try turn_plan.validateUnifiedOutputCapacity(3);
     try turn_plan.validateUnifiedOutputBuilders(requests[0..3]);
@@ -6852,6 +6857,9 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
         const embargo_plan = try cpz.rpc.planRpcTurn(&embargo_state, no_messages[0..]);
         try std.testing.expectEqual(@as(usize, 1), embargo_plan.disembargoMessages());
         try std.testing.expectEqual(@as(usize, 1), embargo_plan.totalOutputMessages());
+        try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 0 }, embargo_plan.responseMessageRange());
+        try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 0 }, embargo_plan.forwardedMessageRange());
+        try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 1 }, embargo_plan.disembargoMessageRange());
         try embargo_plan.validateDisembargoCapacity(1);
         try std.testing.expectError(error.InvalidTransition, embargo_plan.validateDisembargoCapacity(0));
         try embargo_plan.validateUnifiedOutputCapacity(1);

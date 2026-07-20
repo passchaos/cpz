@@ -73,6 +73,15 @@ pub const WireDispatchOutcome = enum {
     state_applied,
 };
 
+pub const OutputRange = struct {
+    start: usize,
+    end: usize,
+
+    pub fn len(self: @This()) usize {
+        return self.end - self.start;
+    }
+};
+
 pub const WireDispatchStats = struct {
     response_initialized: usize = 0,
     forward_required: usize = 0,
@@ -112,6 +121,15 @@ pub const WireDispatchStats = struct {
 
     pub fn denseOutputSlots(self: @This()) usize {
         return self.response_initialized + self.forward_required;
+    }
+
+    pub fn denseResponseRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.denseResponseSlots() };
+    }
+
+    pub fn denseForwardRange(self: @This()) OutputRange {
+        const start = self.denseResponseSlots();
+        return .{ .start = start, .end = start + self.denseForwardSlots() };
     }
 
     pub fn validateDenseResponseCapacity(self: @This(), capacity: usize) Error!void {
@@ -267,6 +285,20 @@ pub const RpcTurnPlan = struct {
 
     pub fn totalOutputMessages(self: @This()) usize {
         return self.responseMessages() + self.forwardedMessages() + self.disembargoMessages();
+    }
+
+    pub fn responseMessageRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.responseMessages() };
+    }
+
+    pub fn forwardedMessageRange(self: @This()) OutputRange {
+        const start = self.responseMessages();
+        return .{ .start = start, .end = start + self.forwardedMessages() };
+    }
+
+    pub fn disembargoMessageRange(self: @This()) OutputRange {
+        const start = self.responseMessages() + self.forwardedMessages();
+        return .{ .start = start, .end = start + self.disembargoMessages() };
     }
 
     pub fn validateOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
