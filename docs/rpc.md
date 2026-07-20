@@ -135,7 +135,7 @@ that a complete RPC runtime exists.
   ID, flags, registry-backed results cap tables, and caller-filled struct
   payloads together, either at the Call/Return member level or through
   top-level Message builders, and capability/text/data/UInt32-list Return builders can
-  initialize its wire payload while applying the matching answer/result
+  initialize their wire payload while applying the matching answer/result
   capability bookkeeping to `State`. Top-level Bootstrap,
   Finish/Release builders can initialize their question IDs, flags, and
   reference counts, and a helper can build a Return containing a single
