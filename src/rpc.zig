@@ -4273,6 +4273,35 @@ pub const State = struct {
         try initCapabilityReturnMessage(message, question_id, export_id);
     }
 
+    pub fn initReleasedAcceptReturnMessages(
+        self: *const State,
+        response_messages: anytype,
+        released_accept_ids: []const QuestionId,
+        export_ids: []const ExportId,
+    ) !usize {
+        if (response_messages.len < released_accept_ids.len or export_ids.len < released_accept_ids.len) return error.InvalidTransition;
+        for (released_accept_ids, 0..) |question_id, index| {
+            try self.initReadyAcceptReturnMessage(response_messages[index], question_id, export_ids[index]);
+        }
+        return released_accept_ids.len;
+    }
+
+    pub fn initReleasedAcceptReturnMessagesToSink(
+        self: *const State,
+        response_messages: anytype,
+        released_accept_ids: []const QuestionId,
+        export_ids: []const ExportId,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !usize {
+        if (response_messages.len < released_accept_ids.len or export_ids.len < released_accept_ids.len) return error.InvalidTransition;
+        for (released_accept_ids, 0..) |question_id, index| {
+            try self.initReadyAcceptReturnMessage(response_messages[index], question_id, export_ids[index]);
+            try sink_handler(sink_context, response_messages[index]);
+        }
+        return released_accept_ids.len;
+    }
+
     pub fn joinInfo(self: *const State, id: QuestionId) ?JoinInfo {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.info();

@@ -5308,10 +5308,29 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(usize, 1), state.readyAcceptProvisionCount());
     try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .accepts = 1, .ready_accept_provisions = 1 }, state.handoffStats());
     {
+        const Sink = struct {
+            sent: usize = 0,
+            last_answer: u32 = 0,
+
+            fn handle(context: *@This(), queued_message: anytype) !void {
+                const return_ = try queued_message.get_return_();
+                context.sent += 1;
+                context.last_answer = try return_.get_answerId();
+            }
+        };
+
         var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
-        try state.initReadyAcceptReturnMessage(response_root, 64, 90);
+        const responses = [_]generated.Message.Builder{response_root};
+        const export_ids = [_]cpz.rpc.ExportId{90};
+        var sink: Sink = .{};
+        try std.testing.expectEqual(
+            @as(usize, 1),
+            try state.initReleasedAcceptReturnMessagesToSink(responses[0..], released.released_accept_ids, export_ids[0..], &sink, Sink.handle),
+        );
+        try std.testing.expectEqual(@as(usize, 1), sink.sent);
+        try std.testing.expectEqual(@as(u32, 64), sink.last_answer);
 
         var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
         const response = generated.Message.fromReader(try response_reader.getRoot());
