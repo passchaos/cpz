@@ -4257,6 +4257,54 @@ pub const State = struct {
         return index;
     }
 
+    pub fn initPendingAcceptDisembargoMessagesForEmbargo(self: *const State, message_builders: anytype, target: CallTarget, embargo: []const u8) !usize {
+        const needed = self.pendingAcceptEmbargoMatchCount(embargo);
+        if (message_builders.len < needed) return error.InvalidTransition;
+        try self.validateCallTarget(target);
+        var index: usize = 0;
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.embargo) |tracked| {
+                if (!accept.embargo_released and std.mem.eql(u8, tracked, embargo)) {
+                    try initWireDisembargoMessage(message_builders[index], .{
+                        .target = target,
+                        .context = .{ .accept = tracked },
+                    });
+                    index += 1;
+                }
+            }
+        }
+        return index;
+    }
+
+    pub fn initPendingAcceptDisembargoMessagesForEmbargoToSink(
+        self: *const State,
+        message_builders: anytype,
+        target: CallTarget,
+        embargo: []const u8,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !usize {
+        const needed = self.pendingAcceptEmbargoMatchCount(embargo);
+        if (message_builders.len < needed) return error.InvalidTransition;
+        try self.validateCallTarget(target);
+        var index: usize = 0;
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.embargo) |tracked| {
+                if (!accept.embargo_released and std.mem.eql(u8, tracked, embargo)) {
+                    try initWireDisembargoMessage(message_builders[index], .{
+                        .target = target,
+                        .context = .{ .accept = tracked },
+                    });
+                    try sink_handler(sink_context, message_builders[index]);
+                    index += 1;
+                }
+            }
+        }
+        return index;
+    }
+
     pub fn readyAcceptProvision(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const tracker = self.accepts.get(id) orelse return null;
         if (tracker.embargo != null and !tracker.embargo_released) return null;

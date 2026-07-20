@@ -5359,6 +5359,36 @@ test "rpc top-level accept messages open questions" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, pending_info.target);
         try std.testing.expectEqualStrings("embargo-64", pending_info.context.accept);
     }
+    {
+        const Sink = struct {
+            sent: usize = 0,
+
+            fn handle(context: *@This(), queued_message: anytype) !void {
+                _ = try queued_message.get_disembargo();
+                context.sent += 1;
+            }
+        };
+
+        var pending_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer pending_builder.deinit();
+        const pending_root = try generated.Message.initRootTyped(&pending_builder);
+        const messages = [_]generated.Message.Builder{pending_root};
+        var sink: Sink = .{};
+        try std.testing.expectEqual(
+            @as(usize, 1),
+            try state.initPendingAcceptDisembargoMessagesForEmbargoToSink(messages[0..], .{ .imported_cap = 5 }, "embargo-64", &sink, Sink.handle),
+        );
+        try std.testing.expectEqual(@as(usize, 1), sink.sent);
+
+        var pending_reader = cpz.MessageReader.init(try pending_builder.segmentsConst(), .{});
+        const pending_info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try pending_reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, pending_info.target);
+        try std.testing.expectEqualStrings("embargo-64", pending_info.context.accept);
+        try std.testing.expectEqual(
+            @as(usize, 0),
+            try state.initPendingAcceptDisembargoMessagesForEmbargoToSink(messages[0..], .{ .imported_cap = 5 }, "missing", &sink, Sink.handle),
+        );
+    }
 
     var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer disembargo_builder.deinit();
