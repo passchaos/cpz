@@ -14819,6 +14819,201 @@ test "rpc turn dispatcher sends unified outputs to a single sink" {
     try std.testing.expectEqual(generated.Message.Union0.unimplemented, (try unused_output.which()).?);
 }
 
+test "rpc turn dispatchers send unified outputs to tagged sinks" {
+    const BootstrapHandler = struct {
+        fn handle(seen_question: *u32, bootstrap: anytype) !u32 {
+            seen_question.* = bootstrap.questionId();
+            return bootstrap.questionId() + 500;
+        }
+    };
+    const CallHandler = struct {
+        fn handle(seen_question: *u32, call: anytype) !cpz.rpc.DispatchResult {
+            seen_question.* = call.questionId();
+            return .empty;
+        }
+    };
+    const HandoffHandler = struct {
+        fn handle(_: void, _: u32, _: cpz.rpc.AnyPointerUsage) !u32 {
+            return 0;
+        }
+    };
+
+    {
+        const TaggedSink = struct {
+            sent: usize = 0,
+
+            fn handle(context: *@This(), position: cpz.rpc.RpcTurnOutputPosition, message: anytype) !void {
+                switch (context.sent) {
+                    0 => {
+                        try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, position);
+                        try expectQueuedReturnAnswer(message, 170);
+                    },
+                    1 => {
+                        try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, position);
+                        try expectQueuedForwardedCallBuilder(message, 815, .{ .imported_cap = 816 });
+                    },
+                    2 => {
+                        try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, position);
+                        try expectQueuedDisembargoBuilder(message, .{ .imported_cap = 5 }, "tagged-turn-172");
+                    },
+                    else => return error.TestUnexpectedResult,
+                }
+                context.sent += 1;
+            }
+        };
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.addImport(5);
+        try state.applyCapDescriptor(.{ .sender_promise = 815 });
+        try state.resolveImportTo(815, .{ .sender_hosted = 816 });
+        try state.applyCapDescriptor(.{ .sender_hosted = 816 });
+
+        {
+            var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer builder.deinit();
+            const root = try generated.Message.initRootTyped(&builder);
+            try cpz.rpc.initWireAcceptMessage(root, .{
+                .question_id = 172,
+                .has_provision = true,
+                .provision_max_capability_count = 1,
+                .provision_capability = 0,
+                .embargo = "tagged-turn-172",
+            });
+            var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+            try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+        }
+
+        var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer bootstrap_builder.deinit();
+        const bootstrap_root = try generated.Message.initRootTyped(&bootstrap_builder);
+        try cpz.rpc.initWireBootstrapMessage(bootstrap_root, 170);
+        var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
+        const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
+
+        var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer call_builder.deinit();
+        const call_root = try generated.Message.initRootTyped(&call_builder);
+        const call = try call_root.init_call();
+        try call.set_questionId(815);
+        const target = try call.init_target();
+        try target.set_importedCap(815);
+        try cpz.rpc.initWireCallParamsText(call, "tagged turn forward", &.{});
+        var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+        const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+        var output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer output_builder0.deinit();
+        const output0 = try generated.Message.initRootTyped(&output_builder0);
+        var output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer output_builder1.deinit();
+        const output1 = try generated.Message.initRootTyped(&output_builder1);
+        var output_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer output_builder2.deinit();
+        const output2 = try generated.Message.initRootTyped(&output_builder2);
+
+        const requests = [_]generated.Message{ bootstrap_message, call_message };
+        const outputs = [_]generated.Message.Builder{ output0, output1, output2 };
+        const planned = try cpz.rpc.planRpcTurn(&state, requests[0..]);
+        var bootstrap_seen: u32 = 0;
+        var call_seen: u32 = 0;
+        var sink: TaggedSink = .{};
+        const applied = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosToTaggedSinkFromHandlers(
+            &state,
+            std.testing.allocator,
+            outputs[0..],
+            requests[0..],
+            &bootstrap_seen,
+            BootstrapHandler.handle,
+            &call_seen,
+            CallHandler.handle,
+            {},
+            HandoffHandler.handle,
+            {},
+            HandoffHandler.handle,
+            {},
+            HandoffHandler.handle,
+            .{ .imported_cap = 5 },
+            &sink,
+            TaggedSink.handle,
+        );
+        try std.testing.expectEqual(planned, applied);
+        try std.testing.expectEqual(@as(usize, 3), sink.sent);
+        try std.testing.expectEqual(@as(u32, 170), bootstrap_seen);
+        try std.testing.expectEqual(@as(u32, 0), call_seen);
+
+        var forward_reader = cpz.MessageReader.init(try output_builder1.segmentsConst(), .{});
+        try expectQueuedForwardedCallText(generated.Message.fromReader(try forward_reader.getRoot()), 815, .{ .imported_cap = 816 }, "tagged turn forward");
+    }
+
+    {
+        const TaggedSink = struct {
+            sent: usize = 0,
+
+            fn handle(context: *@This(), position: cpz.rpc.RpcTurnOutputPosition, message: anytype) !void {
+                try std.testing.expectEqual(@as(usize, 0), context.sent);
+                try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, position);
+                try expectQueuedDisembargoBuilder(message, .{ .imported_cap = 5 }, "method-tagged-turn-173");
+                context.sent += 1;
+            }
+        };
+        const entries = .{};
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.addImport(5);
+
+        {
+            var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer builder.deinit();
+            const root = try generated.Message.initRootTyped(&builder);
+            try cpz.rpc.initWireAcceptMessage(root, .{
+                .question_id = 173,
+                .has_provision = true,
+                .provision_max_capability_count = 1,
+                .provision_capability = 0,
+                .embargo = "method-tagged-turn-173",
+            });
+            var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+            try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+        }
+
+        const requests = try std.testing.allocator.alloc(generated.Message, 0);
+        defer std.testing.allocator.free(requests);
+        var output_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer output_builder.deinit();
+        const output = try generated.Message.initRootTyped(&output_builder);
+        const outputs = [_]generated.Message.Builder{output};
+
+        var sink: TaggedSink = .{};
+        var bootstrap_seen: u32 = 0;
+        const applied = try cpz.rpc.dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosToTaggedSinkFromHandlers(
+            &state,
+            std.testing.allocator,
+            outputs[0..],
+            requests,
+            &bootstrap_seen,
+            BootstrapHandler.handle,
+            {},
+            entries,
+            {},
+            HandoffHandler.handle,
+            {},
+            HandoffHandler.handle,
+            {},
+            HandoffHandler.handle,
+            .{ .imported_cap = 5 },
+            &sink,
+            TaggedSink.handle,
+        );
+        try std.testing.expectEqual(cpz.rpc.WireDispatchStats{}, applied.dispatch);
+        try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{}, applied.handoff_returns);
+        try std.testing.expectEqual(@as(usize, 1), applied.disembargoMessages());
+        try std.testing.expectEqual(@as(usize, 1), sink.sent);
+        try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    }
+}
+
 test "rpc unified sink helper variants accept empty turns" {
     const BootstrapHandler = struct {
         fn handle(_: void, bootstrap: anytype) !u32 {
