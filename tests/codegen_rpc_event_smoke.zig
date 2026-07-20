@@ -5288,8 +5288,10 @@ test "rpc top-level accept messages open questions" {
 
     var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
     const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
-    const released = try state.applyWireDisembargo(try disembargo_message.disembargo());
+    const released = try state.applyWireDisembargoAlloc(std.testing.allocator, try disembargo_message.disembargo());
+    defer std.testing.allocator.free(released.released_accept_ids);
     try std.testing.expectEqual(@as(usize, 1), released.released_accepts);
+    try std.testing.expectEqualSlices(u32, &.{64}, released.released_accept_ids);
     try std.testing.expect(released.releasedAnyAccept());
     try std.testing.expectEqual(@as(usize, 0), (try state.applyWireDisembargo(try disembargo_message.disembargo())).released_accepts);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));

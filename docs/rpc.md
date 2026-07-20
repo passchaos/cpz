@@ -73,7 +73,9 @@ that a complete RPC runtime exists.
   Disembargo wire readers/builders and wire events can decode and write targets
   plus sender/receiver loopback context IDs and accept embargo bytes, and
   applying accept disembargos reports how many tracked Accept embargos were
-  released, though full embargo queue handling remains future work. Disembargo
+  released and can optionally return the released Accept question IDs for
+  immediate follow-up scheduling. Full embargo queue handling remains future
+  work. Disembargo
   batches can be initialized and handed directly to an embedding transport/enqueue
   callback, pending Accept embargos can be queried, filtered by embargo token,
   snapshotted, or emitted to a sink for queueing, and their targets are

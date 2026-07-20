@@ -358,6 +358,7 @@ pub const DisembargoInfo = struct {
 
 pub const DisembargoApplyInfo = struct {
     released_accepts: usize = 0,
+    released_accept_ids: []const QuestionId = &.{},
 
     pub fn releasedAnyAccept(self: @This()) bool {
         return self.released_accepts != 0;
@@ -3666,6 +3667,22 @@ pub const State = struct {
         return released;
     }
 
+    fn markAcceptedEmbargoReleasedAlloc(self: *State, allocator: std.mem.Allocator, embargo: []const u8) std.mem.Allocator.Error![]QuestionId {
+        var ids = std.ArrayList(QuestionId).empty;
+        errdefer ids.deinit(allocator);
+        var iterator = self.accepts.iterator();
+        while (iterator.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.embargo) |tracked| {
+                if (!accept.embargo_released and std.mem.eql(u8, tracked, embargo)) {
+                    accept.embargo_released = true;
+                    try ids.append(allocator, entry.key_ptr.*);
+                }
+            }
+        }
+        return ids.toOwnedSlice(allocator);
+    }
+
     fn applyDisembargoInfo(self: *State, info: DisembargoInfo) Error!DisembargoApplyInfo {
         try self.validateCallTarget(info.target);
         const released_accepts = switch (info.context) {
@@ -3673,6 +3690,15 @@ pub const State = struct {
             else => 0,
         };
         return .{ .released_accepts = released_accepts };
+    }
+
+    fn applyDisembargoInfoAlloc(self: *State, allocator: std.mem.Allocator, info: DisembargoInfo) (Error || std.mem.Allocator.Error)!DisembargoApplyInfo {
+        try self.validateCallTarget(info.target);
+        const released_accept_ids: []QuestionId = switch (info.context) {
+            .accept => |embargo| try self.markAcceptedEmbargoReleasedAlloc(allocator, embargo),
+            else => try allocator.alloc(QuestionId, 0),
+        };
+        return .{ .released_accepts = released_accept_ids.len, .released_accept_ids = released_accept_ids };
     }
 
     pub fn applyWireCallPayload(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
@@ -3785,6 +3811,14 @@ pub const State = struct {
 
     pub fn applyWireDisembargo(self: *State, disembargo: anytype) !DisembargoApplyInfo {
         return self.applyDisembargoInfo(try disembargoInfoFromWireDisembargo(disembargo));
+    }
+
+    pub fn applyDisembargoAlloc(self: *State, allocator: std.mem.Allocator, info: DisembargoInfo) (Error || std.mem.Allocator.Error)!DisembargoApplyInfo {
+        return self.applyDisembargoInfoAlloc(allocator, info);
+    }
+
+    pub fn applyWireDisembargoAlloc(self: *State, allocator: std.mem.Allocator, disembargo: anytype) !DisembargoApplyInfo {
+        return self.applyDisembargoInfoAlloc(allocator, try disembargoInfoFromWireDisembargo(disembargo));
     }
 
     pub fn applyWireCall(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
