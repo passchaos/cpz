@@ -1701,6 +1701,66 @@ test "rpc top-level call helpers initialize data payloads" {
     }
 }
 
+test "rpc top-level call payload helpers support routing options" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireCallMessageTextWithOptions(root, 90, .{ .imported_cap = 5 }, "option text", &.{.{ .sender_hosted = 96 }}, .{
+            .method = .{ .interface_id = 0x9000, .method_id = 9 },
+            .send_results_to = .yourself,
+            .flags = .{ .no_promise_pipelining = true },
+        });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call = try generated.Message.fromReader(try reader.getRoot()).call();
+        try std.testing.expectEqual(@as(u32, 90), call.questionId());
+        try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9000, .method_id = 9 }, cpz.rpc.callMethodFromWireCall(call));
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(call));
+        try std.testing.expectEqual(cpz.rpc.CallFlags{ .no_promise_pipelining = true }, cpz.rpc.callFlagsFromWireCall(call));
+        const params = try call.params();
+        try std.testing.expectEqualStrings("option text", try (try params.content()).getText());
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, params);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 96 }, descriptors[0]);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireCallMessageDataWithOptions(root, 91, .{ .imported_cap = 5 }, "option bytes", &.{.{ .sender_hosted = 97 }}, .{
+            .method = .{ .interface_id = 0x9001, .method_id = 10 },
+            .flags = .{ .only_promise_pipeline = true },
+        });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call = try generated.Message.fromReader(try reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9001, .method_id = 10 }, cpz.rpc.callMethodFromWireCall(call));
+        try std.testing.expectEqual(cpz.rpc.CallFlags{ .only_promise_pipeline = true }, cpz.rpc.callFlagsFromWireCall(call));
+        const params = try call.params();
+        try std.testing.expectEqualSlices(u8, "option bytes", try (try params.content()).getData());
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireCallMessageUInt32ListWithOptions(root, 92, .{ .imported_cap = 5 }, &.{ 1, 3, 5 }, &.{.{ .sender_hosted = 98 }}, .{
+            .method = .{ .interface_id = 0x9002, .method_id = 11 },
+            .send_results_to = .third_party,
+            .send_results_to_third_party = .{ .max_capability_count = 4, .capability = 3 },
+            .flags = .{ .allow_third_party_tail_call = true },
+        });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call = try generated.Message.fromReader(try reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9002, .method_id = 11 }, cpz.rpc.callMethodFromWireCall(call));
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, try cpz.rpc.sendResultsToFromWireCall(call));
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, (try cpz.rpc.sendResultsToThirdPartyUsageFromWireCall(call)).?);
+        try std.testing.expectEqual(cpz.rpc.CallFlags{ .allow_third_party_tail_call = true }, cpz.rpc.callFlagsFromWireCall(call));
+        try expectPayloadUInt32List(try call.params(), &.{ 1, 3, 5 });
+    }
+}
+
 test "rpc top-level call helpers initialize UInt32 list payloads" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });

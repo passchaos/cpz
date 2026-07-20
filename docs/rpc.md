@@ -167,7 +167,8 @@ that a complete RPC runtime exists.
   variants that consume compact response/forward output queues instead of one
   output slot per input message.
   Call initialization can include send-results routing (including third-party
-  contact capability usage) and boolean call flags.
+  contact capability usage), boolean call flags, and non-capability payload
+  helper variants that also set method/routing options.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording, and
   method-match querying for future service dispatch, plus params
