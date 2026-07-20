@@ -788,6 +788,76 @@ test "rpc payload helpers initialize text and data content from registries" {
     }
 }
 
+test "rpc payload helpers initialize UInt32 list content" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const payload = try generated.Payload.initRootTyped(&builder);
+        try cpz.rpc.initWirePayloadUInt32List(payload, &.{ 10, 20, 30 }, &.{.{ .sender_hosted = 29 }});
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+        const content = try payload_reader.content();
+        const list = try content.getList(.four_bytes);
+        try std.testing.expectEqual(@as(usize, 3), list.len());
+        try std.testing.expectEqual(@as(u32, 10), list.getUInt32(0));
+        try std.testing.expectEqual(@as(u32, 20), list.getUInt32(1));
+        try std.testing.expectEqual(@as(u32, 30), list.getUInt32(2));
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 29 }, descriptors[0]);
+        try std.testing.expect((try cpz.rpc.payloadContentCapabilityIndex(payload_reader)) == null);
+        try cpz.rpc.validateWirePayload(std.testing.allocator, payload_reader);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const payload = try generated.Payload.initRootTyped(&builder);
+        try cpz.rpc.initWirePayloadUInt32ListInfo(
+            payload,
+            &.{ 100, 200 },
+            &.{.{ .descriptor = .{ .sender_promise = 30 }, .attached_fd = 7 }},
+        );
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+        const list = try (try payload_reader.content()).getList(.four_bytes);
+        try std.testing.expectEqual(@as(usize, 2), list.len());
+        try std.testing.expectEqual(@as(u32, 100), list.getUInt32(0));
+        try std.testing.expectEqual(@as(u32, 200), list.getUInt32(1));
+        const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, payload_reader);
+        defer std.testing.allocator.free(infos);
+        try std.testing.expectEqual(@as(usize, 1), infos.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 30 }, .attached_fd = 7 }, infos[0]);
+        try cpz.rpc.validateWirePayload(std.testing.allocator, payload_reader);
+    }
+}
+
+test "rpc payload helpers initialize UInt32 list content from registries" {
+    var registry: cpz.CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(std.testing.allocator);
+    _ = try registry.register(std.testing.allocator, "list-cap");
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const payload = try generated.Payload.initRootTyped(&builder);
+    try cpz.rpc.initWirePayloadUInt32ListFromRegistry(std.testing.allocator, payload, &.{ 0, 1, 0xffffffff }, &registry);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const payload_reader = generated.Payload.fromReader(try reader.getRoot());
+    const list = try (try payload_reader.content()).getList(.four_bytes);
+    try std.testing.expectEqual(@as(usize, 3), list.len());
+    try std.testing.expectEqual(@as(u32, 0), list.getUInt32(0));
+    try std.testing.expectEqual(@as(u32, 1), list.getUInt32(1));
+    try std.testing.expectEqual(@as(u32, 0xffffffff), list.getUInt32(2));
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, payload_reader);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
+    try cpz.rpc.validateWirePayload(std.testing.allocator, payload_reader);
+}
+
 test "rpc payload helpers build sender-hosted descriptors from registries" {
     var registry: cpz.CapabilityRegistry([]const u8) = .{};
     defer registry.deinit(std.testing.allocator);

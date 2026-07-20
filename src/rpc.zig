@@ -1099,6 +1099,33 @@ pub fn initWirePayloadDataFromRegistry(allocator: std.mem.Allocator, payload: an
     try initWirePayloadData(payload, data, descriptors);
 }
 
+pub fn initWirePayloadUInt32List(payload: anytype, values: []const u32, descriptors: []const CapDescriptor) !void {
+    // Primitive list payloads cannot contain embedded capabilities, but they
+    // still travel with the same cap-table envelope as struct/text/data
+    // payloads.  Keeping construction in one helper prevents callers from
+    // accidentally omitting descriptor metadata while moving away from the
+    // capability-only payload path.
+    const list = try (try payload.get_contentAsPointer()).initList(.four_bytes, values.len);
+    for (values, 0..) |value, index| {
+        try list.setUInt32(index, value);
+    }
+    try initWirePayloadCapTable(payload, descriptors);
+}
+
+pub fn initWirePayloadUInt32ListInfo(payload: anytype, values: []const u32, infos: []const CapDescriptorInfo) !void {
+    const list = try (try payload.get_contentAsPointer()).initList(.four_bytes, values.len);
+    for (values, 0..) |value, index| {
+        try list.setUInt32(index, value);
+    }
+    try initWirePayloadCapTableInfo(payload, infos);
+}
+
+pub fn initWirePayloadUInt32ListFromRegistry(allocator: std.mem.Allocator, payload: anytype, values: []const u32, registry: anytype) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWirePayloadUInt32List(payload, values, descriptors);
+}
+
 pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, registry: anytype) ![]CapDescriptor {
     const descriptors = try allocator.alloc(CapDescriptor, registry.len());
     errdefer allocator.free(descriptors);

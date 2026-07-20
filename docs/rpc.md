@@ -94,9 +94,10 @@ that a complete RPC runtime exists.
   `CapabilityRegistry(T)` can seed sender-hosted descriptor tables for outgoing
   payloads. `Payload.capTable` can be decoded into caller-owned descriptor or
   descriptor-info slices, with absent tables treated as empty; helpers can
-  initialize payload content capability indexes, text/data blobs, or
-  caller-filled struct content together with descriptor tables, including
-  registry-backed sender-hosted descriptor tables for struct/text/data payloads.
+  initialize payload content capability indexes, text/data blobs, primitive
+  UInt32 lists, or caller-filled struct content together with descriptor tables,
+  including registry-backed sender-hosted descriptor tables for struct/text/data
+  and UInt32-list payloads.
   Payload content capability indexes can be decoded and validated against the
   decoded cap table length.
   Decoded descriptor tables can be applied to `State` for basic import
