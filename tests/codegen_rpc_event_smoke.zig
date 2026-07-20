@@ -8114,6 +8114,55 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqualStrings("unimplemented method", exception.reason.?);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initUnimplementedReturnMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], no_forward_messages));
 
+    var combined_state = cpz.rpc.State.init(std.testing.allocator);
+    defer combined_state.deinit();
+    try combined_state.addImport(5);
+    try combined_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try combined_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try combined_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var combined_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer combined_response_builder0.deinit();
+    const combined_response0 = try generated.Message.initRootTyped(&combined_response_builder0);
+    var combined_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer combined_response_builder1.deinit();
+    const combined_response1 = try generated.Message.initRootTyped(&combined_response_builder1);
+    var combined_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer combined_forward_builder.deinit();
+    const combined_forward = try generated.Message.initRootTyped(&combined_forward_builder);
+    const combined_responses = [_]generated.Message.Builder{ combined_response0, combined_response1 };
+    const combined_forwards = [_]generated.Message.Builder{combined_forward};
+    var combined_context: Context = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanOutputs(
+        &combined_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        combined_responses[0..],
+        no_forward_messages,
+        &combined_context,
+        entries,
+    ));
+    try std.testing.expectEqual(
+        wire_stats,
+        try cpz.rpc.initWireCallServiceActionPlanOutputs(&combined_state, std.testing.allocator, calls[0..], wire_plans[0..], combined_responses[0..], combined_forwards[0..], &combined_context, entries),
+    );
+    try std.testing.expectEqual(@as(u32, 71), combined_context.selected);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), combined_state.questionState(71));
+    var combined_response_reader0 = cpz.MessageReader.init(try combined_response_builder0.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 71), (try generated.Message.fromReader(try combined_response_reader0.getRoot()).return_()).answerId());
+    var combined_response_reader1 = cpz.MessageReader.init(try combined_response_builder1.segmentsConst(), .{});
+    const combined_unimplemented = try generated.Message.fromReader(try combined_response_reader1.getRoot()).return_();
+    try std.testing.expectEqual(@as(u32, 72), combined_unimplemented.answerId());
+    const combined_exception = switch (try cpz.rpc.returnOutcomeFromWireReturn(combined_unimplemented)) {
+        .exception => |value| value,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqualStrings("unimplemented method", combined_exception.reason.?);
+    var combined_forward_reader = cpz.MessageReader.init(try combined_forward_builder.segmentsConst(), .{});
+    const combined_forward_call = try generated.Message.fromReader(try combined_forward_reader.getRoot()).call();
+    try std.testing.expectEqual(@as(u32, 73), combined_forward_call.questionId());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(combined_forward_call));
+
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
     var short_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;

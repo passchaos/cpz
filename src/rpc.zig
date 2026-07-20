@@ -660,6 +660,10 @@ pub const TrackedCallServiceActionStats = struct {
         return self.dispatch + self.forward + self.unimplemented;
     }
 
+    pub fn responseMessages(self: @This()) usize {
+        return self.dispatch + self.unimplemented;
+    }
+
     pub fn total(self: @This()) usize {
         return self.actions() + self.missing;
     }
@@ -694,6 +698,10 @@ pub const TrackedCallServiceActionStats = struct {
         try self.validateDispatchCapacity(dispatch_capacity);
         try self.validateForwardCapacity(forward_capacity);
         try self.validateUnimplementedCapacity(unimplemented_capacity);
+    }
+
+    pub fn validateResponseCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.responseMessages()) return error.InvalidTransition;
     }
 
     pub fn validateActionCapacity(self: @This(), capacity: usize) Error!void {
@@ -1877,6 +1885,67 @@ pub fn dispatchWireCallServiceActionPlans(
         }
     }
     return response_count;
+}
+
+fn validateWireCallServiceActionPlans(calls: anytype, plans: []const TrackedCallServiceActionPlan, comptime entries: anytype) Error!TrackedCallServiceActionStats {
+    var stats: TrackedCallServiceActionStats = .{};
+    for (plans) |plan| {
+        if (plan.source_index >= calls.len) return error.InvalidTransition;
+        switch (plan.action) {
+            .dispatch => |entry_index| {
+                var matched = false;
+                inline for (entries, 0..) |_, index| {
+                    if (index == entry_index) matched = true;
+                }
+                if (!matched) return error.InvalidTransition;
+            },
+            .forward, .unimplemented => {},
+        }
+        stats.record(plan.action);
+    }
+    return stats;
+}
+
+pub fn initWireCallServiceActionPlanOutputs(
+    state: *State,
+    allocator: std.mem.Allocator,
+    calls: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    response_messages: anytype,
+    forward_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try validateWireCallServiceActionPlans(calls, plans, entries);
+    try stats.validateResponseCapacity(response_messages.len);
+    try stats.validateForwardCapacity(forward_messages.len);
+
+    var response_index: usize = 0;
+    var forward_index: usize = 0;
+    for (plans) |plan| {
+        switch (plan.action) {
+            .dispatch => |entry_index| {
+                inline for (entries, 0..) |entry, index| {
+                    if (index == entry_index) {
+                        try dispatchCallMethod(state, allocator, response_messages[response_index], calls[plan.source_index], entry.method, context, entry.handler);
+                        response_index += 1;
+                    }
+                }
+            },
+            .forward => |target| {
+                try initForwardedWireCallMessage(forward_messages[forward_index], calls[plan.source_index], target);
+                forward_index += 1;
+            },
+            .unimplemented => {
+                try initWireReturnException(try response_messages[response_index].init_return_(), calls[plan.source_index].questionId(), true, false, .{
+                    .reason = "unimplemented method",
+                    .type_raw = 3,
+                });
+                response_index += 1;
+            },
+        }
+    }
+    return stats;
 }
 
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
