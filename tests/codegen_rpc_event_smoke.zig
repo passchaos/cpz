@@ -2774,6 +2774,8 @@ test "rpc call uint32-list helper can apply initialized state" {
         &.{.{ .sender_hosted = 99 }},
         .{
             .method = .{ .interface_id = 0x97, .method_id = 7 },
+            .send_results_to = .third_party,
+            .send_results_to_third_party = .{ .max_capability_count = 4, .capability = 3 },
             .flags = .{ .allow_third_party_tail_call = true },
         },
     );
@@ -2785,12 +2787,14 @@ test "rpc call uint32-list helper can apply initialized state" {
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x97, .method_id = 7 }, tracked.method);
     try std.testing.expect(tracked.flags.allow_third_party_tail_call);
-    try std.testing.expect(tracked.sendsResultsTo(.caller));
+    try std.testing.expect(tracked.sendsResultsTo(.third_party));
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, tracked.thirdPartyResultsUsage().?);
     try std.testing.expect(tracked.allowsThirdPartyTailCall());
     try std.testing.expect(!tracked.forbidsPromisePipelining());
     try std.testing.expect(!tracked.onlyAllowsPromisePipeline());
-    try std.testing.expectEqual(@as(?bool, true), state.callSendsResultsTo(97, .caller));
-    try std.testing.expectEqual(@as(?bool, false), state.callSendsResultsTo(97, .third_party));
+    try std.testing.expectEqual(@as(?bool, false), state.callSendsResultsTo(97, .caller));
+    try std.testing.expectEqual(@as(?bool, true), state.callSendsResultsTo(97, .third_party));
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, state.callThirdPartyResultsUsage(97).?);
     try std.testing.expectEqual(@as(?bool, true), state.callAllowsThirdPartyTailCall(97));
     try std.testing.expectEqual(@as(?bool, false), state.callForbidsPromisePipelining(97));
     try std.testing.expectEqual(@as(?bool, false), state.callOnlyAllowsPromisePipeline(97));
@@ -2807,6 +2811,7 @@ test "rpc wire calls apply target and params state together" {
     const call = try root.init_call();
     try call.set_questionId(50);
     try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x50, .method_id = 5 }, call);
+    try cpz.rpc.writeSendResultsToThirdPartyToWire(call, .{ .max_capability_count = 4, .capability = 3 });
     try cpz.rpc.writeCallFlagsToWire(.{ .no_promise_pipelining = true }, call);
     const target = try call.init_target();
     try target.set_importedCap(5);
@@ -2835,16 +2840,19 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expectEqual(@as(?bool, false), state.callMatchesMethod(50, 0x50, 6));
     try std.testing.expectEqual(@as(?bool, null), state.callMatchesCallMethod(51, expected_method));
     try std.testing.expect(tracked.flags.no_promise_pipelining);
-    try std.testing.expect(tracked.sendsResultsTo(.caller));
+    try std.testing.expect(tracked.sendsResultsTo(.third_party));
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, tracked.thirdPartyResultsUsage().?);
     try std.testing.expect(tracked.forbidsPromisePipelining());
     try std.testing.expect(!tracked.allowsThirdPartyTailCall());
     try std.testing.expect(!tracked.onlyAllowsPromisePipeline());
-    try std.testing.expectEqual(@as(?bool, true), state.callSendsResultsTo(50, .caller));
-    try std.testing.expectEqual(@as(?bool, false), state.callSendsResultsTo(50, .third_party));
+    try std.testing.expectEqual(@as(?bool, false), state.callSendsResultsTo(50, .caller));
+    try std.testing.expectEqual(@as(?bool, true), state.callSendsResultsTo(50, .third_party));
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, state.callThirdPartyResultsUsage(50).?);
     try std.testing.expectEqual(@as(?bool, true), state.callForbidsPromisePipelining(50));
     try std.testing.expectEqual(@as(?bool, false), state.callAllowsThirdPartyTailCall(50));
     try std.testing.expectEqual(@as(?bool, false), state.callOnlyAllowsPromisePipeline(50));
     try std.testing.expectEqual(@as(?bool, null), state.callSendsResultsTo(51, .caller));
+    try std.testing.expect(state.callThirdPartyResultsUsage(51) == null);
     try std.testing.expectEqual(@as(?bool, null), state.callForbidsPromisePipelining(51));
 }
 

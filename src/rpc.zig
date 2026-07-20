@@ -563,6 +563,7 @@ pub const CallInfo = struct {
     target: CallTarget,
     method: CallMethod,
     send_results_to: CallSendResultsTo,
+    send_results_to_third_party: ?AnyPointerUsage = null,
     flags: CallFlags,
 
     pub fn matchesMethod(self: @This(), method: CallMethod) bool {
@@ -571,6 +572,10 @@ pub const CallInfo = struct {
 
     pub fn sendsResultsTo(self: @This(), target: CallSendResultsTo) bool {
         return self.send_results_to == target;
+    }
+
+    pub fn thirdPartyResultsUsage(self: @This()) ?AnyPointerUsage {
+        return if (self.send_results_to == .third_party) self.send_results_to_third_party else null;
     }
 
     pub fn allowsThirdPartyTailCall(self: @This()) bool {
@@ -1801,6 +1806,7 @@ pub fn initWireCallMessagePayloadCapabilityWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
@@ -1863,6 +1869,7 @@ pub fn initWireCallMessagePayloadCapabilityInfoWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
@@ -2004,6 +2011,7 @@ pub fn initWireCallMessageStructWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
@@ -2082,6 +2090,7 @@ pub fn initWireCallMessageStructInfoWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
@@ -2207,6 +2216,7 @@ pub fn initWireCallMessageTextWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
@@ -2255,6 +2265,7 @@ pub fn initWireCallMessageDataWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
@@ -2303,6 +2314,7 @@ pub fn initWireCallMessageUInt32ListWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
@@ -2351,6 +2363,7 @@ pub fn initWireCallMessageTextInfoWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
@@ -2401,6 +2414,7 @@ pub fn initWireCallMessageDataInfoWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
@@ -2451,6 +2465,7 @@ pub fn initWireCallMessageUInt32ListInfoWithOptionsAndApplyState(
         .target = target,
         .method = options.method,
         .send_results_to = options.send_results_to,
+        .send_results_to_third_party = options.send_results_to_third_party,
         .flags = options.flags,
     });
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
@@ -10983,6 +10998,8 @@ pub const State = struct {
         const target = try callTargetFromWireCall(call);
         const method = callMethodFromWireCall(call);
         const send_results_to = try sendResultsToFromWireCall(call);
+        const send_results_to_third_party = try sendResultsToThirdPartyUsageFromWireCall(call);
+        if (send_results_to_third_party) |usage| try validateAnyPointerUsageCapability(usage);
         const flags = callFlagsFromWireCall(call);
         const descriptors = try capTableFromWireCallParams(allocator, call);
         defer allocator.free(descriptors);
@@ -10996,6 +11013,7 @@ pub const State = struct {
             .target = target,
             .method = method,
             .send_results_to = send_results_to,
+            .send_results_to_third_party = send_results_to_third_party,
             .flags = flags,
         });
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
@@ -12202,6 +12220,11 @@ pub const State = struct {
     pub fn callSendsResultsTo(self: *const State, id: QuestionId, target: CallSendResultsTo) ?bool {
         const info = self.callInfo(id) orelse return null;
         return info.sendsResultsTo(target);
+    }
+
+    pub fn callThirdPartyResultsUsage(self: *const State, id: QuestionId) ?AnyPointerUsage {
+        const info = self.callInfo(id) orelse return null;
+        return info.thirdPartyResultsUsage();
     }
 
     pub fn callAllowsThirdPartyTailCall(self: *const State, id: QuestionId) ?bool {
