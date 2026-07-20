@@ -1162,6 +1162,10 @@ pub const InterfaceMethodMetadata = struct {
         return method.matches(interface_id, self.ordinal);
     }
 
+    pub fn methodEntry(self: InterfaceMethodMetadata, interface_id: u64, handler: anytype) struct { method: @import("rpc.zig").CallMethod, handler: @TypeOf(handler) } {
+        return .{ .method = self.callMethod(interface_id), .handler = handler };
+    }
+
     pub fn matchesSignature(self: InterfaceMethodMetadata, method_signature: []const u8) bool {
         return std.mem.eql(u8, self.signature, method_signature);
     }
