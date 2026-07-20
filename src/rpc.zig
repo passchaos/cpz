@@ -1054,6 +1054,19 @@ pub fn initWirePayloadStructInfoWith(
     try initWirePayloadCapTableInfo(payload, infos);
 }
 
+pub fn initWirePayloadStructFromRegistry(
+    allocator: std.mem.Allocator,
+    payload: anytype,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWirePayloadStructWith(payload, struct_size, descriptors, context, fill);
+}
+
 pub fn initWirePayloadText(payload: anytype, text: []const u8, descriptors: []const CapDescriptor) !void {
     try (try payload.get_contentAsPointer()).setText(text);
     try initWirePayloadCapTable(payload, descriptors);
@@ -1770,6 +1783,17 @@ pub fn initWireCallParamsStructInfoWith(
     try initWirePayloadStructInfoWith(try call.init_params(), struct_size, infos, context, fill);
 }
 
+pub fn initWireCallParamsStructFromRegistry(
+    allocator: std.mem.Allocator,
+    call: anytype,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+) !void {
+    try initWirePayloadStructFromRegistry(allocator, try call.init_params(), struct_size, registry, context, fill);
+}
+
 pub fn initWireCallParamsText(call: anytype, text: []const u8, descriptors: []const CapDescriptor) !void {
     try initWirePayloadText(try call.init_params(), text, descriptors);
 }
@@ -1820,6 +1844,17 @@ pub fn initWireReturnResultsStructInfoWith(
     fill: anytype,
 ) !void {
     try initWirePayloadStructInfoWith(try return_.init_results(), struct_size, infos, context, fill);
+}
+
+pub fn initWireReturnResultsStructFromRegistry(
+    allocator: std.mem.Allocator,
+    return_: anytype,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+) !void {
+    try initWirePayloadStructFromRegistry(allocator, try return_.init_results(), struct_size, registry, context, fill);
 }
 
 pub fn initWireReturnResultsText(return_: anytype, text: []const u8, descriptors: []const CapDescriptor) !void {
