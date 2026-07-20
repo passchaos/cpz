@@ -10969,6 +10969,103 @@ test "rpc disembargo batches initialize and send messages to sinks" {
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireDisembargoMessagesToSink(sink_messages[0..1], infos[0..], &sink, Sink.handle));
 }
 
+test "rpc turn helper sends pending accept disembargos to a sink" {
+    const Sink = struct {
+        sent: usize = 0,
+
+        fn handle(context: *@This(), _: anytype) !void {
+            context.sent += 1;
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 76,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "turn-disembargo-76",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+    var accept_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder2.deinit();
+    const accept_root2 = try generated.Message.initRootTyped(&accept_builder2);
+    try cpz.rpc.initWireAcceptMessage(accept_root2, .{
+        .question_id = 77,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "turn-disembargo-77",
+    });
+    var accept_reader2 = cpz.MessageReader.init(try accept_builder2.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader2.getRoot()));
+
+    const no_turn_messages = [_]generated.Message{};
+    const plan = try cpz.rpc.planRpcTurn(&state, no_turn_messages[0..]);
+    try std.testing.expectEqual(@as(usize, 2), plan.disembargoMessages());
+
+    var short_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer short_builder.deinit();
+    const short_root = try generated.Message.initRootTyped(&short_builder);
+    const short_messages = [_]generated.Message.Builder{short_root};
+    var short_sink: Sink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchRpcTurnPendingAcceptDisembargosToSink(
+        &state,
+        short_messages[0..],
+        .{ .imported_cap = 5 },
+        &short_sink,
+        Sink.handle,
+    ));
+    try std.testing.expectEqual(@as(usize, 0), short_sink.sent);
+
+    var disembargo_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder0.deinit();
+    const disembargo_root0 = try generated.Message.initRootTyped(&disembargo_builder0);
+    var disembargo_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder1.deinit();
+    const disembargo_root1 = try generated.Message.initRootTyped(&disembargo_builder1);
+    const disembargo_messages = [_]generated.Message.Builder{ disembargo_root0, disembargo_root1 };
+    var sink: Sink = .{};
+    try std.testing.expectEqual(
+        @as(usize, 2),
+        try cpz.rpc.dispatchRpcTurnPendingAcceptDisembargosToSink(
+            &state,
+            disembargo_messages[0..],
+            .{ .imported_cap = 5 },
+            &sink,
+            Sink.handle,
+        ),
+    );
+    try std.testing.expectEqual(@as(usize, 2), sink.sent);
+
+    var seen_76 = false;
+    var seen_77 = false;
+    {
+        var reader = cpz.MessageReader.init(try disembargo_builder0.segmentsConst(), .{});
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
+        if (std.mem.eql(u8, info.context.accept, "turn-disembargo-76")) seen_76 = true;
+        if (std.mem.eql(u8, info.context.accept, "turn-disembargo-77")) seen_77 = true;
+    }
+    {
+        var reader = cpz.MessageReader.init(try disembargo_builder1.segmentsConst(), .{});
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
+        if (std.mem.eql(u8, info.context.accept, "turn-disembargo-76")) seen_76 = true;
+        if (std.mem.eql(u8, info.context.accept, "turn-disembargo-77")) seen_77 = true;
+    }
+    try std.testing.expect(seen_76);
+    try std.testing.expect(seen_77);
+}
+
 test "rpc accept info helpers write question ids and embargoes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });

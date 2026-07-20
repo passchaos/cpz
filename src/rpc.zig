@@ -4260,6 +4260,18 @@ pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlersWithApplyHandler(
     return .{ .dispatch = dispatch_stats, .handoff_returns = handoff_stats };
 }
 
+pub fn dispatchRpcTurnPendingAcceptDisembargosToSink(
+    state: *const State,
+    message_builders: anytype,
+    target: CallTarget,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !usize {
+    const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoCount() };
+    try plan.validateDisembargoCapacity(message_builders.len);
+    return state.initPendingAcceptDisembargoMessagesToSink(message_builders, target, sink_context, sink_handler);
+}
+
 pub fn dispatchWireMessagesMethods(
     state: *State,
     allocator: std.mem.Allocator,

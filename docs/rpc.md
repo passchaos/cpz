@@ -169,7 +169,8 @@ that a complete RPC runtime exists.
   state-only counts plus dense output slot requirements before builders are
   allocated, with turn-level plans that combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
-  or unified output queues. A minimal
+  or unified output queues; pending Accept Disembargos can be emitted to their
+  own sink from the same turn plan. A minimal
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
   slices, and append ready handoff Returns to the same response sink for
