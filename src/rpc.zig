@@ -600,6 +600,20 @@ pub const CallInfo = struct {
     }
 };
 
+pub const TrackedCallDispatchInfo = struct {
+    info: CallInfo,
+    options: CallOptions,
+    resolution: ?CapDescriptor = null,
+    forward_target: ?CallTarget = null,
+    effective_target: CallTarget,
+    transitive_forward_target: ?CallTarget = null,
+    transitive_effective_target: CallTarget,
+
+    pub fn needsForward(self: @This()) bool {
+        return self.transitive_forward_target != null;
+    }
+};
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -12274,6 +12288,19 @@ pub const State = struct {
     pub fn callOptions(self: *const State, id: QuestionId) ?CallOptions {
         const info = self.callInfo(id) orelse return null;
         return info.callOptions();
+    }
+
+    pub fn trackedCallDispatchInfo(self: *const State, id: QuestionId) Error!?TrackedCallDispatchInfo {
+        const info = self.callInfo(id) orelse return null;
+        return .{
+            .info = info,
+            .options = info.callOptions(),
+            .resolution = self.callTargetResolution(info.target),
+            .forward_target = self.callTargetForwardTarget(info.target),
+            .effective_target = self.effectiveCallTarget(info.target),
+            .transitive_forward_target = try self.callTargetTransitiveForwardTarget(info.target),
+            .transitive_effective_target = try self.transitiveEffectiveCallTarget(info.target),
+        };
     }
 
     pub fn callAllowsThirdPartyTailCall(self: *const State, id: QuestionId) ?bool {
