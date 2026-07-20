@@ -2488,6 +2488,22 @@ pub fn initWireHandoffReturnMessages(response_messages: anytype, completions: []
     return stats;
 }
 
+pub fn initWireHandoffReturnMessagesToSink(
+    response_messages: anytype,
+    completions: []const HandoffReturn,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !StateHandoffReturnStats {
+    if (response_messages.len < completions.len) return error.InvalidTransition;
+    var stats: StateHandoffReturnStats = .{};
+    for (completions, 0..) |completion, index| {
+        try initWireHandoffReturnMessage(response_messages[index], completion);
+        try sink_handler(sink_context, response_messages[index]);
+        stats.record(completion);
+    }
+    return stats;
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);
@@ -3732,6 +3748,23 @@ pub const State = struct {
         var stats: StateHandoffReturnStats = .{};
         for (completions, 0..) |completion, index| {
             try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
+            stats.record(completion);
+        }
+        return stats;
+    }
+
+    pub fn initTrackedHandoffReturnMessagesToSink(
+        self: *const State,
+        response_messages: anytype,
+        completions: []const HandoffReturn,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !StateHandoffReturnStats {
+        if (response_messages.len < completions.len) return error.InvalidTransition;
+        var stats: StateHandoffReturnStats = .{};
+        for (completions, 0..) |completion, index| {
+            try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
+            try sink_handler(sink_context, response_messages[index]);
             stats.record(completion);
         }
         return stats;
