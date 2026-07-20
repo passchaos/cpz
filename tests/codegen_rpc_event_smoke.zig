@@ -2555,6 +2555,76 @@ test "rpc batch dispatcher routes messages and aggregates outcomes" {
     ));
 }
 
+test "rpc batch dispatcher supports method tables" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 4000;
+        }
+    };
+    const Context = struct {
+        selected: u32 = 0,
+    };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .empty;
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x4444, .method_id = 4 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(33);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x4444, .method_id = 4 }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var finish_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer finish_builder.deinit();
+    const finish_root = try generated.Message.initRootTyped(&finish_builder);
+    try cpz.rpc.initWireFinishMessage(finish_root, .{ .question_id = 33, .release_result_caps = false });
+    var finish_reader = cpz.MessageReader.init(try finish_builder.segmentsConst(), .{});
+    const finish_message = generated.Message.fromReader(try finish_reader.getRoot());
+
+    var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder0.deinit();
+    const response0 = try generated.Message.initRootTyped(&response_builder0);
+    var response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer response_builder1.deinit();
+    const response1 = try generated.Message.initRootTyped(&response_builder1);
+
+    var bootstrap_seen: u32 = 0;
+    var context: Context = .{};
+    const responses = [_]generated.Message.Builder{ response0, response1 };
+    const requests = [_]generated.Message{ call_message, finish_message };
+    const stats = try cpz.rpc.dispatchWireMessagesMethods(
+        &state,
+        std.testing.allocator,
+        responses[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+    );
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 33), context.selected);
+    try std.testing.expectEqual(@as(usize, 1), stats.response_initialized);
+    try std.testing.expectEqual(@as(usize, 1), stats.state_applied);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(33));
+}
+
 test "rpc top-level provide and join messages validate targets" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });

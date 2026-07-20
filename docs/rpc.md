@@ -125,7 +125,8 @@ that a complete RPC runtime exists.
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized or state was
   applied, and apply other supported top-level wire messages to state; a batch
-  helper can aggregate those outcomes over caller-provided message readers.
+  helper can aggregate those outcomes over caller-provided message readers,
+  including method-table call dispatch.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
