@@ -178,8 +178,9 @@ that a complete RPC runtime exists.
   returns, and pending Disembargo queue counts plus capacity checks for split
   or unified output queues, including helpers for validating builders and
   slicing unified output ranges into response, forward, and Disembargo regions.
-  Dense forwarding dispatch can also fill a single caller-provided unified
-  response/forward queue by using those ranges internally.
+  Dense forwarding dispatch, with or without method-table handlers, can also
+  fill a single caller-provided unified response/forward queue by using those
+  ranges internally.
   Separate builder-set validation is also available; pending Accept Disembargos can be planned or emitted to their
   own sink, or initialized into caller-owned builders without an immediate sink,
   from the same turn plan, either all at once or filtered by embargo token.
