@@ -403,6 +403,35 @@ test "rpc call helpers round-trip call options" {
     }, call));
 }
 
+test "rpc message helpers expose call method options only for calls" {
+    const options = (cpz.rpc.CallOptions{})
+        .withMethod(.{ .interface_id = 0x2468, .method_id = 12 })
+        .withFlags(.{ .no_promise_pipelining = true });
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(88);
+    try (try call.init_target()).set_importedCap(5);
+    _ = try call.init_params();
+    try cpz.rpc.writeCallOptionsToWire(options, call);
+
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+    try std.testing.expectEqual(options.method, (try cpz.rpc.callMethodFromWireMessage(call_message)).?);
+    try std.testing.expectEqual(options, (try cpz.rpc.callOptionsFromWireMessage(call_message)).?);
+
+    var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer bootstrap_builder.deinit();
+    const bootstrap_root = try generated.Message.initRootTyped(&bootstrap_builder);
+    try cpz.rpc.initWireBootstrapMessage(bootstrap_root, 89);
+    var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
+    const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
+    try std.testing.expect((try cpz.rpc.callMethodFromWireMessage(bootstrap_message)) == null);
+    try std.testing.expect((try cpz.rpc.callOptionsFromWireMessage(bootstrap_message)) == null);
+}
+
 test "rpc call helpers decode and write method ids" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

@@ -1626,6 +1626,22 @@ pub fn writeCallOptionsToWire(options: CallOptions, call: anytype) !void {
     try writeCallFlagsToWire(options.flags, call);
 }
 
+pub fn callMethodFromWireMessage(message: anytype) !?CallMethod {
+    const tag = std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse return error.InvalidTransition;
+    return switch (tag) {
+        .call => callMethodFromWireCall(try message.call()),
+        else => null,
+    };
+}
+
+pub fn callOptionsFromWireMessage(message: anytype) !?CallOptions {
+    const tag = std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse return error.InvalidTransition;
+    return switch (tag) {
+        .call => try callOptionsFromWireCall(try message.call()),
+        else => null,
+    };
+}
+
 pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
     const has_provision = accept.has_provision();
     const provision_usage = if (has_provision)
