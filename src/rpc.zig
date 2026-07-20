@@ -394,6 +394,19 @@ pub const PendingAcceptEmbargos = struct {
     }
 };
 
+pub const WireMessageApplyResult = union(enum) {
+    state_applied,
+    disembargo: DisembargoApplyInfo,
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .disembargo => |*info| info.deinit(allocator),
+            else => {},
+        }
+        self.* = undefined;
+    }
+};
+
 pub const ResolveInfo = struct {
     promise_id: ExportId,
     cap: ?CapDescriptor = null,
@@ -4186,6 +4199,21 @@ pub const State = struct {
             .join => self.applyWireJoin(try message.join()),
             else => self.applyWireEvent(event),
         };
+    }
+
+    pub fn applyWireMessageAlloc(self: *State, allocator: std.mem.Allocator, message: anytype) !WireMessageApplyResult {
+        const event = try eventFromWireMessage(message);
+        switch (event) {
+            .call => try self.applyWireCall(allocator, try message.call()),
+            .return_ => try self.applyWireReturn(allocator, try message.return_()),
+            .resolve => try self.applyWireResolve(try message.resolve()),
+            .disembargo => return .{ .disembargo = try self.applyWireDisembargoAlloc(allocator, try message.disembargo()) },
+            .provide => try self.applyWireProvide(try message.provide()),
+            .accept => try self.applyWireAccept(try message.accept()),
+            .join => try self.applyWireJoin(try message.join()),
+            else => try self.applyWireEvent(event),
+        }
+        return .state_applied;
     }
 
     pub fn applyWireFinish(self: *State, finish: Finish) Error!void {

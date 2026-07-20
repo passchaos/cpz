@@ -178,7 +178,8 @@ that a complete RPC runtime exists.
   capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
-  call/return payload-aware application or simpler state events; Provide
+  call/return payload-aware application, return detailed Disembargo release
+  information when requested, or apply simpler state events; Provide
   top-level messages validate targets and record recipient pointer usage, and
   callers can query and count tracked recipient usage and initialize a tracked
   Provide Return only when that recipient is present; aggregate handoff stats

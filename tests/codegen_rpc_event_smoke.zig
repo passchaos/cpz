@@ -6369,6 +6369,45 @@ test "rpc ready accept returns require provision capabilities" {
     try std.testing.expectError(error.InvalidTransition, state.initReadyAcceptReturnMessage(response_root, 65, 91));
 }
 
+test "rpc top-level apply reports disembargo releases" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 68,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "apply-68",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    var accept_result = try state.applyWireMessageAlloc(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+    defer accept_result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(cpz.rpc.WireMessageApplyResult.state_applied, accept_result);
+
+    try state.addImport(5);
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "apply-68" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    var disembargo_result = try state.applyWireMessageAlloc(std.testing.allocator, generated.Message.fromReader(try disembargo_reader.getRoot()));
+    defer disembargo_result.deinit(std.testing.allocator);
+    const released = switch (disembargo_result) {
+        .disembargo => |info| info,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqual(@as(usize, 1), released.released_accepts);
+    try std.testing.expectEqualSlices(u32, &.{68}, released.released_accept_ids);
+    try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(68));
+}
+
 test "rpc disembargo helper initializes released accept returns from handlers" {
     const HandlerContext = struct {
         seen: usize = 0,
