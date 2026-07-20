@@ -5283,6 +5283,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(usize, 1), state.pendingAcceptEmbargoCount());
     try std.testing.expectEqual(@as(usize, 1), state.pendingAcceptEmbargoMatchCount("embargo-64"));
     try std.testing.expectEqual(@as(usize, 0), state.pendingAcceptEmbargoMatchCount("missing"));
+    try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .accepts = 1, .pending_accept_embargos = 1 }, state.handoffStats());
     {
         const pending_ids = try state.pendingAcceptEmbargoIdsAlloc(std.testing.allocator);
         defer std.testing.allocator.free(pending_ids);

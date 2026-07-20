@@ -177,8 +177,9 @@ that a complete RPC runtime exists.
   top-level messages validate targets and record recipient pointer usage, and
   callers can query and count tracked recipient usage and initialize a tracked
   Provide Return only when that recipient is present; aggregate handoff stats
-  and ready-ID snapshots summarize tracked and ready Provide/Accept/Join state
-  for polling runtimes, and readiness-validated completion plans can be
+  and ready-ID snapshots summarize tracked, blocked, and ready
+  Provide/Accept/Join state for polling runtimes, and readiness-validated
+  completion plans can be
   materialized into batched handoff Return descriptors or initialized/sent
   directly, including through application handlers that compute result export
   IDs from the recorded pointer usage and optionally enqueue those returns.
