@@ -175,7 +175,8 @@ that a complete RPC runtime exists.
   and ready-ID snapshots summarize tracked and ready Provide/Accept/Join state
   for polling runtimes, and readiness-validated completion plans can be
   materialized into batched handoff Return descriptors or initialized/sent
-  directly.
+  directly, including through application handlers that compute result export
+  IDs from the recorded pointer usage.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
   for future provision handling; callers can query/count when an accepted

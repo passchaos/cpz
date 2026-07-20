@@ -4306,6 +4306,51 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initReadyHandoffReturnMessagesFromHandlers(
+        self: *const State,
+        response_messages: anytype,
+        provide_context: anytype,
+        provide_handler: anytype,
+        accept_context: anytype,
+        accept_handler: anytype,
+        join_context: anytype,
+        join_handler: anytype,
+    ) !StateHandoffReturnStats {
+        const needed = self.provideRecipientCount() + self.readyAcceptProvisionCount() + self.joinKeyPartCount();
+        if (response_messages.len < needed) return error.InvalidTransition;
+        var stats: StateHandoffReturnStats = .{};
+        var index: usize = 0;
+        var provides = self.provides.iterator();
+        while (provides.next()) |entry| {
+            if (entry.value_ptr.recipient) |recipient| {
+                const export_id = try provide_handler(provide_context, entry.key_ptr.*, recipient);
+                try self.initTrackedProvideReturnMessage(response_messages[index], entry.key_ptr.*, export_id);
+                stats.provides += 1;
+                index += 1;
+            }
+        }
+        var accepts = self.accepts.iterator();
+        while (accepts.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.provision != null and (accept.embargo == null or accept.embargo_released)) {
+                const export_id = try accept_handler(accept_context, entry.key_ptr.*, accept.provision.?);
+                try self.initReadyAcceptReturnMessage(response_messages[index], entry.key_ptr.*, export_id);
+                stats.accepts += 1;
+                index += 1;
+            }
+        }
+        var joins = self.joins.iterator();
+        while (joins.next()) |entry| {
+            if (entry.value_ptr.key_part) |key_part| {
+                const export_id = try join_handler(join_context, entry.key_ptr.*, key_part);
+                try self.initTrackedJoinResultReturnMessage(response_messages[index], entry.key_ptr.*, export_id);
+                stats.joins += 1;
+                index += 1;
+            }
+        }
+        return stats;
+    }
+
     pub fn handoffStats(self: *const State) StateHandoffStats {
         return .{
             .provides = self.provideCount(),
