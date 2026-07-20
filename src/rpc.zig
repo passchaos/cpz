@@ -1855,6 +1855,54 @@ pub fn initWireCallMessageStructWithOptions(
     try initWireCallParamsStructWith(call, struct_size, descriptors, context, fill);
 }
 
+pub fn initWireCallMessageStructWithOptionsAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    fill: anytype,
+    options: CallOptions,
+) !void {
+    try state.validateCallTarget(target);
+    for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
+
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    const params = try call.init_params();
+    const content_pointer = try params.get_contentAsPointer();
+    const content = try content_pointer.initStruct(struct_size);
+    try fill(context, content);
+    if ((try content.validate()).maxCapabilityCount() > descriptors.len) return error.InvalidCapabilityPointer;
+    try initWirePayloadCapTable(params, descriptors);
+
+    try state.openQuestion(question_id, .call);
+    try state.trackCallInfo(.{
+        .question_id = question_id,
+        .target = target,
+        .method = options.method,
+        .send_results_to = options.send_results_to,
+        .flags = options.flags,
+    });
+    for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
+    try state.trackParamImports(question_id, descriptors);
+}
+
+pub fn initWireCallMessageStructWithAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    fill: anytype,
+) !void {
+    try initWireCallMessageStructWithOptionsAndApplyState(state, message, question_id, target, struct_size, descriptors, context, fill, .{});
+}
+
 pub fn initWireCallMessageStructInfoWith(
     message: anytype,
     question_id: QuestionId,
