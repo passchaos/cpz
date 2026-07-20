@@ -12904,6 +12904,22 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn dispatchWireMessageServiceActionsUnifiedToSink(
+        self: *State,
+        allocator: std.mem.Allocator,
+        messages: anytype,
+        comptime entries: anytype,
+        plans: []TrackedCallServiceActionPlan,
+        output_messages: anytype,
+        context: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !TrackedCallServiceActionStats {
+        const stats = try self.dispatchWireMessageServiceActionsUnified(allocator, messages, entries, plans, output_messages, context);
+        try sendRpcServiceActionUnifiedOutputsToSink(stats, output_messages, sink_context, sink_handler);
+        return stats;
+    }
+
     pub fn dispatchWireCallServiceActionsUnifiedToSink(
         self: *State,
         allocator: std.mem.Allocator,

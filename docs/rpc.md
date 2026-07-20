@@ -162,7 +162,8 @@ that a complete RPC runtime exists.
   tables and Call builders can reference schema-defined interface/method IDs directly. A compile-time method table dispatcher
   can validate unique method entries, preview matching entry indexes, service
   actions, aggregate action stats/ranges plus split/output capacity checks,
-  top-level-message previews/outputs that skip non-Call messages, grouped action queues,
+  top-level-message previews/outputs that skip non-Call messages and can send
+  compact unified output prefixes directly to a caller sink, grouped action queues,
   or source-preserving plans that can materialize or enqueue split/combined/
   unified dispatch responses, forwarded Calls, and unimplemented Return exceptions for
   pre-apply wire calls and tracked calls, including one-call split/unified-output

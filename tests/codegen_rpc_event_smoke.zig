@@ -8084,6 +8084,74 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 73), message_forward_call.questionId());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(message_forward_call));
 
+    const MessageUnifiedSink = struct {
+        sent: usize = 0,
+        responses: usize = 0,
+        forwards: usize = 0,
+        answer_sum: u32 = 0,
+        question_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            switch ((try message.which()).?) {
+                .return_ => {
+                    context.responses += 1;
+                    context.answer_sum += try (try message.get_return_()).get_answerId();
+                },
+                .call => {
+                    context.forwards += 1;
+                    context.question_sum += try (try message.get_call()).get_questionId();
+                },
+                else => return error.TestUnexpectedResult,
+            }
+        }
+    };
+    var message_sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_sink_state.deinit();
+    try message_sink_state.addImport(5);
+    try message_sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_sink_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_sink_builder0.deinit();
+    const message_sink_output0 = try generated.Message.initRootTyped(&message_sink_builder0);
+    var message_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_sink_builder1.deinit();
+    const message_sink_output1 = try generated.Message.initRootTyped(&message_sink_builder1);
+    var message_sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_sink_builder2.deinit();
+    const message_sink_output2 = try generated.Message.initRootTyped(&message_sink_builder2);
+    const message_sink_outputs = [_]generated.Message.Builder{ message_sink_output0, message_sink_output1, message_sink_output2 };
+    var message_sink_context: Context = .{};
+    var message_unified_sink: MessageUnifiedSink = .{};
+    try std.testing.expectError(error.InvalidTransition, message_sink_state.dispatchWireMessageServiceActionsUnifiedToSink(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        short_message_plans[0..],
+        message_sink_outputs[0..],
+        &message_sink_context,
+        &message_unified_sink,
+        MessageUnifiedSink.handle,
+    ));
+    try std.testing.expectEqual(message_stats, try message_sink_state.dispatchWireMessageServiceActionsUnifiedToSink(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_sink_plan_buffer[0..],
+        message_sink_outputs[0..],
+        &message_sink_context,
+        &message_unified_sink,
+        MessageUnifiedSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), message_unified_sink.sent);
+    try std.testing.expectEqual(@as(usize, 2), message_unified_sink.responses);
+    try std.testing.expectEqual(@as(usize, 1), message_unified_sink.forwards);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_unified_sink.answer_sum);
+    try std.testing.expectEqual(@as(u32, 73), message_unified_sink.question_sum);
+
     const wire_stats = try state.wireCallServiceActionStats(calls[0..], entries);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
         .dispatch = 1,
