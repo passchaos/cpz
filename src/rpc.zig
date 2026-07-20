@@ -657,6 +657,42 @@ pub const TrackedCallServiceActionStats = struct {
     pub fn total(self: @This()) usize {
         return self.actions() + self.missing;
     }
+
+    pub fn dispatchRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.dispatch };
+    }
+
+    pub fn forwardRange(self: @This()) OutputRange {
+        const start = self.dispatch;
+        return .{ .start = start, .end = start + self.forward };
+    }
+
+    pub fn unimplementedRange(self: @This()) OutputRange {
+        const start = self.dispatch + self.forward;
+        return .{ .start = start, .end = start + self.unimplemented };
+    }
+
+    pub fn validateDispatchCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.dispatch) return error.InvalidTransition;
+    }
+
+    pub fn validateForwardCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.forward) return error.InvalidTransition;
+    }
+
+    pub fn validateUnimplementedCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.unimplemented) return error.InvalidTransition;
+    }
+
+    pub fn validateSplitCapacity(self: @This(), dispatch_capacity: usize, forward_capacity: usize, unimplemented_capacity: usize) Error!void {
+        try self.validateDispatchCapacity(dispatch_capacity);
+        try self.validateForwardCapacity(forward_capacity);
+        try self.validateUnimplementedCapacity(unimplemented_capacity);
+    }
+
+    pub fn validateActionCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.actions()) return error.InvalidTransition;
+    }
 };
 
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {

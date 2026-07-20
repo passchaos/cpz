@@ -8023,6 +8023,15 @@ test "rpc service action stats aggregate wire and tracked calls" {
     }, wire_stats);
     try std.testing.expectEqual(@as(usize, 3), wire_stats.actions());
     try std.testing.expectEqual(@as(usize, 3), wire_stats.total());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 1 }, wire_stats.dispatchRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 1, .end = 2 }, wire_stats.forwardRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, wire_stats.unimplementedRange());
+    try wire_stats.validateSplitCapacity(1, 1, 1);
+    try wire_stats.validateActionCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, wire_stats.validateDispatchCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, wire_stats.validateForwardCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, wire_stats.validateUnimplementedCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, wire_stats.validateActionCapacity(2));
 
     for (calls) |call| try state.applyWireCall(std.testing.allocator, call);
     const ids = [_]cpz.rpc.QuestionId{ 71, 72, 73, 74 };
@@ -8035,6 +8044,8 @@ test "rpc service action stats aggregate wire and tracked calls" {
     }, tracked_stats);
     try std.testing.expectEqual(@as(usize, 3), tracked_stats.actions());
     try std.testing.expectEqual(@as(usize, 4), tracked_stats.total());
+    try tracked_stats.validateSplitCapacity(1, 1, 1);
+    try tracked_stats.validateActionCapacity(3);
 }
 
 test "rpc call dispatch outcomes flag resolved targets for forwarding" {
