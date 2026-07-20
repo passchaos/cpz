@@ -2062,6 +2062,28 @@ pub fn initWireReturnMessagePayloadCapability(
     try initWireReturnResultsCapability(return_, capability_index, descriptors);
 }
 
+pub fn initWireReturnMessagePayloadCapabilityAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+) !void {
+    if (capability_index >= descriptors.len) return error.InvalidCapabilityPointer;
+    for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try initWireReturnMessagePayloadCapability(message, answer_id, release_param_caps, no_finish_needed, capability_index, descriptors);
+    try state.resolveAnswer(answer_id, .return_);
+    for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
+    try state.trackResultImports(answer_id, descriptors);
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+    if (no_finish_needed and descriptors.len == 0) {
+        try state.finishQuestion(answer_id);
+    }
+}
+
 pub fn initWireReturnMessagePayloadCapabilityInfo(
     message: anytype,
     answer_id: AnswerId,

@@ -2616,6 +2616,47 @@ test "rpc top-level return helpers initialize content capabilities" {
     }
 }
 
+test "rpc return capability helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(79, .call);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireReturnMessagePayloadCapabilityAndApplyState(
+        &state,
+        root,
+        79,
+        false,
+        false,
+        0,
+        &.{.{ .sender_hosted = 82 }},
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(79));
+    try std.testing.expectEqual(@as(usize, 1), state.resultImportCount(79));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(82));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+    const results = try return_.results();
+    try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.payloadContentCapabilityIndex(results));
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, results);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 82 }, descriptors[0]);
+
+    var finish_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer finish_builder.deinit();
+    const finish_root = try generated.Message.initRootTyped(&finish_builder);
+    try cpz.rpc.initWireFinishMessage(finish_root, .{ .question_id = 79, .release_result_caps = true });
+    var finish_reader = cpz.MessageReader.init(try finish_builder.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try finish_reader.getRoot()));
+    try std.testing.expectEqual(@as(usize, 0), state.resultImportCount(79));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(82));
+}
+
 test "rpc top-level return helpers initialize struct payloads" {
     const Fill = struct {
         fn write(value: *const u32, builder: cpz.StructBuilder) !void {
