@@ -1662,6 +1662,42 @@ pub fn initWireCallMessagePayloadCapabilityWithOptions(
     try initWireCallParamsCapability(call, capability_index, descriptors);
 }
 
+pub fn initWireCallMessagePayloadCapabilityWithOptionsAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+    options: CallOptions,
+) !void {
+    if (capability_index >= descriptors.len) return error.InvalidCapabilityPointer;
+    try state.validateCallTarget(target);
+    for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
+    try initWireCallMessagePayloadCapabilityWithOptions(message, question_id, target, capability_index, descriptors, options);
+    try state.openQuestion(question_id, .call);
+    try state.trackCallInfo(.{
+        .question_id = question_id,
+        .target = target,
+        .method = options.method,
+        .send_results_to = options.send_results_to,
+        .flags = options.flags,
+    });
+    for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
+    try state.trackParamImports(question_id, descriptors);
+}
+
+pub fn initWireCallMessagePayloadCapabilityAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+) !void {
+    try initWireCallMessagePayloadCapabilityWithOptionsAndApplyState(state, message, question_id, target, capability_index, descriptors, .{});
+}
+
 pub fn initWireCallMessagePayloadCapabilityInfo(
     message: anytype,
     question_id: QuestionId,

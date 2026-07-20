@@ -1617,6 +1617,39 @@ test "rpc top-level call helpers initialize content capabilities" {
     }
 }
 
+test "rpc call capability helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessagePayloadCapabilityWithOptionsAndApplyState(
+        &state,
+        root,
+        104,
+        .{ .imported_cap = 5 },
+        0,
+        &.{.{ .sender_hosted = 105 }},
+        .{ .method = .{ .interface_id = 0x104, .method_id = 15 } },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(104));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(104));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(105));
+    const tracked = state.callInfo(104).?;
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x104, .method_id = 15 }, tracked.method);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const params = try (try generated.Message.fromReader(try reader.getRoot()).call()).params();
+    try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.payloadContentCapabilityIndex(params));
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, params);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 105 }, descriptors[0]);
+}
+
 test "rpc top-level call helpers initialize struct payloads" {
     const Fill = struct {
         fn write(value: *const u32, builder: cpz.StructBuilder) !void {
