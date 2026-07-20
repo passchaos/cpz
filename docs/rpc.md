@@ -237,6 +237,9 @@ that a complete RPC runtime exists.
   Method IDs, result routing, and call flags can also be decoded from or written
   to generated Call readers/builders as a single `CallOptions` value, so
   dispatch and initialization paths share the same validation rules.
+  `CallOptions` can build the corresponding tracked `CallInfo`, and tracked
+  calls can restore both `CallMethod` and `CallOptions` for later dispatch
+  without each helper manually reassembling the same fields.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
   tracked/effective target querying, dispatch-info snapshots, service-action

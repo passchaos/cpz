@@ -2549,6 +2549,11 @@ test "rpc top-level call payload helpers support routing options" {
     try std.testing.expect(fluent_options.sendsResultsTo(.yourself));
     try std.testing.expect(fluent_options.forbidsPromisePipelining());
     try std.testing.expect(fluent_options.thirdPartyResultsUsage() == null);
+    const fluent_call_info = fluent_options.callInfo(900, .{ .imported_cap = 7 });
+    try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 900), fluent_call_info.question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 7 }, fluent_call_info.target);
+    try std.testing.expectEqual(fluent_options.callMethod(), fluent_call_info.callMethod());
+    try std.testing.expectEqual(fluent_options, fluent_call_info.callOptions());
 
     const third_party_options = (cpz.rpc.CallOptions{})
         .withMethod(.{ .interface_id = 0x9002, .method_id = 11 })
@@ -2876,6 +2881,7 @@ test "rpc call uint32-list helper can apply initialized state" {
     const tracked = state.callInfo(97).?;
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x97, .method_id = 7 }, tracked.method);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x97, .method_id = 7 }, tracked.callMethod());
     try std.testing.expect(tracked.flags.allow_third_party_tail_call);
     try std.testing.expect(tracked.sendsResultsTo(.third_party));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, tracked.thirdPartyResultsUsage().?);

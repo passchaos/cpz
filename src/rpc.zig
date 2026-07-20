@@ -566,6 +566,21 @@ pub const CallInfo = struct {
     send_results_to_third_party: ?AnyPointerUsage = null,
     flags: CallFlags,
 
+    pub fn init(question_id: QuestionId, target: CallTarget, options: CallOptions) @This() {
+        return .{
+            .question_id = question_id,
+            .target = target,
+            .method = options.method,
+            .send_results_to = options.send_results_to,
+            .send_results_to_third_party = options.send_results_to_third_party,
+            .flags = options.flags,
+        };
+    }
+
+    pub fn callMethod(self: @This()) CallMethod {
+        return self.method;
+    }
+
     pub fn matchesMethod(self: @This(), method: CallMethod) bool {
         return self.method.matches(method.interface_id, method.method_id);
     }
@@ -588,15 +603,15 @@ pub const CallInfo = struct {
     }
 
     pub fn allowsThirdPartyTailCall(self: @This()) bool {
-        return self.flags.allow_third_party_tail_call;
+        return self.flags.allowsThirdPartyTailCall();
     }
 
     pub fn forbidsPromisePipelining(self: @This()) bool {
-        return self.flags.no_promise_pipelining;
+        return self.flags.forbidsPromisePipelining();
     }
 
     pub fn onlyAllowsPromisePipeline(self: @This()) bool {
-        return self.flags.only_promise_pipeline;
+        return self.flags.onlyAllowsPromisePipeline();
     }
 };
 
@@ -1045,6 +1060,10 @@ pub const CallOptions = struct {
 
     pub fn methodEntry(self: @This(), handler: anytype) CallMethodEntry(@TypeOf(handler)) {
         return self.method.methodEntry(handler);
+    }
+
+    pub fn callInfo(self: @This(), question_id: QuestionId, target: CallTarget) CallInfo {
+        return CallInfo.init(question_id, target, self);
     }
 
     pub fn entryIndex(self: @This(), comptime entries: anytype) Error!?usize {
@@ -2706,14 +2725,7 @@ pub fn initWireCallMessagePayloadCapabilityWithOptionsAndApplyState(
     for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
     try initWireCallMessagePayloadCapabilityWithOptions(message, question_id, target, capability_index, descriptors, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
     try state.trackParamImports(question_id, descriptors);
 }
@@ -2769,14 +2781,7 @@ pub fn initWireCallMessagePayloadCapabilityInfoWithOptionsAndApplyState(
     for (infos) |info| try state.validateCapDescriptor(info.descriptor);
     try initWireCallMessagePayloadCapabilityInfoWithOptions(message, question_id, target, capability_index, infos, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
     const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
     defer state.allocator.free(descriptors);
@@ -2911,14 +2916,7 @@ pub fn initWireCallMessageStructWithOptionsAndApplyState(
     try initWirePayloadCapTable(params, descriptors);
 
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
     try state.trackParamImports(question_id, descriptors);
 }
@@ -2990,14 +2988,7 @@ pub fn initWireCallMessageStructInfoWithOptionsAndApplyState(
     try initWirePayloadCapTableInfo(params, infos);
 
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
     const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
     defer state.allocator.free(descriptors);
@@ -3116,14 +3107,7 @@ pub fn initWireCallMessageTextWithOptionsAndApplyState(
     for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
     try initWireCallMessageTextWithOptions(message, question_id, target, text, descriptors, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
     try state.trackParamImports(question_id, descriptors);
 }
@@ -3165,14 +3149,7 @@ pub fn initWireCallMessageDataWithOptionsAndApplyState(
     for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
     try initWireCallMessageDataWithOptions(message, question_id, target, data, descriptors, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
     try state.trackParamImports(question_id, descriptors);
 }
@@ -3214,14 +3191,7 @@ pub fn initWireCallMessageUInt32ListWithOptionsAndApplyState(
     for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
     try initWireCallMessageUInt32ListWithOptions(message, question_id, target, values, descriptors, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
     try state.trackParamImports(question_id, descriptors);
 }
@@ -3263,14 +3233,7 @@ pub fn initWireCallMessageTextInfoWithOptionsAndApplyState(
     for (infos) |info| try state.validateCapDescriptor(info.descriptor);
     try initWireCallMessageTextInfoWithOptions(message, question_id, target, text, infos, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
     const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
     defer state.allocator.free(descriptors);
@@ -3314,14 +3277,7 @@ pub fn initWireCallMessageDataInfoWithOptionsAndApplyState(
     for (infos) |info| try state.validateCapDescriptor(info.descriptor);
     try initWireCallMessageDataInfoWithOptions(message, question_id, target, data, infos, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
     const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
     defer state.allocator.free(descriptors);
@@ -3365,14 +3321,7 @@ pub fn initWireCallMessageUInt32ListInfoWithOptionsAndApplyState(
     for (infos) |info| try state.validateCapDescriptor(info.descriptor);
     try initWireCallMessageUInt32ListInfoWithOptions(message, question_id, target, values, infos, options);
     try state.openQuestion(question_id, .call);
-    try state.trackCallInfo(.{
-        .question_id = question_id,
-        .target = target,
-        .method = options.method,
-        .send_results_to = options.send_results_to,
-        .send_results_to_third_party = options.send_results_to_third_party,
-        .flags = options.flags,
-    });
+    try state.trackCallInfo(options.callInfo(question_id, target));
     for (infos) |info| try state.applyCapDescriptor(info.descriptor);
     const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
     defer state.allocator.free(descriptors);
@@ -11917,14 +11866,7 @@ pub const State = struct {
         try validateWirePayloadContent(try call.params(), descriptors.len);
         for (descriptors) |descriptor| try self.validateCapDescriptor(descriptor);
         try self.openQuestion(question_id, .call);
-        try self.trackCallInfo(.{
-            .question_id = question_id,
-            .target = target,
-            .method = options.method,
-            .send_results_to = options.send_results_to,
-            .send_results_to_third_party = options.send_results_to_third_party,
-            .flags = options.flags,
-        });
+        try self.trackCallInfo(options.callInfo(question_id, target));
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
         try self.trackParamImports(question_id, descriptors);
     }
