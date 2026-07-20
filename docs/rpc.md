@@ -168,7 +168,9 @@ that a complete RPC runtime exists.
   Non-mutating dispatch planning helpers can preview response, forward, and
   state-only counts plus dense output slot requirements before builders are
   allocated, with turn-level plans that combine dispatch and ready handoff
-  returns plus capacity checks for split or unified output queues.
+  returns plus capacity checks for split or unified output queues. A minimal
+  turn helper can dispatch dense responses/forwards and append ready handoff
+  Returns to the same response sink for embedding transports.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
