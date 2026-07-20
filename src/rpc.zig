@@ -158,6 +158,16 @@ pub const HandoffReturn = union(enum) {
     join: HandoffReturnCapability,
 };
 
+pub const HandoffReturnPlan = struct {
+    provides: []const HandoffReturnCapability = &.{},
+    accepts: []const HandoffReturnCapability = &.{},
+    joins: []const HandoffReturnCapability = &.{},
+
+    pub fn total(self: @This()) usize {
+        return self.provides.len + self.accepts.len + self.joins.len;
+    }
+};
+
 pub const StateHandoffReturnStats = struct {
     provides: usize = 0,
     accepts: usize = 0,
@@ -4184,6 +4194,28 @@ pub const State = struct {
         const joins = try self.readyJoinIdsAlloc(allocator);
         errdefer allocator.free(joins);
         return .{ .provides = provides, .accepts = accepts, .joins = joins };
+    }
+
+    pub fn readyHandoffReturnsAlloc(self: *const State, allocator: std.mem.Allocator, plan: HandoffReturnPlan) (Error || std.mem.Allocator.Error)![]HandoffReturn {
+        var completions = try allocator.alloc(HandoffReturn, plan.total());
+        errdefer allocator.free(completions);
+        var index: usize = 0;
+        for (plan.provides) |value| {
+            _ = self.provideRecipient(value.question_id) orelse return error.InvalidTransition;
+            completions[index] = .{ .provide = value };
+            index += 1;
+        }
+        for (plan.accepts) |value| {
+            _ = self.readyAcceptProvision(value.question_id) orelse return error.InvalidTransition;
+            completions[index] = .{ .accept = value };
+            index += 1;
+        }
+        for (plan.joins) |value| {
+            _ = self.joinKeyPart(value.question_id) orelse return error.InvalidTransition;
+            completions[index] = .{ .join = value };
+            index += 1;
+        }
+        return completions;
     }
 
     pub fn initTrackedHandoffReturnMessage(self: *const State, message: anytype, completion: HandoffReturn) !void {

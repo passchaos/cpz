@@ -5335,6 +5335,20 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectEqualSlices(u32, &.{91}, ready_ids.accepts);
     try std.testing.expectEqualSlices(u32, &.{92}, ready_ids.joins);
 
+    const planned_provides = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 90, .export_id = 390 }};
+    const planned_accepts = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 91, .export_id = 391 }};
+    const planned_joins = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 92, .export_id = 392 }};
+    const planned = try state.readyHandoffReturnsAlloc(std.testing.allocator, .{
+        .provides = planned_provides[0..],
+        .accepts = planned_accepts[0..],
+        .joins = planned_joins[0..],
+    });
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqual(@as(usize, 3), planned.len);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .provide = planned_provides[0] }, planned[0]);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .accept = planned_accepts[0] }, planned[1]);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .join = planned_joins[0] }, planned[2]);
+
     var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder0.deinit();
     const response0 = try generated.Message.initRootTyped(&response_builder0);
@@ -5397,6 +5411,8 @@ test "rpc tracked handoff batches preserve readiness gates" {
     var ready_ids = try state.readyHandoffIdsAlloc(std.testing.allocator);
     defer ready_ids.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 0), ready_ids.total());
+    const blocked_accepts = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 93, .export_id = 393 }};
+    try std.testing.expectError(error.InvalidTransition, state.readyHandoffReturnsAlloc(std.testing.allocator, .{ .accepts = blocked_accepts[0..] }));
 
     var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder.deinit();
