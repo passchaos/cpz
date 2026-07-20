@@ -1448,6 +1448,19 @@ pub fn initWireCallMessagePayloadCapability(
     try initWireCallParamsCapability(call, capability_index, descriptors);
 }
 
+pub fn initWireCallMessagePayloadCapabilityWithOptions(
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    descriptors: []const CapDescriptor,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsCapability(call, capability_index, descriptors);
+}
+
 pub fn initWireCallMessagePayloadCapabilityInfo(
     message: anytype,
     question_id: QuestionId,
@@ -1458,6 +1471,19 @@ pub fn initWireCallMessagePayloadCapabilityInfo(
     const call = try message.init_call();
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsCapabilityInfo(call, capability_index, infos);
+}
+
+pub fn initWireCallMessagePayloadCapabilityInfoWithOptions(
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    infos: []const CapDescriptorInfo,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
     try initWireCallParamsCapabilityInfo(call, capability_index, infos);
 }
 
