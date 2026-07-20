@@ -1254,6 +1254,12 @@ pub fn initWirePayloadCapabilityInfo(payload: anytype, capability_index: u32, in
     try initWirePayloadCapTableInfo(payload, infos);
 }
 
+pub fn initWirePayloadCapabilityFromRegistry(allocator: std.mem.Allocator, payload: anytype, capability_index: u32, registry: anytype) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWirePayloadCapability(payload, capability_index, descriptors);
+}
+
 pub fn initWirePayloadStructWith(
     payload: anytype,
     struct_size: anytype,
@@ -1485,6 +1491,34 @@ pub fn initWireCallMessagePayloadCapabilityInfoWithOptions(
     const call = try message.init_call();
     try initWireCallHeaderWithOptions(call, question_id, target, options);
     try initWireCallParamsCapabilityInfo(call, capability_index, infos);
+}
+
+pub fn initWireCallMessagePayloadCapabilityFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    registry: anytype,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsCapabilityFromRegistry(allocator, call, capability_index, registry);
+}
+
+pub fn initWireCallMessagePayloadCapabilityFromRegistryWithOptions(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsCapabilityFromRegistry(allocator, call, capability_index, registry);
 }
 
 pub fn initWireCallMessageStructWith(
@@ -1854,6 +1888,22 @@ pub fn initWireReturnMessagePayloadCapabilityInfo(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     try initWireReturnResultsCapabilityInfo(return_, capability_index, infos);
+}
+
+pub fn initWireReturnMessagePayloadCapabilityFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+    registry: anytype,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsCapabilityFromRegistry(allocator, return_, capability_index, registry);
 }
 
 pub fn initWireReturnMessageStructWith(
@@ -3181,6 +3231,10 @@ pub fn initWireCallParamsCapabilityInfo(call: anytype, capability_index: u32, in
     try initWirePayloadCapabilityInfo(try call.init_params(), capability_index, infos);
 }
 
+pub fn initWireCallParamsCapabilityFromRegistry(allocator: std.mem.Allocator, call: anytype, capability_index: u32, registry: anytype) !void {
+    try initWirePayloadCapabilityFromRegistry(allocator, try call.init_params(), capability_index, registry);
+}
+
 pub fn initWireCallParamsStructWith(
     call: anytype,
     struct_size: anytype,
@@ -3262,6 +3316,10 @@ pub fn initWireReturnResultsCapability(return_: anytype, capability_index: u32, 
 
 pub fn initWireReturnResultsCapabilityInfo(return_: anytype, capability_index: u32, infos: []const CapDescriptorInfo) !void {
     try initWirePayloadCapabilityInfo(try return_.init_results(), capability_index, infos);
+}
+
+pub fn initWireReturnResultsCapabilityFromRegistry(allocator: std.mem.Allocator, return_: anytype, capability_index: u32, registry: anytype) !void {
+    try initWirePayloadCapabilityFromRegistry(allocator, try return_.init_results(), capability_index, registry);
 }
 
 pub fn initWireReturnResultsStructWith(
