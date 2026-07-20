@@ -2383,6 +2383,29 @@ pub fn initWireReturnMessageDataInfo(
     try initWireReturnResultsDataInfo(return_, data, infos);
 }
 
+pub fn initWireReturnMessageDataInfoAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    data: []const u8,
+    infos: []const CapDescriptorInfo,
+) !void {
+    for (infos) |info| try state.validateCapDescriptor(info.descriptor);
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try initWireReturnMessageDataInfo(message, answer_id, release_param_caps, no_finish_needed, data, infos);
+    try state.resolveAnswer(answer_id, .return_);
+    for (infos) |info| try state.applyCapDescriptor(info.descriptor);
+    const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
+    defer state.allocator.free(descriptors);
+    try state.trackResultImports(answer_id, descriptors);
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+    if (no_finish_needed and infos.len == 0) {
+        try state.finishQuestion(answer_id);
+    }
+}
+
 pub fn initWireReturnMessageUInt32ListInfo(
     message: anytype,
     answer_id: AnswerId,

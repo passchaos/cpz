@@ -2824,6 +2824,39 @@ test "rpc return data helper can apply initialized state" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 84 }, descriptors[0]);
 }
 
+test "rpc return data-info helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(89, .call);
+
+    const infos = [_]cpz.rpc.CapDescriptorInfo{.{ .descriptor = .{ .sender_promise = 90 }, .attached_fd = 13 }};
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireReturnMessageDataInfoAndApplyState(
+        &state,
+        root,
+        89,
+        false,
+        false,
+        "state data info result",
+        infos[0..],
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(89));
+    try std.testing.expectEqual(@as(usize, 1), state.resultImportCount(89));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(90));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+    const results = try return_.results();
+    try std.testing.expectEqualSlices(u8, "state data info result", try (try results.content()).getData());
+    const decoded_infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, results);
+    defer std.testing.allocator.free(decoded_infos);
+    try std.testing.expectEqual(@as(usize, 1), decoded_infos.len);
+    try std.testing.expectEqual(infos[0], decoded_infos[0]);
+}
+
 test "rpc return uint32-list helper can apply initialized state" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
