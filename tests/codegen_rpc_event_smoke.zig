@@ -2253,6 +2253,40 @@ test "rpc top-level call helpers initialize registry-backed UInt32 list payloads
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
 }
 
+test "rpc call uint32-list helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageUInt32ListWithOptionsAndApplyState(
+        &state,
+        root,
+        97,
+        .{ .imported_cap = 5 },
+        &.{ 7, 14, 28 },
+        &.{.{ .sender_hosted = 99 }},
+        .{
+            .method = .{ .interface_id = 0x97, .method_id = 7 },
+            .flags = .{ .allow_third_party_tail_call = true },
+        },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(97));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(97));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(99));
+    const tracked = state.callInfo(97).?;
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x97, .method_id = 7 }, tracked.method);
+    try std.testing.expect(tracked.flags.allow_third_party_tail_call);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call = try generated.Message.fromReader(try reader.getRoot()).call();
+    try expectPayloadUInt32List(try call.params(), &.{ 7, 14, 28 });
+}
+
 test "rpc wire calls apply target and params state together" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
