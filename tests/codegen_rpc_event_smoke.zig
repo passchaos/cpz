@@ -8225,6 +8225,126 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 2 + 3), message_plan_sink.source_sum);
     try std.testing.expectEqual(@as(u32, 71 + 72 + 73), message_plan_sink.question_sum);
 
+    var message_split_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_split_state.deinit();
+    try message_split_state.addImport(5);
+    try message_split_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_split_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_split_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_split_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_split_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_response_builder0.deinit();
+    const message_split_response0 = try generated.Message.initRootTyped(&message_split_response_builder0);
+    var message_split_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_response_builder1.deinit();
+    const message_split_response1 = try generated.Message.initRootTyped(&message_split_response_builder1);
+    var message_split_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_forward_builder.deinit();
+    const message_split_forward = try generated.Message.initRootTyped(&message_split_forward_builder);
+    const message_split_responses = [_]generated.Message.Builder{ message_split_response0, message_split_response1 };
+    const message_split_forwards = [_]generated.Message.Builder{message_split_forward};
+    var message_split_context: Context = .{};
+    var message_split_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, message_split_state.dispatchWireMessageServiceActions(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_split_short_plan_buffer[0..],
+        message_split_responses[0..],
+        message_split_forwards[0..],
+        &message_split_context,
+    ));
+    try std.testing.expectEqual(message_stats, try message_split_state.dispatchWireMessageServiceActions(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_split_plan_buffer[0..],
+        message_split_responses[0..],
+        message_split_forwards[0..],
+        &message_split_context,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_split_context.selected);
+    var message_split_response_reader0 = cpz.MessageReader.init(try message_split_response_builder0.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 71), (try generated.Message.fromReader(try message_split_response_reader0.getRoot()).return_()).answerId());
+    var message_split_response_reader1 = cpz.MessageReader.init(try message_split_response_builder1.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 72), (try generated.Message.fromReader(try message_split_response_reader1.getRoot()).return_()).answerId());
+    var message_split_forward_reader = cpz.MessageReader.init(try message_split_forward_builder.segmentsConst(), .{});
+    const message_split_forward_call = try generated.Message.fromReader(try message_split_forward_reader.getRoot()).call();
+    try std.testing.expectEqual(@as(u32, 73), message_split_forward_call.questionId());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(message_split_forward_call));
+
+    const MessageResponseSink = struct {
+        sent: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.answer_sum += try (try message.get_return_()).get_answerId();
+        }
+    };
+    const MessageForwardSink = struct {
+        sent: usize = 0,
+        question_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.question_sum += try (try message.get_call()).get_questionId();
+        }
+    };
+    var message_split_sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_split_sink_state.deinit();
+    try message_split_sink_state.addImport(5);
+    try message_split_sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_split_sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_split_sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_split_sink_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_split_sink_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_sink_response_builder0.deinit();
+    const message_split_sink_response0 = try generated.Message.initRootTyped(&message_split_sink_response_builder0);
+    var message_split_sink_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_sink_response_builder1.deinit();
+    const message_split_sink_response1 = try generated.Message.initRootTyped(&message_split_sink_response_builder1);
+    var message_split_sink_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_sink_forward_builder.deinit();
+    const message_split_sink_forward = try generated.Message.initRootTyped(&message_split_sink_forward_builder);
+    const message_split_sink_responses = [_]generated.Message.Builder{ message_split_sink_response0, message_split_sink_response1 };
+    const message_split_sink_forwards = [_]generated.Message.Builder{message_split_sink_forward};
+    var message_split_sink_context: Context = .{};
+    var message_response_sink: MessageResponseSink = .{};
+    var message_forward_sink: MessageForwardSink = .{};
+    var message_split_sink_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, message_split_sink_state.dispatchWireMessageServiceActionsToSinks(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_split_sink_short_plan_buffer[0..],
+        message_split_sink_responses[0..],
+        message_split_sink_forwards[0..],
+        &message_split_sink_context,
+        &message_response_sink,
+        MessageResponseSink.handle,
+        &message_forward_sink,
+        MessageForwardSink.handle,
+    ));
+    try std.testing.expectEqual(message_stats, try message_split_sink_state.dispatchWireMessageServiceActionsToSinks(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_split_sink_plan_buffer[0..],
+        message_split_sink_responses[0..],
+        message_split_sink_forwards[0..],
+        &message_split_sink_context,
+        &message_response_sink,
+        MessageResponseSink.handle,
+        &message_forward_sink,
+        MessageForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_split_sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), message_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), message_forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), message_forward_sink.question_sum);
+
     const wire_stats = try state.wireCallServiceActionStats(calls[0..], entries);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
         .dispatch = 1,
