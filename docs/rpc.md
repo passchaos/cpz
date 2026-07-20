@@ -165,7 +165,8 @@ that a complete RPC runtime exists.
   grouped action queues, or source-preserving plans that can materialize or enqueue split/combined/
   unified dispatch responses, forwarded Calls, and unimplemented Return exceptions for
   pre-apply wire calls and tracked calls, including one-call split/unified-output
-  dispatch and one-call split/unified enqueue, select among multiple handlers, and
+  dispatch, source-preserving unified sinks, and one-call split/unified enqueue,
+  select among multiple handlers, and
   can be used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized, a resolved call

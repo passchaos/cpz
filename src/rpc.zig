@@ -2026,6 +2026,40 @@ pub fn sendRpcServiceActionUnifiedOutputsToSink(stats: TrackedCallServiceActionS
     for (output_messages[0..stats.actions()]) |message| try sink_handler(sink_context, message);
 }
 
+pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !void {
+    try stats.validateActionCapacity(plans.len);
+    try stats.validateActionCapacity(output_messages.len);
+    var response_index = stats.outputResponseRange().start;
+    var forward_index = stats.outputForwardRange().start;
+    for (plans) |plan| switch (plan.action) {
+        .dispatch => {
+            try sink_handler(sink_context, plan, output_messages[response_index]);
+            response_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .unimplemented => {
+            try sink_handler(sink_context, plan, output_messages[response_index]);
+            response_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .forward => {
+            try sink_handler(sink_context, plan, output_messages[forward_index]);
+            forward_index += 1;
+        },
+        else => {},
+    };
+}
+
 pub fn initWireCallServiceActionPlanUnifiedOutputsToSink(
     state: *State,
     allocator: std.mem.Allocator,
