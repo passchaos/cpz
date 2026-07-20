@@ -5828,8 +5828,7 @@ pub fn planWireMessageDispatch(state: *const State, request_message: anytype) !W
     switch (try eventFromWireMessage(request_message)) {
         .bootstrap => return .response_initialized,
         .call => {
-            const dispatch_info = try state.wireCallDispatchInfo(try request_message.call());
-            return dispatch_info.dispatchOutcome();
+            return try state.wireCallDispatchOutcome(try request_message.call());
         },
         else => return .state_applied,
     }
@@ -13206,6 +13205,11 @@ pub const State = struct {
         return try self.dispatchInfoForCallInfo(info);
     }
 
+    pub fn wireCallDispatchOutcome(self: *const State, call: anytype) !WireDispatchOutcome {
+        const dispatch_info = try self.wireCallDispatchInfo(call);
+        return dispatch_info.dispatchOutcome();
+    }
+
     pub fn wireCallServiceAction(self: *const State, call: anytype, comptime entries: anytype) !TrackedCallServiceAction {
         const dispatch_info = try self.wireCallDispatchInfo(call);
         return try dispatch_info.serviceAction(entries);
@@ -13216,6 +13220,11 @@ pub const State = struct {
             .call => try self.wireCallDispatchInfo(try message.call()),
             else => null,
         };
+    }
+
+    pub fn wireMessageDispatchOutcome(self: *const State, message: anytype) !?WireDispatchOutcome {
+        const dispatch_info = (try self.wireMessageDispatchInfo(message)) orelse return null;
+        return dispatch_info.dispatchOutcome();
     }
 
     pub fn wireMessageServiceAction(self: *const State, message: anytype, comptime entries: anytype) !?TrackedCallServiceAction {

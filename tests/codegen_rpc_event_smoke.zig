@@ -3002,6 +3002,7 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expect(dispatch_info.transitive_forward_target == null);
     try std.testing.expect(!dispatch_info.needsForward());
     try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, dispatch_info.dispatchOutcome());
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, try state.wireCallDispatchOutcome(try message.call()));
     const Noop = struct {
         fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
             return .empty;
@@ -8236,10 +8237,12 @@ test "rpc service action stats aggregate wire and tracked calls" {
     const dispatch_message_info = (try state.wireMessageDispatchInfo(messages[0])).?;
     try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 71), dispatch_message_info.info.question_id);
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x4242, .method_id = 1 }, dispatch_message_info.info.callMethod());
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, (try state.wireMessageDispatchOutcome(messages[0])).?);
     const dispatch_message_action = (try state.wireMessageServiceAction(messages[0], entries)).?;
     try std.testing.expect(dispatch_message_action.isDispatch());
     try std.testing.expectEqual(@as(usize, 0), dispatch_message_action.dispatch);
     try std.testing.expect((try state.wireMessageDispatchInfo(messages[1])) == null);
+    try std.testing.expect((try state.wireMessageDispatchOutcome(messages[1])) == null);
     try std.testing.expect((try state.wireMessageServiceAction(messages[1], entries)) == null);
     const message_stats = try state.wireMessageServiceActionStats(messages[0..], entries);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
@@ -10165,6 +10168,7 @@ test "rpc call dispatch outcomes flag resolved targets for forwarding" {
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, dispatch_info.transitive_effective_target);
     try std.testing.expect(dispatch_info.needsForward());
     try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.forward_required, dispatch_info.dispatchOutcome());
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.forward_required, try state.wireCallDispatchOutcome(try request.call()));
     const default_method = cpz.rpc.CallMethod{};
     const entries = .{default_method.methodEntry(Handler.handle)};
     const wire_dispatch_info = try state.wireCallDispatchInfo(try request.call());
