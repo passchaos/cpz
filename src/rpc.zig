@@ -987,6 +987,14 @@ pub const CallMethod = struct {
         return self.interface_id == interface_id and self.method_id == method_id;
     }
 
+    pub fn matchesCallMethod(self: @This(), method: CallMethod) bool {
+        return self.matches(method.interface_id, method.method_id);
+    }
+
+    pub fn matchesWireCall(self: @This(), call: anytype) bool {
+        return self.matchesCallMethod(callMethodFromWireCall(call));
+    }
+
     pub fn callOptions(self: @This()) CallOptions {
         return .{ .method = self };
     }
@@ -1011,6 +1019,14 @@ pub fn CallMethodEntry(comptime Handler: type) type {
 
         pub fn matches(self: @This(), interface_id: u64, method_id: u16) bool {
             return self.method.matches(interface_id, method_id);
+        }
+
+        pub fn matchesCallMethod(self: @This(), method: CallMethod) bool {
+            return self.method.matchesCallMethod(method);
+        }
+
+        pub fn matchesWireCall(self: @This(), call: anytype) bool {
+            return self.method.matchesWireCall(call);
         }
 
         pub fn callOptions(self: @This()) CallOptions {
@@ -1070,6 +1086,10 @@ pub const CallOptions = struct {
 
     pub fn matchesMethod(self: @This(), method: CallMethod) bool {
         return self.method.matches(method.interface_id, method.method_id);
+    }
+
+    pub fn matchesWireCall(self: @This(), call: anytype) bool {
+        return self.method.matchesWireCall(call);
     }
 
     pub fn methodEntry(self: @This(), handler: anytype) CallMethodEntry(@TypeOf(handler)) {

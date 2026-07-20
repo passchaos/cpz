@@ -391,6 +391,7 @@ test "rpc call helpers round-trip call options" {
     const decoded = try cpz.rpc.callOptionsFromWireCall(call_reader);
     try std.testing.expectEqual(options, decoded);
     try std.testing.expect(decoded.matchesMethod(.{ .interface_id = 0x1234_5678_9abc_def0, .method_id = 31 }));
+    try std.testing.expect(decoded.matchesWireCall(call_reader));
     try std.testing.expect(decoded.sendsResultsTo(.third_party));
     try std.testing.expect(decoded.allowsThirdPartyTailCall());
     try std.testing.expect(!decoded.forbidsPromisePipelining());
@@ -415,6 +416,10 @@ test "rpc call helpers decode and write method ids" {
     try std.testing.expect(!method.isDefault());
     try std.testing.expect(method.matches(0xfeed_beef, 42));
     try std.testing.expect(!method.matches(0xfeed_beef, 41));
+    try std.testing.expect(method.matchesCallMethod(.{ .interface_id = 0xfeed_beef, .method_id = 42 }));
+    try std.testing.expect(!method.matchesCallMethod(.{ .interface_id = 0xfeed_beef, .method_id = 41 }));
+    try std.testing.expect(method.matchesWireCall(call_reader));
+    try std.testing.expect(!(cpz.rpc.CallMethod{ .interface_id = 0xfeed_beef, .method_id = 41 }).matchesWireCall(call_reader));
 }
 
 test "rpc allocating call target helpers decode promised-answer transforms" {
@@ -7999,6 +8004,8 @@ test "rpc method table dispatcher selects matching handlers" {
     try std.testing.expectEqual(entries[1].method, entries[1].callMethod());
     try std.testing.expect(entries[1].matches(0xabc, 2));
     try std.testing.expect(!entries[1].matches(0xabc, 3));
+    try std.testing.expect(entries[1].matchesCallMethod(second_method));
+    try std.testing.expect(!entries[1].matchesCallMethod(first_method));
     try std.testing.expectEqual(entries[1].method, entries[1].callOptions().method);
     const entry_call_info = entries[1].callInfo(211, .{ .imported_cap = 5 });
     try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 211), entry_call_info.question_id);
@@ -8030,6 +8037,8 @@ test "rpc method table dispatcher selects matching handlers" {
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
         try std.testing.expectEqual(@as(?usize, 1), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
+        try std.testing.expect(entries[1].matchesWireCall(try request.call()));
+        try std.testing.expect(!entries[0].matchesWireCall(try request.call()));
         const preview_action = try state.wireCallServiceAction(try request.call(), entries);
         try std.testing.expect(preview_action.isDispatch());
         try std.testing.expectEqual(@as(usize, 1), preview_action.dispatch);

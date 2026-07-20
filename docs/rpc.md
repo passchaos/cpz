@@ -244,6 +244,8 @@ that a complete RPC runtime exists.
   helper for code paths that select a handler before recording call state.
   Generated interfaces can also resolve methods, call options, and method
   entries directly from a generated Call reader's interface/method IDs.
+  Runtime call methods/options/entries expose matching predicates for both
+  `CallMethod` values and generated Call readers.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
   tracked/effective target querying, dispatch-info snapshots that can directly
