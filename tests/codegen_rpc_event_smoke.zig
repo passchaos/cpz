@@ -12548,6 +12548,76 @@ test "rpc turn dispatcher reports apply details before ready handoff outputs" {
     }
 }
 
+test "rpc turn dispatcher reports pending accept disembargos after dispatch" {
+    const BootstrapHandler = struct {
+        fn handle(_: void, bootstrap: anytype) !u32 {
+            return bootstrap.questionId();
+        }
+    };
+    const CallHandler = struct {
+        fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
+    const MessageSink = struct {
+        fn handle(_: void, _: anytype) !void {}
+    };
+    const HandoffHandler = struct {
+        fn handle(_: void, _: u32, _: cpz.rpc.AnyPointerUsage) !u32 {
+            return 0;
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 81,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "turn-applied-pending-81",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    const accept_message = generated.Message.fromReader(try accept_reader.getRoot());
+    const requests = [_]generated.Message{accept_message};
+
+    const response_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(response_messages);
+    const forward_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(forward_messages);
+
+    const applied = try cpz.rpc.dispatchRpcTurnForwardingToDenseSinksFromHandlers(
+        &state,
+        std.testing.allocator,
+        response_messages,
+        forward_messages,
+        requests[0..],
+        {},
+        BootstrapHandler.handle,
+        {},
+        CallHandler.handle,
+        {},
+        MessageSink.handle,
+        {},
+        MessageSink.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .state_applied = 1 }, applied.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{}, applied.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 1), applied.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 1), applied.totalOutputMessages());
+    try std.testing.expectEqual(@as(usize, 1), state.pendingAcceptEmbargoCount());
+}
+
 test "rpc method turn dispatcher sends dense dispatch and ready handoff outputs" {
     const BootstrapHandler = struct {
         fn handle(seen_question: *u32, bootstrap: anytype) !u32 {

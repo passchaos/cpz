@@ -5027,6 +5027,18 @@ pub fn dispatchWireMessagesForwardingDenseWithApplyHandler(
     );
 }
 
+fn appliedRpcTurnPlan(state: *const State, dispatch: WireDispatchStats, handoff_returns: StateHandoffReturnStats) RpcTurnPlan {
+    return .{
+        .dispatch = dispatch,
+        .handoff_returns = handoff_returns,
+        // Dispatch can apply Accept or Disembargo messages before ready handoff
+        // returns are materialized.  Report the pending queue after those state
+        // transitions so the caller can immediately size or drain the follow-up
+        // Disembargo output without recomputing a separate turn plan.
+        .pending_disembargos = state.pendingAcceptEmbargoCount(),
+    };
+}
+
 pub fn dispatchRpcTurnForwardingToDenseSinksFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
@@ -5074,7 +5086,7 @@ pub fn dispatchRpcTurnForwardingToDenseSinksFromHandlers(
         response_context,
         response_handler,
     );
-    return .{ .dispatch = dispatch_stats, .handoff_returns = handoff_stats };
+    return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
 }
 
 pub fn dispatchRpcTurnForwardingToDenseSinksFromHandlersWithApplyHandler(
@@ -5128,7 +5140,7 @@ pub fn dispatchRpcTurnForwardingToDenseSinksFromHandlersWithApplyHandler(
         response_context,
         response_handler,
     );
-    return .{ .dispatch = dispatch_stats, .handoff_returns = handoff_stats };
+    return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
 }
 
 pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlers(
@@ -5178,7 +5190,7 @@ pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlers(
         response_context,
         response_handler,
     );
-    return .{ .dispatch = dispatch_stats, .handoff_returns = handoff_stats };
+    return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
 }
 
 pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlersWithApplyHandler(
@@ -5232,7 +5244,7 @@ pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlersWithApplyHandler(
         response_context,
         response_handler,
     );
-    return .{ .dispatch = dispatch_stats, .handoff_returns = handoff_stats };
+    return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
 }
 
 pub fn dispatchRpcTurnPendingAcceptDisembargosToSink(
