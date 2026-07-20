@@ -4326,6 +4326,50 @@ test "rpc method-aware call dispatcher builds struct payload returns" {
         defer request_builder.deinit();
         const request_root = try generated.Message.initRootTyped(&request_builder);
         const call = try request_root.init_call();
+        try call.set_questionId(55);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 4 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+
+        var registry: cpz.CapabilityRegistry([]const u8) = .{};
+        defer registry.deinit(std.testing.allocator);
+        _ = try registry.register(std.testing.allocator, "method-struct-registry");
+        var value: u32 = 0x7000;
+        try cpz.rpc.dispatchCallMethodReturningStructFromRegistry(
+            &state,
+            std.testing.allocator,
+            response_root,
+            try request.call(),
+            .{ .interface_id = 0xabc, .method_id = 4 },
+            cpz.StructSize{ .data_words = 1, .pointer_count = 0 },
+            &registry,
+            &value,
+            Fill.write,
+        );
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const results = try (try response.return_()).results();
+        const content = try (try results.content()).getStruct(null);
+        try std.testing.expectEqual(@as(u32, 0x7000 + 55), content.getUInt32(0, 0));
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, results);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
+    }
+
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
         try call.set_questionId(53);
         try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 5 }, call);
         const target = try call.init_target();
