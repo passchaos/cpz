@@ -16464,6 +16464,148 @@ test "rpc turn dispatcher filters pending accept disembargos without sinks with 
     }
 }
 
+test "rpc turn dispatcher filters pending accept disembargos into unified outputs with apply details" {
+    const BootstrapHandler = struct {
+        fn handle(_: void, bootstrap: anytype) !u32 {
+            return bootstrap.questionId();
+        }
+    };
+    const CallHandler = struct {
+        fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
+    const HandoffHandler = struct {
+        seen: usize = 0,
+        question_sum: u32 = 0,
+
+        fn handle(context: *@This(), question_id: u32, _: cpz.rpc.AnyPointerUsage) !u32 {
+            context.seen += 1;
+            context.question_sum += question_id;
+            return question_id + 970;
+        }
+    };
+    const ApplyContext = struct {
+        calls: usize = 0,
+        released_accepts: usize = 0,
+        released_question_sum: u32 = 0,
+
+        fn handle(context: *@This(), result: cpz.rpc.WireMessageApplyResult) !void {
+            context.calls += 1;
+            switch (result) {
+                .disembargo => |info| {
+                    context.released_accepts += info.released_accepts;
+                    for (info.released_accept_ids) |id| context.released_question_sum += id;
+                },
+                .state_applied => {},
+            }
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 160,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "apply-filter-unified-release-160",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 161,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "apply-filter-unified-pending-161",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+
+    var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer request_builder.deinit();
+    const request_root = try generated.Message.initRootTyped(&request_builder);
+    try cpz.rpc.initWireDisembargoMessage(request_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "apply-filter-unified-release-160" },
+    });
+    var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+    const request_message = generated.Message.fromReader(try request_reader.getRoot());
+    const requests = [_]generated.Message{request_message};
+
+    var output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder0.deinit();
+    const output0 = try generated.Message.initRootTyped(&output_builder0);
+    var output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder1.deinit();
+    const output1 = try generated.Message.initRootTyped(&output_builder1);
+    const outputs = [_]generated.Message.Builder{ output0, output1 };
+
+    var provide_context: HandoffHandler = .{};
+    var accept_context: HandoffHandler = .{};
+    var join_context: HandoffHandler = .{};
+    var apply_context: ApplyContext = .{};
+    const applied = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlersWithApplyHandler(
+        &state,
+        std.testing.allocator,
+        outputs[0..],
+        requests[0..],
+        {},
+        BootstrapHandler.handle,
+        {},
+        CallHandler.handle,
+        &provide_context,
+        HandoffHandler.handle,
+        &accept_context,
+        HandoffHandler.handle,
+        &join_context,
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "apply-filter-unified-pending-161",
+        &apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .state_applied = 1 }, applied.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .accepts = 1 }, applied.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 1), applied.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 2), applied.totalOutputMessages());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 1 }, applied.responseMessageRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 1, .end = 2 }, applied.disembargoMessageRange());
+    try std.testing.expectEqual(@as(usize, 1), apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 160), apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(usize, 0), provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), accept_context.seen);
+    try std.testing.expectEqual(@as(u32, 160), accept_context.question_sum);
+    try std.testing.expectEqual(@as(usize, 0), join_context.seen);
+
+    {
+        var reader = cpz.MessageReader.init(try output_builder0.segmentsConst(), .{});
+        const response_message = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(@as(u32, 160), (try response_message.return_()).answerId());
+        try expectReturnCapabilityResult(response_message, 1130);
+    }
+    {
+        var reader = cpz.MessageReader.init(try output_builder1.segmentsConst(), .{});
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
+        try std.testing.expectEqualStrings("apply-filter-unified-pending-161", info.context.accept);
+    }
+}
+
 test "rpc turn dispatcher reports pending accept disembargos after dispatch" {
     const BootstrapHandler = struct {
         fn handle(_: void, bootstrap: anytype) !u32 {
