@@ -138,6 +138,9 @@ that a complete RPC runtime exists.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
+  Dispatch variants that accept a caller-provided forward-message builder can
+  initialize that outgoing Call when they return `forward_required`, leaving
+  only actual transport queueing to the embedding runtime.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
@@ -175,10 +178,10 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Turn the now-recorded structural RPC data into behavior: connect the
-   `forward_required` outcome and forwarded-Call builders to actual transport
-   send queues, queue/release `Disembargo` traffic, complete `Accept`
-   provisions after embargo release, and coordinate multi-part `Join` results.
+1. Turn the now-recorded structural RPC data into behavior: connect initialized
+   forwarded Calls to actual transport send queues, queue/release `Disembargo`
+   traffic, complete `Accept` provisions after embargo release, and coordinate
+   multi-part `Join` results.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation for non-capability payload shapes as well as
