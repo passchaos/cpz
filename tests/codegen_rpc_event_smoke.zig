@@ -364,6 +364,12 @@ test "rpc call helpers decode and write boolean flags" {
         .no_promise_pipelining = true,
         .only_promise_pipeline = true,
     }, cpz.rpc.callFlagsFromWireCall(call_reader));
+    const flags = cpz.rpc.callFlagsFromWireCall(call_reader);
+    try std.testing.expect(!flags.isDefault());
+    try std.testing.expect(flags.allowsThirdPartyTailCall());
+    try std.testing.expect(flags.forbidsPromisePipelining());
+    try std.testing.expect(flags.onlyAllowsPromisePipeline());
+    try std.testing.expect((cpz.rpc.CallFlags{}).isDefault());
 }
 
 test "rpc call helpers decode and write method ids" {

@@ -932,6 +932,22 @@ pub const CallFlags = struct {
     allow_third_party_tail_call: bool = false,
     no_promise_pipelining: bool = false,
     only_promise_pipeline: bool = false,
+
+    pub fn isDefault(self: @This()) bool {
+        return !self.allow_third_party_tail_call and !self.no_promise_pipelining and !self.only_promise_pipeline;
+    }
+
+    pub fn allowsThirdPartyTailCall(self: @This()) bool {
+        return self.allow_third_party_tail_call;
+    }
+
+    pub fn forbidsPromisePipelining(self: @This()) bool {
+        return self.no_promise_pipelining;
+    }
+
+    pub fn onlyAllowsPromisePipeline(self: @This()) bool {
+        return self.only_promise_pipeline;
+    }
 };
 
 pub const CallMethod = struct {
@@ -1044,15 +1060,15 @@ pub const CallOptions = struct {
     }
 
     pub fn allowsThirdPartyTailCall(self: @This()) bool {
-        return self.flags.allow_third_party_tail_call;
+        return self.flags.allowsThirdPartyTailCall();
     }
 
     pub fn forbidsPromisePipelining(self: @This()) bool {
-        return self.flags.no_promise_pipelining;
+        return self.flags.forbidsPromisePipelining();
     }
 
     pub fn onlyAllowsPromisePipeline(self: @This()) bool {
-        return self.flags.only_promise_pipeline;
+        return self.flags.onlyAllowsPromisePipeline();
     }
 };
 
