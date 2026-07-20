@@ -101,6 +101,18 @@ pub const WireDispatchStats = struct {
     pub fn total(self: @This()) usize {
         return self.response_initialized + self.forward_required + self.state_applied;
     }
+
+    pub fn initializedAnyResponse(self: @This()) bool {
+        return self.response_initialized != 0;
+    }
+
+    pub fn requiredAnyForward(self: @This()) bool {
+        return self.forward_required != 0;
+    }
+
+    pub fn appliedAnyState(self: @This()) bool {
+        return self.state_applied != 0;
+    }
 };
 
 pub const StateCleanupStats = struct {
@@ -5341,10 +5353,15 @@ test "rpc message kind predicates describe state-machine roles" {
 
     var stats: WireDispatchStats = .{};
     stats.recordResponseInitialized();
+    stats.recordForwardRequired();
     stats.recordStateApplied();
     try testing.expectEqual(@as(usize, 1), stats.response_initialized);
+    try testing.expectEqual(@as(usize, 1), stats.forward_required);
     try testing.expectEqual(@as(usize, 1), stats.state_applied);
-    try testing.expectEqual(@as(usize, 2), stats.total());
+    try testing.expectEqual(@as(usize, 3), stats.total());
+    try testing.expect(stats.initializedAnyResponse());
+    try testing.expect(stats.requiredAnyForward());
+    try testing.expect(stats.appliedAnyState());
 }
 
 test "rpc wire events expose classification and id helpers" {
