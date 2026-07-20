@@ -964,6 +964,10 @@ pub fn CallMethodEntry(comptime Handler: type) type {
         method: CallMethod,
         handler: Handler,
 
+        pub fn callMethod(self: @This()) CallMethod {
+            return self.method;
+        }
+
         pub fn matches(self: @This(), interface_id: u64, method_id: u16) bool {
             return self.method.matches(interface_id, method_id);
         }

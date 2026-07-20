@@ -7874,6 +7874,7 @@ test "rpc method table dispatcher selects matching handlers" {
     };
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.validateCallMethodEntries(duplicate_entries));
     try std.testing.expectEqual(@as(?usize, 1), try entries[1].method.entryIndex(entries));
+    try std.testing.expectEqual(entries[1].method, entries[1].callMethod());
     try std.testing.expect(entries[1].matches(0xabc, 2));
     try std.testing.expect(!entries[1].matches(0xabc, 3));
     try std.testing.expectEqual(entries[1].method, entries[1].callOptions().method);
