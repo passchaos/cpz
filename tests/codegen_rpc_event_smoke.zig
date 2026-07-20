@@ -4578,6 +4578,14 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseSlots());
     try std.testing.expectEqual(@as(usize, 1), stats.denseForwardSlots());
     try std.testing.expectEqual(@as(usize, 3), stats.denseOutputSlots());
+    try stats.validateDenseResponseCapacity(2);
+    try stats.validateDenseForwardCapacity(1);
+    try stats.validateDenseOutputCapacity(2, 1);
+    try stats.validateUnifiedDenseOutputCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, stats.validateDenseResponseCapacity(1));
+    try std.testing.expectError(error.InvalidTransition, stats.validateDenseForwardCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, stats.validateDenseOutputCapacity(2, 0));
+    try std.testing.expectError(error.InvalidTransition, stats.validateUnifiedDenseOutputCapacity(2));
     try std.testing.expect(stats.initializedAnyResponse());
     try std.testing.expect(stats.requiredAnyForward());
     try std.testing.expect(stats.appliedAnyState());

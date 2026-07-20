@@ -114,6 +114,23 @@ pub const WireDispatchStats = struct {
         return self.response_initialized + self.forward_required;
     }
 
+    pub fn validateDenseResponseCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.denseResponseSlots()) return error.InvalidTransition;
+    }
+
+    pub fn validateDenseForwardCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.denseForwardSlots()) return error.InvalidTransition;
+    }
+
+    pub fn validateDenseOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
+        try self.validateDenseResponseCapacity(response_capacity);
+        try self.validateDenseForwardCapacity(forward_capacity);
+    }
+
+    pub fn validateUnifiedDenseOutputCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.denseOutputSlots()) return error.InvalidTransition;
+    }
+
     pub fn initializedAnyResponse(self: @This()) bool {
         return self.response_initialized != 0;
     }
