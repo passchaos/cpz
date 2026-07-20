@@ -6484,6 +6484,51 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandl
     return turn_plan;
 }
 
+pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    var turn_plan = try dispatchRpcTurnForwardingUnifiedDenseFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        apply_context,
+        apply_handler,
+    );
+    try turn_plan.validateUnifiedOutputBuilders(output_messages);
+    turn_plan.pending_disembargos = try state.initPendingAcceptDisembargoMessages(
+        try turn_plan.disembargoMessageRange().slice(output_messages),
+        disembargo_target,
+    );
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnForwardingDenseAndPendingAcceptDisembargosFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
