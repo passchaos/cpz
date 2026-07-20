@@ -2192,6 +2192,45 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
     };
 }
 
+pub fn sendRpcServiceActionUnifiedOutputPlansToTaggedSink(
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !void {
+    if (plans.len != stats.actions()) return error.InvalidTransition;
+    try stats.validateActionCapacity(output_messages.len);
+    var response_index = stats.outputResponseRange().start;
+    var forward_index = stats.outputForwardRange().start;
+    var response_local_index: usize = 0;
+    var forward_local_index: usize = 0;
+    for (plans) |plan| switch (plan.action) {
+        .dispatch => {
+            try sink_handler(sink_context, plan, .{ .role = .response, .local_index = response_local_index }, output_messages[response_index]);
+            response_index += 1;
+            response_local_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .unimplemented => {
+            try sink_handler(sink_context, plan, .{ .role = .response, .local_index = response_local_index }, output_messages[response_index]);
+            response_index += 1;
+            response_local_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .forward => {
+            try sink_handler(sink_context, plan, .{ .role = .forward, .local_index = forward_local_index }, output_messages[forward_index]);
+            forward_index += 1;
+            forward_local_index += 1;
+        },
+        else => {},
+    };
+}
+
 pub fn initWireCallServiceActionPlanUnifiedOutputsToSink(
     state: *State,
     allocator: std.mem.Allocator,

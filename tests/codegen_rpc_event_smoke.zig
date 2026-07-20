@@ -9036,6 +9036,47 @@ test "rpc service action stats aggregate wire and tracked calls" {
     const overlong_wire_plans = [_]cpz.rpc.TrackedCallServiceActionPlan{ wire_plans[0], wire_plans[1], wire_plans[2], wire_plans[0] };
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, overlong_wire_plans[0..], unified_outputs[0..], &plan_sink, PlanSink.handle));
 
+    const TaggedPlanSink = struct {
+        sent: usize = 0,
+        source_sum: usize = 0,
+        response_local_sum: usize = 0,
+        forward_local_sum: usize = 0,
+
+        fn handle(context: *@This(), plan: cpz.rpc.TrackedCallServiceActionPlan, position: cpz.rpc.TrackedCallServiceActionOutputPosition, message: anytype) !void {
+            context.source_sum += plan.source_index;
+            switch (context.sent) {
+                0 => {
+                    try std.testing.expect(plan.action.isDispatch());
+                    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, position);
+                    _ = try message.get_return_();
+                    context.response_local_sum += position.local_index;
+                },
+                1 => {
+                    try std.testing.expect(plan.action.isUnimplemented());
+                    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, position);
+                    _ = try message.get_return_();
+                    context.response_local_sum += position.local_index;
+                },
+                2 => {
+                    try std.testing.expect(plan.action.isForward());
+                    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, position);
+                    _ = try message.get_call();
+                    context.forward_local_sum += position.local_index;
+                },
+                else => return error.TestUnexpectedResult,
+            }
+            context.sent += 1;
+        }
+    };
+    var tagged_plan_sink: TaggedPlanSink = .{};
+    try cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSink(wire_stats, wire_plans[0..], unified_outputs[0..], &tagged_plan_sink, TaggedPlanSink.handle);
+    try std.testing.expectEqual(@as(usize, 3), tagged_plan_sink.sent);
+    try std.testing.expectEqual(@as(usize, 0 + 1 + 2), tagged_plan_sink.source_sum);
+    try std.testing.expectEqual(@as(usize, 0 + 1), tagged_plan_sink.response_local_sum);
+    try std.testing.expectEqual(@as(usize, 0), tagged_plan_sink.forward_local_sum);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSink(wire_stats, wire_plans[0..2], unified_outputs[0..], &tagged_plan_sink, TaggedPlanSink.handle));
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSink(wire_stats, overlong_wire_plans[0..], unified_outputs[0..], &tagged_plan_sink, TaggedPlanSink.handle));
+
     var direct_plan_sink_state = cpz.rpc.State.init(std.testing.allocator);
     defer direct_plan_sink_state.deinit();
     try direct_plan_sink_state.addImport(5);
