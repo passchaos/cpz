@@ -2837,6 +2837,15 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(6));
     const tracked = state.callInfo(50).?;
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, state.trackedCallTarget(50).?);
+    try std.testing.expectEqual(@as(?bool, false), state.trackedCallTargetResolved(50));
+    try std.testing.expect(state.trackedCallTargetResolution(50) == null);
+    try std.testing.expect(state.trackedCallTargetForwardTarget(50) == null);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, state.trackedCallEffectiveTarget(50).?);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, (try state.trackedCallTransitiveEffectiveTarget(50)).?);
+    try std.testing.expect(state.trackedCallTarget(51) == null);
+    try std.testing.expect(state.trackedCallTargetResolved(51) == null);
+    try std.testing.expect((try state.trackedCallTargetTransitiveForwardTarget(51)) == null);
     const expected_method: cpz.rpc.CallMethod = .{ .interface_id = 0x50, .method_id = 5 };
     try std.testing.expectEqual(expected_method, tracked.method);
     try std.testing.expect(tracked.matchesMethod(expected_method));
@@ -7954,6 +7963,13 @@ test "rpc call dispatch outcomes flag resolved targets for forwarding" {
     try std.testing.expectEqual(@as(u32, 0), seen_question);
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(140));
     try std.testing.expectEqual(@as(usize, 1), state.callInfoCount());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 140 }, state.trackedCallTarget(140).?);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 141 }, state.trackedCallTargetResolution(140).?);
+    try std.testing.expectEqual(@as(?bool, true), state.trackedCallTargetResolved(140));
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, state.trackedCallTargetForwardTarget(140).?);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, (try state.trackedCallTargetTransitiveForwardTarget(140)).?);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, state.trackedCallEffectiveTarget(140).?);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, (try state.trackedCallTransitiveEffectiveTarget(140)).?);
     try std.testing.expectEqual(
         cpz.rpc.CallTarget{ .imported_cap = 141 },
         (try state.wireCallTargetTransitiveForwardTarget(try request.call())).?,

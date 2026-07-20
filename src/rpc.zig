@@ -12217,6 +12217,41 @@ pub const State = struct {
         return self.calls.get(id);
     }
 
+    pub fn trackedCallTarget(self: *const State, id: QuestionId) ?CallTarget {
+        const info = self.callInfo(id) orelse return null;
+        return info.target;
+    }
+
+    pub fn trackedCallTargetResolution(self: *const State, id: QuestionId) ?CapDescriptor {
+        const target = self.trackedCallTarget(id) orelse return null;
+        return self.callTargetResolution(target);
+    }
+
+    pub fn trackedCallTargetResolved(self: *const State, id: QuestionId) ?bool {
+        const target = self.trackedCallTarget(id) orelse return null;
+        return self.callTargetResolved(target);
+    }
+
+    pub fn trackedCallTargetForwardTarget(self: *const State, id: QuestionId) ?CallTarget {
+        const target = self.trackedCallTarget(id) orelse return null;
+        return self.callTargetForwardTarget(target);
+    }
+
+    pub fn trackedCallTargetTransitiveForwardTarget(self: *const State, id: QuestionId) Error!?CallTarget {
+        const target = self.trackedCallTarget(id) orelse return null;
+        return try self.callTargetTransitiveForwardTarget(target);
+    }
+
+    pub fn trackedCallEffectiveTarget(self: *const State, id: QuestionId) ?CallTarget {
+        const target = self.trackedCallTarget(id) orelse return null;
+        return self.effectiveCallTarget(target);
+    }
+
+    pub fn trackedCallTransitiveEffectiveTarget(self: *const State, id: QuestionId) Error!?CallTarget {
+        const target = self.trackedCallTarget(id) orelse return null;
+        return try self.transitiveEffectiveCallTarget(target);
+    }
+
     pub fn callMatchesCallMethod(self: *const State, id: QuestionId, method: CallMethod) ?bool {
         const info = self.callInfo(id) orelse return null;
         return info.matchesMethod(method);
