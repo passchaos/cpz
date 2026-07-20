@@ -2130,6 +2130,33 @@ pub fn initWireCallMessageTextFromRegistryWithOptions(
     try initWireCallParamsTextFromRegistry(allocator, call, text, registry);
 }
 
+pub fn initWireCallMessageTextFromRegistryWithOptionsAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    text: []const u8,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireCallMessageTextWithOptionsAndApplyState(state, message, question_id, target, text, descriptors, options);
+}
+
+pub fn initWireCallMessageTextFromRegistryAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    text: []const u8,
+    registry: anytype,
+) !void {
+    try initWireCallMessageTextFromRegistryWithOptionsAndApplyState(state, allocator, message, question_id, target, text, registry, .{});
+}
+
 pub fn initWireCallMessageDataFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,

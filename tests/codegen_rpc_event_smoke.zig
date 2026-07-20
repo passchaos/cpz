@@ -2061,6 +2061,44 @@ test "rpc top-level call helpers initialize registry-backed text payloads" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
 }
 
+test "rpc registry call text helper can apply initialized state" {
+    var registry: cpz.CapabilityRegistry([]const u8) = .{};
+    defer registry.deinit(std.testing.allocator);
+    _ = try registry.register(std.testing.allocator, "state-registry-call-text");
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageTextFromRegistryWithOptionsAndApplyState(
+        &state,
+        std.testing.allocator,
+        root,
+        101,
+        .{ .imported_cap = 5 },
+        "state registry call text",
+        &registry,
+        .{ .method = .{ .interface_id = 0x101, .method_id = 11 } },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(101));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(101));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(0));
+    const tracked = state.callInfo(101).?;
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x101, .method_id = 11 }, tracked.method);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const params = try (try generated.Message.fromReader(try reader.getRoot()).call()).params();
+    try std.testing.expectEqualStrings("state registry call text", try (try params.content()).getText());
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, params);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
+}
+
 test "rpc top-level call helpers initialize data payloads" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
