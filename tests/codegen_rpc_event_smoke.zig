@@ -8774,6 +8774,8 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1 + 2), plan_sink.source_sum);
     try std.testing.expectEqual(@as(u32, 71 + 72 + 73), plan_sink.question_sum);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, wire_plans[0..2], unified_outputs[0..], &plan_sink, PlanSink.handle));
+    const overlong_wire_plans = [_]cpz.rpc.TrackedCallServiceActionPlan{ wire_plans[0], wire_plans[1], wire_plans[2], wire_plans[0] };
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, overlong_wire_plans[0..], unified_outputs[0..], &plan_sink, PlanSink.handle));
 
     var direct_plan_sink_state = cpz.rpc.State.init(std.testing.allocator);
     defer direct_plan_sink_state.deinit();

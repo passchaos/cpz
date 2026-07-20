@@ -2100,7 +2100,7 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
     sink_context: anytype,
     sink_handler: anytype,
 ) !void {
-    try stats.validateActionCapacity(plans.len);
+    if (plans.len != stats.actions()) return error.InvalidTransition;
     try stats.validateActionCapacity(output_messages.len);
     var response_index = stats.outputResponseRange().start;
     var forward_index = stats.outputForwardRange().start;
