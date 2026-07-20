@@ -13142,6 +13142,23 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initWireMessageServiceActions(self: *const State, messages: anytype, comptime entries: anytype, actions: []TrackedCallServiceAction) !TrackedCallServiceActionStats {
+        const stats = try self.wireMessageServiceActionStats(messages, entries);
+        try stats.validateActionCapacity(actions.len);
+        var indexes = .{
+            .dispatch = stats.dispatchRange().start,
+            .forward = stats.forwardRange().start,
+            .unimplemented = stats.unimplementedRange().start,
+        };
+        for (messages) |message| {
+            switch (try eventFromWireMessage(message)) {
+                .call => storeServiceActionByRange(stats, actions, &indexes, try self.wireCallServiceAction(try message.call(), entries)),
+                else => {},
+            }
+        }
+        return stats;
+    }
+
     pub fn initTrackedCallServiceActions(self: *const State, ids: []const QuestionId, comptime entries: anytype, actions: []TrackedCallServiceAction) !TrackedCallServiceActionStats {
         const stats = try self.trackedCallServiceActionStats(ids, entries);
         try stats.validateActionCapacity(actions.len);

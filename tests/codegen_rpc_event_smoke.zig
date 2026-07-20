@@ -8053,8 +8053,15 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 73), message_plans[1].question_id);
     try std.testing.expectEqual(@as(usize, 2), message_plans[2].source_index);
     try std.testing.expectEqual(@as(u32, 72), message_plans[2].question_id);
+    var message_actions: [3]cpz.rpc.TrackedCallServiceAction = undefined;
+    try std.testing.expectEqual(message_stats, try state.initWireMessageServiceActions(messages[0..], entries, message_actions[0..]));
+    try std.testing.expectEqual(@as(usize, 0), message_actions[0].dispatch);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, message_actions[1].forward);
+    try std.testing.expect(message_actions[2].isUnimplemented());
     var short_message_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireMessageServiceActionPlans(messages[0..], entries, short_message_plans[0..]));
+    var short_message_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
+    try std.testing.expectError(error.InvalidTransition, state.initWireMessageServiceActions(messages[0..], entries, short_message_actions[0..]));
 
     var message_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
     defer message_wrapper_state.deinit();
