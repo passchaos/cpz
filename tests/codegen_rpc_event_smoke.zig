@@ -2978,11 +2978,24 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expect((try state.trackedCallTargetTransitiveForwardTarget(51)) == null);
     try std.testing.expectEqual(expected_method, tracked.method);
     try std.testing.expect(tracked.matchesMethod(expected_method));
+    try std.testing.expect(tracked.matchesWireCall(try message.call()));
     try std.testing.expectEqual(@as(?bool, true), state.callMatchesCallMethod(50, expected_method));
     try std.testing.expectEqual(@as(?bool, true), state.callMatchesMethod(50, 0x50, 5));
+    try std.testing.expectEqual(@as(?bool, true), state.callMatchesWireCall(50, try message.call()));
+    const MismatchedWireCall = struct {
+        pub fn interfaceId(_: @This()) u64 {
+            return 0x50;
+        }
+
+        pub fn methodId(_: @This()) u16 {
+            return 6;
+        }
+    };
+    try std.testing.expectEqual(@as(?bool, false), state.callMatchesWireCall(50, MismatchedWireCall{}));
     try std.testing.expectEqual(@as(?bool, false), state.callMatchesCallMethod(50, .{ .interface_id = 0x50, .method_id = 6 }));
     try std.testing.expectEqual(@as(?bool, false), state.callMatchesMethod(50, 0x50, 6));
     try std.testing.expectEqual(@as(?bool, null), state.callMatchesCallMethod(51, expected_method));
+    try std.testing.expectEqual(@as(?bool, null), state.callMatchesWireCall(51, try message.call()));
     try std.testing.expect(tracked.flags.no_promise_pipelining);
     try std.testing.expect(tracked.sendsResultsTo(.third_party));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, tracked.thirdPartyResultsUsage().?);

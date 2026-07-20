@@ -585,6 +585,10 @@ pub const CallInfo = struct {
         return self.method.matches(method.interface_id, method.method_id);
     }
 
+    pub fn matchesWireCall(self: @This(), call: anytype) bool {
+        return self.callMethod().matchesWireCall(call);
+    }
+
     pub fn sendsResultsTo(self: @This(), target: CallSendResultsTo) bool {
         return self.send_results_to == target;
     }
@@ -13667,6 +13671,11 @@ pub const State = struct {
 
     pub fn callMatchesMethod(self: *const State, id: QuestionId, interface_id: u64, method_id: u16) ?bool {
         return self.callMatchesCallMethod(id, .{ .interface_id = interface_id, .method_id = method_id });
+    }
+
+    pub fn callMatchesWireCall(self: *const State, id: QuestionId, call: anytype) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.matchesWireCall(call);
     }
 
     pub fn callSendsResultsTo(self: *const State, id: QuestionId, target: CallSendResultsTo) ?bool {
