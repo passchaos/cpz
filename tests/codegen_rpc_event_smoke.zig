@@ -4139,6 +4139,154 @@ test "rpc typed call dispatchers forward resolved text returns" {
     }
 }
 
+test "rpc typed call dispatchers forward resolved data returns" {
+    const Handler = struct {
+        fn handle(seen_question: *u32, call: anytype) ![]const u8 {
+            seen_question.* = call.questionId();
+            return "should not run";
+        }
+    };
+
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.applyCapDescriptor(.{ .sender_promise = 530 });
+        try state.resolveImportTo(530, .{ .sender_hosted = 531 });
+        try state.applyCapDescriptor(.{ .sender_hosted = 531 });
+
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(530);
+        const target = try call.init_target();
+        try target.set_importedCap(530);
+        try cpz.rpc.initWireCallParamsData(call, "typed data forward", &.{.{ .sender_hosted = 532 }});
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer forward_builder.deinit();
+        const forward_root = try generated.Message.initRootTyped(&forward_builder);
+        var seen_question: u32 = 0;
+        try std.testing.expectEqual(
+            cpz.rpc.WireDispatchOutcome.forward_required,
+            try cpz.rpc.dispatchCallReturningDataForwardingOutcome(
+                &state,
+                std.testing.allocator,
+                response_root,
+                forward_root,
+                try request.call(),
+                &.{.{ .sender_hosted = 533 }},
+                &seen_question,
+                Handler.handle,
+            ),
+        );
+        try std.testing.expectEqual(@as(u32, 0), seen_question);
+        var forward_reader = cpz.MessageReader.init(try forward_builder.segmentsConst(), .{});
+        const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 531 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+        try std.testing.expectEqualSlices(u8, "typed data forward", try (try (try forwarded.params()).content()).getData());
+    }
+
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.applyCapDescriptor(.{ .sender_promise = 540 });
+        try state.resolveImportTo(540, .{ .sender_hosted = 541 });
+        try state.applyCapDescriptor(.{ .sender_hosted = 541 });
+
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(540);
+        const target = try call.init_target();
+        try target.set_importedCap(540);
+        try cpz.rpc.initWireCallParamsData(call, "typed data info forward", &.{.{ .sender_hosted = 542 }});
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer forward_builder.deinit();
+        const forward_root = try generated.Message.initRootTyped(&forward_builder);
+        const infos = [_]cpz.rpc.CapDescriptorInfo{.{ .descriptor = .{ .sender_promise = 543 }, .attached_fd = 30 }};
+        var seen_question: u32 = 0;
+        try std.testing.expectEqual(
+            cpz.rpc.WireDispatchOutcome.forward_required,
+            try cpz.rpc.dispatchCallReturningDataInfoForwardingOutcome(
+                &state,
+                std.testing.allocator,
+                response_root,
+                forward_root,
+                try request.call(),
+                infos[0..],
+                &seen_question,
+                Handler.handle,
+            ),
+        );
+        try std.testing.expectEqual(@as(u32, 0), seen_question);
+        var forward_reader = cpz.MessageReader.init(try forward_builder.segmentsConst(), .{});
+        const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 541 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+        try std.testing.expectEqualSlices(u8, "typed data info forward", try (try (try forwarded.params()).content()).getData());
+    }
+
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.applyCapDescriptor(.{ .sender_promise = 550 });
+        try state.resolveImportTo(550, .{ .sender_hosted = 551 });
+        try state.applyCapDescriptor(.{ .sender_hosted = 551 });
+
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(550);
+        const target = try call.init_target();
+        try target.set_importedCap(550);
+        try cpz.rpc.initWireCallParamsData(call, "typed data registry forward", &.{.{ .sender_hosted = 552 }});
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer forward_builder.deinit();
+        const forward_root = try generated.Message.initRootTyped(&forward_builder);
+        var registry: cpz.CapabilityRegistry([]const u8) = .{};
+        defer registry.deinit(std.testing.allocator);
+        _ = try registry.register(std.testing.allocator, "unused-typed-data-forward-registry");
+        var seen_question: u32 = 0;
+        try std.testing.expectEqual(
+            cpz.rpc.WireDispatchOutcome.forward_required,
+            try cpz.rpc.dispatchCallReturningDataFromRegistryForwardingOutcome(
+                &state,
+                std.testing.allocator,
+                response_root,
+                forward_root,
+                try request.call(),
+                &registry,
+                &seen_question,
+                Handler.handle,
+            ),
+        );
+        try std.testing.expectEqual(@as(u32, 0), seen_question);
+        var forward_reader = cpz.MessageReader.init(try forward_builder.segmentsConst(), .{});
+        const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 551 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+        try std.testing.expectEqualSlices(u8, "typed data registry forward", try (try (try forwarded.params()).content()).getData());
+    }
+}
+
 test "rpc generic call dispatcher builds exception returns" {
     const Handler = struct {
         fn handle(seen_question: *u32, call: anytype) !cpz.rpc.DispatchResult {
