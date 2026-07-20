@@ -1848,6 +1848,45 @@ pub fn dispatchCallReturningEmpty(
     try initEmptyReturnMessage(response_message, call.questionId(), true, true);
 }
 
+pub fn dispatchCallReturningText(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const text = try handler(context, call);
+    try initWireReturnMessageText(response_message, call.questionId(), true, false, text, &.{});
+}
+
+pub fn dispatchCallReturningData(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const data = try handler(context, call);
+    try initWireReturnMessageData(response_message, call.questionId(), true, false, data, &.{});
+}
+
+pub fn dispatchCallReturningUInt32List(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const values = try handler(context, call);
+    try initWireReturnMessageUInt32List(response_message, call.questionId(), true, false, values, &.{});
+}
+
 pub fn dispatchCall(
     state: *State,
     allocator: std.mem.Allocator,
