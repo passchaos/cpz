@@ -8032,6 +8032,13 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectError(error.InvalidTransition, wire_stats.validateForwardCapacity(0));
     try std.testing.expectError(error.InvalidTransition, wire_stats.validateUnimplementedCapacity(0));
     try std.testing.expectError(error.InvalidTransition, wire_stats.validateActionCapacity(2));
+    var wire_actions: [3]cpz.rpc.TrackedCallServiceAction = undefined;
+    try std.testing.expectEqual(wire_stats, try state.initWireCallServiceActions(calls[0..], entries, wire_actions[0..]));
+    try std.testing.expectEqual(@as(usize, 0), wire_actions[0].dispatch);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, wire_actions[1].forward);
+    try std.testing.expect(wire_actions[2].isUnimplemented());
+    var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
+    try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
 
     for (calls) |call| try state.applyWireCall(std.testing.allocator, call);
     const ids = [_]cpz.rpc.QuestionId{ 71, 72, 73, 74 };
@@ -8046,6 +8053,12 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 4), tracked_stats.total());
     try tracked_stats.validateSplitCapacity(1, 1, 1);
     try tracked_stats.validateActionCapacity(3);
+    var tracked_actions: [3]cpz.rpc.TrackedCallServiceAction = undefined;
+    try std.testing.expectEqual(tracked_stats, try state.initTrackedCallServiceActions(ids[0..], entries, tracked_actions[0..]));
+    try std.testing.expectEqual(@as(usize, 0), tracked_actions[0].dispatch);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, tracked_actions[1].forward);
+    try std.testing.expect(tracked_actions[2].isUnimplemented());
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedCallServiceActions(ids[0..], entries, short_actions[0..]));
 }
 
 test "rpc call dispatch outcomes flag resolved targets for forwarding" {

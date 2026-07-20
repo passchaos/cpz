@@ -12396,6 +12396,52 @@ pub const State = struct {
         return stats;
     }
 
+    fn storeServiceActionByRange(stats: TrackedCallServiceActionStats, actions: []TrackedCallServiceAction, indexes: anytype, action: TrackedCallServiceAction) void {
+        switch (action) {
+            .dispatch => {
+                actions[indexes.dispatch] = action;
+                indexes.dispatch += 1;
+            },
+            .forward => {
+                actions[indexes.forward] = action;
+                indexes.forward += 1;
+            },
+            .unimplemented => {
+                actions[indexes.unimplemented] = action;
+                indexes.unimplemented += 1;
+            },
+        }
+        std.debug.assert(indexes.dispatch <= stats.dispatchRange().end);
+        std.debug.assert(indexes.forward <= stats.forwardRange().end);
+        std.debug.assert(indexes.unimplemented <= stats.unimplementedRange().end);
+    }
+
+    pub fn initWireCallServiceActions(self: *const State, calls: anytype, comptime entries: anytype, actions: []TrackedCallServiceAction) !TrackedCallServiceActionStats {
+        const stats = try self.wireCallServiceActionStats(calls, entries);
+        try stats.validateActionCapacity(actions.len);
+        var indexes = .{
+            .dispatch = stats.dispatchRange().start,
+            .forward = stats.forwardRange().start,
+            .unimplemented = stats.unimplementedRange().start,
+        };
+        for (calls) |call| storeServiceActionByRange(stats, actions, &indexes, try self.wireCallServiceAction(call, entries));
+        return stats;
+    }
+
+    pub fn initTrackedCallServiceActions(self: *const State, ids: []const QuestionId, comptime entries: anytype, actions: []TrackedCallServiceAction) !TrackedCallServiceActionStats {
+        const stats = try self.trackedCallServiceActionStats(ids, entries);
+        try stats.validateActionCapacity(actions.len);
+        var indexes = .{
+            .dispatch = stats.dispatchRange().start,
+            .forward = stats.forwardRange().start,
+            .unimplemented = stats.unimplementedRange().start,
+        };
+        for (ids) |id| {
+            if (try self.trackedCallServiceAction(id, entries)) |action| storeServiceActionByRange(stats, actions, &indexes, action);
+        }
+        return stats;
+    }
+
     pub fn callMatchesCallMethod(self: *const State, id: QuestionId, method: CallMethod) ?bool {
         const info = self.callInfo(id) orelse return null;
         return info.matchesMethod(method);
