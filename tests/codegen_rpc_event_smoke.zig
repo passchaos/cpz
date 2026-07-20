@@ -9807,6 +9807,11 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(u32, 103 + 104 + 105), answer_sum);
     try std.testing.expectEqual(@as(u32, 703 + 704 + 705), export_sum);
 
+    const ready_return_stats = state.readyHandoffReturnStats();
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_return_stats);
+    try ready_return_stats.validateCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, ready_return_stats.validateCapacity(2));
+
     var planned_provide_context: Context = .{};
     var planned_accept_context: Context = .{};
     var planned_join_context: Context = .{};

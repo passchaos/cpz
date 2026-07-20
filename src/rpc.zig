@@ -6659,6 +6659,14 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn readyHandoffReturnStats(self: *const State) StateHandoffReturnStats {
+        return .{
+            .provides = self.provideRecipientCount(),
+            .accepts = self.readyAcceptProvisionCount(),
+            .joins = self.joinKeyPartCount(),
+        };
+    }
+
     pub fn readyHandoffReturnsFromHandlersAlloc(
         self: *const State,
         allocator: std.mem.Allocator,
@@ -6669,7 +6677,7 @@ pub const State = struct {
         join_context: anytype,
         join_handler: anytype,
     ) ![]HandoffReturn {
-        const needed = self.provideRecipientCount() + self.readyAcceptProvisionCount() + self.joinKeyPartCount();
+        const needed = self.readyHandoffReturnStats().total();
         var completions = try allocator.alloc(HandoffReturn, needed);
         errdefer allocator.free(completions);
 
