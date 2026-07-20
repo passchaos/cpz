@@ -425,6 +425,14 @@ pub const WireMessageApplyStats = struct {
     pub fn total(self: @This()) usize {
         return self.state_applied + self.disembargos;
     }
+
+    pub fn appliedAnyDisembargo(self: @This()) bool {
+        return self.disembargos != 0;
+    }
+
+    pub fn releasedAnyAccept(self: @This()) bool {
+        return self.released_accepts != 0;
+    }
 };
 
 pub const ResolveInfo = struct {

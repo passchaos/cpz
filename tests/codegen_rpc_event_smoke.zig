@@ -6444,6 +6444,8 @@ test "rpc batch apply aggregates detailed disembargo results" {
         .released_accepts = 1,
     }, stats);
     try std.testing.expectEqual(@as(usize, 2), stats.total());
+    try std.testing.expect(stats.appliedAnyDisembargo());
+    try std.testing.expect(stats.releasedAnyAccept());
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(69));
 }
 
