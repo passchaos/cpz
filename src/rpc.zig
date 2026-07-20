@@ -632,6 +632,33 @@ pub const TrackedCallServiceAction = union(enum) {
     }
 };
 
+pub const TrackedCallServiceActionStats = struct {
+    dispatch: usize = 0,
+    forward: usize = 0,
+    unimplemented: usize = 0,
+    missing: usize = 0,
+
+    pub fn record(self: *@This(), action: TrackedCallServiceAction) void {
+        switch (action) {
+            .dispatch => self.dispatch += 1,
+            .forward => self.forward += 1,
+            .unimplemented => self.unimplemented += 1,
+        }
+    }
+
+    pub fn recordMissing(self: *@This()) void {
+        self.missing += 1;
+    }
+
+    pub fn actions(self: @This()) usize {
+        return self.dispatch + self.forward + self.unimplemented;
+    }
+
+    pub fn total(self: @This()) usize {
+        return self.actions() + self.missing;
+    }
+};
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -12313,6 +12340,24 @@ pub const State = struct {
         if (try self.wireCallTargetTransitiveForwardTarget(call)) |target| return .{ .forward = target };
         if (try callMethodFromWireCall(call).entryIndex(entries)) |index| return .{ .dispatch = index };
         return .unimplemented;
+    }
+
+    pub fn wireCallServiceActionStats(self: *const State, calls: anytype, comptime entries: anytype) !TrackedCallServiceActionStats {
+        var stats: TrackedCallServiceActionStats = .{};
+        for (calls) |call| stats.record(try self.wireCallServiceAction(call, entries));
+        return stats;
+    }
+
+    pub fn trackedCallServiceActionStats(self: *const State, ids: []const QuestionId, comptime entries: anytype) !TrackedCallServiceActionStats {
+        var stats: TrackedCallServiceActionStats = .{};
+        for (ids) |id| {
+            if (try self.trackedCallServiceAction(id, entries)) |action| {
+                stats.record(action);
+            } else {
+                stats.recordMissing();
+            }
+        }
+        return stats;
     }
 
     pub fn callMatchesCallMethod(self: *const State, id: QuestionId, method: CallMethod) ?bool {

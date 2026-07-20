@@ -7953,6 +7953,90 @@ test "rpc method table dispatcher selects matching handlers" {
     }
 }
 
+test "rpc service action stats aggregate wire and tracked calls" {
+    const Context = struct { selected: u32 = 0 };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .empty;
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x4242, .method_id = 1 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    try state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try state.applyCapDescriptor(.{ .sender_hosted = 9 });
+
+    var dispatch_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer dispatch_builder.deinit();
+    const dispatch_root = try generated.Message.initRootTyped(&dispatch_builder);
+    {
+        const call = try dispatch_root.init_call();
+        try call.set_questionId(71);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x4242, .method_id = 1 }, call);
+        try (try call.init_target()).set_importedCap(5);
+        _ = try call.init_params();
+    }
+    var dispatch_reader = cpz.MessageReader.init(try dispatch_builder.segmentsConst(), .{});
+    const dispatch_message = generated.Message.fromReader(try dispatch_reader.getRoot());
+    const dispatch_call = try dispatch_message.call();
+
+    var unimplemented_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unimplemented_builder.deinit();
+    const unimplemented_root = try generated.Message.initRootTyped(&unimplemented_builder);
+    {
+        const call = try unimplemented_root.init_call();
+        try call.set_questionId(72);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x4242, .method_id = 2 }, call);
+        try (try call.init_target()).set_importedCap(5);
+        _ = try call.init_params();
+    }
+    var unimplemented_reader = cpz.MessageReader.init(try unimplemented_builder.segmentsConst(), .{});
+    const unimplemented_message = generated.Message.fromReader(try unimplemented_reader.getRoot());
+    const unimplemented_call = try unimplemented_message.call();
+
+    var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer forward_builder.deinit();
+    const forward_root = try generated.Message.initRootTyped(&forward_builder);
+    {
+        const call = try forward_root.init_call();
+        try call.set_questionId(73);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x4242, .method_id = 1 }, call);
+        try (try call.init_target()).set_importedCap(8);
+        _ = try call.init_params();
+    }
+    var forward_reader = cpz.MessageReader.init(try forward_builder.segmentsConst(), .{});
+    const forward_message = generated.Message.fromReader(try forward_reader.getRoot());
+    const forward_call = try forward_message.call();
+
+    const calls = [_]@TypeOf(dispatch_call){ dispatch_call, unimplemented_call, forward_call };
+    const wire_stats = try state.wireCallServiceActionStats(calls[0..], entries);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
+        .dispatch = 1,
+        .forward = 1,
+        .unimplemented = 1,
+    }, wire_stats);
+    try std.testing.expectEqual(@as(usize, 3), wire_stats.actions());
+    try std.testing.expectEqual(@as(usize, 3), wire_stats.total());
+
+    for (calls) |call| try state.applyWireCall(std.testing.allocator, call);
+    const ids = [_]cpz.rpc.QuestionId{ 71, 72, 73, 74 };
+    const tracked_stats = try state.trackedCallServiceActionStats(ids[0..], entries);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
+        .dispatch = 1,
+        .forward = 1,
+        .unimplemented = 1,
+        .missing = 1,
+    }, tracked_stats);
+    try std.testing.expectEqual(@as(usize, 3), tracked_stats.actions());
+    try std.testing.expectEqual(@as(usize, 4), tracked_stats.total());
+}
+
 test "rpc call dispatch outcomes flag resolved targets for forwarding" {
     const Handler = struct {
         fn handle(seen_question: *u32, call: anytype) !cpz.rpc.DispatchResult {
