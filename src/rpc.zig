@@ -2142,6 +2142,19 @@ pub fn sendRpcServiceActionUnifiedOutputsToTaggedSink(stats: TrackedCallServiceA
     }
 }
 
+pub fn sendRpcServiceActionUnifiedOutputsToSinks(
+    stats: TrackedCallServiceActionStats,
+    output_messages: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+) !void {
+    try stats.validateActionCapacity(output_messages.len);
+    for (try stats.outputResponseRange().slice(output_messages)) |message| try response_handler(response_context, message);
+    for (try stats.outputForwardRange().slice(output_messages)) |message| try forward_handler(forward_context, message);
+}
+
 pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
     stats: TrackedCallServiceActionStats,
     plans: []const TrackedCallServiceActionPlan,

@@ -8126,6 +8126,47 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1), message_tagged_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), message_tagged_sink.forward_local_sum);
 
+    const MessageRoleResponseSink = struct {
+        sent: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.answer_sum += try (try message.get_return_()).get_answerId();
+        }
+    };
+    const MessageRoleForwardSink = struct {
+        sent: usize = 0,
+        question_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.question_sum += try (try message.get_call()).get_questionId();
+        }
+    };
+    var message_role_response_sink: MessageRoleResponseSink = .{};
+    var message_role_forward_sink: MessageRoleForwardSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputsToSinks(
+        message_stats,
+        message_outputs[0..2],
+        &message_role_response_sink,
+        MessageRoleResponseSink.handle,
+        &message_role_forward_sink,
+        MessageRoleForwardSink.handle,
+    ));
+    try cpz.rpc.sendRpcServiceActionUnifiedOutputsToSinks(
+        message_stats,
+        message_outputs[0..],
+        &message_role_response_sink,
+        MessageRoleResponseSink.handle,
+        &message_role_forward_sink,
+        MessageRoleForwardSink.handle,
+    );
+    try std.testing.expectEqual(@as(usize, 2), message_role_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_role_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), message_role_forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), message_role_forward_sink.question_sum);
+
     var message_tagged_state = cpz.rpc.State.init(std.testing.allocator);
     defer message_tagged_state.deinit();
     try message_tagged_state.addImport(5);

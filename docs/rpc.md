@@ -164,8 +164,9 @@ that a complete RPC runtime exists.
   actions, aggregate action stats/ranges plus split/output capacity checks,
   top-level-message previews/outputs that skip non-Call messages and can fill
   split response/forward queues, send compact unified output prefixes with
-  optional response/forward role tags, and reuse existing plans when sending
-  source-preserving plan/message pairs directly to caller sinks, grouped action queues,
+  optional response/forward role tags or split them back to role-specific sinks,
+  and reuse existing plans when sending source-preserving plan/message pairs
+  directly to caller sinks, grouped action queues,
   or source-preserving plans that can materialize or enqueue split/combined/
   unified dispatch responses, forwarded Calls, and unimplemented Return exceptions for
   pre-apply wire calls and tracked calls, including one-call split/unified-output
