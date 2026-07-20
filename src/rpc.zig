@@ -2421,6 +2421,29 @@ pub fn initWireReturnMessageUInt32ListInfo(
     try initWireReturnResultsUInt32ListInfo(return_, values, infos);
 }
 
+pub fn initWireReturnMessageUInt32ListInfoAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    values: []const u32,
+    infos: []const CapDescriptorInfo,
+) !void {
+    for (infos) |info| try state.validateCapDescriptor(info.descriptor);
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try initWireReturnMessageUInt32ListInfo(message, answer_id, release_param_caps, no_finish_needed, values, infos);
+    try state.resolveAnswer(answer_id, .return_);
+    for (infos) |info| try state.applyCapDescriptor(info.descriptor);
+    const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
+    defer state.allocator.free(descriptors);
+    try state.trackResultImports(answer_id, descriptors);
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+    if (no_finish_needed and infos.len == 0) {
+        try state.finishQuestion(answer_id);
+    }
+}
+
 pub fn initWireReturnMessageTextFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
