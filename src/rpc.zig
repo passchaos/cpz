@@ -2646,6 +2646,65 @@ pub fn dispatchCallMethodReturningTextFromRegistry(
     try dispatchCallMethodReturningText(state, allocator, response_message, call, expected_method, descriptors, context, handler);
 }
 
+pub fn dispatchCallMethodReturningData(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    const data = try handler(context, call);
+    try initWireReturnMessageData(response_message, call.questionId(), true, false, data, descriptors);
+}
+
+pub fn dispatchCallMethodReturningDataInfo(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    const data = try handler(context, call);
+    try initWireReturnMessageDataInfo(response_message, call.questionId(), true, false, data, infos);
+}
+
+pub fn dispatchCallMethodReturningDataFromRegistry(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    registry: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try dispatchCallMethodReturningData(state, allocator, response_message, call, expected_method, descriptors, context, handler);
+}
+
 pub fn dispatchCallMethodReturningStructWith(
     state: *State,
     allocator: std.mem.Allocator,

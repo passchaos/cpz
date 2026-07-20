@@ -148,7 +148,7 @@ that a complete RPC runtime exists.
   or take-from-other-question outcomes, including await-from-third-party
   tail-call handoffs. A
   method-aware call dispatcher can filter on interface/method IDs, build
-  text payload returns and caller-filled struct payload returns with descriptor,
+  text/data payload returns and caller-filled struct payload returns with descriptor,
   descriptor-info, or registry-backed cap tables, and emit an unimplemented exception for
   mismatches; a compile-time method table dispatcher
   can validate unique method entries, select among multiple handlers, and can be
