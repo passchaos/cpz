@@ -4386,6 +4386,51 @@ pub const State = struct {
         );
     }
 
+    pub fn applyDisembargoAndInitAcceptReturnsToSink(
+        self: *State,
+        allocator: std.mem.Allocator,
+        info: DisembargoInfo,
+        response_messages: anytype,
+        export_ids: []const ExportId,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !DisembargoApplyInfo {
+        const expected_accepts = switch (info.context) {
+            .accept => |embargo| self.pendingAcceptEmbargoMatchCount(embargo),
+            else => 0,
+        };
+        if (response_messages.len < expected_accepts or export_ids.len < expected_accepts) return error.InvalidTransition;
+        const released = try self.applyDisembargoAlloc(allocator, info);
+        errdefer allocator.free(released.released_accept_ids);
+        _ = try self.initReleasedAcceptReturnMessagesToSink(
+            response_messages,
+            released.released_accept_ids,
+            export_ids,
+            sink_context,
+            sink_handler,
+        );
+        return released;
+    }
+
+    pub fn applyWireDisembargoAndInitAcceptReturnsToSink(
+        self: *State,
+        allocator: std.mem.Allocator,
+        disembargo: anytype,
+        response_messages: anytype,
+        export_ids: []const ExportId,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !DisembargoApplyInfo {
+        return self.applyDisembargoAndInitAcceptReturnsToSink(
+            allocator,
+            try disembargoInfoFromWireDisembargo(disembargo),
+            response_messages,
+            export_ids,
+            sink_context,
+            sink_handler,
+        );
+    }
+
     pub fn joinInfo(self: *const State, id: QuestionId) ?JoinInfo {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.info();
