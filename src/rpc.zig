@@ -2218,6 +2218,27 @@ pub fn initWireReturnMessageData(
     try initWireReturnResultsData(return_, data, descriptors);
 }
 
+pub fn initWireReturnMessageDataAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    data: []const u8,
+    descriptors: []const CapDescriptor,
+) !void {
+    for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try initWireReturnMessageData(message, answer_id, release_param_caps, no_finish_needed, data, descriptors);
+    try state.resolveAnswer(answer_id, .return_);
+    for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
+    try state.trackResultImports(answer_id, descriptors);
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+    if (no_finish_needed and descriptors.len == 0) {
+        try state.finishQuestion(answer_id);
+    }
+}
+
 pub fn initWireReturnMessageUInt32List(
     message: anytype,
     answer_id: AnswerId,
