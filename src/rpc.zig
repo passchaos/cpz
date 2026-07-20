@@ -3133,6 +3133,47 @@ pub const State = struct {
         _ = self.imports.remove(id);
     }
 
+    pub fn forgetReleasedExports(self: *State) usize {
+        var removed: usize = 0;
+        while (true) {
+            var released_id: ?ExportId = null;
+            var iterator = self.exports.iterator();
+            while (iterator.next()) |entry| {
+                if (entry.value_ptr.state == .released) {
+                    released_id = entry.key_ptr.*;
+                    break;
+                }
+            }
+            const id = released_id orelse return removed;
+            _ = self.exports.remove(id);
+            removed += 1;
+        }
+    }
+
+    pub fn forgetReleasedImports(self: *State) usize {
+        var removed: usize = 0;
+        while (true) {
+            var released_id: ?ImportId = null;
+            var iterator = self.imports.iterator();
+            while (iterator.next()) |entry| {
+                if (entry.value_ptr.state == .released) {
+                    released_id = entry.key_ptr.*;
+                    break;
+                }
+            }
+            const id = released_id orelse return removed;
+            _ = self.imports.remove(id);
+            removed += 1;
+        }
+    }
+
+    pub fn forgetReleasedCapabilities(self: *State) struct { exports: usize, imports: usize } {
+        return .{
+            .exports = self.forgetReleasedExports(),
+            .imports = self.forgetReleasedImports(),
+        };
+    }
+
     pub fn releaseImportCount(self: *State, release: CapabilityRelease) Error!void {
         const tracker = self.imports.getPtr(release.id) orelse return error.InvalidTransition;
         try tracker.releaseCount(release.reference_count);
@@ -3511,6 +3552,22 @@ test "rpc state tracks import and export lifetimes" {
     try testing.expect(!state.hasImport(20));
     try testing.expectError(error.InvalidTransition, state.forgetReleasedExport(10));
     try testing.expectError(error.InvalidTransition, state.forgetReleasedImport(20));
+
+    try state.addExport(11);
+    try state.addExport(12);
+    try state.addImport(21);
+    try state.addImport(22);
+    try state.releaseExport(11);
+    try state.releaseImport(21);
+    const removed = state.forgetReleasedCapabilities();
+    try testing.expectEqual(@as(usize, 1), removed.exports);
+    try testing.expectEqual(@as(usize, 1), removed.imports);
+    try testing.expect(!state.hasExport(11));
+    try testing.expect(state.hasExport(12));
+    try testing.expect(!state.hasImport(21));
+    try testing.expect(state.hasImport(22));
+    try testing.expectEqual(@as(usize, 0), state.forgetReleasedExports());
+    try testing.expectEqual(@as(usize, 0), state.forgetReleasedImports());
 }
 
 test "rpc state applies capability descriptors to table lifetimes" {
