@@ -1965,6 +1965,43 @@ pub fn initWireCallMessageTextInfoWithOptions(message: anytype, question_id: Que
     try initWireCallParamsTextInfo(call, text, infos);
 }
 
+pub fn initWireCallMessageTextInfoWithOptionsAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    text: []const u8,
+    infos: []const CapDescriptorInfo,
+    options: CallOptions,
+) !void {
+    try state.validateCallTarget(target);
+    for (infos) |info| try state.validateCapDescriptor(info.descriptor);
+    try initWireCallMessageTextInfoWithOptions(message, question_id, target, text, infos, options);
+    try state.openQuestion(question_id, .call);
+    try state.trackCallInfo(.{
+        .question_id = question_id,
+        .target = target,
+        .method = options.method,
+        .send_results_to = options.send_results_to,
+        .flags = options.flags,
+    });
+    for (infos) |info| try state.applyCapDescriptor(info.descriptor);
+    const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
+    defer state.allocator.free(descriptors);
+    try state.trackParamImports(question_id, descriptors);
+}
+
+pub fn initWireCallMessageTextInfoAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    text: []const u8,
+    infos: []const CapDescriptorInfo,
+) !void {
+    try initWireCallMessageTextInfoWithOptionsAndApplyState(state, message, question_id, target, text, infos, .{});
+}
+
 pub fn initWireCallMessageDataInfo(message: anytype, question_id: QuestionId, target: CallTarget, data: []const u8, infos: []const CapDescriptorInfo) !void {
     const call = try message.init_call();
     try call.set_questionId(question_id);

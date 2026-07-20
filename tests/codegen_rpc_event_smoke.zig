@@ -1905,6 +1905,40 @@ test "rpc top-level call helpers initialize text payload descriptor info" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 88 }, .attached_fd = 13 }, infos[0]);
 }
 
+test "rpc call text-info helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    const infos = [_]cpz.rpc.CapDescriptorInfo{.{ .descriptor = .{ .sender_promise = 92 }, .attached_fd = 17 }};
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageTextInfoWithOptionsAndApplyState(
+        &state,
+        root,
+        98,
+        .{ .imported_cap = 5 },
+        "state call text info",
+        infos[0..],
+        .{ .method = .{ .interface_id = 0x98, .method_id = 8 } },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(98));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(98));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(92));
+    const tracked = state.callInfo(98).?;
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x98, .method_id = 8 }, tracked.method);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const params = try (try generated.Message.fromReader(try reader.getRoot()).call()).params();
+    try std.testing.expectEqualStrings("state call text info", try (try params.content()).getText());
+    const decoded_infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, params);
+    defer std.testing.allocator.free(decoded_infos);
+    try std.testing.expectEqual(@as(usize, 1), decoded_infos.len);
+    try std.testing.expectEqual(infos[0], decoded_infos[0]);
+}
+
 test "rpc top-level call helpers initialize data payload descriptor info" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
