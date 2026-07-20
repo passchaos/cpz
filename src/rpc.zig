@@ -1019,8 +1019,20 @@ pub const CallOptions = struct {
         if (self.send_results_to_third_party) |usage| try validateAnyPointerUsageCapability(usage);
     }
 
+    pub fn callMethod(self: @This()) CallMethod {
+        return self.method;
+    }
+
     pub fn matchesMethod(self: @This(), method: CallMethod) bool {
         return self.method.matches(method.interface_id, method.method_id);
+    }
+
+    pub fn methodEntry(self: @This(), handler: anytype) CallMethodEntry(@TypeOf(handler)) {
+        return self.method.methodEntry(handler);
+    }
+
+    pub fn entryIndex(self: @This(), comptime entries: anytype) Error!?usize {
+        return self.method.entryIndex(entries);
     }
 
     pub fn sendsResultsTo(self: @This(), target: CallSendResultsTo) bool {

@@ -2498,12 +2498,18 @@ test "rpc registry call data helper can apply initialized state" {
 }
 
 test "rpc top-level call payload helpers support routing options" {
+    const OptionHandler = struct {
+        fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
     const fluent_options = (cpz.rpc.CallOptions{})
         .withMethod(.{ .interface_id = 0x9000, .method_id = 9 })
         .withSendResultsTo(.yourself)
         .withFlags(.{ .no_promise_pipelining = true });
     try fluent_options.validate();
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9000, .method_id = 9 }, fluent_options.method);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9000, .method_id = 9 }, fluent_options.callMethod());
     try std.testing.expect(fluent_options.sendsResultsTo(.yourself));
     try std.testing.expect(fluent_options.forbidsPromisePipelining());
     try std.testing.expect(fluent_options.thirdPartyResultsUsage() == null);
@@ -2517,6 +2523,12 @@ test "rpc top-level call payload helpers support routing options" {
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, third_party_options.thirdPartyResultsUsage().?);
     try std.testing.expect(third_party_options.allowsThirdPartyTailCall());
     try std.testing.expect(third_party_options.withSendResultsTo(.caller).thirdPartyResultsUsage() == null);
+    const option_entry = comptime ((cpz.rpc.CallOptions{})
+        .withMethod(.{ .interface_id = 0x9002, .method_id = 11 })
+        .withThirdPartyResults(.{ .max_capability_count = 4, .capability = 3 })
+        .withFlags(.{ .allow_third_party_tail_call = true })).methodEntry(OptionHandler.handle);
+    try std.testing.expectEqual(third_party_options.method, option_entry.method);
+    try std.testing.expectEqual(@as(?usize, 0), try third_party_options.entryIndex(.{option_entry}));
 
     try (cpz.rpc.CallOptions{
         .method = .{ .interface_id = 0x9000, .method_id = 9 },

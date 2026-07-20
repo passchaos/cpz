@@ -5193,6 +5193,7 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.callOptions".len);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptions"[0].method);
     try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].matchesMethod(generated.ExtendedService.@"cpz.method.pong.callMethod"));
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptions"[0].callMethod());
     try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].sendsResultsTo(.caller));
     try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].allowsThirdPartyTailCall());
     try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].forbidsPromisePipelining());
@@ -5250,6 +5251,9 @@ test "generated interface method constants compile" {
     };
     const direct_entry = generated.ExtendedService.@"cpz.method.pong.callMethod".methodEntry(EntryHandler.handle);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", direct_entry.method);
+    const options_entry = generated.ExtendedService.@"cpz.callOptions"[0].methodEntry(EntryHandler.handle);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", options_entry.method);
+    try std.testing.expectEqual(@as(?usize, 0), try generated.ExtendedService.@"cpz.callOptions"[0].entryIndex(.{options_entry}));
     const pong_entry = generated.ExtendedService.@"cpz.method.pong.entry"(EntryHandler.handle);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", pong_entry.method);
     try cpz.rpc.validateCallMethodEntries(.{pong_entry});
