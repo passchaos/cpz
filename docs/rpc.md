@@ -243,7 +243,8 @@ that a complete RPC runtime exists.
   generated method-table entries expose the same tracked-info construction
   helper for code paths that select a handler before recording call state.
   Generated interfaces can also resolve methods, call options, and method
-  entries directly from a generated Call reader's interface/method IDs.
+  entries directly from a generated Call reader's interface/method IDs or from
+  a top-level Message reader when it contains a Call.
   Runtime call methods/options/entries expose matching predicates for both
   `CallMethod` values and generated Call readers, and tracked calls can be
   compared directly with generated Call readers.

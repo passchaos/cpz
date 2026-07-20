@@ -10860,6 +10860,30 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\        return @This().@"cpz.callOptionsByCallMethod"(cpz.rpc.callMethodFromWireCall(@"cpz.call"));
             \\    }}
             \\
+            \\    pub fn @"cpz.methodByWireMessage"(@"cpz.message": anytype) !?cpz.schema.InterfaceMethodMetadata {{
+            \\        const @"cpz.tag" = std.enums.fromInt(cpz.rpc.WireMessageTag, @"cpz.message".whichDiscriminant()) orelse return error.InvalidTransition;
+            \\        return switch (@"cpz.tag") {{
+            \\            .call => @This().@"cpz.methodByWireCall"(try @"cpz.message".call()),
+            \\            else => null,
+            \\        }};
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callMethodByWireMessage"(@"cpz.message": anytype) !?cpz.rpc.CallMethod {{
+            \\        const @"cpz.tag" = std.enums.fromInt(cpz.rpc.WireMessageTag, @"cpz.message".whichDiscriminant()) orelse return error.InvalidTransition;
+            \\        return switch (@"cpz.tag") {{
+            \\            .call => @This().@"cpz.callMethodByWireCall"(try @"cpz.message".call()),
+            \\            else => null,
+            \\        }};
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callOptionsByWireMessage"(@"cpz.message": anytype) !?cpz.rpc.CallOptions {{
+            \\        const @"cpz.tag" = std.enums.fromInt(cpz.rpc.WireMessageTag, @"cpz.message".whichDiscriminant()) orelse return error.InvalidTransition;
+            \\        return switch (@"cpz.tag") {{
+            \\            .call => @This().@"cpz.callOptionsByWireCall"(try @"cpz.message".call()),
+            \\            else => null,
+            \\        }};
+            \\    }}
+            \\
             \\    pub fn @"cpz.methodEntryByIndex"(@"cpz.index": usize, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
             \\        const @"cpz.callMethod" = @This().@"cpz.callMethodByIndex"(@"cpz.index") orelse return null;
             \\        return @"cpz.callMethod".methodEntry(handler);
@@ -10882,6 +10906,14 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\
             \\    pub fn @"cpz.methodEntryByWireCall"(@"cpz.call": anytype, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
             \\        return @This().@"cpz.methodEntryByCallMethod"(cpz.rpc.callMethodFromWireCall(@"cpz.call"), handler);
+            \\    }}
+            \\
+            \\    pub fn @"cpz.methodEntryByWireMessage"(@"cpz.message": anytype, handler: anytype) !?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
+            \\        const @"cpz.tag" = std.enums.fromInt(cpz.rpc.WireMessageTag, @"cpz.message".whichDiscriminant()) orelse return error.InvalidTransition;
+            \\        return switch (@"cpz.tag") {{
+            \\            .call => @This().@"cpz.methodEntryByWireCall"(try @"cpz.message".call(), handler),
+            \\            else => null,
+            \\        }};
             \\    }}
             \\
         , .{});

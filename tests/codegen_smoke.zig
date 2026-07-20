@@ -5255,6 +5255,35 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.@"cpz.callMethodByWireCall"(mismatched_wire_call) == null);
     try std.testing.expect(generated.ExtendedService.@"cpz.callOptionsByWireCall"(mismatched_wire_call) == null);
     try std.testing.expect(generated.ExtendedService.@"cpz.methodEntryByWireCall"(mismatched_wire_call, WireEntryHandler.handle) == null);
+    const MatchingWireMessage = struct {
+        pub fn whichDiscriminant(_: @This()) u16 {
+            return @intFromEnum(cpz.rpc.WireMessageTag.call);
+        }
+
+        pub fn call(_: @This()) !MatchingWireCall {
+            return MatchingWireCall{};
+        }
+    };
+    const matching_wire_message = MatchingWireMessage{};
+    try std.testing.expectEqualStrings("pong", (try generated.ExtendedService.@"cpz.methodByWireMessage"(matching_wire_message)).?.name);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", (try generated.ExtendedService.@"cpz.callMethodByWireMessage"(matching_wire_message)).?);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", (try generated.ExtendedService.@"cpz.callOptionsByWireMessage"(matching_wire_message)).?.method);
+    const wire_message_entry = (try generated.ExtendedService.@"cpz.methodEntryByWireMessage"(matching_wire_message, WireEntryHandler.handle)).?;
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", wire_message_entry.callMethod());
+    const NonCallWireMessage = struct {
+        pub fn whichDiscriminant(_: @This()) u16 {
+            return @intFromEnum(cpz.rpc.WireMessageTag.unimplemented);
+        }
+
+        pub fn call(_: @This()) !MatchingWireCall {
+            return error.TestUnexpectedResult;
+        }
+    };
+    const non_call_wire_message = NonCallWireMessage{};
+    try std.testing.expect((try generated.ExtendedService.@"cpz.methodByWireMessage"(non_call_wire_message)) == null);
+    try std.testing.expect((try generated.ExtendedService.@"cpz.callMethodByWireMessage"(non_call_wire_message)) == null);
+    try std.testing.expect((try generated.ExtendedService.@"cpz.callOptionsByWireMessage"(non_call_wire_message)) == null);
+    try std.testing.expect((try generated.ExtendedService.@"cpz.methodEntryByWireMessage"(non_call_wire_message, WireEntryHandler.handle)) == null);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.@"cpz.methodByCallMethod"(.{
         .interface_id = 0xe57e0001,
         .method_id = 99,
