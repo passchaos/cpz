@@ -157,7 +157,9 @@ that a complete RPC runtime exists.
   including batch dispatch helpers, can initialize outgoing Calls when they
   return `forward_required`; companion sink-dispatch variants can immediately
   hand initialized forwarded Calls, or both ordinary responses and forwarded
-  Calls, to embedding transport/enqueue callbacks.
+  Calls, to embedding transport/enqueue callbacks, including dense batch
+  variants that consume compact response/forward output queues instead of one
+  output slot per input message.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
