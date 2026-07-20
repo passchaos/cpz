@@ -2591,12 +2591,14 @@ pub const State = struct {
     pub fn applyWireCallPayload(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
         const descriptors = try capTableFromWireCallParams(allocator, call);
         defer allocator.free(descriptors);
+        try validateWirePayloadContent(try call.params(), descriptors.len);
         try self.applyCapTable(descriptors);
     }
 
     pub fn applyWireReturnPayload(self: *State, allocator: std.mem.Allocator, return_: anytype) !void {
         const descriptors = try capTableFromWireReturnResults(allocator, return_);
         defer allocator.free(descriptors);
+        try validateWirePayloadContent(try return_.results(), descriptors.len);
         try self.applyCapTable(descriptors);
     }
 

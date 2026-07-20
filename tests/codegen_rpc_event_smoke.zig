@@ -1020,6 +1020,47 @@ test "rpc call params expose capability descriptor tables" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), direct_state.importState(30));
 }
 
+test "rpc direct payload application validates content capability indexes" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const call = try root.init_call();
+        try call.set_questionId(90);
+        const params = try call.init_params();
+        (try params.get_contentAsPointer()).setCapability(1);
+        const cap_table = try params.init_capTable(1);
+        try (try cap_table.get(0)).set_senderHosted(91);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try std.testing.expectError(error.InvalidCapabilityPointer, state.applyWireCallPayload(std.testing.allocator, try message.call()));
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, null), state.importState(91));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const return_ = try root.init_return_();
+        try return_.set_answerId(91);
+        const results = try return_.init_results();
+        (try results.get_contentAsPointer()).setCapability(2);
+        const cap_table = try results.init_capTable(2);
+        try (try cap_table.get(0)).set_senderHosted(92);
+        try (try cap_table.get(1)).set_senderHosted(93);
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try std.testing.expectError(error.InvalidCapabilityPointer, state.applyWireReturnPayload(std.testing.allocator, try message.return_()));
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, null), state.importState(92));
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, null), state.importState(93));
+    }
+}
+
 test "rpc call params cap tables can be written directly" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();

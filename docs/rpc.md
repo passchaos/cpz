@@ -101,7 +101,9 @@ that a complete RPC runtime exists.
   Payload content capability indexes can be decoded and validated against the
   decoded cap table length.
   Decoded descriptor tables can be applied to `State` for basic import
-  creation/reference counting and receiver-hosted export/answer validation.
+  creation/reference counting and receiver-hosted export/answer validation;
+  direct Call/Return payload application also validates payload content
+  capability indexes before mutating state.
   `Call.params.capTable` can be decoded through the same descriptor pipeline, as
   can `Return.results.capTable`; convenience helpers can apply those generated
   Call/Return payload tables directly to `State`, and generated Call/Return
