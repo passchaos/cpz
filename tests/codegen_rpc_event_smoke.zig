@@ -5604,6 +5604,99 @@ test "rpc batch method-table forwarding dispatcher sends responses and forwarded
     try expectPayloadUInt32List(try forwarded.params(), &.{ 8, 16 });
 }
 
+test "rpc dense method-table forwarding dispatcher initializes compact output slots" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 8200;
+        }
+    };
+    const Context = struct { selected: u32 = 0 };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .empty;
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x9999, .method_id = 9 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(45, .call);
+    try state.applyCapDescriptor(.{ .sender_promise = 280 });
+    try state.resolveImportTo(280, .{ .sender_hosted = 281 });
+    try state.applyCapDescriptor(.{ .sender_hosted = 281 });
+
+    var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer bootstrap_builder.deinit();
+    const bootstrap_root = try generated.Message.initRootTyped(&bootstrap_builder);
+    try cpz.rpc.initWireBootstrapMessage(bootstrap_root, 46);
+    var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
+    const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(280);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x9999, .method_id = 9 }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(280);
+    try cpz.rpc.initWireCallParamsUInt32List(call, &.{ 9, 18 }, &.{.{ .sender_hosted = 282 }});
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var return_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer return_builder.deinit();
+    const return_root = try generated.Message.initRootTyped(&return_builder);
+    const return_ = try return_root.init_return_();
+    try return_.set_answerId(45);
+    try return_.set_noFinishNeeded(true);
+    _ = try return_.init_results();
+    var return_reader = cpz.MessageReader.init(try return_builder.segmentsConst(), .{});
+    const return_message = generated.Message.fromReader(try return_reader.getRoot());
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response = try generated.Message.initRootTyped(&response_builder);
+    var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer forward_builder.deinit();
+    const forward = try generated.Message.initRootTyped(&forward_builder);
+
+    const responses = [_]generated.Message.Builder{response};
+    const forwards = [_]generated.Message.Builder{forward};
+    const requests = [_]generated.Message{ bootstrap_message, call_message, return_message };
+    var bootstrap_seen: u32 = 0;
+    var context: Context = .{};
+    const stats = try cpz.rpc.dispatchWireMessagesMethodsForwardingDense(
+        &state,
+        std.testing.allocator,
+        responses[0..],
+        forwards[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+    );
+    try std.testing.expectEqual(@as(usize, 1), stats.response_initialized);
+    try std.testing.expectEqual(@as(usize, 1), stats.forward_required);
+    try std.testing.expectEqual(@as(usize, 1), stats.state_applied);
+    try std.testing.expectEqual(@as(u32, 0), context.selected);
+    try std.testing.expect(state.questionComplete(45));
+
+    var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+    const response_return = try generated.Message.fromReader(try response_reader.getRoot()).return_();
+    try std.testing.expectEqual(@as(u32, 46), response_return.answerId());
+
+    var forward_reader = cpz.MessageReader.init(try forward_builder.segmentsConst(), .{});
+    const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 281 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9999, .method_id = 9 }, cpz.rpc.callMethodFromWireCall(forwarded));
+    try expectPayloadUInt32List(try forwarded.params(), &.{ 9, 18 });
+}
+
 test "rpc batch dispatcher supports method tables" {
     const BootstrapHandler = struct {
         fn handle(_: *u32, bootstrap: anytype) !u32 {

@@ -3292,6 +3292,54 @@ pub fn dispatchWireMessagesMethodsForwardingToDenseSinks(
     return stats;
 }
 
+pub fn dispatchWireMessagesMethodsForwardingDense(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+) !WireDispatchStats {
+    try validateCallMethodEntries(call_entries);
+    var stats: WireDispatchStats = .{};
+    var response_index: usize = 0;
+    var forward_index: usize = 0;
+    for (request_messages) |request_message| {
+        switch (try eventFromWireMessage(request_message)) {
+            .bootstrap => {
+                if (response_index >= response_messages.len) return error.InvalidTransition;
+                try dispatchBootstrap(state, response_messages[response_index], try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+                response_index += 1;
+                stats.recordResponseInitialized();
+            },
+            .call => {
+                const call = try request_message.call();
+                try state.validateWireCallTarget(call);
+                if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+                    if (forward_index >= forward_messages.len) return error.InvalidTransition;
+                    try state.applyWireCall(allocator, call);
+                    _ = try initForwardedWireCallMessageToResolvedTarget(state, forward_messages[forward_index], call);
+                    forward_index += 1;
+                    stats.recordForwardRequired();
+                } else {
+                    if (response_index >= response_messages.len) return error.InvalidTransition;
+                    try dispatchCallMethods(state, allocator, response_messages[response_index], call, call_context, call_entries);
+                    response_index += 1;
+                    stats.recordResponseInitialized();
+                }
+            },
+            else => {
+                try state.applyWireMessage(allocator, request_message);
+                stats.recordStateApplied();
+            },
+        }
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesMethodsForwarding(
     state: *State,
     allocator: std.mem.Allocator,
