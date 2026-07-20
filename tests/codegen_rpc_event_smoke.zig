@@ -8089,6 +8089,43 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 73), message_forward_call.questionId());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(message_forward_call));
 
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, cpz.rpc.trackedCallServiceActionUnifiedOutputPosition(message_stats, 0).?);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, cpz.rpc.trackedCallServiceActionUnifiedOutputPosition(message_stats, 1).?);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, cpz.rpc.trackedCallServiceActionUnifiedOutputPosition(message_stats, 2).?);
+    try std.testing.expect(cpz.rpc.trackedCallServiceActionUnifiedOutputPosition(message_stats, 3) == null);
+    const MessageTaggedSink = struct {
+        sent: usize = 0,
+        response_local_sum: usize = 0,
+        forward_local_sum: usize = 0,
+
+        fn handle(context: *@This(), position: cpz.rpc.TrackedCallServiceActionOutputPosition, message: anytype) !void {
+            switch (context.sent) {
+                0 => {
+                    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, position);
+                    try std.testing.expectEqual(@as(u32, 71), try (try message.get_return_()).get_answerId());
+                    context.response_local_sum += position.local_index;
+                },
+                1 => {
+                    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, position);
+                    try std.testing.expectEqual(@as(u32, 72), try (try message.get_return_()).get_answerId());
+                    context.response_local_sum += position.local_index;
+                },
+                2 => {
+                    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, position);
+                    try std.testing.expectEqual(@as(u32, 73), try (try message.get_call()).get_questionId());
+                    context.forward_local_sum += position.local_index;
+                },
+                else => return error.TestUnexpectedResult,
+            }
+            context.sent += 1;
+        }
+    };
+    var message_tagged_sink: MessageTaggedSink = .{};
+    try cpz.rpc.sendRpcServiceActionUnifiedOutputsToTaggedSink(message_stats, message_outputs[0..], &message_tagged_sink, MessageTaggedSink.handle);
+    try std.testing.expectEqual(@as(usize, 3), message_tagged_sink.sent);
+    try std.testing.expectEqual(@as(usize, 0 + 1), message_tagged_sink.response_local_sum);
+    try std.testing.expectEqual(@as(usize, 0), message_tagged_sink.forward_local_sum);
+
     const MessageUnifiedSink = struct {
         sent: usize = 0,
         responses: usize = 0,

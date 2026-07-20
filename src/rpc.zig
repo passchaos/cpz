@@ -745,6 +745,26 @@ pub const TrackedCallServiceActionStats = struct {
     }
 };
 
+pub const TrackedCallServiceActionOutputRole = enum {
+    response,
+    forward,
+};
+
+pub const TrackedCallServiceActionOutputPosition = struct {
+    role: TrackedCallServiceActionOutputRole,
+    local_index: usize,
+};
+
+pub fn trackedCallServiceActionUnifiedOutputPosition(stats: TrackedCallServiceActionStats, output_index: usize) ?TrackedCallServiceActionOutputPosition {
+    const response_end = stats.responseMessages();
+    if (output_index < response_end) return .{ .role = .response, .local_index = output_index };
+
+    const forward_end = response_end + stats.forward;
+    if (output_index < forward_end) return .{ .role = .forward, .local_index = output_index - response_end };
+
+    return null;
+}
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -2113,6 +2133,13 @@ pub fn initWireCallServiceActionPlanUnifiedOutputs(
 pub fn sendRpcServiceActionUnifiedOutputsToSink(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
     try stats.validateActionCapacity(output_messages.len);
     for (output_messages[0..stats.actions()]) |message| try sink_handler(sink_context, message);
+}
+
+pub fn sendRpcServiceActionUnifiedOutputsToTaggedSink(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    try stats.validateActionCapacity(output_messages.len);
+    for (output_messages[0..stats.actions()], 0..) |message, output_index| {
+        try sink_handler(sink_context, trackedCallServiceActionUnifiedOutputPosition(stats, output_index).?, message);
+    }
 }
 
 pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
