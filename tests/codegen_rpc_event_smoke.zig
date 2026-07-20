@@ -8368,6 +8368,52 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 73), wrapper_forward.questionId());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(wrapper_forward));
 
+    var wrapper_sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer wrapper_sink_state.deinit();
+    try wrapper_sink_state.addImport(5);
+    try wrapper_sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try wrapper_sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try wrapper_sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var wrapper_sink_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var wrapper_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer wrapper_sink_builder0.deinit();
+    const wrapper_sink_output0 = try generated.Message.initRootTyped(&wrapper_sink_builder0);
+    var wrapper_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer wrapper_sink_builder1.deinit();
+    const wrapper_sink_output1 = try generated.Message.initRootTyped(&wrapper_sink_builder1);
+    var wrapper_sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer wrapper_sink_builder2.deinit();
+    const wrapper_sink_output2 = try generated.Message.initRootTyped(&wrapper_sink_builder2);
+    const wrapper_sink_outputs = [_]generated.Message.Builder{ wrapper_sink_output0, wrapper_sink_output1, wrapper_sink_output2 };
+    var wrapper_sink_context: Context = .{};
+    var wrapper_unified_sink: UnifiedSink = .{};
+    try std.testing.expectError(error.InvalidTransition, wrapper_sink_state.dispatchWireCallServiceActionsUnifiedToSink(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        short_plan_buffer[0..],
+        wrapper_sink_outputs[0..],
+        &wrapper_sink_context,
+        &wrapper_unified_sink,
+        UnifiedSink.handle,
+    ));
+    try std.testing.expectEqual(wire_stats, try wrapper_sink_state.dispatchWireCallServiceActionsUnifiedToSink(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        wrapper_sink_plan_buffer[0..],
+        wrapper_sink_outputs[0..],
+        &wrapper_sink_context,
+        &wrapper_unified_sink,
+        UnifiedSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), wrapper_sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), wrapper_unified_sink.sent);
+    try std.testing.expectEqual(@as(usize, 2), wrapper_unified_sink.responses);
+    try std.testing.expectEqual(@as(usize, 1), wrapper_unified_sink.forwards);
+    try std.testing.expectEqual(@as(u32, 71 + 72), wrapper_unified_sink.answer_sum);
+    try std.testing.expectEqual(@as(u32, 73), wrapper_unified_sink.question_sum);
+
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
     var short_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
