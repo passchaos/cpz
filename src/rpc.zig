@@ -5199,6 +5199,66 @@ pub fn dispatchRpcTurnForwardingToDenseSinksFromHandlersWithApplyHandler(
     return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
 }
 
+pub fn dispatchRpcTurnForwardingToDenseSinksAndPendingAcceptDisembargosFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    disembargo_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    disembargo_context: anytype,
+    disembargo_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    var turn_plan = try dispatchRpcTurnForwardingToDenseSinksFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        response_context,
+        response_handler,
+        forward_context,
+        forward_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        apply_context,
+        apply_handler,
+    );
+    try turn_plan.validateDisembargoCapacity(disembargo_messages.len);
+    turn_plan.pending_disembargos = try state.initPendingAcceptDisembargoMessagesToSink(
+        disembargo_messages,
+        disembargo_target,
+        disembargo_context,
+        disembargo_handler,
+    );
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
