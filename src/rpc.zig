@@ -6738,6 +6738,50 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosToSinkFro
     return turn_plan;
 }
 
+pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosToTaggedSinkFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    sink_context: anytype,
+    sink_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+        apply_context,
+        apply_handler,
+    );
+    try sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan, output_messages, sink_context, sink_handler);
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
@@ -6821,6 +6865,48 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbarg
         embargo,
     );
     try sendRpcTurnUnifiedOutputsToSink(turn_plan, output_messages, sink_context, sink_handler);
+    return turn_plan;
+}
+
+pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToTaggedSinkFromHandlers(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    embargo: []const u8,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlers(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+        embargo,
+    );
+    try sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan, output_messages, sink_context, sink_handler);
     return turn_plan;
 }
 
@@ -6915,6 +7001,52 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbarg
         apply_handler,
     );
     try sendRpcTurnUnifiedOutputsToSink(turn_plan, output_messages, sink_context, sink_handler);
+    return turn_plan;
+}
+
+pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToTaggedSinkFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    embargo: []const u8,
+    sink_context: anytype,
+    sink_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+        embargo,
+        apply_context,
+        apply_handler,
+    );
+    try sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan, output_messages, sink_context, sink_handler);
     return turn_plan;
 }
 
@@ -7822,6 +7954,50 @@ pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosTo
     return turn_plan;
 }
 
+pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosToTaggedSinkFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    sink_context: anytype,
+    sink_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+        apply_context,
+        apply_handler,
+    );
+    try sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan, output_messages, sink_context, sink_handler);
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
@@ -7905,6 +8081,48 @@ pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosFo
         embargo,
     );
     try sendRpcTurnUnifiedOutputsToSink(turn_plan, output_messages, sink_context, sink_handler);
+    return turn_plan;
+}
+
+pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToTaggedSinkFromHandlers(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    embargo: []const u8,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlers(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+        embargo,
+    );
+    try sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan, output_messages, sink_context, sink_handler);
     return turn_plan;
 }
 
@@ -7999,6 +8217,52 @@ pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosFo
         apply_handler,
     );
     try sendRpcTurnUnifiedOutputsToSink(turn_plan, output_messages, sink_context, sink_handler);
+    return turn_plan;
+}
+
+pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToTaggedSinkFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    embargo: []const u8,
+    sink_context: anytype,
+    sink_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+        embargo,
+        apply_context,
+        apply_handler,
+    );
+    try sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan, output_messages, sink_context, sink_handler);
     return turn_plan;
 }
 
