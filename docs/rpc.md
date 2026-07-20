@@ -170,8 +170,8 @@ that a complete RPC runtime exists.
   allocated, with turn-level plans that combine dispatch and ready handoff
   returns plus capacity checks for split or unified output queues. A minimal
   turn helper, with or without method-table dispatch, can dispatch dense
-  responses/forwards and append ready handoff Returns to the same response sink
-  for embedding transports.
+  responses/forwards, expose state-only apply details, and append ready handoff
+  Returns to the same response sink for embedding transports.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
