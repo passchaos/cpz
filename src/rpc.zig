@@ -264,6 +264,10 @@ pub const RpcTurnPlan = struct {
     pub fn validateUnifiedOutputCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.totalOutputMessages()) return error.InvalidTransition;
     }
+
+    pub fn validateOutputBuilders(self: @This(), response_messages: anytype, forward_messages: anytype) Error!void {
+        try self.validateOutputCapacity(response_messages.len, forward_messages.len);
+    }
 };
 
 pub const StateQuestionStats = struct {

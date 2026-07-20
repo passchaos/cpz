@@ -10031,6 +10031,9 @@ test "rpc turn dispatcher sends dense dispatch and ready handoff outputs" {
 
     const responses = [_]generated.Message.Builder{ response0, response1 };
     const forwards = [_]generated.Message.Builder{forward};
+    try plan.validateOutputBuilders(responses[0..], forwards[0..]);
+    try std.testing.expectError(error.InvalidTransition, plan.validateOutputBuilders(responses[0..1], forwards[0..]));
+    try std.testing.expectError(error.InvalidTransition, plan.validateOutputBuilders(responses[0..], forwards[0..0]));
     var bootstrap_seen: u32 = 0;
     var call_seen: u32 = 0;
     var response_sink: ResponseSink = .{};
