@@ -80,6 +80,15 @@ pub const OutputRange = struct {
     pub fn len(self: @This()) usize {
         return self.end - self.start;
     }
+
+    pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.end) return error.InvalidTransition;
+    }
+
+    pub fn slice(self: @This(), items: anytype) !@TypeOf(items[self.start..self.end]) {
+        try self.validateCapacity(items.len);
+        return items[self.start..self.end];
+    }
 };
 
 pub const WireDispatchStats = struct {

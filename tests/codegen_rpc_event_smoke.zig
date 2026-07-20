@@ -6793,6 +6793,10 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 3), stats.denseOutputSlots());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, stats.denseResponseRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
+    try std.testing.expectEqual(@as(usize, 2), stats.denseResponseRange().len());
+    try std.testing.expectEqual(@as(usize, 1), stats.denseForwardRange().len());
+    try stats.denseForwardRange().validateCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, stats.denseForwardRange().validateCapacity(2));
     try stats.validateDenseResponseCapacity(2);
     try stats.validateDenseForwardCapacity(1);
     try stats.validateDenseOutputCapacity(2, 1);
@@ -6875,6 +6879,8 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
         const disembargo_builders = [_]generated.Message.Builder{disembargo_root};
         try embargo_plan.validateUnifiedOutputBuilders(disembargo_builders[0..]);
         try std.testing.expectError(error.InvalidTransition, embargo_plan.validateUnifiedOutputBuilders(disembargo_builders[0..0]));
+        try std.testing.expectEqual(@as(usize, 1), (try embargo_plan.disembargoMessageRange().slice(disembargo_builders[0..])).len);
+        try std.testing.expectError(error.InvalidTransition, embargo_plan.disembargoMessageRange().slice(disembargo_builders[0..0]));
         try embargo_plan.validateOutputBuilderSets(no_messages[0..], no_messages[0..], disembargo_builders[0..]);
         try std.testing.expectError(error.InvalidTransition, embargo_plan.validateOutputBuilderSets(no_messages[0..], no_messages[0..], disembargo_builders[0..0]));
     }
