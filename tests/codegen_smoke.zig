@@ -5194,6 +5194,14 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptions"[0].method);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByIndex"(0).?.method);
     try std.testing.expectEqual(@as(?cpz.rpc.CallOptions, null), generated.ExtendedService.@"cpz.callOptionsByIndex"(99));
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callMethodByName"("pong").?);
+    try std.testing.expectEqual(@as(?cpz.rpc.CallMethod, null), generated.ExtendedService.@"cpz.callMethodByName"("missing"));
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByName"("pong").?.method);
+    try std.testing.expectEqual(@as(?cpz.rpc.CallOptions, null), generated.ExtendedService.@"cpz.callOptionsByName"("missing"));
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callMethodByOrdinal"(generated.ExtendedService.pong).?);
+    try std.testing.expectEqual(@as(?cpz.rpc.CallMethod, null), generated.ExtendedService.@"cpz.callMethodByOrdinal"(99));
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByOrdinal"(generated.ExtendedService.pong).?.method);
+    try std.testing.expectEqual(@as(?cpz.rpc.CallOptions, null), generated.ExtendedService.@"cpz.callOptionsByOrdinal"(99));
     try std.testing.expect(generated.ExtendedService.@"cpz.method.pong.callMethod".matches(0xe57e0001, generated.ExtendedService.pong));
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.method.pong.callMethod".callOptions().method);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.method.pong.callOptions".method);

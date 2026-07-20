@@ -10818,6 +10818,26 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\        return @This().@"cpz.callOptions"[@"cpz.index"];
             \\    }}
             \\
+            \\    pub fn @"cpz.callMethodByName"(@"cpz.name": []const u8) ?cpz.rpc.CallMethod {{
+            \\        const @"cpz.method" = @This().@"cpz.methodByName"(@"cpz.name") orelse return null;
+            \\        return @This().@"cpz.callMethodByIndex"(@"cpz.method".index);
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callOptionsByName"(@"cpz.name": []const u8) ?cpz.rpc.CallOptions {{
+            \\        const @"cpz.method" = @This().@"cpz.methodByName"(@"cpz.name") orelse return null;
+            \\        return @This().@"cpz.callOptionsByIndex"(@"cpz.method".index);
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callMethodByOrdinal"(@"cpz.ordinal": u16) ?cpz.rpc.CallMethod {{
+            \\        const @"cpz.method" = @This().@"cpz.methodByOrdinal"(@"cpz.ordinal") orelse return null;
+            \\        return @This().@"cpz.callMethodByIndex"(@"cpz.method".index);
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callOptionsByOrdinal"(@"cpz.ordinal": u16) ?cpz.rpc.CallOptions {{
+            \\        const @"cpz.method" = @This().@"cpz.methodByOrdinal"(@"cpz.ordinal") orelse return null;
+            \\        return @This().@"cpz.callOptionsByIndex"(@"cpz.method".index);
+            \\    }}
+            \\
         , .{});
         try appendFmt(allocator, out,
             \\    pub fn @"cpz.methodEntries"(handlers: anytype) @TypeOf(.{{
