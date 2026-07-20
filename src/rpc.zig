@@ -2538,6 +2538,29 @@ pub fn initWireReturnMessageUInt32ListFromRegistry(
     try initWireReturnResultsUInt32ListFromRegistry(allocator, return_, values, registry);
 }
 
+pub fn initWireReturnMessageUInt32ListFromRegistryAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    values: []const u32,
+    registry: anytype,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireReturnMessageUInt32ListAndApplyState(
+        state,
+        message,
+        answer_id,
+        release_param_caps,
+        no_finish_needed,
+        values,
+        descriptors,
+    );
+}
+
 pub fn joinResultCapabilityFromWireReturn(return_: anytype) !?u32 {
     const outcome = try returnOutcomeFromWireReturn(return_);
     if (outcome != .results) return null;
