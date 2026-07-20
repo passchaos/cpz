@@ -1581,6 +1581,20 @@ pub fn initWireCallMessageTextFromRegistry(
     try initWireCallParamsTextFromRegistry(allocator, call, text, registry);
 }
 
+pub fn initWireCallMessageTextFromRegistryWithOptions(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    text: []const u8,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsTextFromRegistry(allocator, call, text, registry);
+}
+
 pub fn initWireCallMessageDataFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
@@ -1595,6 +1609,20 @@ pub fn initWireCallMessageDataFromRegistry(
     try initWireCallParamsDataFromRegistry(allocator, call, data, registry);
 }
 
+pub fn initWireCallMessageDataFromRegistryWithOptions(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    data: []const u8,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsDataFromRegistry(allocator, call, data, registry);
+}
+
 pub fn initWireCallMessageUInt32ListFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
@@ -1606,6 +1634,20 @@ pub fn initWireCallMessageUInt32ListFromRegistry(
     const call = try message.init_call();
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsUInt32ListFromRegistry(allocator, call, values, registry);
+}
+
+pub fn initWireCallMessageUInt32ListFromRegistryWithOptions(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    values: []const u32,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
     try initWireCallParamsUInt32ListFromRegistry(allocator, call, values, registry);
 }
 
