@@ -2240,6 +2240,33 @@ pub fn initWireCallMessageUInt32ListFromRegistryWithOptions(
     try initWireCallParamsUInt32ListFromRegistry(allocator, call, values, registry);
 }
 
+pub fn initWireCallMessageUInt32ListFromRegistryWithOptionsAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    values: []const u32,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireCallMessageUInt32ListWithOptionsAndApplyState(state, message, question_id, target, values, descriptors, options);
+}
+
+pub fn initWireCallMessageUInt32ListFromRegistryAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    values: []const u32,
+    registry: anytype,
+) !void {
+    try initWireCallMessageUInt32ListFromRegistryWithOptionsAndApplyState(state, allocator, message, question_id, target, values, registry, .{});
+}
+
 pub fn initWireBootstrap(bootstrap: anytype, question_id: QuestionId) !void {
     try bootstrap.set_questionId(question_id);
 }
