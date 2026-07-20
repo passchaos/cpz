@@ -7871,6 +7871,9 @@ test "rpc method table dispatcher selects matching handlers" {
         .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 }, .handler = Handlers.second },
     };
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.validateCallMethodEntries(duplicate_entries));
+    try std.testing.expectEqual(@as(?usize, 1), try entries[1].method.entryIndex(entries));
+    try std.testing.expectEqual(@as(?usize, 0), try cpz.rpc.callMethodEntryIndex(entries[0].method, entries));
+    try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.callMethodEntryIndex(.{ .interface_id = 0xabc, .method_id = 3 }, entries));
 
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
@@ -7892,9 +7895,11 @@ test "rpc method table dispatcher selects matching handlers" {
         var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
+        try std.testing.expectEqual(@as(?usize, 1), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
         var context: Context = .{};
         try cpz.rpc.dispatchCallMethods(&state, std.testing.allocator, response_root, try request.call(), &context, entries);
         try std.testing.expectEqual(@as(u32, 229), context.selected);
+        try std.testing.expectEqual(@as(?usize, 1), try state.trackedCallMethodEntryIndex(29, entries));
 
         var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
         const response = generated.Message.fromReader(try response_reader.getRoot());
@@ -7919,9 +7924,12 @@ test "rpc method table dispatcher selects matching handlers" {
         var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
+        try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
         var context: Context = .{};
         try cpz.rpc.dispatchCallMethods(&state, std.testing.allocator, response_root, try request.call(), &context, entries);
         try std.testing.expectEqual(@as(u32, 0), context.selected);
+        try std.testing.expectEqual(@as(?usize, null), try state.trackedCallMethodEntryIndex(30, entries));
+        try std.testing.expectEqual(@as(?usize, null), try state.trackedCallMethodEntryIndex(31, entries));
 
         var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
         const response = generated.Message.fromReader(try response_reader.getRoot());

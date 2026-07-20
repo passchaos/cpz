@@ -160,8 +160,9 @@ that a complete RPC runtime exists.
   `CallMethod` helpers for `CallOptions` and method-table entries, metadata
   conversion/lookup helpers, and generated-or-metadata factories so method
   tables and Call builders can reference schema-defined interface/method IDs directly. A compile-time method table dispatcher
-  can validate unique method entries, select among multiple handlers, and can be
-  used by the single-message dispatcher. A
+  can validate unique method entries, preview matching entry indexes for wire or
+  tracked calls, select among multiple handlers, and can be used by the
+  single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized, a resolved call
   target needs forwarding, or state was applied, and apply other supported

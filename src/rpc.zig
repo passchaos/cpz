@@ -802,6 +802,10 @@ pub const CallMethod = struct {
     pub fn methodEntry(self: @This(), handler: anytype) CallMethodEntry(@TypeOf(handler)) {
         return .{ .method = self, .handler = handler };
     }
+
+    pub fn entryIndex(self: @This(), comptime entries: anytype) Error!?usize {
+        return callMethodEntryIndex(self, entries);
+    }
 };
 
 pub fn CallMethodEntry(comptime Handler: type) type {
@@ -4833,6 +4837,14 @@ pub fn validateCallMethodEntries(comptime entries: anytype) Error!void {
             }
         }
     }
+}
+
+pub fn callMethodEntryIndex(method: CallMethod, comptime entries: anytype) Error!?usize {
+    try validateCallMethodEntries(entries);
+    inline for (entries, 0..) |entry, index| {
+        if (method.matches(entry.method.interface_id, entry.method.method_id)) return index;
+    }
+    return null;
 }
 
 pub fn dispatchCallMethods(
@@ -12264,6 +12276,11 @@ pub const State = struct {
     pub fn trackedCallTransitiveEffectiveTarget(self: *const State, id: QuestionId) Error!?CallTarget {
         const target = self.trackedCallTarget(id) orelse return null;
         return try self.transitiveEffectiveCallTarget(target);
+    }
+
+    pub fn trackedCallMethodEntryIndex(self: *const State, id: QuestionId, comptime entries: anytype) Error!?usize {
+        const info = self.callInfo(id) orelse return null;
+        return try info.method.entryIndex(entries);
     }
 
     pub fn callMatchesCallMethod(self: *const State, id: QuestionId, method: CallMethod) ?bool {
