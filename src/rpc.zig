@@ -2291,6 +2291,48 @@ pub fn dispatchCallReturningUInt32List(
     try initWireReturnMessageUInt32List(response_message, call.questionId(), true, false, values, &.{});
 }
 
+pub fn dispatchCallReturningStructWith(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    struct_size: anytype,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const return_ = try response_message.init_return_();
+    try return_.set_answerId(call.questionId());
+    try return_.set_releaseParamCaps(true);
+    try return_.set_noFinishNeeded(false);
+    const results = try return_.init_results();
+    const content = try (try results.get_contentAsPointer()).initStruct(struct_size);
+    try handler(context, call, content);
+    try initWirePayloadCapTable(results, descriptors);
+}
+
+pub fn dispatchCallReturningStructInfoWith(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    struct_size: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const return_ = try response_message.init_return_();
+    try return_.set_answerId(call.questionId());
+    try return_.set_releaseParamCaps(true);
+    try return_.set_noFinishNeeded(false);
+    const results = try return_.init_results();
+    const content = try (try results.get_contentAsPointer()).initStruct(struct_size);
+    try handler(context, call, content);
+    try initWirePayloadCapTableInfo(results, infos);
+}
+
 pub fn dispatchCall(
     state: *State,
     allocator: std.mem.Allocator,
