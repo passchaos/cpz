@@ -153,8 +153,8 @@ that a complete RPC runtime exists.
   those callbacks, report whether a response was initialized, a resolved call
   target needs forwarding, or state was applied, and apply other supported
   top-level wire messages to state; apply-handler variants, including
-  forwarding, method-table, and combined method-table forwarding equivalents,
-  expose detailed state-only results such as released Accept IDs from
+  forwarding, method-table, dense, and combined method-table forwarding
+  equivalents, expose detailed state-only results such as released Accept IDs from
   Disembargo before deinitializing temporary result allocations, and a batch
   helper can aggregate those outcomes over caller-provided message readers,
   including method-table call dispatch.

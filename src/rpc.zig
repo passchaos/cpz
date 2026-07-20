@@ -3277,6 +3277,54 @@ pub fn dispatchWireMessagesToDenseSink(
     return stats;
 }
 
+pub fn dispatchWireMessagesToDenseSinkWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    var stats: WireDispatchStats = .{};
+    var response_index: usize = 0;
+    for (request_messages) |request_message| {
+        switch (try eventFromWireMessage(request_message)) {
+            .bootstrap => {
+                if (response_index >= response_messages.len) return error.InvalidTransition;
+                try dispatchBootstrap(state, response_messages[response_index], try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+                try response_handler(response_context, response_messages[response_index]);
+                response_index += 1;
+                stats.recordResponseInitialized();
+            },
+            .call => {
+                const call = try request_message.call();
+                try state.validateWireCallTarget(call);
+                if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+                    try state.applyWireCall(allocator, call);
+                    stats.recordForwardRequired();
+                } else {
+                    if (response_index >= response_messages.len) return error.InvalidTransition;
+                    try dispatchCall(state, allocator, response_messages[response_index], call, call_context, call_handler);
+                    try response_handler(response_context, response_messages[response_index]);
+                    response_index += 1;
+                    stats.recordResponseInitialized();
+                }
+            },
+            else => {
+                try applyStateWireMessageWithHandler(state, allocator, request_message, apply_context, apply_handler);
+                stats.recordStateApplied();
+            },
+        }
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesDense(
     state: *State,
     allocator: std.mem.Allocator,
@@ -3298,6 +3346,34 @@ pub fn dispatchWireMessagesDense(
         call_handler,
         {},
         ignoreInitializedMessage,
+    );
+}
+
+pub fn dispatchWireMessagesDenseWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    return dispatchWireMessagesToDenseSinkWithApplyHandler(
+        state,
+        allocator,
+        response_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        {},
+        ignoreInitializedMessage,
+        apply_context,
+        apply_handler,
     );
 }
 
@@ -3793,6 +3869,55 @@ pub fn dispatchWireMessagesMethodsToDenseSink(
     return stats;
 }
 
+pub fn dispatchWireMessagesMethodsToDenseSinkWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    try validateCallMethodEntries(call_entries);
+    var stats: WireDispatchStats = .{};
+    var response_index: usize = 0;
+    for (request_messages) |request_message| {
+        switch (try eventFromWireMessage(request_message)) {
+            .bootstrap => {
+                if (response_index >= response_messages.len) return error.InvalidTransition;
+                try dispatchBootstrap(state, response_messages[response_index], try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+                try response_handler(response_context, response_messages[response_index]);
+                response_index += 1;
+                stats.recordResponseInitialized();
+            },
+            .call => {
+                const call = try request_message.call();
+                try state.validateWireCallTarget(call);
+                if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+                    try state.applyWireCall(allocator, call);
+                    stats.recordForwardRequired();
+                } else {
+                    if (response_index >= response_messages.len) return error.InvalidTransition;
+                    try dispatchCallMethods(state, allocator, response_messages[response_index], call, call_context, call_entries);
+                    try response_handler(response_context, response_messages[response_index]);
+                    response_index += 1;
+                    stats.recordResponseInitialized();
+                }
+            },
+            else => {
+                try applyStateWireMessageWithHandler(state, allocator, request_message, apply_context, apply_handler);
+                stats.recordStateApplied();
+            },
+        }
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesMethodsDense(
     state: *State,
     allocator: std.mem.Allocator,
@@ -3814,6 +3939,34 @@ pub fn dispatchWireMessagesMethodsDense(
         call_entries,
         {},
         ignoreInitializedMessage,
+    );
+}
+
+pub fn dispatchWireMessagesMethodsDenseWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    return dispatchWireMessagesMethodsToDenseSinkWithApplyHandler(
+        state,
+        allocator,
+        response_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        {},
+        ignoreInitializedMessage,
+        apply_context,
+        apply_handler,
     );
 }
 
