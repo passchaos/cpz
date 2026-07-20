@@ -10848,6 +10848,21 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\        return @This().@"cpz.callOptionsByIndex"(@"cpz.method".index);
             \\    }}
             \\
+            \\    pub fn @"cpz.methodEntryByName"(@"cpz.name": []const u8, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
+            \\        const @"cpz.callMethod" = @This().@"cpz.callMethodByName"(@"cpz.name") orelse return null;
+            \\        return @"cpz.callMethod".methodEntry(handler);
+            \\    }}
+            \\
+            \\    pub fn @"cpz.methodEntryByOrdinal"(@"cpz.ordinal": u16, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
+            \\        const @"cpz.callMethod" = @This().@"cpz.callMethodByOrdinal"(@"cpz.ordinal") orelse return null;
+            \\        return @"cpz.callMethod".methodEntry(handler);
+            \\    }}
+            \\
+            \\    pub fn @"cpz.methodEntryByCallMethod"(@"cpz.callMethod": cpz.rpc.CallMethod, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
+            \\        const @"cpz.canonicalCallMethod" = @This().@"cpz.callMethodByCallMethod"(@"cpz.callMethod") orelse return null;
+            \\        return @"cpz.canonicalCallMethod".methodEntry(handler);
+            \\    }}
+            \\
         , .{});
         try appendFmt(allocator, out,
             \\    pub fn @"cpz.methodEntries"(handlers: anytype) @TypeOf(.{{

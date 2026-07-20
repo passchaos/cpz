@@ -5249,6 +5249,15 @@ test "generated interface method constants compile" {
     const pong_entry = generated.ExtendedService.@"cpz.method.pong.entry"(EntryHandler.handle);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", pong_entry.method);
     try cpz.rpc.validateCallMethodEntries(.{pong_entry});
+    const entry_by_name = generated.ExtendedService.@"cpz.methodEntryByName"("pong", EntryHandler.handle).?;
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", entry_by_name.method);
+    try std.testing.expect(generated.ExtendedService.@"cpz.methodEntryByName"("missing", EntryHandler.handle) == null);
+    const entry_by_ordinal = generated.ExtendedService.@"cpz.methodEntryByOrdinal"(generated.ExtendedService.pong, EntryHandler.handle).?;
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", entry_by_ordinal.method);
+    try std.testing.expect(generated.ExtendedService.@"cpz.methodEntryByOrdinal"(99, EntryHandler.handle) == null);
+    const entry_by_call_method = generated.ExtendedService.@"cpz.methodEntryByCallMethod"(generated.ExtendedService.@"cpz.method.pong.callMethod", EntryHandler.handle).?;
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", entry_by_call_method.method);
+    try std.testing.expect(generated.ExtendedService.@"cpz.methodEntryByCallMethod"(.{ .interface_id = 0, .method_id = generated.ExtendedService.pong }, EntryHandler.handle) == null);
     const metadata_entry = generated.ExtendedService.@"cpz.method.pong.metadata".methodEntry(generated.ExtendedService.@"cpz.type_id", EntryHandler.handle);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", metadata_entry.method);
     try cpz.rpc.validateCallMethodEntries(.{metadata_entry});
