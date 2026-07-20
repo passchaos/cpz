@@ -248,7 +248,8 @@ that a complete RPC runtime exists.
   compute method-entry indexes and service actions, service-action previews,
   `CallOptions` restoration, and direct `CallMethod`/send-results/
   third-party result-target/flag querying for future service dispatch, plus
-  params capability-table bookkeeping.
+  params capability-table bookkeeping. The same dispatch-info snapshot can be
+  built from an unapplied wire Call for pre-apply forwarding/dispatch previews.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application, return detailed Disembargo release

@@ -13118,11 +13118,25 @@ pub const State = struct {
         return try dispatch_info.serviceAction(entries);
     }
 
+    pub fn wireCallDispatchInfo(self: *const State, call: anytype) !TrackedCallDispatchInfo {
+        const target = try callTargetFromWireCall(call);
+        try self.validateCallTarget(target);
+        const options = try callOptionsFromWireCall(call);
+        const info = options.callInfo(call.questionId(), target);
+        return .{
+            .info = info,
+            .options = options,
+            .resolution = self.callTargetResolution(target),
+            .forward_target = self.callTargetForwardTarget(target),
+            .effective_target = self.effectiveCallTarget(target),
+            .transitive_forward_target = try self.callTargetTransitiveForwardTarget(target),
+            .transitive_effective_target = try self.transitiveEffectiveCallTarget(target),
+        };
+    }
+
     pub fn wireCallServiceAction(self: *const State, call: anytype, comptime entries: anytype) !TrackedCallServiceAction {
-        try self.validateWireCallTarget(call);
-        if (try self.wireCallTargetTransitiveForwardTarget(call)) |target| return .{ .forward = target };
-        if (try callMethodFromWireCall(call).entryIndex(entries)) |index| return .{ .dispatch = index };
-        return .unimplemented;
+        const dispatch_info = try self.wireCallDispatchInfo(call);
+        return try dispatch_info.serviceAction(entries);
     }
 
     pub fn wireCallServiceActionStats(self: *const State, calls: anytype, comptime entries: anytype) !TrackedCallServiceActionStats {

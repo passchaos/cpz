@@ -10090,6 +10090,16 @@ test "rpc call dispatch outcomes flag resolved targets for forwarding" {
     try std.testing.expect(dispatch_info.needsForward());
     const default_method = cpz.rpc.CallMethod{};
     const entries = .{default_method.methodEntry(Handler.handle)};
+    const wire_dispatch_info = try state.wireCallDispatchInfo(try request.call());
+    try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 140), wire_dispatch_info.info.question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 140 }, wire_dispatch_info.info.target);
+    try std.testing.expectEqual(default_method, wire_dispatch_info.info.callMethod());
+    try std.testing.expectEqual(default_method.callOptions(), wire_dispatch_info.options);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, wire_dispatch_info.transitive_forward_target.?);
+    try std.testing.expect(wire_dispatch_info.needsForward());
+    const wire_info_action = try wire_dispatch_info.serviceAction(entries);
+    try std.testing.expect(wire_info_action.isForward());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, wire_info_action.forward);
     const preview_action = try state.wireCallServiceAction(try request.call(), entries);
     try std.testing.expect(preview_action.isForward());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, preview_action.forward);
