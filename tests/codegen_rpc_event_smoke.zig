@@ -8233,6 +8233,56 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 1), forward_sink.sent);
     try std.testing.expectEqual(@as(u32, 73), forward_sink.question_sum);
 
+    var split_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
+    defer split_wrapper_state.deinit();
+    try split_wrapper_state.addImport(5);
+    try split_wrapper_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try split_wrapper_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try split_wrapper_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var split_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var split_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer split_response_builder0.deinit();
+    const split_response0 = try generated.Message.initRootTyped(&split_response_builder0);
+    var split_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer split_response_builder1.deinit();
+    const split_response1 = try generated.Message.initRootTyped(&split_response_builder1);
+    var split_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer split_forward_builder.deinit();
+    const split_forward = try generated.Message.initRootTyped(&split_forward_builder);
+    const split_responses = [_]generated.Message.Builder{ split_response0, split_response1 };
+    const split_forwards = [_]generated.Message.Builder{split_forward};
+    var split_context: Context = .{};
+    var split_response_sink: ResponseSink = .{};
+    var split_forward_sink: ForwardSink = .{};
+    var split_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, split_wrapper_state.dispatchWireCallServiceActions(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        split_short_plan_buffer[0..],
+        split_responses[0..],
+        split_forwards[0..],
+        &split_context,
+    ));
+    try std.testing.expectEqual(wire_stats, try split_wrapper_state.dispatchWireCallServiceActionsToSinks(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        split_plan_buffer[0..],
+        split_responses[0..],
+        split_forwards[0..],
+        &split_context,
+        &split_response_sink,
+        ResponseSink.handle,
+        &split_forward_sink,
+        ForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), split_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), split_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), split_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), split_forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), split_forward_sink.question_sum);
+
     var unified_state = cpz.rpc.State.init(std.testing.allocator);
     defer unified_state.deinit();
     try unified_state.addImport(5);

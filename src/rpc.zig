@@ -12716,6 +12716,51 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn dispatchWireCallServiceActions(
+        self: *State,
+        allocator: std.mem.Allocator,
+        calls: anytype,
+        comptime entries: anytype,
+        plans: []TrackedCallServiceActionPlan,
+        response_messages: anytype,
+        forward_messages: anytype,
+        context: anytype,
+    ) !TrackedCallServiceActionStats {
+        const stats = try self.initWireCallServiceActionPlans(calls, entries, plans);
+        return initWireCallServiceActionPlanOutputs(self, allocator, calls, plans[0..stats.actions()], response_messages, forward_messages, context, entries);
+    }
+
+    pub fn dispatchWireCallServiceActionsToSinks(
+        self: *State,
+        allocator: std.mem.Allocator,
+        calls: anytype,
+        comptime entries: anytype,
+        plans: []TrackedCallServiceActionPlan,
+        response_messages: anytype,
+        forward_messages: anytype,
+        context: anytype,
+        response_context: anytype,
+        response_handler: anytype,
+        forward_context: anytype,
+        forward_handler: anytype,
+    ) !TrackedCallServiceActionStats {
+        const stats = try self.initWireCallServiceActionPlans(calls, entries, plans);
+        return initWireCallServiceActionPlanOutputsToSinks(
+            self,
+            allocator,
+            calls,
+            plans[0..stats.actions()],
+            response_messages,
+            forward_messages,
+            context,
+            entries,
+            response_context,
+            response_handler,
+            forward_context,
+            forward_handler,
+        );
+    }
+
     pub fn dispatchWireCallServiceActionsUnified(
         self: *State,
         allocator: std.mem.Allocator,
