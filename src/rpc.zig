@@ -2192,6 +2192,42 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
     };
 }
 
+pub fn sendRpcServiceActionUnifiedOutputPlansToSinks(
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+) !void {
+    if (plans.len != stats.actions()) return error.InvalidTransition;
+    try stats.validateActionCapacity(output_messages.len);
+    var response_index = stats.outputResponseRange().start;
+    var forward_index = stats.outputForwardRange().start;
+    for (plans) |plan| switch (plan.action) {
+        .dispatch => {
+            try response_handler(response_context, plan, output_messages[response_index]);
+            response_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .unimplemented => {
+            try response_handler(response_context, plan, output_messages[response_index]);
+            response_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .forward => {
+            try forward_handler(forward_context, plan, output_messages[forward_index]);
+            forward_index += 1;
+        },
+        else => {},
+    };
+}
+
 pub fn sendRpcServiceActionUnifiedOutputPlansToTaggedSink(
     stats: TrackedCallServiceActionStats,
     plans: []const TrackedCallServiceActionPlan,
@@ -2297,6 +2333,24 @@ pub fn initWireCallServiceActionPlanUnifiedOutputPlansToSink(
     return stats;
 }
 
+pub fn initWireCallServiceActionPlanUnifiedOutputPlansToSinks(
+    state: *State,
+    allocator: std.mem.Allocator,
+    calls: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try initWireCallServiceActionPlanUnifiedOutputs(state, allocator, calls, plans, output_messages, context, entries);
+    try sendRpcServiceActionUnifiedOutputPlansToSinks(stats, plans, output_messages, response_context, response_handler, forward_context, forward_handler);
+    return stats;
+}
+
 pub fn initWireCallServiceActionPlanUnifiedOutputPlansToTaggedSink(
     state: *State,
     allocator: std.mem.Allocator,
@@ -2399,6 +2453,24 @@ pub fn initWireMessageServiceActionPlanUnifiedOutputPlansToSink(
 ) !TrackedCallServiceActionStats {
     const stats = try initWireMessageServiceActionPlanUnifiedOutputs(state, allocator, messages, plans, output_messages, context, entries);
     try sendRpcServiceActionUnifiedOutputPlansToSink(stats, plans, output_messages, sink_context, sink_handler);
+    return stats;
+}
+
+pub fn initWireMessageServiceActionPlanUnifiedOutputPlansToSinks(
+    state: *State,
+    allocator: std.mem.Allocator,
+    messages: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try initWireMessageServiceActionPlanUnifiedOutputs(state, allocator, messages, plans, output_messages, context, entries);
+    try sendRpcServiceActionUnifiedOutputPlansToSinks(stats, plans, output_messages, response_context, response_handler, forward_context, forward_handler);
     return stats;
 }
 
@@ -13313,6 +13385,24 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn dispatchWireMessageServiceActionsUnifiedOutputPlansToSinks(
+        self: *State,
+        allocator: std.mem.Allocator,
+        messages: anytype,
+        comptime entries: anytype,
+        plans: []TrackedCallServiceActionPlan,
+        output_messages: anytype,
+        context: anytype,
+        response_context: anytype,
+        response_handler: anytype,
+        forward_context: anytype,
+        forward_handler: anytype,
+    ) !TrackedCallServiceActionStats {
+        const stats = try self.dispatchWireMessageServiceActionsUnified(allocator, messages, entries, plans, output_messages, context);
+        try sendRpcServiceActionUnifiedOutputPlansToSinks(stats, plans[0..stats.actions()], output_messages, response_context, response_handler, forward_context, forward_handler);
+        return stats;
+    }
+
     pub fn dispatchWireMessageServiceActionsUnifiedOutputPlansToTaggedSink(
         self: *State,
         allocator: std.mem.Allocator,
@@ -13392,6 +13482,24 @@ pub const State = struct {
     ) !TrackedCallServiceActionStats {
         const stats = try self.dispatchWireCallServiceActionsUnified(allocator, calls, entries, plans, output_messages, context);
         try sendRpcServiceActionUnifiedOutputPlansToSink(stats, plans[0..stats.actions()], output_messages, sink_context, sink_handler);
+        return stats;
+    }
+
+    pub fn dispatchWireCallServiceActionsUnifiedOutputPlansToSinks(
+        self: *State,
+        allocator: std.mem.Allocator,
+        calls: anytype,
+        comptime entries: anytype,
+        plans: []TrackedCallServiceActionPlan,
+        output_messages: anytype,
+        context: anytype,
+        response_context: anytype,
+        response_handler: anytype,
+        forward_context: anytype,
+        forward_handler: anytype,
+    ) !TrackedCallServiceActionStats {
+        const stats = try self.dispatchWireCallServiceActionsUnified(allocator, calls, entries, plans, output_messages, context);
+        try sendRpcServiceActionUnifiedOutputPlansToSinks(stats, plans[0..stats.actions()], output_messages, response_context, response_handler, forward_context, forward_handler);
         return stats;
     }
 

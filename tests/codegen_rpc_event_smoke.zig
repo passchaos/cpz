@@ -8454,6 +8454,136 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 2 + 3), message_plan_sink.source_sum);
     try std.testing.expectEqual(@as(u32, 71 + 72 + 73), message_plan_sink.question_sum);
 
+    const PlanRoleResponseSink = struct {
+        sent: usize = 0,
+        source_sum: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), plan: cpz.rpc.TrackedCallServiceActionPlan, message: anytype) !void {
+            try std.testing.expect(plan.action.isDispatch() or plan.action.isUnimplemented());
+            context.sent += 1;
+            context.source_sum += plan.source_index;
+            context.answer_sum += try (try message.get_return_()).get_answerId();
+        }
+    };
+    const PlanRoleForwardSink = struct {
+        sent: usize = 0,
+        source_sum: usize = 0,
+        question_sum: u32 = 0,
+
+        fn handle(context: *@This(), plan: cpz.rpc.TrackedCallServiceActionPlan, message: anytype) !void {
+            try std.testing.expect(plan.action.isForward());
+            context.sent += 1;
+            context.source_sum += plan.source_index;
+            context.question_sum += try (try message.get_call()).get_questionId();
+        }
+    };
+    var message_plan_role_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_plan_role_state.deinit();
+    try message_plan_role_state.addImport(5);
+    try message_plan_role_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_plan_role_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_plan_role_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_plan_role_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_plan_role_builder0.deinit();
+    const message_plan_role_output0 = try generated.Message.initRootTyped(&message_plan_role_builder0);
+    var message_plan_role_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_plan_role_builder1.deinit();
+    const message_plan_role_output1 = try generated.Message.initRootTyped(&message_plan_role_builder1);
+    var message_plan_role_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_plan_role_builder2.deinit();
+    const message_plan_role_output2 = try generated.Message.initRootTyped(&message_plan_role_builder2);
+    const message_plan_role_outputs = [_]generated.Message.Builder{ message_plan_role_output0, message_plan_role_output1, message_plan_role_output2 };
+    var message_plan_role_context: Context = .{};
+    var message_plan_role_response_sink: PlanRoleResponseSink = .{};
+    var message_plan_role_forward_sink: PlanRoleForwardSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputPlansToSinks(
+        &message_plan_role_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_plan_role_outputs[0..2],
+        &message_plan_role_context,
+        entries,
+        &message_plan_role_response_sink,
+        PlanRoleResponseSink.handle,
+        &message_plan_role_forward_sink,
+        PlanRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(message_action_stats, try cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputPlansToSinks(
+        &message_plan_role_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_plan_role_outputs[0..],
+        &message_plan_role_context,
+        entries,
+        &message_plan_role_response_sink,
+        PlanRoleResponseSink.handle,
+        &message_plan_role_forward_sink,
+        PlanRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_plan_role_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), message_plan_role_response_sink.sent);
+    try std.testing.expectEqual(@as(usize, 0 + 2), message_plan_role_response_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_plan_role_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), message_plan_role_forward_sink.sent);
+    try std.testing.expectEqual(@as(usize, 3), message_plan_role_forward_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 73), message_plan_role_forward_sink.question_sum);
+
+    var message_plan_role_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_plan_role_wrapper_state.deinit();
+    try message_plan_role_wrapper_state.addImport(5);
+    try message_plan_role_wrapper_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_plan_role_wrapper_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_plan_role_wrapper_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_plan_role_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_plan_role_wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_plan_role_wrapper_builder0.deinit();
+    const message_plan_role_wrapper_output0 = try generated.Message.initRootTyped(&message_plan_role_wrapper_builder0);
+    var message_plan_role_wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_plan_role_wrapper_builder1.deinit();
+    const message_plan_role_wrapper_output1 = try generated.Message.initRootTyped(&message_plan_role_wrapper_builder1);
+    var message_plan_role_wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_plan_role_wrapper_builder2.deinit();
+    const message_plan_role_wrapper_output2 = try generated.Message.initRootTyped(&message_plan_role_wrapper_builder2);
+    const message_plan_role_wrapper_outputs = [_]generated.Message.Builder{ message_plan_role_wrapper_output0, message_plan_role_wrapper_output1, message_plan_role_wrapper_output2 };
+    var message_plan_role_wrapper_context: Context = .{};
+    var message_plan_role_wrapper_response_sink: PlanRoleResponseSink = .{};
+    var message_plan_role_wrapper_forward_sink: PlanRoleForwardSink = .{};
+    var message_plan_role_wrapper_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, message_plan_role_wrapper_state.dispatchWireMessageServiceActionsUnifiedOutputPlansToSinks(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_plan_role_wrapper_short_plan_buffer[0..],
+        message_plan_role_wrapper_outputs[0..],
+        &message_plan_role_wrapper_context,
+        &message_plan_role_wrapper_response_sink,
+        PlanRoleResponseSink.handle,
+        &message_plan_role_wrapper_forward_sink,
+        PlanRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(message_stats, try message_plan_role_wrapper_state.dispatchWireMessageServiceActionsUnifiedOutputPlansToSinks(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_plan_role_wrapper_plan_buffer[0..],
+        message_plan_role_wrapper_outputs[0..],
+        &message_plan_role_wrapper_context,
+        &message_plan_role_wrapper_response_sink,
+        PlanRoleResponseSink.handle,
+        &message_plan_role_wrapper_forward_sink,
+        PlanRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_plan_role_wrapper_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), message_plan_role_wrapper_response_sink.sent);
+    try std.testing.expectEqual(@as(usize, 0 + 2), message_plan_role_wrapper_response_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_plan_role_wrapper_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), message_plan_role_wrapper_forward_sink.sent);
+    try std.testing.expectEqual(@as(usize, 3), message_plan_role_wrapper_forward_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 73), message_plan_role_wrapper_forward_sink.question_sum);
+
     const MessageTaggedPlanSink = struct {
         sent: usize = 0,
         source_sum: usize = 0,
