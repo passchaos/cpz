@@ -5249,6 +5249,9 @@ test "generated interface method constants compile" {
     const pong_entry = generated.ExtendedService.@"cpz.method.pong.entry"(EntryHandler.handle);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", pong_entry.method);
     try cpz.rpc.validateCallMethodEntries(.{pong_entry});
+    const entry_by_index = generated.ExtendedService.@"cpz.methodEntryByIndex"(0, EntryHandler.handle).?;
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", entry_by_index.method);
+    try std.testing.expect(generated.ExtendedService.@"cpz.methodEntryByIndex"(99, EntryHandler.handle) == null);
     const entry_by_name = generated.ExtendedService.@"cpz.methodEntryByName"("pong", EntryHandler.handle).?;
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", entry_by_name.method);
     try std.testing.expect(generated.ExtendedService.@"cpz.methodEntryByName"("missing", EntryHandler.handle) == null);

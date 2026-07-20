@@ -10848,6 +10848,11 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\        return @This().@"cpz.callOptionsByIndex"(@"cpz.method".index);
             \\    }}
             \\
+            \\    pub fn @"cpz.methodEntryByIndex"(@"cpz.index": usize, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
+            \\        const @"cpz.callMethod" = @This().@"cpz.callMethodByIndex"(@"cpz.index") orelse return null;
+            \\        return @"cpz.callMethod".methodEntry(handler);
+            \\    }}
+            \\
             \\    pub fn @"cpz.methodEntryByName"(@"cpz.name": []const u8, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
             \\        const @"cpz.callMethod" = @This().@"cpz.callMethodByName"(@"cpz.name") orelse return null;
             \\        return @"cpz.callMethod".methodEntry(handler);
