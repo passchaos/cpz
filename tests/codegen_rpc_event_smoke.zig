@@ -6408,6 +6408,45 @@ test "rpc top-level apply reports disembargo releases" {
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(68));
 }
 
+test "rpc batch apply aggregates detailed disembargo results" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 69,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "batch-69",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    const accept_message = generated.Message.fromReader(try accept_reader.getRoot());
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "batch-69" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+    const messages = [_]generated.Message{ accept_message, disembargo_message };
+    const stats = try state.applyWireMessagesAlloc(std.testing.allocator, messages[0..]);
+    try std.testing.expectEqual(cpz.rpc.WireMessageApplyStats{
+        .state_applied = 1,
+        .disembargos = 1,
+        .released_accepts = 1,
+    }, stats);
+    try std.testing.expectEqual(@as(usize, 2), stats.total());
+    try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(69));
+}
+
 test "rpc disembargo helper initializes released accept returns from handlers" {
     const HandlerContext = struct {
         seen: usize = 0,

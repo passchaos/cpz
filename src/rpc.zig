@@ -407,6 +407,26 @@ pub const WireMessageApplyResult = union(enum) {
     }
 };
 
+pub const WireMessageApplyStats = struct {
+    state_applied: usize = 0,
+    disembargos: usize = 0,
+    released_accepts: usize = 0,
+
+    pub fn record(self: *@This(), result: WireMessageApplyResult) void {
+        switch (result) {
+            .state_applied => self.state_applied += 1,
+            .disembargo => |info| {
+                self.disembargos += 1;
+                self.released_accepts += info.released_accepts;
+            },
+        }
+    }
+
+    pub fn total(self: @This()) usize {
+        return self.state_applied + self.disembargos;
+    }
+};
+
 pub const ResolveInfo = struct {
     promise_id: ExportId,
     cap: ?CapDescriptor = null,
@@ -4214,6 +4234,16 @@ pub const State = struct {
             else => try self.applyWireEvent(event),
         }
         return .state_applied;
+    }
+
+    pub fn applyWireMessagesAlloc(self: *State, allocator: std.mem.Allocator, messages: anytype) !WireMessageApplyStats {
+        var stats: WireMessageApplyStats = .{};
+        for (messages) |message| {
+            var result = try self.applyWireMessageAlloc(allocator, message);
+            stats.record(result);
+            result.deinit(allocator);
+        }
+        return stats;
     }
 
     pub fn applyWireFinish(self: *State, finish: Finish) Error!void {
