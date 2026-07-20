@@ -66,7 +66,8 @@ that a complete RPC runtime exists.
   presence/capability usage and optional embargo bytes alongside the question
   ID, for future provision/embargo handling.
   Join wire readers/builders expose target and key-part pointer capability
-  usage for future join result handling.
+  usage for future join result handling. Handoff pointer-usage writers reject
+  capability indexes outside the encoded pointer's declared capability count.
   Disembargo wire readers/builders and wire events can decode and write targets
   plus sender/receiver loopback context IDs and accept embargo bytes, though
   full embargo queue handling remains future work. Disembargo targets are
