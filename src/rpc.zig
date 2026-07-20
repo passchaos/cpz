@@ -2587,6 +2587,65 @@ pub fn dispatchCallMethod(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchCallMethodReturningText(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    const text = try handler(context, call);
+    try initWireReturnMessageText(response_message, call.questionId(), true, false, text, descriptors);
+}
+
+pub fn dispatchCallMethodReturningTextInfo(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    const text = try handler(context, call);
+    try initWireReturnMessageTextInfo(response_message, call.questionId(), true, false, text, infos);
+}
+
+pub fn dispatchCallMethodReturningTextFromRegistry(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    registry: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try dispatchCallMethodReturningText(state, allocator, response_message, call, expected_method, descriptors, context, handler);
+}
+
 pub fn dispatchCallMethodReturningStructWith(
     state: *State,
     allocator: std.mem.Allocator,
