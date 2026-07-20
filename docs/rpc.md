@@ -142,8 +142,8 @@ that a complete RPC runtime exists.
   that returns the bootstrap export ID. A minimal Call dispatcher can do the
   same for calls that return a single capability, text/data/UInt32-list
   payloads, or caller-filled struct payloads through generic or typed
-  convenience dispatchers, with registry-backed cap tables for those payload
-  shapes, an empty no-finish result,
+  convenience dispatchers, with descriptor-info or registry-backed cap tables
+  for those payload shapes, an empty no-finish result,
   exceptions, cancellation, results-sent-elsewhere,
   or take-from-other-question outcomes, including await-from-third-party
   tail-call handoffs. A

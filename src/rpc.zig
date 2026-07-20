@@ -2291,6 +2291,48 @@ pub fn dispatchCallReturningUInt32List(
     try initWireReturnMessageUInt32List(response_message, call.questionId(), true, false, values, &.{});
 }
 
+pub fn dispatchCallReturningTextInfo(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const text = try handler(context, call);
+    try initWireReturnMessageTextInfo(response_message, call.questionId(), true, false, text, infos);
+}
+
+pub fn dispatchCallReturningDataInfo(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const data = try handler(context, call);
+    try initWireReturnMessageDataInfo(response_message, call.questionId(), true, false, data, infos);
+}
+
+pub fn dispatchCallReturningUInt32ListInfo(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    const values = try handler(context, call);
+    try initWireReturnMessageUInt32ListInfo(response_message, call.questionId(), true, false, values, infos);
+}
+
 pub fn dispatchCallReturningTextFromRegistry(
     state: *State,
     allocator: std.mem.Allocator,
