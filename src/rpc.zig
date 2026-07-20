@@ -1355,6 +1355,14 @@ pub fn capDescriptorInfoFromWire(descriptor: anytype) !CapDescriptorInfo {
     };
 }
 
+fn capDescriptorsFromInfosAlloc(allocator: std.mem.Allocator, infos: []const CapDescriptorInfo) std.mem.Allocator.Error![]CapDescriptor {
+    const descriptors = try allocator.alloc(CapDescriptor, infos.len);
+    for (infos, 0..) |info, index| {
+        descriptors[index] = info.descriptor;
+    }
+    return descriptors;
+}
+
 pub fn resolveInfoFromWireResolve(resolve: anytype) !ResolveInfo {
     return switch (resolve.which() orelse return error.InvalidTransition) {
         .cap => .{
@@ -2097,6 +2105,30 @@ pub fn initWireReturnMessagePayloadCapabilityInfo(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     try initWireReturnResultsCapabilityInfo(return_, capability_index, infos);
+}
+
+pub fn initWireReturnMessagePayloadCapabilityInfoAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+    infos: []const CapDescriptorInfo,
+) !void {
+    if (capability_index >= infos.len) return error.InvalidCapabilityPointer;
+    for (infos) |info| try state.validateCapDescriptor(info.descriptor);
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try initWireReturnMessagePayloadCapabilityInfo(message, answer_id, release_param_caps, no_finish_needed, capability_index, infos);
+    try state.resolveAnswer(answer_id, .return_);
+    for (infos) |info| try state.applyCapDescriptor(info.descriptor);
+    const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
+    defer state.allocator.free(descriptors);
+    try state.trackResultImports(answer_id, descriptors);
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+    if (no_finish_needed and infos.len == 0) {
+        try state.finishQuestion(answer_id);
+    }
 }
 
 pub fn initWireReturnMessagePayloadCapabilityFromRegistry(
