@@ -4272,6 +4272,19 @@ pub fn dispatchRpcTurnPendingAcceptDisembargosToSink(
     return state.initPendingAcceptDisembargoMessagesToSink(message_builders, target, sink_context, sink_handler);
 }
 
+pub fn dispatchRpcTurnPendingAcceptDisembargosForEmbargoToSink(
+    state: *const State,
+    message_builders: anytype,
+    target: CallTarget,
+    embargo: []const u8,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !usize {
+    const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoMatchCount(embargo) };
+    try plan.validateDisembargoCapacity(message_builders.len);
+    return state.initPendingAcceptDisembargoMessagesForEmbargoToSink(message_builders, target, embargo, sink_context, sink_handler);
+}
+
 pub fn dispatchWireMessagesMethods(
     state: *State,
     allocator: std.mem.Allocator,

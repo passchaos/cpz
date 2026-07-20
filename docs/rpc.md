@@ -170,7 +170,8 @@ that a complete RPC runtime exists.
   allocated, with turn-level plans that combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
   or unified output queues; pending Accept Disembargos can be emitted to their
-  own sink from the same turn plan. A minimal
+  own sink from the same turn plan, either all at once or filtered by embargo
+  token. A minimal
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
   slices, and append ready handoff Returns to the same response sink for
