@@ -3731,8 +3731,24 @@ test "rpc top-level provide and join messages validate targets" {
         const tracked = state.joinInfo(62).?;
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 63 } }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 4), tracked.key_part_capability);
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, state.joinKeyPart(62).?);
+        {
+            var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer response_builder.deinit();
+            const response_root = try generated.Message.initRootTyped(&response_builder);
+            try state.initTrackedJoinResultReturnMessage(response_root, 62, 84);
+
+            var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+            const response = generated.Message.fromReader(try response_reader.getRoot());
+            try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(try response.return_()));
+            const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+            defer std.testing.allocator.free(descriptors);
+            try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+            try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 84 }, descriptors[0]);
+        }
         try state.finishQuestion(62);
         try std.testing.expect(state.joinInfo(62) == null);
+        try std.testing.expect(state.joinKeyPart(62) == null);
     }
 }
 
@@ -3908,6 +3924,31 @@ test "rpc top-level handoff helpers initialize messages" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 95 }, info.target);
         try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .sender_loopback = 96 }, info.context);
     }
+}
+
+test "rpc tracked join results require key parts" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireJoinMessage(root, .{
+        .question_id = 70,
+        .target = .{ .imported_cap = 71 },
+        .has_key_part = false,
+        .key_part_max_capability_count = 0,
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(71);
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expect(state.joinKeyPart(70) == null);
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedJoinResultReturnMessage(response_root, 70, 85));
 }
 
 test "rpc join info helpers write targets and key parts" {

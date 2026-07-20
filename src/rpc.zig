@@ -3154,8 +3154,18 @@ pub const State = struct {
         return tracker.info();
     }
 
+    pub fn joinKeyPart(self: *const State, id: QuestionId) ?AnyPointerUsage {
+        const tracker = self.joins.get(id) orelse return null;
+        return tracker.key_part;
+    }
+
     pub fn joinCount(self: *const State) usize {
         return self.joins.count();
+    }
+
+    pub fn initTrackedJoinResultReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
+        _ = self.joinKeyPart(question_id) orelse return error.InvalidTransition;
+        try initWireJoinResultReturnMessage(message, question_id, true, 0, &.{.{ .sender_hosted = export_id }});
     }
 
     pub fn provideInfo(self: *const State, id: QuestionId) ?ProvideInfo {
