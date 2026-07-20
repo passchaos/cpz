@@ -5393,6 +5393,104 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessages(responses[0..2], completions[0..]));
 }
 
+test "rpc tracked handoff plans initialize ready return messages" {
+    const Sink = struct {
+        sent: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            const return_ = try message.get_return_();
+            context.sent += 1;
+            context.answer_sum += try return_.get_answerId();
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(301);
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireProvideMessage(root, .{
+            .question_id = 100,
+            .target = .{ .imported_cap = 301 },
+            .has_recipient = true,
+            .recipient_max_capability_count = 1,
+            .recipient_capability = 0,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 101,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = null,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireJoinMessage(root, .{
+            .question_id = 102,
+            .target = .{ .imported_cap = 301 },
+            .has_key_part = true,
+            .key_part_max_capability_count = 1,
+            .key_part_capability = 0,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+
+    const planned_provides = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 100, .export_id = 500 }};
+    const planned_accepts = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 101, .export_id = 501 }};
+    const planned_joins = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 102, .export_id = 502 }};
+    const plan = cpz.rpc.HandoffReturnPlan{
+        .provides = planned_provides[0..],
+        .accepts = planned_accepts[0..],
+        .joins = planned_joins[0..],
+    };
+
+    var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder0.deinit();
+    const response0 = try generated.Message.initRootTyped(&response_builder0);
+    var response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder1.deinit();
+    const response1 = try generated.Message.initRootTyped(&response_builder1);
+    var response_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder2.deinit();
+    const response2 = try generated.Message.initRootTyped(&response_builder2);
+    const responses = [_]generated.Message.Builder{ response0, response1, response2 };
+    var sink: Sink = .{};
+    const stats = try state.initReadyHandoffReturnPlanMessagesToSink(responses[0..], plan, &sink, Sink.handle);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, stats);
+    try std.testing.expectEqual(@as(usize, 3), sink.sent);
+    try std.testing.expectEqual(@as(u32, 100 + 101 + 102), sink.answer_sum);
+
+    {
+        var response_reader = cpz.MessageReader.init(try response_builder0.segmentsConst(), .{});
+        try std.testing.expectEqual(@as(u32, 100), (try generated.Message.fromReader(try response_reader.getRoot()).return_()).answerId());
+    }
+    {
+        var response_reader = cpz.MessageReader.init(try response_builder2.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(try response.return_()));
+        try expectReturnCapabilityResult(response, 502);
+    }
+
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessages(responses[0..2], plan));
+}
+
 test "rpc tracked handoff batches preserve readiness gates" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

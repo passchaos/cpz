@@ -4236,6 +4236,28 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initReadyHandoffReturnPlanMessages(self: *const State, response_messages: anytype, plan: HandoffReturnPlan) !StateHandoffReturnStats {
+        if (response_messages.len < plan.total()) return error.InvalidTransition;
+        var stats: StateHandoffReturnStats = .{};
+        var index: usize = 0;
+        for (plan.provides) |value| {
+            try self.initTrackedProvideReturnMessage(response_messages[index], value.question_id, value.export_id);
+            stats.provides += 1;
+            index += 1;
+        }
+        for (plan.accepts) |value| {
+            try self.initReadyAcceptReturnMessage(response_messages[index], value.question_id, value.export_id);
+            stats.accepts += 1;
+            index += 1;
+        }
+        for (plan.joins) |value| {
+            try self.initTrackedJoinResultReturnMessage(response_messages[index], value.question_id, value.export_id);
+            stats.joins += 1;
+            index += 1;
+        }
+        return stats;
+    }
+
     pub fn initTrackedHandoffReturnMessagesToSink(
         self: *const State,
         response_messages: anytype,
@@ -4249,6 +4271,37 @@ pub const State = struct {
             try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
             try sink_handler(sink_context, response_messages[index]);
             stats.record(completion);
+        }
+        return stats;
+    }
+
+    pub fn initReadyHandoffReturnPlanMessagesToSink(
+        self: *const State,
+        response_messages: anytype,
+        plan: HandoffReturnPlan,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !StateHandoffReturnStats {
+        if (response_messages.len < plan.total()) return error.InvalidTransition;
+        var stats: StateHandoffReturnStats = .{};
+        var index: usize = 0;
+        for (plan.provides) |value| {
+            try self.initTrackedProvideReturnMessage(response_messages[index], value.question_id, value.export_id);
+            try sink_handler(sink_context, response_messages[index]);
+            stats.provides += 1;
+            index += 1;
+        }
+        for (plan.accepts) |value| {
+            try self.initReadyAcceptReturnMessage(response_messages[index], value.question_id, value.export_id);
+            try sink_handler(sink_context, response_messages[index]);
+            stats.accepts += 1;
+            index += 1;
+        }
+        for (plan.joins) |value| {
+            try self.initTrackedJoinResultReturnMessage(response_messages[index], value.question_id, value.export_id);
+            try sink_handler(sink_context, response_messages[index]);
+            stats.joins += 1;
+            index += 1;
         }
         return stats;
     }

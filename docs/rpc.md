@@ -174,7 +174,8 @@ that a complete RPC runtime exists.
   Provide Return only when that recipient is present; aggregate handoff stats
   and ready-ID snapshots summarize tracked and ready Provide/Accept/Join state
   for polling runtimes, and readiness-validated completion plans can be
-  materialized into batched handoff Return descriptors.
+  materialized into batched handoff Return descriptors or initialized/sent
+  directly.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
   for future provision handling; callers can query/count when an accepted
