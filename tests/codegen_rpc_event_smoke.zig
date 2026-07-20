@@ -8065,6 +8065,36 @@ test "rpc service action stats aggregate wire and tracked calls" {
     defer std.testing.allocator.free(no_forward_messages);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initForwardedWireCallMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], no_forward_messages));
 
+    var dispatch_state = cpz.rpc.State.init(std.testing.allocator);
+    defer dispatch_state.deinit();
+    try dispatch_state.addImport(5);
+    try dispatch_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try dispatch_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try dispatch_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireCallServiceActionPlans(
+        &dispatch_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        no_forward_messages,
+        @as(*Context, undefined),
+        entries,
+    ));
+    var dispatch_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer dispatch_response_builder.deinit();
+    const dispatch_response_root = try generated.Message.initRootTyped(&dispatch_response_builder);
+    const dispatch_responses = [_]generated.Message.Builder{dispatch_response_root};
+    var dispatch_context: Context = .{};
+    try std.testing.expectEqual(
+        @as(usize, 1),
+        try cpz.rpc.dispatchWireCallServiceActionPlans(&dispatch_state, std.testing.allocator, calls[0..], wire_plans[0..], dispatch_responses[0..], &dispatch_context, entries),
+    );
+    try std.testing.expectEqual(@as(u32, 71), dispatch_context.selected);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), dispatch_state.questionState(71));
+    var dispatch_response_reader = cpz.MessageReader.init(try dispatch_response_builder.segmentsConst(), .{});
+    const dispatch_return = try generated.Message.fromReader(try dispatch_response_reader.getRoot()).return_();
+    try std.testing.expectEqual(@as(u32, 71), dispatch_return.answerId());
+
     var unimplemented_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer unimplemented_response_builder.deinit();
     const unimplemented_response_root = try generated.Message.initRootTyped(&unimplemented_response_builder);

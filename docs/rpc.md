@@ -162,9 +162,10 @@ that a complete RPC runtime exists.
   tables and Call builders can reference schema-defined interface/method IDs directly. A compile-time method table dispatcher
   can validate unique method entries, preview matching entry indexes, service
   actions, aggregate action stats/ranges/capacity checks, grouped action queues,
-  or source-preserving plans that can materialize forwarded Calls and
-  unimplemented Return exceptions for pre-apply wire calls and tracked calls,
-  select among multiple handlers, and can be used by the single-message dispatcher. A
+  or source-preserving plans that can materialize dispatch responses, forwarded
+  Calls, and unimplemented Return exceptions for pre-apply wire calls and
+  tracked calls, select among multiple handlers, and can be used by the
+  single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized, a resolved call
   target needs forwarding, or state was applied, and apply other supported

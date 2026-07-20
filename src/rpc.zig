@@ -1848,6 +1848,37 @@ pub fn initUnimplementedReturnMessagesFromServiceActionPlans(calls: anytype, pla
     return response_count;
 }
 
+pub fn dispatchWireCallServiceActionPlans(
+    state: *State,
+    allocator: std.mem.Allocator,
+    calls: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    response_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+) !usize {
+    var response_count: usize = 0;
+    for (plans) |plan| {
+        switch (plan.action) {
+            .dispatch => |entry_index| {
+                if (plan.source_index >= calls.len) return error.InvalidTransition;
+                if (response_count >= response_messages.len) return error.InvalidTransition;
+                var matched = false;
+                inline for (entries, 0..) |entry, index| {
+                    if (index == entry_index) {
+                        try dispatchCallMethod(state, allocator, response_messages[response_count], calls[plan.source_index], entry.method, context, entry.handler);
+                        response_count += 1;
+                        matched = true;
+                    }
+                }
+                if (!matched) return error.InvalidTransition;
+            },
+            .forward, .unimplemented => {},
+        }
+    }
+    return response_count;
+}
+
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
     const target = (try state.wireCallTargetTransitiveForwardTarget(source_call)) orelse return error.InvalidTransition;
     try initForwardedWireCall(call, source_call, target);
