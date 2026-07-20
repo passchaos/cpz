@@ -110,6 +110,23 @@ pub const StateCleanupStats = struct {
     }
 };
 
+pub const StateHandoffStats = struct {
+    provides: usize = 0,
+    provide_recipients: usize = 0,
+    accepts: usize = 0,
+    ready_accept_provisions: usize = 0,
+    joins: usize = 0,
+    join_key_parts: usize = 0,
+
+    pub fn tracked(self: @This()) usize {
+        return self.provides + self.accepts + self.joins;
+    }
+
+    pub fn ready(self: @This()) usize {
+        return self.provide_recipients + self.ready_accept_provisions + self.join_key_parts;
+    }
+};
+
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
@@ -3391,6 +3408,17 @@ pub const State = struct {
     pub fn initTrackedProvideReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
         _ = self.provideRecipient(question_id) orelse return error.InvalidTransition;
         try initCapabilityReturnMessage(message, question_id, export_id);
+    }
+
+    pub fn handoffStats(self: *const State) StateHandoffStats {
+        return .{
+            .provides = self.provideCount(),
+            .provide_recipients = self.provideRecipientCount(),
+            .accepts = self.acceptCount(),
+            .ready_accept_provisions = self.readyAcceptProvisionCount(),
+            .joins = self.joinCount(),
+            .join_key_parts = self.joinKeyPartCount(),
+        };
     }
 
     pub fn callInfo(self: *const State, id: QuestionId) ?CallInfo {

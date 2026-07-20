@@ -3905,6 +3905,9 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expectEqual(@as(?u32, 2), tracked.recipient_capability);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.provideRecipient(61).?);
         try std.testing.expectEqual(@as(usize, 1), state.provideRecipientCount());
+        try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .provides = 1, .provide_recipients = 1 }, state.handoffStats());
+        try std.testing.expectEqual(@as(usize, 1), state.handoffStats().tracked());
+        try std.testing.expectEqual(@as(usize, 1), state.handoffStats().ready());
         {
             var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
             defer response_builder.deinit();
@@ -3922,6 +3925,7 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expect(state.provideInfo(61) == null);
         try std.testing.expect(state.provideRecipient(61) == null);
         try std.testing.expectEqual(@as(usize, 0), state.provideRecipientCount());
+        try std.testing.expectEqual(@as(usize, 0), state.handoffStats().tracked());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -3953,6 +3957,7 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expectEqual(@as(?u32, 4), tracked.key_part_capability);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, state.joinKeyPart(62).?);
         try std.testing.expectEqual(@as(usize, 1), state.joinKeyPartCount());
+        try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .joins = 1, .join_key_parts = 1 }, state.handoffStats());
         {
             var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
             defer response_builder.deinit();
@@ -4304,6 +4309,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.readyAcceptProvision(64).?);
     try std.testing.expectEqual(@as(usize, 1), state.readyAcceptProvisionCount());
+    try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .accepts = 1, .ready_accept_provisions = 1 }, state.handoffStats());
     {
         var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer response_builder.deinit();
