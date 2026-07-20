@@ -746,7 +746,22 @@ pub const CallMethod = struct {
     pub fn matches(self: @This(), interface_id: u64, method_id: u16) bool {
         return self.interface_id == interface_id and self.method_id == method_id;
     }
+
+    pub fn callOptions(self: @This()) CallOptions {
+        return .{ .method = self };
+    }
+
+    pub fn methodEntry(self: @This(), handler: anytype) CallMethodEntry(@TypeOf(handler)) {
+        return .{ .method = self, .handler = handler };
+    }
 };
+
+pub fn CallMethodEntry(comptime Handler: type) type {
+    return struct {
+        method: CallMethod,
+        handler: Handler,
+    };
+}
 
 pub const CallOptions = struct {
     method: CallMethod = .{},
