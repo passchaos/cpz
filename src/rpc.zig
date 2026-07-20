@@ -4278,6 +4278,31 @@ pub const State = struct {
         try initCapabilityReturnMessage(message, question_id, export_id);
     }
 
+    pub fn initReadyAcceptReturnMessageFromHandler(
+        self: *const State,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+    ) !void {
+        const provision = self.readyAcceptProvision(question_id) orelse return error.InvalidTransition;
+        const export_id = try handler(context, question_id, provision);
+        try self.initReadyAcceptReturnMessage(message, question_id, export_id);
+    }
+
+    pub fn initReadyAcceptReturnMessageFromHandlerToSink(
+        self: *const State,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !void {
+        try self.initReadyAcceptReturnMessageFromHandler(message, question_id, context, handler);
+        try sink_handler(sink_context, message);
+    }
+
     pub fn initReleasedAcceptReturnMessages(
         self: *const State,
         response_messages: anytype,

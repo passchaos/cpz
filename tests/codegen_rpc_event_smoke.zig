@@ -5442,6 +5442,46 @@ test "rpc top-level accept messages open questions" {
         try std.testing.expectEqual(@as(usize, 1), descriptors.len);
         try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 94 }, descriptors[0]);
     }
+    {
+        const HandlerContext = struct {
+            seen: usize = 0,
+            capability_sum: u32 = 0,
+
+            fn handle(context: *@This(), question_id: u32, provision: cpz.rpc.AnyPointerUsage) !u32 {
+                context.seen += 1;
+                context.capability_sum += provision.capability orelse 0;
+                return question_id + 32;
+            }
+        };
+        const Sink = struct {
+            sent: usize = 0,
+            last_answer: u32 = 0,
+
+            fn handle(context: *@This(), queued_message: anytype) !void {
+                const return_ = try queued_message.get_return_();
+                context.sent += 1;
+                context.last_answer = try return_.get_answerId();
+            }
+        };
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var handler_context: HandlerContext = .{};
+        var sink: Sink = .{};
+        try state.initReadyAcceptReturnMessageFromHandlerToSink(response_root, 64, &handler_context, HandlerContext.handle, &sink, Sink.handle);
+        try std.testing.expectEqual(@as(usize, 1), handler_context.seen);
+        try std.testing.expectEqual(@as(u32, 2), handler_context.capability_sum);
+        try std.testing.expectEqual(@as(usize, 1), sink.sent);
+        try std.testing.expectEqual(@as(u32, 64), sink.last_answer);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 96 }, descriptors[0]);
+    }
     try state.finishQuestion(64);
     try std.testing.expect(state.acceptInfo(64) == null);
     try std.testing.expectEqual(@as(usize, 0), state.readyAcceptProvisionCount());
