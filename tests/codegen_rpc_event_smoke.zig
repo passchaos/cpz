@@ -2234,6 +2234,61 @@ test "rpc method table dispatcher selects matching handlers" {
     }
 }
 
+test "rpc single-message dispatcher supports method tables" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 3000;
+        }
+    };
+    const Context = struct {
+        selected: u32 = 0,
+    };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .empty;
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xdef, .method_id = 1 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer request_builder.deinit();
+    const request_root = try generated.Message.initRootTyped(&request_builder);
+    const call = try request_root.init_call();
+    try call.set_questionId(32);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xdef, .method_id = 1 }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+
+    var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+    const request = generated.Message.fromReader(try request_reader.getRoot());
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+
+    var bootstrap_seen: u32 = 0;
+    var context: Context = .{};
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, try cpz.rpc.dispatchWireMessageMethodsOutcome(
+        &state,
+        std.testing.allocator,
+        response_root,
+        request,
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+    ));
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 32), context.selected);
+}
+
 test "rpc generic dispatch return helper builds non-result outcomes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });

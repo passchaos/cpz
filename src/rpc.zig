@@ -1483,6 +1483,32 @@ pub fn dispatchWireMessage(
     )) == .response_initialized;
 }
 
+pub fn dispatchWireMessageMethodsOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    request_message: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+) !WireDispatchOutcome {
+    switch (try eventFromWireMessage(request_message)) {
+        .bootstrap => {
+            try dispatchBootstrap(state, response_message, try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+            return .response_initialized;
+        },
+        .call => {
+            try dispatchCallMethods(state, allocator, response_message, try request_message.call(), call_context, call_entries);
+            return .response_initialized;
+        },
+        else => {
+            try state.applyWireMessage(allocator, request_message);
+            return .state_applied;
+        },
+    }
+}
+
 pub fn dispatchWireMessages(
     state: *State,
     allocator: std.mem.Allocator,
