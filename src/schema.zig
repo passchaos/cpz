@@ -1154,6 +1154,14 @@ pub const InterfaceMethodMetadata = struct {
         return self.ordinal == method_ordinal;
     }
 
+    pub fn callMethod(self: InterfaceMethodMetadata, interface_id: u64) @import("rpc.zig").CallMethod {
+        return .{ .interface_id = interface_id, .method_id = self.ordinal };
+    }
+
+    pub fn matchesCallMethod(self: InterfaceMethodMetadata, interface_id: u64, method: @import("rpc.zig").CallMethod) bool {
+        return method.matches(interface_id, self.ordinal);
+    }
+
     pub fn matchesSignature(self: InterfaceMethodMetadata, method_signature: []const u8) bool {
         return std.mem.eql(u8, self.signature, method_signature);
     }
