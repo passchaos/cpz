@@ -4542,6 +4542,31 @@ pub const State = struct {
         try initWireJoinResultReturnMessage(message, question_id, true, 0, &.{.{ .sender_hosted = export_id }});
     }
 
+    pub fn initTrackedJoinResultReturnMessageFromHandler(
+        self: *const State,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+    ) !void {
+        const key_part = self.joinKeyPart(question_id) orelse return error.InvalidTransition;
+        const export_id = try handler(context, question_id, key_part);
+        try self.initTrackedJoinResultReturnMessage(message, question_id, export_id);
+    }
+
+    pub fn initTrackedJoinResultReturnMessageFromHandlerToSink(
+        self: *const State,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !void {
+        try self.initTrackedJoinResultReturnMessageFromHandler(message, question_id, context, handler);
+        try sink_handler(sink_context, message);
+    }
+
     pub fn provideInfo(self: *const State, id: QuestionId) ?ProvideInfo {
         const tracker = self.provides.get(id) orelse return null;
         return tracker.info();
@@ -4568,6 +4593,31 @@ pub const State = struct {
     pub fn initTrackedProvideReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
         _ = self.provideRecipient(question_id) orelse return error.InvalidTransition;
         try initCapabilityReturnMessage(message, question_id, export_id);
+    }
+
+    pub fn initTrackedProvideReturnMessageFromHandler(
+        self: *const State,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+    ) !void {
+        const recipient = self.provideRecipient(question_id) orelse return error.InvalidTransition;
+        const export_id = try handler(context, question_id, recipient);
+        try self.initTrackedProvideReturnMessage(message, question_id, export_id);
+    }
+
+    pub fn initTrackedProvideReturnMessageFromHandlerToSink(
+        self: *const State,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !void {
+        try self.initTrackedProvideReturnMessageFromHandler(message, question_id, context, handler);
+        try sink_handler(sink_context, message);
     }
 
     pub fn readyProvideIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error![]QuestionId {

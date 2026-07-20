@@ -4839,6 +4839,46 @@ test "rpc top-level provide and join messages validate targets" {
             try std.testing.expectEqual(@as(usize, 1), descriptors.len);
             try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 86 }, descriptors[0]);
         }
+        {
+            const Context = struct {
+                seen: usize = 0,
+                capability_sum: u32 = 0,
+
+                fn handle(context: *@This(), question_id: u32, recipient: cpz.rpc.AnyPointerUsage) !u32 {
+                    context.seen += 1;
+                    context.capability_sum += recipient.capability orelse 0;
+                    return question_id + 40;
+                }
+            };
+            const Sink = struct {
+                sent: usize = 0,
+                last_answer: u32 = 0,
+
+                fn handle(context: *@This(), queued_message: anytype) !void {
+                    const return_ = try queued_message.get_return_();
+                    context.sent += 1;
+                    context.last_answer = try return_.get_answerId();
+                }
+            };
+
+            var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer response_builder.deinit();
+            const response_root = try generated.Message.initRootTyped(&response_builder);
+            var context: Context = .{};
+            var sink: Sink = .{};
+            try state.initTrackedProvideReturnMessageFromHandlerToSink(response_root, 61, &context, Context.handle, &sink, Sink.handle);
+            try std.testing.expectEqual(@as(usize, 1), context.seen);
+            try std.testing.expectEqual(@as(u32, 2), context.capability_sum);
+            try std.testing.expectEqual(@as(usize, 1), sink.sent);
+            try std.testing.expectEqual(@as(u32, 61), sink.last_answer);
+
+            var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+            const response = generated.Message.fromReader(try response_reader.getRoot());
+            const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+            defer std.testing.allocator.free(descriptors);
+            try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+            try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 101 }, descriptors[0]);
+        }
         try state.finishQuestion(61);
         try std.testing.expect(state.provideInfo(61) == null);
         try std.testing.expect(state.provideRecipient(61) == null);
@@ -4889,6 +4929,47 @@ test "rpc top-level provide and join messages validate targets" {
             defer std.testing.allocator.free(descriptors);
             try std.testing.expectEqual(@as(usize, 1), descriptors.len);
             try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 84 }, descriptors[0]);
+        }
+        {
+            const Context = struct {
+                seen: usize = 0,
+                capability_sum: u32 = 0,
+
+                fn handle(context: *@This(), question_id: u32, key_part: cpz.rpc.AnyPointerUsage) !u32 {
+                    context.seen += 1;
+                    context.capability_sum += key_part.capability orelse 0;
+                    return question_id + 50;
+                }
+            };
+            const Sink = struct {
+                sent: usize = 0,
+                last_answer: u32 = 0,
+
+                fn handle(context: *@This(), queued_message: anytype) !void {
+                    const return_ = try queued_message.get_return_();
+                    context.sent += 1;
+                    context.last_answer = try return_.get_answerId();
+                }
+            };
+
+            var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer response_builder.deinit();
+            const response_root = try generated.Message.initRootTyped(&response_builder);
+            var context: Context = .{};
+            var sink: Sink = .{};
+            try state.initTrackedJoinResultReturnMessageFromHandlerToSink(response_root, 62, &context, Context.handle, &sink, Sink.handle);
+            try std.testing.expectEqual(@as(usize, 1), context.seen);
+            try std.testing.expectEqual(@as(u32, 4), context.capability_sum);
+            try std.testing.expectEqual(@as(usize, 1), sink.sent);
+            try std.testing.expectEqual(@as(u32, 62), sink.last_answer);
+
+            var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+            const response = generated.Message.fromReader(try response_reader.getRoot());
+            try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(try response.return_()));
+            const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+            defer std.testing.allocator.free(descriptors);
+            try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+            try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 112 }, descriptors[0]);
         }
         try state.finishQuestion(62);
         try std.testing.expect(state.joinInfo(62) == null);

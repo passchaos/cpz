@@ -191,8 +191,9 @@ that a complete RPC runtime exists.
   and key-part pointer usage; callers can query/count the tracked key-part usage
   and initialize a tracked Join result Return only when that key part is present.
   Provide/Accept/Join handoff completions can also initialize single or batched
-  Return messages with readiness gates preserved, or hand those initialized
-  returns directly to an embedding transport/enqueue callback. Join result
+  Return messages with readiness gates preserved, derive single Provide/Join
+  result exports through application handlers, or hand those initialized returns
+  directly to an embedding transport/enqueue callback. Join result
   returns can initialize and decode their result capability payloads. Finish clears recorded Provide/Accept/Join handoff
   bookkeeping for the finished question. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
