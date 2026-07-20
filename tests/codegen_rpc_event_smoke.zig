@@ -4283,6 +4283,49 @@ test "rpc method-aware call dispatcher builds struct payload returns" {
         defer request_builder.deinit();
         const request_root = try generated.Message.initRootTyped(&request_builder);
         const call = try request_root.init_call();
+        try call.set_questionId(54);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 4 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+
+        var value: u32 = 0x6000;
+        const infos = [_]cpz.rpc.CapDescriptorInfo{.{ .descriptor = .{ .sender_promise = 113 }, .attached_fd = 21 }};
+        try cpz.rpc.dispatchCallMethodReturningStructInfoWith(
+            &state,
+            std.testing.allocator,
+            response_root,
+            try request.call(),
+            .{ .interface_id = 0xabc, .method_id = 4 },
+            cpz.StructSize{ .data_words = 1, .pointer_count = 0 },
+            infos[0..],
+            &value,
+            Fill.write,
+        );
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const return_ = try response.return_();
+        const results = try return_.results();
+        const content = try (try results.content()).getStruct(null);
+        try std.testing.expectEqual(@as(u32, 0x6000 + 54), content.getUInt32(0, 0));
+        const decoded_infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, results);
+        defer std.testing.allocator.free(decoded_infos);
+        try std.testing.expectEqual(@as(usize, 1), decoded_infos.len);
+        try std.testing.expectEqual(infos[0], decoded_infos[0]);
+    }
+
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
         try call.set_questionId(53);
         try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 5 }, call);
         const target = try call.init_target();
