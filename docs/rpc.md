@@ -78,8 +78,8 @@ that a complete RPC runtime exists.
   usage and resolve existing answers by official `AnswerId` while remaining
   distinct from ordinary Return events.
   Completed question IDs can be queried for cleanup readiness, reused, or
-  explicitly forgotten once both Finish and Return-like answer resolution have
-  been observed.
+  explicitly forgotten individually or in batches once both Finish and
+  Return-like answer resolution have been observed.
   Open questions remember the RPC message kind that created them, giving later
   protocol-state code a typed hook for bootstrap/call/handoff-specific rules.
   Resolved answers remember the message kind that resolved them.

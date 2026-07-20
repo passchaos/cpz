@@ -2663,6 +2663,24 @@ pub const State = struct {
         _ = self.answers.remove(id);
     }
 
+    pub fn forgetCompletedQuestions(self: *State) usize {
+        var removed: usize = 0;
+        while (true) {
+            var ready_id: ?QuestionId = null;
+            var iterator = self.questions.iterator();
+            while (iterator.next()) |entry| {
+                const id = entry.key_ptr.*;
+                if (self.questionReadyToForget(id)) {
+                    ready_id = id;
+                    break;
+                }
+            }
+            const id = ready_id orelse return removed;
+            self.forgetQuestion(id) catch unreachable;
+            removed += 1;
+        }
+    }
+
     pub fn openQuestion(self: *State, id: QuestionId, kind: MessageKind) (Error || std.mem.Allocator.Error)!void {
         if (!kind.isQuestionOpening()) return error.InvalidTransition;
         if (self.questions.getPtr(id)) |existing_question| {
@@ -3516,6 +3534,22 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expect(!state.answerComplete(1));
     try testing.expect(!state.questionReadyToForget(1));
     try testing.expect(!state.canReuseQuestionId(1));
+
+    try state.openQuestion(2, .call);
+    try state.finishQuestion(2);
+    try state.resolveAnswer(2, .return_);
+    try state.openQuestion(3, .call);
+    try state.finishQuestion(3);
+    try state.resolveAnswer(3, .return_);
+    try state.openQuestion(4, .call);
+    try testing.expectEqual(@as(usize, 2), state.forgetCompletedQuestions());
+    try testing.expect(!state.hasQuestion(2));
+    try testing.expect(!state.hasAnswer(2));
+    try testing.expect(!state.hasQuestion(3));
+    try testing.expect(!state.hasAnswer(3));
+    try testing.expect(state.hasQuestion(1));
+    try testing.expect(state.hasQuestion(4));
+    try testing.expectEqual(@as(usize, 0), state.forgetCompletedQuestions());
 }
 
 test "rpc state tracks import and export lifetimes" {
