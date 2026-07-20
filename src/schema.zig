@@ -10780,6 +10780,27 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     }
     if (decl.id != null and decl.methods.len != 0) {
         try appendFmt(allocator, out,
+            \\    pub const @"cpz.callMethods": []const cpz.rpc.CallMethod = &[_]cpz.rpc.CallMethod{{
+            \\
+        , .{});
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            try appendFmt(allocator, out,
+                \\        @This().@"cpz.method.{s}.callMethod",
+                \\
+            , .{method_name});
+        }
+        try appendFmt(allocator, out,
+            \\    }};
+            \\
+            \\    pub fn @"cpz.callMethodByIndex"(@"cpz.index": usize) ?cpz.rpc.CallMethod {{
+            \\        if (@"cpz.index" >= @This().@"cpz.callMethods".len) return null;
+            \\        return @This().@"cpz.callMethods"[@"cpz.index"];
+            \\    }}
+            \\
+        , .{});
+        try appendFmt(allocator, out,
             \\    pub fn @"cpz.methodEntries"(handlers: anytype) @TypeOf(.{{
             \\
         , .{});
