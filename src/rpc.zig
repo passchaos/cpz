@@ -13171,9 +13171,7 @@ pub const State = struct {
         return try dispatch_info.serviceAction(entries);
     }
 
-    pub fn wireCallDispatchInfo(self: *const State, call: anytype) !TrackedCallDispatchInfo {
-        const info = try callInfoFromWireCall(call);
-        try self.validateCallTarget(info.target);
+    fn dispatchInfoForCallInfo(self: *const State, info: CallInfo) Error!TrackedCallDispatchInfo {
         return .{
             .info = info,
             .options = info.callOptions(),
@@ -13183,6 +13181,12 @@ pub const State = struct {
             .transitive_forward_target = try self.callTargetTransitiveForwardTarget(info.target),
             .transitive_effective_target = try self.transitiveEffectiveCallTarget(info.target),
         };
+    }
+
+    pub fn wireCallDispatchInfo(self: *const State, call: anytype) !TrackedCallDispatchInfo {
+        const info = try callInfoFromWireCall(call);
+        try self.validateCallTarget(info.target);
+        return try self.dispatchInfoForCallInfo(info);
     }
 
     pub fn wireCallServiceAction(self: *const State, call: anytype, comptime entries: anytype) !TrackedCallServiceAction {
@@ -13722,15 +13726,7 @@ pub const State = struct {
 
     pub fn trackedCallDispatchInfo(self: *const State, id: QuestionId) Error!?TrackedCallDispatchInfo {
         const info = self.callInfo(id) orelse return null;
-        return .{
-            .info = info,
-            .options = info.callOptions(),
-            .resolution = self.callTargetResolution(info.target),
-            .forward_target = self.callTargetForwardTarget(info.target),
-            .effective_target = self.effectiveCallTarget(info.target),
-            .transitive_forward_target = try self.callTargetTransitiveForwardTarget(info.target),
-            .transitive_effective_target = try self.transitiveEffectiveCallTarget(info.target),
-        };
+        return try self.dispatchInfoForCallInfo(info);
     }
 
     pub fn callAllowsThirdPartyTailCall(self: *const State, id: QuestionId) ?bool {
