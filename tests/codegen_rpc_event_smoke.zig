@@ -5075,6 +5075,61 @@ test "rpc disembargo helpers write accept contexts" {
     try std.testing.expectEqualStrings("accept-write", info.context.accept);
 }
 
+test "rpc disembargo batches initialize and send messages to sinks" {
+    const Sink = struct {
+        sent: usize = 0,
+        accept_contexts: usize = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            const disembargo = try message.get_disembargo();
+            context.sent += 1;
+            if ((try disembargo.which()) == .accept) context.accept_contexts += 1;
+        }
+    };
+
+    var builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder0.deinit();
+    const root0 = try generated.Message.initRootTyped(&builder0);
+    var builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder1.deinit();
+    const root1 = try generated.Message.initRootTyped(&builder1);
+
+    const messages = [_]generated.Message.Builder{ root0, root1 };
+    const infos = [_]cpz.rpc.DisembargoInfo{
+        .{ .target = .{ .imported_cap = 82 }, .context = .{ .sender_loopback = 83 } },
+        .{ .target = .{ .imported_cap = 84 }, .context = .{ .accept = "accept-batch" } },
+    };
+    try std.testing.expectEqual(@as(usize, 2), try cpz.rpc.initWireDisembargoMessages(messages[0..], infos[0..]));
+
+    {
+        var reader = cpz.MessageReader.init(try builder0.segmentsConst(), .{});
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 82 }, info.target);
+        try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .sender_loopback = 83 }, info.context);
+    }
+    {
+        var reader = cpz.MessageReader.init(try builder1.segmentsConst(), .{});
+        const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 84 }, info.target);
+        try std.testing.expectEqualStrings("accept-batch", info.context.accept);
+    }
+
+    var sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_builder0.deinit();
+    const sink_root0 = try generated.Message.initRootTyped(&sink_builder0);
+    var sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_builder1.deinit();
+    const sink_root1 = try generated.Message.initRootTyped(&sink_builder1);
+    const sink_messages = [_]generated.Message.Builder{ sink_root0, sink_root1 };
+
+    var sink: Sink = .{};
+    try std.testing.expectEqual(@as(usize, 2), try cpz.rpc.initWireDisembargoMessagesToSink(sink_messages[0..], infos[0..], &sink, Sink.handle));
+    try std.testing.expectEqual(@as(usize, 2), sink.sent);
+    try std.testing.expectEqual(@as(usize, 1), sink.accept_contexts);
+
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireDisembargoMessagesToSink(sink_messages[0..1], infos[0..], &sink, Sink.handle));
+}
+
 test "rpc accept info helpers write question ids and embargoes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });

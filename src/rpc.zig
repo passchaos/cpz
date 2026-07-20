@@ -1055,6 +1055,28 @@ pub fn initWireDisembargoMessage(message: anytype, info: DisembargoInfo) !void {
     try writeDisembargoInfoToWire(info, try message.init_disembargo());
 }
 
+pub fn initWireDisembargoMessages(message_builders: anytype, infos: []const DisembargoInfo) !usize {
+    if (message_builders.len < infos.len) return error.InvalidTransition;
+    for (infos, 0..) |info, index| {
+        try initWireDisembargoMessage(message_builders[index], info);
+    }
+    return infos.len;
+}
+
+pub fn initWireDisembargoMessagesToSink(
+    message_builders: anytype,
+    infos: []const DisembargoInfo,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !usize {
+    if (message_builders.len < infos.len) return error.InvalidTransition;
+    for (infos, 0..) |info, index| {
+        try initWireDisembargoMessage(message_builders[index], info);
+        try sink_handler(sink_context, message_builders[index]);
+    }
+    return infos.len;
+}
+
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
     return targetFromWireMessageTarget(try message.target());
 }
