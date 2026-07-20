@@ -5200,10 +5200,17 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?bool, false), state.acceptReady(64));
     try std.testing.expectEqualStrings("embargo-64", state.acceptPendingEmbargo(64).?);
     try std.testing.expectEqual(@as(usize, 1), state.pendingAcceptEmbargoCount());
+    try std.testing.expectEqual(@as(usize, 1), state.pendingAcceptEmbargoMatchCount("embargo-64"));
+    try std.testing.expectEqual(@as(usize, 0), state.pendingAcceptEmbargoMatchCount("missing"));
     {
         const pending_ids = try state.pendingAcceptEmbargoIdsAlloc(std.testing.allocator);
         defer std.testing.allocator.free(pending_ids);
         try std.testing.expectEqualSlices(u32, &.{64}, pending_ids);
+    }
+    {
+        const matching_ids = try state.pendingAcceptEmbargoMatchingIdsAlloc(std.testing.allocator, "embargo-64");
+        defer std.testing.allocator.free(matching_ids);
+        try std.testing.expectEqualSlices(u32, &.{64}, matching_ids);
     }
     {
         var pending = try state.pendingAcceptEmbargosAlloc(std.testing.allocator);
@@ -5289,6 +5296,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
     try std.testing.expect(state.acceptPendingEmbargo(64) == null);
     try std.testing.expectEqual(@as(usize, 0), state.pendingAcceptEmbargoCount());
+    try std.testing.expectEqual(@as(usize, 0), state.pendingAcceptEmbargoMatchCount("embargo-64"));
     {
         var pending = try state.pendingAcceptEmbargosAlloc(std.testing.allocator);
         defer pending.deinit(std.testing.allocator);

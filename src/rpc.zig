@@ -4111,6 +4111,17 @@ pub const State = struct {
         return count;
     }
 
+    pub fn pendingAcceptEmbargoMatchCount(self: *const State, embargo: []const u8) usize {
+        var count: usize = 0;
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.embargo) |tracked| {
+                if (!accept.embargo_released and std.mem.eql(u8, tracked, embargo)) count += 1;
+            }
+        }
+        return count;
+    }
+
     pub fn pendingAcceptEmbargoIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error![]QuestionId {
         var ids = std.ArrayList(QuestionId).empty;
         errdefer ids.deinit(allocator);
@@ -4118,6 +4129,21 @@ pub const State = struct {
         while (iterator.next()) |entry| {
             const accept = entry.value_ptr;
             if (accept.embargo != null and !accept.embargo_released) try ids.append(allocator, entry.key_ptr.*);
+        }
+        return ids.toOwnedSlice(allocator);
+    }
+
+    pub fn pendingAcceptEmbargoMatchingIdsAlloc(self: *const State, allocator: std.mem.Allocator, embargo: []const u8) std.mem.Allocator.Error![]QuestionId {
+        var ids = std.ArrayList(QuestionId).empty;
+        errdefer ids.deinit(allocator);
+        var iterator = self.accepts.iterator();
+        while (iterator.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.embargo) |tracked| {
+                if (!accept.embargo_released and std.mem.eql(u8, tracked, embargo)) {
+                    try ids.append(allocator, entry.key_ptr.*);
+                }
+            }
         }
         return ids.toOwnedSlice(allocator);
     }
