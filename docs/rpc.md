@@ -151,8 +151,8 @@ that a complete RPC runtime exists.
   rewriting the target to an explicit or remembered resolved destination.
   Dispatch variants that accept caller-provided forward-message builders,
   including batch dispatch helpers, can initialize outgoing Calls when they
-  return `forward_required`, leaving only actual transport queueing to the
-  embedding runtime.
+  return `forward_required`; companion sink-dispatch variants can immediately
+  hand initialized forwarded Calls to an embedding transport/enqueue callback.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
@@ -198,9 +198,8 @@ that a complete RPC runtime exists.
 ## Next useful increments
 
 1. Turn the now-recorded structural RPC data into behavior: connect initialized
-   forwarded Calls to actual transport send queues, queue/release `Disembargo`
-   traffic, connect initialized handoff Returns to actual transport send queues,
-   and coordinate multi-part `Join` results.
+   forwarded Calls and handoff Returns to actual transport send queues,
+   queue/release `Disembargo` traffic, and coordinate multi-part `Join` results.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation for non-capability payload shapes as well as
