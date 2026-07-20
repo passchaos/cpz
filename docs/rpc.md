@@ -195,8 +195,8 @@ that a complete RPC runtime exists.
   slices, and append ready handoff Returns to the same response queue or sink
   for embedding transports; ordinary and method-table no-sink turn helpers can
   also populate a unified response/forward output queue with dispatch and ready
-  handoff Returns before forwarded Calls, and the ordinary unified form can
-  expose state-only apply details while doing so.
+  handoff Returns before forwarded Calls, and both unified forms can expose
+  state-only apply details while doing so.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
