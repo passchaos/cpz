@@ -5190,6 +5190,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callMethods"[0]);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callMethodByIndex"(0).?);
     try std.testing.expectEqual(@as(?cpz.rpc.CallMethod, null), generated.ExtendedService.@"cpz.callMethodByIndex"(99));
+    try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.callOptions".len);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptions"[0].method);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByIndex"(0).?.method);
+    try std.testing.expectEqual(@as(?cpz.rpc.CallOptions, null), generated.ExtendedService.@"cpz.callOptionsByIndex"(99));
     try std.testing.expect(generated.ExtendedService.@"cpz.method.pong.callMethod".matches(0xe57e0001, generated.ExtendedService.pong));
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.method.pong.callMethod".callOptions().method);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.method.pong.callOptions".method);

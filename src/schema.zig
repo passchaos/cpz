@@ -10794,9 +10794,28 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         try appendFmt(allocator, out,
             \\    }};
             \\
+            \\    pub const @"cpz.callOptions": []const cpz.rpc.CallOptions = &[_]cpz.rpc.CallOptions{{
+            \\
+        , .{});
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            try appendFmt(allocator, out,
+                \\        @This().@"cpz.method.{s}.callOptions",
+                \\
+            , .{method_name});
+        }
+        try appendFmt(allocator, out,
+            \\    }};
+            \\
             \\    pub fn @"cpz.callMethodByIndex"(@"cpz.index": usize) ?cpz.rpc.CallMethod {{
             \\        if (@"cpz.index" >= @This().@"cpz.callMethods".len) return null;
             \\        return @This().@"cpz.callMethods"[@"cpz.index"];
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callOptionsByIndex"(@"cpz.index": usize) ?cpz.rpc.CallOptions {{
+            \\        if (@"cpz.index" >= @This().@"cpz.callOptions".len) return null;
+            \\        return @This().@"cpz.callOptions"[@"cpz.index"];
             \\    }}
             \\
         , .{});
