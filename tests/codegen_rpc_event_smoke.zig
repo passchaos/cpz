@@ -8037,8 +8037,21 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0), wire_actions[0].dispatch);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, wire_actions[1].forward);
     try std.testing.expect(wire_actions[2].isUnimplemented());
+    var wire_plans: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectEqual(wire_stats, try state.initWireCallServiceActionPlans(calls[0..], entries, wire_plans[0..]));
+    try std.testing.expectEqual(@as(usize, 0), wire_plans[0].source_index);
+    try std.testing.expectEqual(@as(u32, 71), wire_plans[0].question_id);
+    try std.testing.expectEqual(@as(usize, 0), wire_plans[0].action.dispatch);
+    try std.testing.expectEqual(@as(usize, 2), wire_plans[1].source_index);
+    try std.testing.expectEqual(@as(u32, 73), wire_plans[1].question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, wire_plans[1].action.forward);
+    try std.testing.expectEqual(@as(usize, 1), wire_plans[2].source_index);
+    try std.testing.expectEqual(@as(u32, 72), wire_plans[2].question_id);
+    try std.testing.expect(wire_plans[2].action.isUnimplemented());
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
+    var short_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActionPlans(calls[0..], entries, short_plans[0..]));
 
     for (calls) |call| try state.applyWireCall(std.testing.allocator, call);
     const ids = [_]cpz.rpc.QuestionId{ 71, 72, 73, 74 };
@@ -8058,7 +8071,19 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0), tracked_actions[0].dispatch);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, tracked_actions[1].forward);
     try std.testing.expect(tracked_actions[2].isUnimplemented());
+    var tracked_plans: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectEqual(tracked_stats, try state.initTrackedCallServiceActionPlans(ids[0..], entries, tracked_plans[0..]));
+    try std.testing.expectEqual(@as(usize, 0), tracked_plans[0].source_index);
+    try std.testing.expectEqual(@as(u32, 71), tracked_plans[0].question_id);
+    try std.testing.expectEqual(@as(usize, 0), tracked_plans[0].action.dispatch);
+    try std.testing.expectEqual(@as(usize, 2), tracked_plans[1].source_index);
+    try std.testing.expectEqual(@as(u32, 73), tracked_plans[1].question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, tracked_plans[1].action.forward);
+    try std.testing.expectEqual(@as(usize, 1), tracked_plans[2].source_index);
+    try std.testing.expectEqual(@as(u32, 72), tracked_plans[2].question_id);
+    try std.testing.expect(tracked_plans[2].action.isUnimplemented());
     try std.testing.expectError(error.InvalidTransition, state.initTrackedCallServiceActions(ids[0..], entries, short_actions[0..]));
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedCallServiceActionPlans(ids[0..], entries, short_plans[0..]));
 }
 
 test "rpc call dispatch outcomes flag resolved targets for forwarding" {

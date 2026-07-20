@@ -632,6 +632,12 @@ pub const TrackedCallServiceAction = union(enum) {
     }
 };
 
+pub const TrackedCallServiceActionPlan = struct {
+    source_index: usize,
+    question_id: QuestionId,
+    action: TrackedCallServiceAction,
+};
+
 pub const TrackedCallServiceActionStats = struct {
     dispatch: usize = 0,
     forward: usize = 0,
@@ -12416,6 +12422,26 @@ pub const State = struct {
         std.debug.assert(indexes.unimplemented <= stats.unimplementedRange().end);
     }
 
+    fn storeServiceActionPlanByRange(stats: TrackedCallServiceActionStats, plans: []TrackedCallServiceActionPlan, indexes: anytype, plan: TrackedCallServiceActionPlan) void {
+        switch (plan.action) {
+            .dispatch => {
+                plans[indexes.dispatch] = plan;
+                indexes.dispatch += 1;
+            },
+            .forward => {
+                plans[indexes.forward] = plan;
+                indexes.forward += 1;
+            },
+            .unimplemented => {
+                plans[indexes.unimplemented] = plan;
+                indexes.unimplemented += 1;
+            },
+        }
+        std.debug.assert(indexes.dispatch <= stats.dispatchRange().end);
+        std.debug.assert(indexes.forward <= stats.forwardRange().end);
+        std.debug.assert(indexes.unimplemented <= stats.unimplementedRange().end);
+    }
+
     pub fn initWireCallServiceActions(self: *const State, calls: anytype, comptime entries: anytype, actions: []TrackedCallServiceAction) !TrackedCallServiceActionStats {
         const stats = try self.wireCallServiceActionStats(calls, entries);
         try stats.validateActionCapacity(actions.len);
@@ -12438,6 +12464,45 @@ pub const State = struct {
         };
         for (ids) |id| {
             if (try self.trackedCallServiceAction(id, entries)) |action| storeServiceActionByRange(stats, actions, &indexes, action);
+        }
+        return stats;
+    }
+
+    pub fn initWireCallServiceActionPlans(self: *const State, calls: anytype, comptime entries: anytype, plans: []TrackedCallServiceActionPlan) !TrackedCallServiceActionStats {
+        const stats = try self.wireCallServiceActionStats(calls, entries);
+        try stats.validateActionCapacity(plans.len);
+        var indexes = .{
+            .dispatch = stats.dispatchRange().start,
+            .forward = stats.forwardRange().start,
+            .unimplemented = stats.unimplementedRange().start,
+        };
+        for (calls, 0..) |call, source_index| {
+            const action = try self.wireCallServiceAction(call, entries);
+            storeServiceActionPlanByRange(stats, plans, &indexes, .{
+                .source_index = source_index,
+                .question_id = call.questionId(),
+                .action = action,
+            });
+        }
+        return stats;
+    }
+
+    pub fn initTrackedCallServiceActionPlans(self: *const State, ids: []const QuestionId, comptime entries: anytype, plans: []TrackedCallServiceActionPlan) !TrackedCallServiceActionStats {
+        const stats = try self.trackedCallServiceActionStats(ids, entries);
+        try stats.validateActionCapacity(plans.len);
+        var indexes = .{
+            .dispatch = stats.dispatchRange().start,
+            .forward = stats.forwardRange().start,
+            .unimplemented = stats.unimplementedRange().start,
+        };
+        for (ids, 0..) |id, source_index| {
+            if (try self.trackedCallServiceAction(id, entries)) |action| {
+                storeServiceActionPlanByRange(stats, plans, &indexes, .{
+                    .source_index = source_index,
+                    .question_id = id,
+                    .action = action,
+                });
+            }
         }
         return stats;
     }
