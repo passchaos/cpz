@@ -8167,6 +8167,108 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 1), message_role_forward_sink.sent);
     try std.testing.expectEqual(@as(u32, 73), message_role_forward_sink.question_sum);
 
+    var message_role_plan_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_role_plan_state.deinit();
+    try message_role_plan_state.addImport(5);
+    try message_role_plan_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_role_plan_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_role_plan_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_role_plan_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_role_plan_builder0.deinit();
+    const message_role_plan_output0 = try generated.Message.initRootTyped(&message_role_plan_builder0);
+    var message_role_plan_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_role_plan_builder1.deinit();
+    const message_role_plan_output1 = try generated.Message.initRootTyped(&message_role_plan_builder1);
+    var message_role_plan_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_role_plan_builder2.deinit();
+    const message_role_plan_output2 = try generated.Message.initRootTyped(&message_role_plan_builder2);
+    const message_role_plan_outputs = [_]generated.Message.Builder{ message_role_plan_output0, message_role_plan_output1, message_role_plan_output2 };
+    var message_role_plan_context: Context = .{};
+    var message_role_plan_response_sink: MessageRoleResponseSink = .{};
+    var message_role_plan_forward_sink: MessageRoleForwardSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputsToSinks(
+        &message_role_plan_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_role_plan_outputs[0..2],
+        &message_role_plan_context,
+        entries,
+        &message_role_plan_response_sink,
+        MessageRoleResponseSink.handle,
+        &message_role_plan_forward_sink,
+        MessageRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(message_action_stats, try cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputsToSinks(
+        &message_role_plan_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_role_plan_outputs[0..],
+        &message_role_plan_context,
+        entries,
+        &message_role_plan_response_sink,
+        MessageRoleResponseSink.handle,
+        &message_role_plan_forward_sink,
+        MessageRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_role_plan_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), message_role_plan_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_role_plan_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), message_role_plan_forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), message_role_plan_forward_sink.question_sum);
+
+    var message_role_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_role_wrapper_state.deinit();
+    try message_role_wrapper_state.addImport(5);
+    try message_role_wrapper_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_role_wrapper_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_role_wrapper_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_role_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_role_wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_role_wrapper_builder0.deinit();
+    const message_role_wrapper_output0 = try generated.Message.initRootTyped(&message_role_wrapper_builder0);
+    var message_role_wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_role_wrapper_builder1.deinit();
+    const message_role_wrapper_output1 = try generated.Message.initRootTyped(&message_role_wrapper_builder1);
+    var message_role_wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_role_wrapper_builder2.deinit();
+    const message_role_wrapper_output2 = try generated.Message.initRootTyped(&message_role_wrapper_builder2);
+    const message_role_wrapper_outputs = [_]generated.Message.Builder{ message_role_wrapper_output0, message_role_wrapper_output1, message_role_wrapper_output2 };
+    var message_role_wrapper_context: Context = .{};
+    var message_role_wrapper_response_sink: MessageRoleResponseSink = .{};
+    var message_role_wrapper_forward_sink: MessageRoleForwardSink = .{};
+    var message_role_wrapper_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, message_role_wrapper_state.dispatchWireMessageServiceActionsUnifiedToSinks(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_role_wrapper_short_plan_buffer[0..],
+        message_role_wrapper_outputs[0..],
+        &message_role_wrapper_context,
+        &message_role_wrapper_response_sink,
+        MessageRoleResponseSink.handle,
+        &message_role_wrapper_forward_sink,
+        MessageRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(message_stats, try message_role_wrapper_state.dispatchWireMessageServiceActionsUnifiedToSinks(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_role_wrapper_plan_buffer[0..],
+        message_role_wrapper_outputs[0..],
+        &message_role_wrapper_context,
+        &message_role_wrapper_response_sink,
+        MessageRoleResponseSink.handle,
+        &message_role_wrapper_forward_sink,
+        MessageRoleForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_role_wrapper_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), message_role_wrapper_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_role_wrapper_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), message_role_wrapper_forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), message_role_wrapper_forward_sink.question_sum);
+
     var message_tagged_state = cpz.rpc.State.init(std.testing.allocator);
     defer message_tagged_state.deinit();
     try message_tagged_state.addImport(5);
@@ -8964,6 +9066,57 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1 + 2), direct_plan_sink.source_sum);
     try std.testing.expectEqual(@as(u32, 71 + 72 + 73), direct_plan_sink.question_sum);
 
+    var direct_role_sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer direct_role_sink_state.deinit();
+    try direct_role_sink_state.addImport(5);
+    try direct_role_sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try direct_role_sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try direct_role_sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var direct_role_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_role_sink_builder0.deinit();
+    const direct_role_sink_output0 = try generated.Message.initRootTyped(&direct_role_sink_builder0);
+    var direct_role_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_role_sink_builder1.deinit();
+    const direct_role_sink_output1 = try generated.Message.initRootTyped(&direct_role_sink_builder1);
+    var direct_role_sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_role_sink_builder2.deinit();
+    const direct_role_sink_output2 = try generated.Message.initRootTyped(&direct_role_sink_builder2);
+    const direct_role_sink_outputs = [_]generated.Message.Builder{ direct_role_sink_output0, direct_role_sink_output1, direct_role_sink_output2 };
+    var direct_role_sink_context: Context = .{};
+    var direct_role_response_sink: ResponseSink = .{};
+    var direct_role_forward_sink: ForwardSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanUnifiedOutputsToSinks(
+        &direct_role_sink_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_role_sink_outputs[0..2],
+        &direct_role_sink_context,
+        entries,
+        &direct_role_response_sink,
+        ResponseSink.handle,
+        &direct_role_forward_sink,
+        ForwardSink.handle,
+    ));
+    try std.testing.expectEqual(wire_stats, try cpz.rpc.initWireCallServiceActionPlanUnifiedOutputsToSinks(
+        &direct_role_sink_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_role_sink_outputs[0..],
+        &direct_role_sink_context,
+        entries,
+        &direct_role_response_sink,
+        ResponseSink.handle,
+        &direct_role_forward_sink,
+        ForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), direct_role_sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), direct_role_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), direct_role_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), direct_role_forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), direct_role_forward_sink.question_sum);
+
     var direct_tagged_sink_state = cpz.rpc.State.init(std.testing.allocator);
     defer direct_tagged_sink_state.deinit();
     try direct_tagged_sink_state.addImport(5);
@@ -9053,6 +9206,57 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 3), tagged_wrapper_sink.sent);
     try std.testing.expectEqual(@as(usize, 0 + 1), tagged_wrapper_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), tagged_wrapper_sink.forward_local_sum);
+
+    var role_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
+    defer role_wrapper_state.deinit();
+    try role_wrapper_state.addImport(5);
+    try role_wrapper_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try role_wrapper_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try role_wrapper_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var role_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var role_wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_wrapper_builder0.deinit();
+    const role_wrapper_output0 = try generated.Message.initRootTyped(&role_wrapper_builder0);
+    var role_wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_wrapper_builder1.deinit();
+    const role_wrapper_output1 = try generated.Message.initRootTyped(&role_wrapper_builder1);
+    var role_wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_wrapper_builder2.deinit();
+    const role_wrapper_output2 = try generated.Message.initRootTyped(&role_wrapper_builder2);
+    const role_wrapper_outputs = [_]generated.Message.Builder{ role_wrapper_output0, role_wrapper_output1, role_wrapper_output2 };
+    var role_wrapper_context: Context = .{};
+    var role_wrapper_response_sink: ResponseSink = .{};
+    var role_wrapper_forward_sink: ForwardSink = .{};
+    var role_wrapper_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, role_wrapper_state.dispatchWireCallServiceActionsUnifiedToSinks(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        role_wrapper_short_plan_buffer[0..],
+        role_wrapper_outputs[0..],
+        &role_wrapper_context,
+        &role_wrapper_response_sink,
+        ResponseSink.handle,
+        &role_wrapper_forward_sink,
+        ForwardSink.handle,
+    ));
+    try std.testing.expectEqual(wire_stats, try role_wrapper_state.dispatchWireCallServiceActionsUnifiedToSinks(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        role_wrapper_plan_buffer[0..],
+        role_wrapper_outputs[0..],
+        &role_wrapper_context,
+        &role_wrapper_response_sink,
+        ResponseSink.handle,
+        &role_wrapper_forward_sink,
+        ForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), role_wrapper_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), role_wrapper_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), role_wrapper_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), role_wrapper_forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), role_wrapper_forward_sink.question_sum);
 
     var plan_sink_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
     defer plan_sink_wrapper_state.deinit();
