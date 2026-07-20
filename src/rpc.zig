@@ -363,6 +363,11 @@ pub const DisembargoApplyInfo = struct {
     pub fn releasedAnyAccept(self: @This()) bool {
         return self.released_accepts != 0;
     }
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        allocator.free(self.released_accept_ids);
+        self.* = undefined;
+    }
 };
 
 pub const PendingAcceptEmbargo = struct {
