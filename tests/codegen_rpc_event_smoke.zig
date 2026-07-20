@@ -8065,6 +8065,25 @@ test "rpc service action stats aggregate wire and tracked calls" {
     defer std.testing.allocator.free(no_forward_messages);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initForwardedWireCallMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], no_forward_messages));
 
+    var unimplemented_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unimplemented_response_builder.deinit();
+    const unimplemented_response_root = try generated.Message.initRootTyped(&unimplemented_response_builder);
+    const unimplemented_responses = [_]generated.Message.Builder{unimplemented_response_root};
+    try std.testing.expectEqual(
+        @as(usize, 1),
+        try cpz.rpc.initUnimplementedReturnMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], unimplemented_responses[0..]),
+    );
+    var unimplemented_response_reader = cpz.MessageReader.init(try unimplemented_response_builder.segmentsConst(), .{});
+    const unimplemented_return = try generated.Message.fromReader(try unimplemented_response_reader.getRoot()).return_();
+    try std.testing.expectEqual(@as(u32, 72), unimplemented_return.answerId());
+    const unimplemented_outcome = try cpz.rpc.returnOutcomeFromWireReturn(unimplemented_return);
+    const exception = switch (unimplemented_outcome) {
+        .exception => |value| value,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqualStrings("unimplemented method", exception.reason.?);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initUnimplementedReturnMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], no_forward_messages));
+
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
     var short_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;

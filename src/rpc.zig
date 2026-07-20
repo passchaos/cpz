@@ -1829,6 +1829,25 @@ pub fn initForwardedWireCallMessagesFromServiceActionPlans(calls: anytype, plans
     return forward_count;
 }
 
+pub fn initUnimplementedReturnMessagesFromServiceActionPlans(calls: anytype, plans: []const TrackedCallServiceActionPlan, response_messages: anytype) !usize {
+    var response_count: usize = 0;
+    for (plans) |plan| {
+        switch (plan.action) {
+            .unimplemented => {
+                if (plan.source_index >= calls.len) return error.InvalidTransition;
+                if (response_count >= response_messages.len) return error.InvalidTransition;
+                try initWireReturnException(try response_messages[response_count].init_return_(), calls[plan.source_index].questionId(), true, false, .{
+                    .reason = "unimplemented method",
+                    .type_raw = 3,
+                });
+                response_count += 1;
+            },
+            .dispatch, .forward => {},
+        }
+    }
+    return response_count;
+}
+
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
     const target = (try state.wireCallTargetTransitiveForwardTarget(source_call)) orelse return error.InvalidTransition;
     try initForwardedWireCall(call, source_call, target);
