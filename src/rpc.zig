@@ -1194,6 +1194,10 @@ pub const WireMessageTag = enum(u16) {
     join = 14,
 };
 
+pub fn wireMessageTag(message: anytype) !WireMessageTag {
+    return std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse error.InvalidTransition;
+}
+
 pub const WireEvent = union(WireMessageTag) {
     unimplemented: void,
     abort: void,
@@ -1653,24 +1657,21 @@ pub fn writeCallOptionsToWire(options: CallOptions, call: anytype) !void {
 }
 
 pub fn callMethodFromWireMessage(message: anytype) !?CallMethod {
-    const tag = std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse return error.InvalidTransition;
-    return switch (tag) {
+    return switch (try wireMessageTag(message)) {
         .call => callMethodFromWireCall(try message.call()),
         else => null,
     };
 }
 
 pub fn callOptionsFromWireMessage(message: anytype) !?CallOptions {
-    const tag = std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse return error.InvalidTransition;
-    return switch (tag) {
+    return switch (try wireMessageTag(message)) {
         .call => try callOptionsFromWireCall(try message.call()),
         else => null,
     };
 }
 
 pub fn callInfoFromWireMessage(message: anytype) !?CallInfo {
-    const tag = std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse return error.InvalidTransition;
-    return switch (tag) {
+    return switch (try wireMessageTag(message)) {
         .call => try callInfoFromWireCall(try message.call()),
         else => null,
     };
@@ -11350,9 +11351,7 @@ pub fn validateWirePayload(allocator: std.mem.Allocator, payload: anytype) !void
 }
 
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
-    const raw_discriminant = message.whichDiscriminant();
-    const tag = std.enums.fromInt(WireMessageTag, raw_discriminant) orelse return error.InvalidTransition;
-    return switch (tag) {
+    return switch (try wireMessageTag(message)) {
         .unimplemented => .{ .unimplemented = {} },
         .abort => .{ .abort = {} },
         .bootstrap => .{ .bootstrap = (try message.bootstrap()).questionId() },

@@ -28,7 +28,8 @@ that a complete RPC runtime exists.
   in-flight questions/answers plus accepted/provided capability lifetimes. It is
   intentionally not a networked dispatcher yet.
 - `cpz.rpc.eventFromWireMessage()` can decode the top-level `rpc.capnp` message
-  union shape from generated readers into lightweight `WireEvent` values, and
+  union shape from generated readers into lightweight `WireEvent` values,
+  shares a `wireMessageTag()` helper with method/options metadata decoders, and
   projects only the semantically-aligned subset into `State.apply()` events.
   RPC exception helpers preserve reason, raw type, and optional trace text.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
