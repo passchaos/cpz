@@ -8487,6 +8487,26 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 1), wire_plans[2].source_index);
     try std.testing.expectEqual(@as(u32, 72), wire_plans[2].question_id);
     try std.testing.expect(wire_plans[2].action.isUnimplemented());
+    var mismatched_question_plans = wire_plans;
+    mismatched_question_plans[0].question_id = 999;
+    var mismatched_question_state = cpz.rpc.State.init(std.testing.allocator);
+    defer mismatched_question_state.deinit();
+    try mismatched_question_state.addImport(5);
+    try mismatched_question_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try mismatched_question_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try mismatched_question_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var mismatched_response_outputs: [2]generated.Message.Builder = undefined;
+    var mismatched_forward_outputs: [1]generated.Message.Builder = undefined;
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanOutputs(
+        &mismatched_question_state,
+        std.testing.allocator,
+        calls[0..],
+        mismatched_question_plans[0..],
+        mismatched_response_outputs[0..],
+        mismatched_forward_outputs[0..],
+        @as(*Context, undefined),
+        entries,
+    ));
 
     var forwarded_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer forwarded_builder.deinit();

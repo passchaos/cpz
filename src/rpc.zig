@@ -1927,6 +1927,28 @@ fn validateWireCallServiceActionPlans(calls: anytype, plans: []const TrackedCall
     var stats: TrackedCallServiceActionStats = .{};
     for (plans) |plan| {
         if (plan.source_index >= calls.len) return error.InvalidTransition;
+        if (plan.question_id != calls[plan.source_index].questionId()) return error.InvalidTransition;
+        switch (plan.action) {
+            .dispatch => |entry_index| {
+                var matched = false;
+                inline for (entries, 0..) |_, index| {
+                    if (index == entry_index) matched = true;
+                }
+                if (!matched) return error.InvalidTransition;
+            },
+            .forward, .unimplemented => {},
+        }
+        stats.record(plan.action);
+    }
+    return stats;
+}
+
+fn validateWireMessageServiceActionPlans(messages: anytype, plans: []const TrackedCallServiceActionPlan, comptime entries: anytype) !TrackedCallServiceActionStats {
+    var stats: TrackedCallServiceActionStats = .{};
+    for (plans) |plan| {
+        if (plan.source_index >= messages.len) return error.InvalidTransition;
+        const call = try messages[plan.source_index].call();
+        if (plan.question_id != call.questionId()) return error.InvalidTransition;
         switch (plan.action) {
             .dispatch => |entry_index| {
                 var matched = false;
@@ -2013,7 +2035,7 @@ pub fn initWireMessageServiceActionPlanOutputs(
     context: anytype,
     comptime entries: anytype,
 ) !TrackedCallServiceActionStats {
-    const stats = try validateWireCallServiceActionPlans(messages, plans, entries);
+    const stats = try validateWireMessageServiceActionPlans(messages, plans, entries);
     try stats.validateOutputBuilders(response_messages, forward_messages);
 
     var response_index: usize = 0;
@@ -2168,7 +2190,7 @@ pub fn initWireMessageServiceActionPlanUnifiedOutputs(
     context: anytype,
     comptime entries: anytype,
 ) !TrackedCallServiceActionStats {
-    const stats = try validateWireCallServiceActionPlans(messages, plans, entries);
+    const stats = try validateWireMessageServiceActionPlans(messages, plans, entries);
     try stats.validateActionCapacity(output_messages.len);
     return initWireMessageServiceActionPlanOutputs(
         state,
