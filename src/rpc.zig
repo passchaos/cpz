@@ -2333,6 +2333,21 @@ pub fn dispatchCallReturningStructInfoWith(
     try initWirePayloadCapTableInfo(results, infos);
 }
 
+pub fn dispatchCallReturningStructFromRegistry(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    handler: anytype,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try dispatchCallReturningStructWith(state, allocator, response_message, call, struct_size, descriptors, context, handler);
+}
+
 pub fn dispatchCall(
     state: *State,
     allocator: std.mem.Allocator,

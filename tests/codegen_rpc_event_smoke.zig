@@ -3701,6 +3701,55 @@ test "rpc typed call dispatchers build struct payload returns" {
         try std.testing.expectEqual(@as(usize, 1), decoded_infos.len);
         try std.testing.expectEqual(infos[0], decoded_infos[0]);
     }
+
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(45);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+
+        var registry: cpz.CapabilityRegistry([]const u8) = .{};
+        defer registry.deinit(std.testing.allocator);
+        _ = try registry.register(std.testing.allocator, "typed-struct-result");
+
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.addImport(5);
+        var value: u32 = 0x3000;
+        try cpz.rpc.dispatchCallReturningStructFromRegistry(
+            &state,
+            std.testing.allocator,
+            response_root,
+            try request.call(),
+            cpz.StructSize{ .data_words = 1, .pointer_count = 0 },
+            &registry,
+            &value,
+            Fill.write,
+        );
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const return_ = try response.return_();
+        const results = try return_.results();
+        const content = try (try results.content()).getStruct(null);
+        try std.testing.expectEqual(@as(u32, 0x3000 + 45), content.getUInt32(0, 0));
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, results);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
+        try state.applyWireMessage(std.testing.allocator, response);
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(0));
+    }
 }
 
 test "rpc generic call dispatcher builds exception returns" {
