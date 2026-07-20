@@ -15095,6 +15095,72 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(generated.Message.Union0.unimplemented, (try unused.which()).?);
 }
 
+test "rpc unified output helper sends tagged output roles" {
+    const TaggedSink = struct {
+        sent: usize = 0,
+        response_local: usize = 999,
+        forward_local: usize = 999,
+        disembargo_local: usize = 999,
+
+        fn handle(context: *@This(), position: cpz.rpc.RpcTurnOutputPosition, message: anytype) !void {
+            switch (context.sent) {
+                0 => {
+                    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, position);
+                    try expectQueuedReturnAnswer(message, 401);
+                    context.response_local = position.local_index;
+                },
+                1 => {
+                    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, position);
+                    try expectQueuedForwardedCallBuilder(message, 402, .{ .imported_cap = 6 });
+                    context.forward_local = position.local_index;
+                },
+                2 => {
+                    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, position);
+                    try expectQueuedDisembargoBuilder(message, .{ .imported_cap = 7 }, "tagged-disembargo");
+                    context.disembargo_local = position.local_index;
+                },
+                else => return error.TestUnexpectedResult,
+            }
+            context.sent += 1;
+        }
+    };
+
+    const plan: cpz.rpc.RpcTurnPlan = .{
+        .dispatch = .{ .response_initialized = 1, .forward_required = 1, .state_applied = 2 },
+        .pending_disembargos = 1,
+    };
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 0).?);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 1).?);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 2).?);
+    try std.testing.expect(cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 3) == null);
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response = try generated.Message.initRootTyped(&response_builder);
+    try cpz.rpc.initEmptyReturnMessage(response, 401, true, true);
+
+    var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer forward_builder.deinit();
+    const forward = try generated.Message.initRootTyped(&forward_builder);
+    try cpz.rpc.initWireCallMessageText(forward, 402, .{ .imported_cap = 6 }, "tagged forward", &.{});
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo, .{
+        .target = .{ .imported_cap = 7 },
+        .context = .{ .accept = "tagged-disembargo" },
+    });
+
+    const outputs = [_]generated.Message.Builder{ response, forward, disembargo };
+    var sink: TaggedSink = .{};
+    try cpz.rpc.sendRpcTurnUnifiedOutputsToTaggedSink(plan, outputs[0..], &sink, TaggedSink.handle);
+    try std.testing.expectEqual(@as(usize, 3), sink.sent);
+    try std.testing.expectEqual(@as(usize, 0), sink.response_local);
+    try std.testing.expectEqual(@as(usize, 0), sink.forward_local);
+    try std.testing.expectEqual(@as(usize, 0), sink.disembargo_local);
+}
+
 test "rpc turn dispatcher filters pending accept disembargos into unified outputs" {
     const BootstrapHandler = struct {
         fn handle(_: void, bootstrap: anytype) !u32 {

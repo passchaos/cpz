@@ -337,6 +337,33 @@ pub const RpcTurnPlan = struct {
     }
 };
 
+pub const RpcTurnOutputRole = enum {
+    response,
+    forward,
+    disembargo,
+};
+
+pub const RpcTurnOutputPosition = struct {
+    role: RpcTurnOutputRole,
+    /// Index within the role-specific output range.  For example, a value of
+    /// `0` for `.forward` means the first forwarded Call, even if it appears
+    /// after several response messages in the unified queue.
+    local_index: usize,
+};
+
+pub fn rpcTurnUnifiedOutputPosition(turn_plan: RpcTurnPlan, output_index: usize) ?RpcTurnOutputPosition {
+    const response_end = turn_plan.responseMessages();
+    if (output_index < response_end) return .{ .role = .response, .local_index = output_index };
+
+    const forward_end = response_end + turn_plan.forwardedMessages();
+    if (output_index < forward_end) return .{ .role = .forward, .local_index = output_index - response_end };
+
+    const total_end = forward_end + turn_plan.disembargoMessages();
+    if (output_index < total_end) return .{ .role = .disembargo, .local_index = output_index - forward_end };
+
+    return null;
+}
+
 /// Send exactly the initialized prefix of a unified RPC turn output queue to an
 /// embedding transport/enqueue callback.
 ///
@@ -349,6 +376,19 @@ pub fn sendRpcTurnUnifiedOutputsToSink(turn_plan: RpcTurnPlan, output_messages: 
     try turn_plan.validateUnifiedOutputBuilders(output_messages);
     for (output_messages[0..turn_plan.totalOutputMessages()]) |output_message| {
         try sink_handler(sink_context, output_message);
+    }
+}
+
+/// Send initialized unified turn outputs to a single callback while tagging
+/// each message with its role and role-local index.
+///
+/// This is useful for transports that keep one physical enqueue path but still
+/// need to distinguish locally-produced Returns from forwarded Calls and
+/// Disembargo traffic without decoding the message union after it is built.
+pub fn sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan: RpcTurnPlan, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    try turn_plan.validateUnifiedOutputBuilders(output_messages);
+    for (output_messages[0..turn_plan.totalOutputMessages()], 0..) |output_message, output_index| {
+        try sink_handler(sink_context, rpcTurnUnifiedOutputPosition(turn_plan, output_index).?, output_message);
     }
 }
 
