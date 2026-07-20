@@ -10174,6 +10174,75 @@ test "rpc dense forwarding dispatcher initializes compact output slots" {
     try std.testing.expectEqualStrings("dense no sink forward", try (try (try forwarded.params()).content()).getText());
 }
 
+test "rpc dense forwarding dispatcher fills unified output slots" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 7300;
+        }
+    };
+    const CallHandler = struct {
+        fn handle(context: *u32, call: anytype) !cpz.rpc.DispatchResult {
+            context.* = call.questionId();
+            return .empty;
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyCapDescriptor(.{ .sender_promise = 280 });
+    try state.resolveImportTo(280, .{ .sender_hosted = 281 });
+    try state.applyCapDescriptor(.{ .sender_hosted = 281 });
+
+    var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer bootstrap_builder.deinit();
+    const bootstrap_root = try generated.Message.initRootTyped(&bootstrap_builder);
+    try cpz.rpc.initWireBootstrapMessage(bootstrap_root, 45);
+    var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
+    const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(280);
+    const target = try call.init_target();
+    try target.set_importedCap(280);
+    try cpz.rpc.initWireCallParamsText(call, "unified dense forward", &.{.{ .sender_hosted = 282 }});
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder0.deinit();
+    const output0 = try generated.Message.initRootTyped(&output_builder0);
+    var output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer output_builder1.deinit();
+    const output1 = try generated.Message.initRootTyped(&output_builder1);
+    const outputs = [_]generated.Message.Builder{ output0, output1 };
+    const requests = [_]generated.Message{ bootstrap_message, call_message };
+
+    var bootstrap_seen: u32 = 0;
+    var call_seen: u32 = 0;
+    const stats = try cpz.rpc.dispatchWireMessagesForwardingUnifiedDense(
+        &state,
+        std.testing.allocator,
+        outputs[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &call_seen,
+        CallHandler.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .response_initialized = 1, .forward_required = 1 }, stats);
+    try std.testing.expectEqual(@as(u32, 0), call_seen);
+
+    var response_reader = cpz.MessageReader.init(try output_builder0.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 45), (try generated.Message.fromReader(try response_reader.getRoot()).return_()).answerId());
+    var forward_reader = cpz.MessageReader.init(try output_builder1.segmentsConst(), .{});
+    const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 281 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+    try std.testing.expectEqualStrings("unified dense forward", try (try (try forwarded.params()).content()).getText());
+}
+
 test "rpc dense forwarding dispatcher reports detailed state apply results" {
     const BootstrapHandler = struct {
         fn handle(_: *u32, bootstrap: anytype) !u32 {
