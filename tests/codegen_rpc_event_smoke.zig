@@ -8048,6 +8048,23 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 1), wire_plans[2].source_index);
     try std.testing.expectEqual(@as(u32, 72), wire_plans[2].question_id);
     try std.testing.expect(wire_plans[2].action.isUnimplemented());
+
+    var forwarded_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer forwarded_builder.deinit();
+    const forwarded_root = try generated.Message.initRootTyped(&forwarded_builder);
+    const forwarded_messages = [_]generated.Message.Builder{forwarded_root};
+    try std.testing.expectEqual(
+        @as(usize, 1),
+        try cpz.rpc.initForwardedWireCallMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], forwarded_messages[0..]),
+    );
+    var forwarded_reader = cpz.MessageReader.init(try forwarded_builder.segmentsConst(), .{});
+    const forwarded_call = try generated.Message.fromReader(try forwarded_reader.getRoot()).call();
+    try std.testing.expectEqual(@as(u32, 73), forwarded_call.questionId());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(forwarded_call));
+    const no_forward_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(no_forward_messages);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initForwardedWireCallMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], no_forward_messages));
+
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
     var short_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;

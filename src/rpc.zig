@@ -1813,6 +1813,22 @@ pub fn initForwardedWireCallMessage(message: anytype, source_call: anytype, targ
     try initForwardedWireCall(try message.init_call(), source_call, target);
 }
 
+pub fn initForwardedWireCallMessagesFromServiceActionPlans(calls: anytype, plans: []const TrackedCallServiceActionPlan, forward_messages: anytype) !usize {
+    var forward_count: usize = 0;
+    for (plans) |plan| {
+        switch (plan.action) {
+            .forward => |target| {
+                if (plan.source_index >= calls.len) return error.InvalidTransition;
+                if (forward_count >= forward_messages.len) return error.InvalidTransition;
+                try initForwardedWireCallMessage(forward_messages[forward_count], calls[plan.source_index], target);
+                forward_count += 1;
+            },
+            .dispatch, .unimplemented => {},
+        }
+    }
+    return forward_count;
+}
+
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
     const target = (try state.wireCallTargetTransitiveForwardTarget(source_call)) orelse return error.InvalidTransition;
     try initForwardedWireCall(call, source_call, target);
