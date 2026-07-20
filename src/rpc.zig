@@ -4302,6 +4302,41 @@ pub const State = struct {
         return released_accept_ids.len;
     }
 
+    pub fn initReleasedAcceptReturnMessagesFromHandler(
+        self: *const State,
+        response_messages: anytype,
+        released_accept_ids: []const QuestionId,
+        context: anytype,
+        handler: anytype,
+    ) !usize {
+        if (response_messages.len < released_accept_ids.len) return error.InvalidTransition;
+        for (released_accept_ids, 0..) |question_id, index| {
+            const provision = self.readyAcceptProvision(question_id) orelse return error.InvalidTransition;
+            const export_id = try handler(context, question_id, provision);
+            try self.initReadyAcceptReturnMessage(response_messages[index], question_id, export_id);
+        }
+        return released_accept_ids.len;
+    }
+
+    pub fn initReleasedAcceptReturnMessagesFromHandlerToSink(
+        self: *const State,
+        response_messages: anytype,
+        released_accept_ids: []const QuestionId,
+        context: anytype,
+        handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !usize {
+        if (response_messages.len < released_accept_ids.len) return error.InvalidTransition;
+        for (released_accept_ids, 0..) |question_id, index| {
+            const provision = self.readyAcceptProvision(question_id) orelse return error.InvalidTransition;
+            const export_id = try handler(context, question_id, provision);
+            try self.initReadyAcceptReturnMessage(response_messages[index], question_id, export_id);
+            try sink_handler(sink_context, response_messages[index]);
+        }
+        return released_accept_ids.len;
+    }
+
     pub fn joinInfo(self: *const State, id: QuestionId) ?JoinInfo {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.info();

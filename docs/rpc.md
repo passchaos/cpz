@@ -74,7 +74,8 @@ that a complete RPC runtime exists.
   plus sender/receiver loopback context IDs and accept embargo bytes, and
   applying accept disembargos reports how many tracked Accept embargos were
   released and can optionally return the released Accept question IDs for
-  immediate follow-up Return initialization/enqueueing. Full embargo queue
+  immediate follow-up Return initialization/enqueueing, including handler-based
+  export selection from the released provision usage. Full embargo queue
   handling remains future work. Disembargo
   batches can be initialized and handed directly to an embedding transport/enqueue
   callback, pending Accept embargos can be queried, filtered by embargo token,
