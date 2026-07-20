@@ -134,7 +134,7 @@ that a complete RPC runtime exists.
   caller-filled struct payloads together; Return builders can initialize answer
   ID, flags, registry-backed results cap tables, and caller-filled struct
   payloads together, either at the Call/Return member level or through
-  top-level Message builders, and capability/capability-info/registry-backed-capability/text/text-info/data/data-info/UInt32-list Return builders can
+  top-level Message builders, and capability/capability-info/registry-backed-capability/text/text-info/data/data-info/UInt32-list/UInt32-list-info Return builders can
   initialize their wire payload while applying the matching answer/result
   capability bookkeeping to `State`. Top-level Bootstrap,
   Finish/Release builders can initialize their question IDs, flags, and
