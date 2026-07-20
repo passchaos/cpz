@@ -5641,8 +5641,8 @@ pub fn dispatchCallMethodOutcome(
     context: anytype,
     handler: anytype,
 ) !WireDispatchOutcome {
-    try state.validateWireCallTarget(call);
-    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+    const dispatch_info = try state.wireCallDispatchInfo(call);
+    if (dispatch_info.needsForward()) {
         try state.applyWireCall(allocator, call);
         return .forward_required;
     }
@@ -5660,8 +5660,8 @@ pub fn dispatchCallMethodForwardingOutcome(
     context: anytype,
     handler: anytype,
 ) !WireDispatchOutcome {
-    try state.validateWireCallTarget(call);
-    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+    const dispatch_info = try state.wireCallDispatchInfo(call);
+    if (dispatch_info.needsForward()) {
         try state.applyWireCall(allocator, call);
         _ = try initForwardedWireCallMessageToResolvedTarget(state, forward_message, call);
         return .forward_required;
@@ -5721,8 +5721,8 @@ pub fn dispatchCallMethodsOutcome(
     comptime entries: anytype,
 ) !WireDispatchOutcome {
     try validateCallMethodEntries(entries);
-    try state.validateWireCallTarget(call);
-    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+    const dispatch_info = try state.wireCallDispatchInfo(call);
+    if (dispatch_info.needsForward()) {
         try state.applyWireCall(allocator, call);
         return .forward_required;
     }
@@ -5740,8 +5740,8 @@ pub fn dispatchCallMethodsForwardingOutcome(
     comptime entries: anytype,
 ) !WireDispatchOutcome {
     try validateCallMethodEntries(entries);
-    try state.validateWireCallTarget(call);
-    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+    const dispatch_info = try state.wireCallDispatchInfo(call);
+    if (dispatch_info.needsForward()) {
         try state.applyWireCall(allocator, call);
         _ = try initForwardedWireCallMessageToResolvedTarget(state, forward_message, call);
         return .forward_required;
