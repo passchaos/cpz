@@ -156,9 +156,9 @@ that a complete RPC runtime exists.
   descriptor-info, or registry-backed cap tables, and emit an unimplemented exception for
   mismatches; typed method helpers can also report or initialize forwarding
   for already-resolved targets without invoking local handlers. Generated
-  interfaces with type IDs expose `cpz.rpc.CallMethod` constants for their
-  methods so method tables can reference schema-defined interface/method IDs
-  directly. A compile-time method table dispatcher
+  interfaces with type IDs expose `cpz.rpc.CallMethod` constants and metadata
+  lookup helpers for their methods so method tables can reference
+  schema-defined interface/method IDs directly. A compile-time method table dispatcher
   can validate unique method entries, select among multiple handlers, and can be
   used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through

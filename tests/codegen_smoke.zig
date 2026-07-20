@@ -4961,6 +4961,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("typed", generated.Service.@"cpz.methodByResolvedParamsType"("Details").?.name);
     try std.testing.expectEqualStrings("typed", generated.Service.@"cpz.methodByResolvedResultsType"("Details").?.name);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByParamsType"("Missing"));
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.Service.@"cpz.methodByCallMethod"(.{
+        .interface_id = 0xe57e0001,
+        .method_id = 0,
+    }));
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methodByStreaming"(false).?.name);
     try std.testing.expectEqualStrings("streamIt", generated.Service.@"cpz.methodByStreaming"(true).?.name);
     try std.testing.expectEqualStrings("call", generated.Service.@"cpz.methodByAnnotations"("$marker").?.name);
@@ -5183,6 +5187,15 @@ test "generated interface method constants compile" {
         generated.ExtendedService.@"cpz.method.pong.callMethod",
     );
     try std.testing.expect(generated.ExtendedService.@"cpz.method.pong.callMethod".matches(0xe57e0001, generated.ExtendedService.pong));
+    try std.testing.expectEqualStrings("pong", generated.ExtendedService.@"cpz.methodByCallMethod"(generated.ExtendedService.@"cpz.method.pong.callMethod").?.name);
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.@"cpz.methodByCallMethod"(.{
+        .interface_id = 0xe57e0001,
+        .method_id = 99,
+    }));
+    try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.@"cpz.methodByCallMethod"(.{
+        .interface_id = 0,
+        .method_id = generated.ExtendedService.pong,
+    }));
     try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.parameter.Req.index");

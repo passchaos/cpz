@@ -10904,6 +10904,24 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         \\{s}    return null;
         \\{s}}}
         \\
+        \\{s}pub fn @"cpz.methodByCallMethod"(@"cpz.callMethod": cpz.rpc.CallMethod) ?cpz.schema.InterfaceMethodMetadata {{
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    if (scope != null and scope.?.id != null) {
+        try appendFmt(allocator, out,
+            \\{s}    if (@"cpz.callMethod".interface_id != @This().@"cpz.type_id") return null;
+            \\{s}    return @"cpz.methodByOrdinal"(@"cpz.callMethod".method_id);
+            \\{s}}}
+            \\
+        , .{ indent, indent, indent });
+    } else {
+        try appendFmt(allocator, out,
+            \\{s}    _ = @"cpz.callMethod";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+        , .{ indent, indent, indent });
+    }
+    try appendFmt(allocator, out,
         \\{s}pub fn @"cpz.methodByParamsType"(@"cpz.type": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
         \\{s}    for (@"cpz.methods") |@"cpz.method"| if (std.mem.eql(u8, @"cpz.method".params_type, @"cpz.type")) return @"cpz.method";
         \\{s}    return null;
@@ -10934,7 +10952,7 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
         \\{s}    return @"cpz.methods"[@"cpz.index"];
         \\{s}}}
         \\
-    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+    , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
     try appendFmt(allocator, out,
         \\{s}pub fn @"cpz.methodByParameter"(@"cpz.parameter": []const u8) ?cpz.schema.InterfaceMethodMetadata {{
         \\{s}    for (@"cpz.methods") |@"cpz.method"| for (@"cpz.method".parameters) |@"cpz.methodParam"| if (std.mem.eql(u8, @"cpz.methodParam", @"cpz.parameter")) return @"cpz.method";
