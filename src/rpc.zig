@@ -1548,6 +1548,27 @@ pub fn writeCallFlagsToWire(flags: CallFlags, call: anytype) !void {
     try call.set_onlyPromisePipeline(flags.only_promise_pipeline);
 }
 
+pub fn callOptionsFromWireCall(call: anytype) !CallOptions {
+    const options: CallOptions = .{
+        .method = callMethodFromWireCall(call),
+        .send_results_to = try sendResultsToFromWireCall(call),
+        .send_results_to_third_party = try sendResultsToThirdPartyUsageFromWireCall(call),
+        .flags = callFlagsFromWireCall(call),
+    };
+    try options.validate();
+    return options;
+}
+
+pub fn writeCallOptionsToWire(options: CallOptions, call: anytype) !void {
+    try options.validate();
+    try writeCallMethodToWire(options.method, call);
+    if (options.send_results_to_third_party) |usage|
+        try writeSendResultsToThirdPartyToWire(call, usage)
+    else
+        try writeSendResultsToToWire(options.send_results_to, call);
+    try writeCallFlagsToWire(options.flags, call);
+}
+
 pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
     const has_provision = accept.has_provision();
     const provision_usage = if (has_provision)
@@ -2621,15 +2642,9 @@ fn initWireCallHeaderWithOptions(
     target: CallTarget,
     options: CallOptions,
 ) !void {
-    try options.validate();
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
-    try writeCallMethodToWire(options.method, call);
-    if (options.send_results_to_third_party) |usage|
-        try writeSendResultsToThirdPartyToWire(call, usage)
-    else
-        try writeSendResultsToToWire(options.send_results_to, call);
-    try writeCallFlagsToWire(options.flags, call);
+    try writeCallOptionsToWire(options, call);
 }
 
 pub fn initWireCall(allocator: std.mem.Allocator, call: anytype, question_id: QuestionId, target: CallTarget, registry: anytype) !void {
@@ -11894,11 +11909,7 @@ pub const State = struct {
     pub fn applyWireCall(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
         const question_id = call.questionId();
         const target = try callTargetFromWireCall(call);
-        const method = callMethodFromWireCall(call);
-        const send_results_to = try sendResultsToFromWireCall(call);
-        const send_results_to_third_party = try sendResultsToThirdPartyUsageFromWireCall(call);
-        if (send_results_to_third_party) |usage| try validateAnyPointerUsageCapability(usage);
-        const flags = callFlagsFromWireCall(call);
+        const options = try callOptionsFromWireCall(call);
         const descriptors = try capTableFromWireCallParams(allocator, call);
         defer allocator.free(descriptors);
 
@@ -11909,10 +11920,10 @@ pub const State = struct {
         try self.trackCallInfo(.{
             .question_id = question_id,
             .target = target,
-            .method = method,
-            .send_results_to = send_results_to,
-            .send_results_to_third_party = send_results_to_third_party,
-            .flags = flags,
+            .method = options.method,
+            .send_results_to = options.send_results_to,
+            .send_results_to_third_party = options.send_results_to_third_party,
+            .flags = options.flags,
         });
         for (descriptors) |descriptor| try self.applyCapDescriptor(descriptor);
         try self.trackParamImports(question_id, descriptors);

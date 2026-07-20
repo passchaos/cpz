@@ -372,6 +372,36 @@ test "rpc call helpers decode and write boolean flags" {
     try std.testing.expect((cpz.rpc.CallFlags{}).isDefault());
 }
 
+test "rpc call helpers round-trip call options" {
+    const options = (cpz.rpc.CallOptions{})
+        .withMethod(.{ .interface_id = 0x1234_5678_9abc_def0, .method_id = 31 })
+        .withThirdPartyResults(.{ .max_capability_count = 3, .capability = 2 })
+        .withFlags(.{
+        .allow_third_party_tail_call = true,
+        .only_promise_pipeline = true,
+    });
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const call = try generated.Call.initRootTyped(&builder);
+    try cpz.rpc.writeCallOptionsToWire(options, call);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call_reader = generated.Call.fromReader(try reader.getRoot());
+    const decoded = try cpz.rpc.callOptionsFromWireCall(call_reader);
+    try std.testing.expectEqual(options, decoded);
+    try std.testing.expect(decoded.matchesMethod(.{ .interface_id = 0x1234_5678_9abc_def0, .method_id = 31 }));
+    try std.testing.expect(decoded.sendsResultsTo(.third_party));
+    try std.testing.expect(decoded.allowsThirdPartyTailCall());
+    try std.testing.expect(!decoded.forbidsPromisePipelining());
+    try std.testing.expect(decoded.onlyAllowsPromisePipeline());
+
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeCallOptionsToWire(.{
+        .send_results_to = .third_party,
+        .send_results_to_third_party = .{ .max_capability_count = 1, .capability = 1 },
+    }, call));
+}
+
 test "rpc call helpers decode and write method ids" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
