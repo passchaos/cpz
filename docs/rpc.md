@@ -131,7 +131,7 @@ that a complete RPC runtime exists.
   indexes, primitive UInt32 lists, or caller-filled struct payloads at either
   the Call/Return member level or through top-level Message builders. Generated Call builders can
   initialize question ID, target, registry-backed params cap tables, and
-  caller-filled struct payloads together, and capability/capability-info/text/text-info/registry-backed-text/data/data-info/registry-backed-data/UInt32-list/UInt32-list-info/registry-backed-UInt32-list Call builders can apply the
+  caller-filled struct payloads together, and capability/capability-info/registry-backed-capability/text/text-info/registry-backed-text/data/data-info/registry-backed-data/UInt32-list/UInt32-list-info/registry-backed-UInt32-list Call builders can apply the
   matching question/call-info/params bookkeeping to `State`; Return builders can initialize answer
   ID, flags, registry-backed results cap tables, and caller-filled struct
   payloads together, either at the Call/Return member level or through
