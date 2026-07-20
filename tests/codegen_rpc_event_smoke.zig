@@ -5392,6 +5392,105 @@ test "rpc ready accept returns require provision capabilities" {
     try std.testing.expectError(error.InvalidTransition, state.initReadyAcceptReturnMessage(response_root, 65, 91));
 }
 
+test "rpc disembargo helper initializes released accept returns from handlers" {
+    const HandlerContext = struct {
+        seen: usize = 0,
+        question_sum: u32 = 0,
+        capability_sum: u32 = 0,
+
+        fn handle(context: *@This(), question_id: u32, provision: cpz.rpc.AnyPointerUsage) !u32 {
+            context.seen += 1;
+            context.question_sum += question_id;
+            context.capability_sum += provision.capability orelse 0;
+            return question_id + 700;
+        }
+    };
+    const Sink = struct {
+        sent: usize = 0,
+        last_answer: u32 = 0,
+
+        fn handle(context: *@This(), queued_message: anytype) !void {
+            const return_ = try queued_message.get_return_();
+            context.sent += 1;
+            context.last_answer = try return_.get_answerId();
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 66,
+        .has_provision = true,
+        .provision_max_capability_count = 2,
+        .provision_capability = 1,
+        .embargo = "combo-66",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "combo-66" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+    const responses = [_]generated.Message.Builder{response_root};
+    var short_context: HandlerContext = .{};
+    var short_sink: Sink = .{};
+    const no_response_slots = state.pendingAcceptEmbargoMatchCount("not-present");
+    try std.testing.expectError(error.InvalidTransition, state.applyWireDisembargoAndInitAcceptReturnsFromHandlerToSink(
+        std.testing.allocator,
+        try disembargo_message.disembargo(),
+        responses[0..no_response_slots],
+        &short_context,
+        HandlerContext.handle,
+        &short_sink,
+        Sink.handle,
+    ));
+    try std.testing.expectEqual(@as(usize, 0), short_context.seen);
+    try std.testing.expectEqual(@as(usize, 0), short_sink.sent);
+    try std.testing.expectEqual(@as(?bool, false), state.acceptEmbargoReleased(66));
+
+    var handler_context: HandlerContext = .{};
+    var sink: Sink = .{};
+    const released = try state.applyWireDisembargoAndInitAcceptReturnsFromHandlerToSink(
+        std.testing.allocator,
+        try disembargo_message.disembargo(),
+        responses[0..],
+        &handler_context,
+        HandlerContext.handle,
+        &sink,
+        Sink.handle,
+    );
+    defer std.testing.allocator.free(released.released_accept_ids);
+    try std.testing.expectEqual(@as(usize, 1), released.released_accepts);
+    try std.testing.expectEqualSlices(u32, &.{66}, released.released_accept_ids);
+    try std.testing.expectEqual(@as(usize, 1), handler_context.seen);
+    try std.testing.expectEqual(@as(u32, 66), handler_context.question_sum);
+    try std.testing.expectEqual(@as(u32, 1), handler_context.capability_sum);
+    try std.testing.expectEqual(@as(usize, 1), sink.sent);
+    try std.testing.expectEqual(@as(u32, 66), sink.last_answer);
+
+    var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+    const response = generated.Message.fromReader(try response_reader.getRoot());
+    const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 766 }, descriptors[0]);
+}
+
 test "rpc tracked handoff batches initialize ready return messages" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

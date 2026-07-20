@@ -4337,6 +4337,55 @@ pub const State = struct {
         return released_accept_ids.len;
     }
 
+    pub fn applyDisembargoAndInitAcceptReturnsFromHandlerToSink(
+        self: *State,
+        allocator: std.mem.Allocator,
+        info: DisembargoInfo,
+        response_messages: anytype,
+        context: anytype,
+        handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !DisembargoApplyInfo {
+        const expected_accepts = switch (info.context) {
+            .accept => |embargo| self.pendingAcceptEmbargoMatchCount(embargo),
+            else => 0,
+        };
+        if (response_messages.len < expected_accepts) return error.InvalidTransition;
+        const released = try self.applyDisembargoAlloc(allocator, info);
+        errdefer allocator.free(released.released_accept_ids);
+        _ = try self.initReleasedAcceptReturnMessagesFromHandlerToSink(
+            response_messages,
+            released.released_accept_ids,
+            context,
+            handler,
+            sink_context,
+            sink_handler,
+        );
+        return released;
+    }
+
+    pub fn applyWireDisembargoAndInitAcceptReturnsFromHandlerToSink(
+        self: *State,
+        allocator: std.mem.Allocator,
+        disembargo: anytype,
+        response_messages: anytype,
+        context: anytype,
+        handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !DisembargoApplyInfo {
+        return self.applyDisembargoAndInitAcceptReturnsFromHandlerToSink(
+            allocator,
+            try disembargoInfoFromWireDisembargo(disembargo),
+            response_messages,
+            context,
+            handler,
+            sink_context,
+            sink_handler,
+        );
+    }
+
     pub fn joinInfo(self: *const State, id: QuestionId) ?JoinInfo {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.info();
