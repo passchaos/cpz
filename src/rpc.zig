@@ -2587,6 +2587,35 @@ pub fn dispatchCallMethod(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchCallMethodReturningStructWith(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    struct_size: anytype,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    const return_ = try response_message.init_return_();
+    try return_.set_answerId(call.questionId());
+    try return_.set_releaseParamCaps(true);
+    try return_.set_noFinishNeeded(false);
+    const results = try return_.init_results();
+    const content = try (try results.get_contentAsPointer()).initStruct(struct_size);
+    try handler(context, call, content);
+    try initWirePayloadCapTable(results, descriptors);
+}
+
 pub fn dispatchCallMethodOutcome(
     state: *State,
     allocator: std.mem.Allocator,
