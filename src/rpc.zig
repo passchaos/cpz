@@ -129,6 +129,10 @@ pub const StateHandoffStats = struct {
     pub fn ready(self: @This()) usize {
         return self.provide_recipients + self.ready_accept_provisions + self.join_key_parts;
     }
+
+    pub fn blocked(self: @This()) usize {
+        return self.pending_accept_embargos;
+    }
 };
 
 pub const StateReadyHandoffIds = struct {
