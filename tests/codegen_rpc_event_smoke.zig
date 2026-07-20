@@ -5571,6 +5571,120 @@ test "rpc disembargo helper initializes released accept returns from explicit ex
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 777 }, descriptors[0]);
 }
 
+test "rpc disembargo helper initializes released accept returns without sinks" {
+    const HandlerContext = struct {
+        seen: usize = 0,
+        capability_sum: u32 = 0,
+
+        fn handle(context: *@This(), question_id: u32, provision: cpz.rpc.AnyPointerUsage) !u32 {
+            context.seen += 1;
+            context.capability_sum += provision.capability orelse 0;
+            return question_id + 800;
+        }
+    };
+
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.addImport(5);
+
+        var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer accept_builder.deinit();
+        const accept_root = try generated.Message.initRootTyped(&accept_builder);
+        try cpz.rpc.initWireAcceptMessage(accept_root, .{
+            .question_id = 68,
+            .has_provision = true,
+            .provision_max_capability_count = 2,
+            .provision_capability = 1,
+            .embargo = "handler-68",
+        });
+        var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+        var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer disembargo_builder.deinit();
+        const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+        try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+            .target = .{ .imported_cap = 5 },
+            .context = .{ .accept = "handler-68" },
+        });
+        var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+        const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        const responses = [_]generated.Message.Builder{response_root};
+        var context: HandlerContext = .{};
+        const released = try state.applyWireDisembargoAndInitAcceptReturnsFromHandler(
+            std.testing.allocator,
+            try disembargo_message.disembargo(),
+            responses[0..],
+            &context,
+            HandlerContext.handle,
+        );
+        defer std.testing.allocator.free(released.released_accept_ids);
+        try std.testing.expectEqualSlices(u32, &.{68}, released.released_accept_ids);
+        try std.testing.expectEqual(@as(usize, 1), context.seen);
+        try std.testing.expectEqual(@as(u32, 1), context.capability_sum);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 868 }, descriptors[0]);
+    }
+
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.addImport(5);
+
+        var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer accept_builder.deinit();
+        const accept_root = try generated.Message.initRootTyped(&accept_builder);
+        try cpz.rpc.initWireAcceptMessage(accept_root, .{
+            .question_id = 69,
+            .has_provision = true,
+            .provision_max_capability_count = 2,
+            .provision_capability = 1,
+            .embargo = "explicit-69",
+        });
+        var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+        var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer disembargo_builder.deinit();
+        const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+        try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+            .target = .{ .imported_cap = 5 },
+            .context = .{ .accept = "explicit-69" },
+        });
+        var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+        const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        const responses = [_]generated.Message.Builder{response_root};
+        const export_ids = [_]cpz.rpc.ExportId{869};
+        const released = try state.applyWireDisembargoAndInitAcceptReturns(
+            std.testing.allocator,
+            try disembargo_message.disembargo(),
+            responses[0..],
+            export_ids[0..],
+        );
+        defer std.testing.allocator.free(released.released_accept_ids);
+        try std.testing.expectEqualSlices(u32, &.{69}, released.released_accept_ids);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 869 }, descriptors[0]);
+    }
+}
+
 test "rpc tracked handoff batches initialize ready return messages" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

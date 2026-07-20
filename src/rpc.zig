@@ -4365,6 +4365,47 @@ pub const State = struct {
         return released;
     }
 
+    pub fn applyDisembargoAndInitAcceptReturnsFromHandler(
+        self: *State,
+        allocator: std.mem.Allocator,
+        info: DisembargoInfo,
+        response_messages: anytype,
+        context: anytype,
+        handler: anytype,
+    ) !DisembargoApplyInfo {
+        const expected_accepts = switch (info.context) {
+            .accept => |embargo| self.pendingAcceptEmbargoMatchCount(embargo),
+            else => 0,
+        };
+        if (response_messages.len < expected_accepts) return error.InvalidTransition;
+        const released = try self.applyDisembargoAlloc(allocator, info);
+        errdefer allocator.free(released.released_accept_ids);
+        _ = try self.initReleasedAcceptReturnMessagesFromHandler(
+            response_messages,
+            released.released_accept_ids,
+            context,
+            handler,
+        );
+        return released;
+    }
+
+    pub fn applyWireDisembargoAndInitAcceptReturnsFromHandler(
+        self: *State,
+        allocator: std.mem.Allocator,
+        disembargo: anytype,
+        response_messages: anytype,
+        context: anytype,
+        handler: anytype,
+    ) !DisembargoApplyInfo {
+        return self.applyDisembargoAndInitAcceptReturnsFromHandler(
+            allocator,
+            try disembargoInfoFromWireDisembargo(disembargo),
+            response_messages,
+            context,
+            handler,
+        );
+    }
+
     pub fn applyWireDisembargoAndInitAcceptReturnsFromHandlerToSink(
         self: *State,
         allocator: std.mem.Allocator,
@@ -4410,6 +4451,43 @@ pub const State = struct {
             sink_handler,
         );
         return released;
+    }
+
+    pub fn applyDisembargoAndInitAcceptReturns(
+        self: *State,
+        allocator: std.mem.Allocator,
+        info: DisembargoInfo,
+        response_messages: anytype,
+        export_ids: []const ExportId,
+    ) !DisembargoApplyInfo {
+        const expected_accepts = switch (info.context) {
+            .accept => |embargo| self.pendingAcceptEmbargoMatchCount(embargo),
+            else => 0,
+        };
+        if (response_messages.len < expected_accepts or export_ids.len < expected_accepts) return error.InvalidTransition;
+        const released = try self.applyDisembargoAlloc(allocator, info);
+        errdefer allocator.free(released.released_accept_ids);
+        _ = try self.initReleasedAcceptReturnMessages(
+            response_messages,
+            released.released_accept_ids,
+            export_ids,
+        );
+        return released;
+    }
+
+    pub fn applyWireDisembargoAndInitAcceptReturns(
+        self: *State,
+        allocator: std.mem.Allocator,
+        disembargo: anytype,
+        response_messages: anytype,
+        export_ids: []const ExportId,
+    ) !DisembargoApplyInfo {
+        return self.applyDisembargoAndInitAcceptReturns(
+            allocator,
+            try disembargoInfoFromWireDisembargo(disembargo),
+            response_messages,
+            export_ids,
+        );
     }
 
     pub fn applyWireDisembargoAndInitAcceptReturnsToSink(

@@ -76,8 +76,8 @@ that a complete RPC runtime exists.
   released and can optionally return the released Accept question IDs for
   immediate follow-up Return initialization/enqueueing, including handler-based
   export selection from the released provision usage or caller-provided export
-  IDs, and combined helpers can apply the disembargo and enqueue those follow-up
-  Returns. Full embargo queue handling remains future work. Disembargo
+  IDs, and combined helpers can apply the disembargo then initialize or enqueue
+  those follow-up Returns. Full embargo queue handling remains future work. Disembargo
   batches can be initialized and handed directly to an embedding transport/enqueue
   callback, pending Accept embargos can be queried, filtered by embargo token,
   snapshotted, or emitted to a sink for queueing, and their targets are
