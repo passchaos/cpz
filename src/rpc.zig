@@ -987,6 +987,30 @@ pub const CallOptions = struct {
     send_results_to: CallSendResultsTo = .caller,
     send_results_to_third_party: ?AnyPointerUsage = null,
     flags: CallFlags = .{},
+
+    pub fn matchesMethod(self: @This(), method: CallMethod) bool {
+        return self.method.matches(method.interface_id, method.method_id);
+    }
+
+    pub fn sendsResultsTo(self: @This(), target: CallSendResultsTo) bool {
+        return self.send_results_to == target;
+    }
+
+    pub fn thirdPartyResultsUsage(self: @This()) ?AnyPointerUsage {
+        return if (self.send_results_to == .third_party) self.send_results_to_third_party else null;
+    }
+
+    pub fn allowsThirdPartyTailCall(self: @This()) bool {
+        return self.flags.allow_third_party_tail_call;
+    }
+
+    pub fn forbidsPromisePipelining(self: @This()) bool {
+        return self.flags.no_promise_pipelining;
+    }
+
+    pub fn onlyAllowsPromisePipeline(self: @This()) bool {
+        return self.flags.only_promise_pipeline;
+    }
 };
 
 pub const CapDescriptor = union(enum) {

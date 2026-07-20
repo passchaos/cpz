@@ -5192,6 +5192,10 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(@as(?cpz.rpc.CallMethod, null), generated.ExtendedService.@"cpz.callMethodByIndex"(99));
     try std.testing.expectEqual(@as(usize, 1), generated.ExtendedService.@"cpz.callOptions".len);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptions"[0].method);
+    try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].matchesMethod(generated.ExtendedService.@"cpz.method.pong.callMethod"));
+    try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].sendsResultsTo(.caller));
+    try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].allowsThirdPartyTailCall());
+    try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].forbidsPromisePipelining());
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByIndex"(0).?.method);
     try std.testing.expectEqual(@as(?cpz.rpc.CallOptions, null), generated.ExtendedService.@"cpz.callOptionsByIndex"(99));
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callMethodByName"("pong").?);
