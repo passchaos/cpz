@@ -564,6 +564,10 @@ pub const CallInfo = struct {
     method: CallMethod,
     send_results_to: CallSendResultsTo,
     flags: CallFlags,
+
+    pub fn matchesMethod(self: @This(), method: CallMethod) bool {
+        return self.method.matches(method.interface_id, method.method_id);
+    }
 };
 
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
@@ -12170,9 +12174,13 @@ pub const State = struct {
         return self.calls.get(id);
     }
 
-    pub fn callMatchesMethod(self: *const State, id: QuestionId, interface_id: u64, method_id: u16) ?bool {
+    pub fn callMatchesCallMethod(self: *const State, id: QuestionId, method: CallMethod) ?bool {
         const info = self.callInfo(id) orelse return null;
-        return info.method.matches(interface_id, method_id);
+        return info.matchesMethod(method);
+    }
+
+    pub fn callMatchesMethod(self: *const State, id: QuestionId, interface_id: u64, method_id: u16) ?bool {
+        return self.callMatchesCallMethod(id, .{ .interface_id = interface_id, .method_id = method_id });
     }
 
     pub fn callInfoCount(self: *const State) usize {

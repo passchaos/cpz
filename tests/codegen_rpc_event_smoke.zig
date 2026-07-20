@@ -2817,9 +2817,14 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(6));
     const tracked = state.callInfo(50).?;
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
-    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x50, .method_id = 5 }, tracked.method);
+    const expected_method: cpz.rpc.CallMethod = .{ .interface_id = 0x50, .method_id = 5 };
+    try std.testing.expectEqual(expected_method, tracked.method);
+    try std.testing.expect(tracked.matchesMethod(expected_method));
+    try std.testing.expectEqual(@as(?bool, true), state.callMatchesCallMethod(50, expected_method));
     try std.testing.expectEqual(@as(?bool, true), state.callMatchesMethod(50, 0x50, 5));
+    try std.testing.expectEqual(@as(?bool, false), state.callMatchesCallMethod(50, .{ .interface_id = 0x50, .method_id = 6 }));
     try std.testing.expectEqual(@as(?bool, false), state.callMatchesMethod(50, 0x50, 6));
+    try std.testing.expectEqual(@as(?bool, null), state.callMatchesCallMethod(51, expected_method));
     try std.testing.expect(tracked.flags.no_promise_pipelining);
 }
 
