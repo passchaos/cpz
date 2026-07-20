@@ -627,6 +627,16 @@ pub const TrackedCallDispatchInfo = struct {
     pub fn needsForward(self: @This()) bool {
         return self.transitive_forward_target != null;
     }
+
+    pub fn methodEntryIndex(self: @This(), comptime entries: anytype) Error!?usize {
+        return self.info.callMethod().entryIndex(entries);
+    }
+
+    pub fn serviceAction(self: @This(), comptime entries: anytype) Error!TrackedCallServiceAction {
+        if (self.transitive_forward_target) |target| return .{ .forward = target };
+        if (try self.methodEntryIndex(entries)) |index| return .{ .dispatch = index };
+        return .unimplemented;
+    }
 };
 
 pub const TrackedCallServiceAction = union(enum) {
@@ -13105,9 +13115,7 @@ pub const State = struct {
 
     pub fn trackedCallServiceAction(self: *const State, id: QuestionId, comptime entries: anytype) Error!?TrackedCallServiceAction {
         const dispatch_info = (try self.trackedCallDispatchInfo(id)) orelse return null;
-        if (dispatch_info.transitive_forward_target) |target| return .{ .forward = target };
-        if (try dispatch_info.info.method.entryIndex(entries)) |index| return .{ .dispatch = index };
-        return .unimplemented;
+        return try dispatch_info.serviceAction(entries);
     }
 
     pub fn wireCallServiceAction(self: *const State, call: anytype, comptime entries: anytype) !TrackedCallServiceAction {

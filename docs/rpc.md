@@ -244,8 +244,9 @@ that a complete RPC runtime exists.
   helper for code paths that select a handler before recording call state.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
-  tracked/effective target querying, dispatch-info snapshots, service-action
-  previews, `CallOptions` restoration, and direct `CallMethod`/send-results/
+  tracked/effective target querying, dispatch-info snapshots that can directly
+  compute method-entry indexes and service actions, service-action previews,
+  `CallOptions` restoration, and direct `CallMethod`/send-results/
   third-party result-target/flag querying for future service dispatch, plus
   params capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result

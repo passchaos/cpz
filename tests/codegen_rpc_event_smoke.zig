@@ -2947,6 +2947,7 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expect(state.trackedCallTargetForwardTarget(50) == null);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, state.trackedCallEffectiveTarget(50).?);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, (try state.trackedCallTransitiveEffectiveTarget(50)).?);
+    const expected_method: cpz.rpc.CallMethod = .{ .interface_id = 0x50, .method_id = 5 };
     const dispatch_info = (try state.trackedCallDispatchInfo(50)).?;
     try std.testing.expectEqual(tracked, dispatch_info.info);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, dispatch_info.effective_target);
@@ -2955,10 +2956,21 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expect(dispatch_info.forward_target == null);
     try std.testing.expect(dispatch_info.transitive_forward_target == null);
     try std.testing.expect(!dispatch_info.needsForward());
+    const Noop = struct {
+        fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
+    const entries = .{expected_method.methodEntry(Noop.handle)};
+    try std.testing.expectEqual(@as(?usize, 0), try dispatch_info.methodEntryIndex(entries));
+    const service_action = try dispatch_info.serviceAction(entries);
+    try std.testing.expect(service_action.isDispatch());
+    try std.testing.expectEqual(@as(usize, 0), service_action.dispatch);
+    const missing_action = try dispatch_info.serviceAction(.{(cpz.rpc.CallMethod{ .interface_id = 0x50, .method_id = 6 }).methodEntry(Noop.handle)});
+    try std.testing.expect(missing_action.isUnimplemented());
     try std.testing.expect(state.trackedCallTarget(51) == null);
     try std.testing.expect(state.trackedCallTargetResolved(51) == null);
     try std.testing.expect((try state.trackedCallTargetTransitiveForwardTarget(51)) == null);
-    const expected_method: cpz.rpc.CallMethod = .{ .interface_id = 0x50, .method_id = 5 };
     try std.testing.expectEqual(expected_method, tracked.method);
     try std.testing.expect(tracked.matchesMethod(expected_method));
     try std.testing.expectEqual(@as(?bool, true), state.callMatchesCallMethod(50, expected_method));
