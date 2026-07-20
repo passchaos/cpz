@@ -643,6 +643,7 @@ pub const TrackedCallServiceActionStats = struct {
     forward: usize = 0,
     unimplemented: usize = 0,
     missing: usize = 0,
+    skipped: usize = 0,
 
     pub fn record(self: *@This(), action: TrackedCallServiceAction) void {
         switch (action) {
@@ -656,6 +657,10 @@ pub const TrackedCallServiceActionStats = struct {
         self.missing += 1;
     }
 
+    pub fn recordSkipped(self: *@This()) void {
+        self.skipped += 1;
+    }
+
     pub fn actions(self: @This()) usize {
         return self.dispatch + self.forward + self.unimplemented;
     }
@@ -665,7 +670,7 @@ pub const TrackedCallServiceActionStats = struct {
     }
 
     pub fn total(self: @This()) usize {
-        return self.actions() + self.missing;
+        return self.actions() + self.missing + self.skipped;
     }
 
     pub fn dispatchRange(self: @This()) OutputRange {
@@ -12653,6 +12658,17 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn wireMessageServiceActionStats(self: *const State, messages: anytype, comptime entries: anytype) !TrackedCallServiceActionStats {
+        var stats: TrackedCallServiceActionStats = .{};
+        for (messages) |message| {
+            switch (try eventFromWireMessage(message)) {
+                .call => stats.record(try self.wireCallServiceAction(try message.call(), entries)),
+                else => stats.recordSkipped(),
+            }
+        }
+        return stats;
+    }
+
     pub fn trackedCallServiceActionStats(self: *const State, ids: []const QuestionId, comptime entries: anytype) !TrackedCallServiceActionStats {
         var stats: TrackedCallServiceActionStats = .{};
         for (ids) |id| {
@@ -12746,6 +12762,31 @@ pub const State = struct {
                 .question_id = call.questionId(),
                 .action = action,
             });
+        }
+        return stats;
+    }
+
+    pub fn initWireMessageServiceActionPlans(self: *const State, messages: anytype, comptime entries: anytype, plans: []TrackedCallServiceActionPlan) !TrackedCallServiceActionStats {
+        const stats = try self.wireMessageServiceActionStats(messages, entries);
+        try stats.validateActionCapacity(plans.len);
+        var indexes = .{
+            .dispatch = stats.dispatchRange().start,
+            .forward = stats.forwardRange().start,
+            .unimplemented = stats.unimplementedRange().start,
+        };
+        for (messages, 0..) |message, source_index| {
+            switch (try eventFromWireMessage(message)) {
+                .call => {
+                    const call = try message.call();
+                    const action = try self.wireCallServiceAction(call, entries);
+                    storeServiceActionPlanByRange(stats, plans, &indexes, .{
+                        .source_index = source_index,
+                        .question_id = call.questionId(),
+                        .action = action,
+                    });
+                },
+                else => {},
+            }
         }
         return stats;
     }

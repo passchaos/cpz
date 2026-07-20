@@ -8015,6 +8015,42 @@ test "rpc service action stats aggregate wire and tracked calls" {
     const forward_call = try forward_message.call();
 
     const calls = [_]@TypeOf(dispatch_call){ dispatch_call, unimplemented_call, forward_call };
+
+    var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer bootstrap_builder.deinit();
+    const bootstrap_root = try generated.Message.initRootTyped(&bootstrap_builder);
+    try cpz.rpc.initWireBootstrapMessage(bootstrap_root, 74);
+    var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
+    const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
+
+    var return_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer return_builder.deinit();
+    const return_root = try generated.Message.initRootTyped(&return_builder);
+    try cpz.rpc.initEmptyReturnMessage(return_root, 75, false, true);
+    var return_reader = cpz.MessageReader.init(try return_builder.segmentsConst(), .{});
+    const return_message = generated.Message.fromReader(try return_reader.getRoot());
+
+    const messages = [_]generated.Message{ dispatch_message, bootstrap_message, unimplemented_message, forward_message, return_message };
+    const message_stats = try state.wireMessageServiceActionStats(messages[0..], entries);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
+        .dispatch = 1,
+        .forward = 1,
+        .unimplemented = 1,
+        .skipped = 2,
+    }, message_stats);
+    try std.testing.expectEqual(@as(usize, 3), message_stats.actions());
+    try std.testing.expectEqual(@as(usize, 5), message_stats.total());
+    var message_plans: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectEqual(message_stats, try state.initWireMessageServiceActionPlans(messages[0..], entries, message_plans[0..]));
+    try std.testing.expectEqual(@as(usize, 0), message_plans[0].source_index);
+    try std.testing.expectEqual(@as(u32, 71), message_plans[0].question_id);
+    try std.testing.expectEqual(@as(usize, 3), message_plans[1].source_index);
+    try std.testing.expectEqual(@as(u32, 73), message_plans[1].question_id);
+    try std.testing.expectEqual(@as(usize, 2), message_plans[2].source_index);
+    try std.testing.expectEqual(@as(u32, 72), message_plans[2].question_id);
+    var short_message_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, state.initWireMessageServiceActionPlans(messages[0..], entries, short_message_plans[0..]));
+
     const wire_stats = try state.wireCallServiceActionStats(calls[0..], entries);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
         .dispatch = 1,
