@@ -102,6 +102,18 @@ pub const WireDispatchStats = struct {
         return self.response_initialized + self.forward_required + self.state_applied;
     }
 
+    pub fn denseResponseSlots(self: @This()) usize {
+        return self.response_initialized;
+    }
+
+    pub fn denseForwardSlots(self: @This()) usize {
+        return self.forward_required;
+    }
+
+    pub fn denseOutputSlots(self: @This()) usize {
+        return self.response_initialized + self.forward_required;
+    }
+
     pub fn initializedAnyResponse(self: @This()) bool {
         return self.response_initialized != 0;
     }
@@ -2614,6 +2626,43 @@ pub fn dispatchCallMethodsForwardingOutcome(
     }
     try dispatchCallMethods(state, allocator, response_message, call, context, entries);
     return .response_initialized;
+}
+
+pub fn planWireMessageDispatch(state: *const State, request_message: anytype) !WireDispatchOutcome {
+    switch (try eventFromWireMessage(request_message)) {
+        .bootstrap => return .response_initialized,
+        .call => {
+            const call = try request_message.call();
+            try state.validateWireCallTarget(call);
+            return if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null)
+                .forward_required
+            else
+                .response_initialized;
+        },
+        else => return .state_applied,
+    }
+}
+
+pub fn planWireMessagesDispatch(state: *const State, request_messages: anytype) !WireDispatchStats {
+    var stats: WireDispatchStats = .{};
+    for (request_messages) |request_message| {
+        stats.record(try planWireMessageDispatch(state, request_message));
+    }
+    return stats;
+}
+
+pub fn planWireMessageMethodsDispatch(state: *const State, request_message: anytype, comptime call_entries: anytype) !WireDispatchOutcome {
+    try validateCallMethodEntries(call_entries);
+    return planWireMessageDispatch(state, request_message);
+}
+
+pub fn planWireMessagesMethodsDispatch(state: *const State, request_messages: anytype, comptime call_entries: anytype) !WireDispatchStats {
+    try validateCallMethodEntries(call_entries);
+    var stats: WireDispatchStats = .{};
+    for (request_messages) |request_message| {
+        stats.record(try planWireMessageDispatch(state, request_message));
+    }
+    return stats;
 }
 
 pub fn dispatchWireMessageOutcome(

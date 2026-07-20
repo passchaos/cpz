@@ -165,6 +165,9 @@ that a complete RPC runtime exists.
   including dense response queues (with or without method tables) that skip
   state-only messages; no-sink dense variants can fill compact response queues
   for callers that want to enqueue or inspect initialized messages themselves.
+  Non-mutating dispatch planning helpers can preview response, forward, and
+  state-only counts plus dense output slot requirements before builders are
+  allocated.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.

@@ -4514,6 +4514,94 @@ test "rpc single-message dispatcher reports resolved call forwarding" {
     );
 }
 
+test "rpc dispatch planner previews dense output slots without mutating state" {
+    const Handler = struct {
+        fn handle(_: *u32, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x1234, .method_id = 1 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    try state.applyCapDescriptor(.{ .sender_promise = 600 });
+    try state.resolveImportTo(600, .{ .sender_hosted = 601 });
+    try state.applyCapDescriptor(.{ .sender_hosted = 601 });
+
+    var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer bootstrap_builder.deinit();
+    const bootstrap_root = try generated.Message.initRootTyped(&bootstrap_builder);
+    try cpz.rpc.initWireBootstrapMessage(bootstrap_root, 70);
+    var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
+    const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
+
+    var local_call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer local_call_builder.deinit();
+    const local_call_root = try generated.Message.initRootTyped(&local_call_builder);
+    const local_call = try local_call_root.init_call();
+    try local_call.set_questionId(71);
+    const local_target = try local_call.init_target();
+    try local_target.set_importedCap(5);
+    _ = try local_call.init_params();
+    var local_call_reader = cpz.MessageReader.init(try local_call_builder.segmentsConst(), .{});
+    const local_call_message = generated.Message.fromReader(try local_call_reader.getRoot());
+
+    var forward_call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer forward_call_builder.deinit();
+    const forward_call_root = try generated.Message.initRootTyped(&forward_call_builder);
+    const forward_call = try forward_call_root.init_call();
+    try forward_call.set_questionId(72);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x1234, .method_id = 1 }, forward_call);
+    const forward_target = try forward_call.init_target();
+    try forward_target.set_importedCap(600);
+    _ = try forward_call.init_params();
+    var forward_call_reader = cpz.MessageReader.init(try forward_call_builder.segmentsConst(), .{});
+    const forward_call_message = generated.Message.fromReader(try forward_call_reader.getRoot());
+
+    var finish_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer finish_builder.deinit();
+    const finish_root = try generated.Message.initRootTyped(&finish_builder);
+    try cpz.rpc.initWireFinishMessage(finish_root, .{ .question_id = 73, .release_result_caps = false });
+    var finish_reader = cpz.MessageReader.init(try finish_builder.segmentsConst(), .{});
+    const finish_message = generated.Message.fromReader(try finish_reader.getRoot());
+
+    const requests = [_]generated.Message{ bootstrap_message, local_call_message, forward_call_message, finish_message };
+    const stats = try cpz.rpc.planWireMessagesDispatch(&state, requests[0..]);
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{
+        .response_initialized = 2,
+        .forward_required = 1,
+        .state_applied = 1,
+    }, stats);
+    try std.testing.expectEqual(@as(usize, 2), stats.denseResponseSlots());
+    try std.testing.expectEqual(@as(usize, 1), stats.denseForwardSlots());
+    try std.testing.expectEqual(@as(usize, 3), stats.denseOutputSlots());
+    try std.testing.expect(stats.initializedAnyResponse());
+    try std.testing.expect(stats.requiredAnyForward());
+    try std.testing.expect(stats.appliedAnyState());
+
+    const method_stats = try cpz.rpc.planWireMessagesMethodsDispatch(&state, requests[0..], entries);
+    try std.testing.expectEqual(stats, method_stats);
+
+    try std.testing.expect(state.questionState(70) == null);
+    try std.testing.expect(state.questionState(71) == null);
+    try std.testing.expectEqual(@as(usize, 0), state.callInfoCount());
+
+    var bad_call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer bad_call_builder.deinit();
+    const bad_call_root = try generated.Message.initRootTyped(&bad_call_builder);
+    const bad_call = try bad_call_root.init_call();
+    try bad_call.set_questionId(74);
+    const bad_target = try bad_call.init_target();
+    try bad_target.set_importedCap(999);
+    _ = try bad_call.init_params();
+    var bad_call_reader = cpz.MessageReader.init(try bad_call_builder.segmentsConst(), .{});
+    const bad_message = generated.Message.fromReader(try bad_call_reader.getRoot());
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.planWireMessageDispatch(&state, bad_message));
+}
+
 test "rpc call forwarding dispatch initializes forwarded calls" {
     const Handler = struct {
         fn handle(seen_question: *u32, call: anytype) !cpz.rpc.DispatchResult {
