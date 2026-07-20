@@ -230,6 +230,10 @@ pub const StateHandoffReturnStats = struct {
     pub fn total(self: @This()) usize {
         return self.provides + self.accepts + self.joins;
     }
+
+    pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.total()) return error.InvalidTransition;
+    }
 };
 
 pub const StateQuestionStats = struct {
