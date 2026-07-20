@@ -6063,6 +6063,241 @@ test "rpc batch dispatcher supports method tables" {
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(33));
 }
 
+test "rpc method-table dispatcher reports detailed state apply results" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 9300;
+        }
+    };
+    const Context = struct {
+        selected: u32 = 0,
+    };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .{ .text = "method apply" };
+        }
+    };
+    const ApplyContext = struct {
+        calls: usize = 0,
+        released_accepts: usize = 0,
+        released_question_sum: u32 = 0,
+
+        fn handle(context: *@This(), result: cpz.rpc.WireMessageApplyResult) !void {
+            context.calls += 1;
+            switch (result) {
+                .disembargo => |info| {
+                    context.released_accepts += info.released_accepts;
+                    for (info.released_accept_ids) |id| context.released_question_sum += id;
+                },
+                .state_applied => {},
+            }
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x5558, .method_id = 8 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 47,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "method-47",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(48);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x5558, .method_id = 8 }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "method-47" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+    var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder0.deinit();
+    const response0 = try generated.Message.initRootTyped(&response_builder0);
+    var response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer response_builder1.deinit();
+    const response1 = try generated.Message.initRootTyped(&response_builder1);
+
+    const responses = [_]generated.Message.Builder{ response0, response1 };
+    const requests = [_]generated.Message{ call_message, disembargo_message };
+    var bootstrap_seen: u32 = 0;
+    var context: Context = .{};
+    var apply_context: ApplyContext = .{};
+    const stats = try cpz.rpc.dispatchWireMessagesMethodsWithApplyHandler(
+        &state,
+        std.testing.allocator,
+        responses[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+        &apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 48), context.selected);
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .response_initialized = 1, .state_applied = 1 }, stats);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 47), apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(47));
+
+    var response_reader = cpz.MessageReader.init(try response_builder0.segmentsConst(), .{});
+    const response = generated.Message.fromReader(try response_reader.getRoot());
+    const return_ = try response.return_();
+    try std.testing.expectEqual(@as(u32, 48), return_.answerId());
+    try std.testing.expectEqualStrings("method apply", try (try (try return_.results()).content()).getText());
+}
+
+test "rpc method-table dispatcher reports apply results while sending responses to a sink" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 9400;
+        }
+    };
+    const Context = struct {
+        selected: u32 = 0,
+    };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .empty;
+        }
+    };
+    const Sink = struct {
+        sent: usize = 0,
+        last_answer: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            const return_ = try message.get_return_();
+            context.sent += 1;
+            context.last_answer = try return_.get_answerId();
+        }
+    };
+    const ApplyContext = struct {
+        calls: usize = 0,
+        released_accepts: usize = 0,
+        released_question_sum: u32 = 0,
+
+        fn handle(context: *@This(), result: cpz.rpc.WireMessageApplyResult) !void {
+            context.calls += 1;
+            switch (result) {
+                .disembargo => |info| {
+                    context.released_accepts += info.released_accepts;
+                    for (info.released_accept_ids) |id| context.released_question_sum += id;
+                },
+                .state_applied => {},
+            }
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x5559, .method_id = 9 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 49,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "method-sink-49",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(50);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x5559, .method_id = 9 }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "method-sink-49" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+    var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder0.deinit();
+    const response0 = try generated.Message.initRootTyped(&response_builder0);
+    var response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer response_builder1.deinit();
+    const response1 = try generated.Message.initRootTyped(&response_builder1);
+
+    const responses = [_]generated.Message.Builder{ response0, response1 };
+    const requests = [_]generated.Message{ call_message, disembargo_message };
+    var bootstrap_seen: u32 = 0;
+    var context: Context = .{};
+    var sink: Sink = .{};
+    var apply_context: ApplyContext = .{};
+    const stats = try cpz.rpc.dispatchWireMessagesMethodsToSinkWithApplyHandler(
+        &state,
+        std.testing.allocator,
+        responses[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+        &sink,
+        Sink.handle,
+        &apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 50), context.selected);
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .response_initialized = 1, .state_applied = 1 }, stats);
+    try std.testing.expectEqual(@as(usize, 1), sink.sent);
+    try std.testing.expectEqual(@as(u32, 50), sink.last_answer);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 49), apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(49));
+}
+
 test "rpc batch method-table dispatcher sends initialized responses to a sink" {
     const BootstrapHandler = struct {
         fn handle(_: *u32, bootstrap: anytype) !u32 {
