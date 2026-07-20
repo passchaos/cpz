@@ -8027,6 +8027,8 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 1, .end = 2 }, wire_stats.forwardRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, wire_stats.unimplementedRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, wire_stats.responseRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, wire_stats.outputResponseRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, wire_stats.outputForwardRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 1 }, wire_stats.dispatchResponseRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 1, .end = 2 }, wire_stats.unimplementedResponseRange());
     try wire_stats.validateSplitCapacity(1, 1, 1);
@@ -8230,6 +8232,38 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 71 + 72), response_sink.answer_sum);
     try std.testing.expectEqual(@as(usize, 1), forward_sink.sent);
     try std.testing.expectEqual(@as(u32, 73), forward_sink.question_sum);
+
+    var unified_state = cpz.rpc.State.init(std.testing.allocator);
+    defer unified_state.deinit();
+    try unified_state.addImport(5);
+    try unified_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try unified_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try unified_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var unified_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unified_builder0.deinit();
+    const unified0 = try generated.Message.initRootTyped(&unified_builder0);
+    var unified_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unified_builder1.deinit();
+    const unified1 = try generated.Message.initRootTyped(&unified_builder1);
+    var unified_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unified_builder2.deinit();
+    const unified2 = try generated.Message.initRootTyped(&unified_builder2);
+    const unified_outputs = [_]generated.Message.Builder{ unified0, unified1, unified2 };
+    var unified_context: Context = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanUnifiedOutputs(&unified_state, std.testing.allocator, calls[0..], wire_plans[0..], unified_outputs[0..2], &unified_context, entries));
+    try std.testing.expectEqual(
+        wire_stats,
+        try cpz.rpc.initWireCallServiceActionPlanUnifiedOutputs(&unified_state, std.testing.allocator, calls[0..], wire_plans[0..], unified_outputs[0..], &unified_context, entries),
+    );
+    try std.testing.expectEqual(@as(u32, 71), unified_context.selected);
+    var unified_reader0 = cpz.MessageReader.init(try unified_builder0.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 71), (try generated.Message.fromReader(try unified_reader0.getRoot()).return_()).answerId());
+    var unified_reader1 = cpz.MessageReader.init(try unified_builder1.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 72), (try generated.Message.fromReader(try unified_reader1.getRoot()).return_()).answerId());
+    var unified_reader2 = cpz.MessageReader.init(try unified_builder2.segmentsConst(), .{});
+    const unified_forward_call = try generated.Message.fromReader(try unified_reader2.getRoot()).call();
+    try std.testing.expectEqual(@as(u32, 73), unified_forward_call.questionId());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(unified_forward_call));
 
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));

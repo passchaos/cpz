@@ -686,6 +686,15 @@ pub const TrackedCallServiceActionStats = struct {
         return .{ .start = 0, .end = self.responseMessages() };
     }
 
+    pub fn outputResponseRange(self: @This()) OutputRange {
+        return self.responseRange();
+    }
+
+    pub fn outputForwardRange(self: @This()) OutputRange {
+        const start = self.responseMessages();
+        return .{ .start = start, .end = start + self.forward };
+    }
+
     pub fn dispatchResponseRange(self: @This()) OutputRange {
         return self.dispatchRange();
     }
@@ -1939,8 +1948,7 @@ pub fn initWireCallServiceActionPlanOutputs(
     comptime entries: anytype,
 ) !TrackedCallServiceActionStats {
     const stats = try validateWireCallServiceActionPlans(calls, plans, entries);
-    try stats.validateResponseCapacity(response_messages.len);
-    try stats.validateForwardCapacity(forward_messages.len);
+    try stats.validateOutputBuilders(response_messages, forward_messages);
 
     var response_index: usize = 0;
     var forward_index: usize = 0;
@@ -1985,9 +1993,32 @@ pub fn initWireCallServiceActionPlanOutputsToSinks(
     forward_handler: anytype,
 ) !TrackedCallServiceActionStats {
     const stats = try initWireCallServiceActionPlanOutputs(state, allocator, calls, plans, response_messages, forward_messages, context, entries);
-    for (response_messages[0..stats.responseMessages()]) |message| try response_handler(response_context, message);
+    for (try stats.outputResponseRange().slice(response_messages)) |message| try response_handler(response_context, message);
     for (forward_messages[0..stats.forward]) |message| try forward_handler(forward_context, message);
     return stats;
+}
+
+pub fn initWireCallServiceActionPlanUnifiedOutputs(
+    state: *State,
+    allocator: std.mem.Allocator,
+    calls: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try validateWireCallServiceActionPlans(calls, plans, entries);
+    try stats.validateActionCapacity(output_messages.len);
+    return initWireCallServiceActionPlanOutputs(
+        state,
+        allocator,
+        calls,
+        plans,
+        try stats.outputResponseRange().slice(output_messages),
+        try stats.outputForwardRange().slice(output_messages),
+        context,
+        entries,
+    );
 }
 
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
