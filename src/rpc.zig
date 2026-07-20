@@ -2978,6 +2978,101 @@ pub fn dispatchWireMessageMethodsForwardingToSinksOutcome(
     return outcome;
 }
 
+pub fn dispatchWireMessageMethodsForwardingOutcomeWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    forward_message: anytype,
+    request_message: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchOutcome {
+    switch (try eventFromWireMessage(request_message)) {
+        .bootstrap => {
+            try dispatchBootstrap(state, response_message, try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+            return .response_initialized;
+        },
+        .call => {
+            return dispatchCallMethodsForwardingOutcome(state, allocator, response_message, forward_message, try request_message.call(), call_context, call_entries);
+        },
+        else => {
+            try applyStateWireMessageWithHandler(state, allocator, request_message, apply_context, apply_handler);
+            return .state_applied;
+        },
+    }
+}
+
+pub fn dispatchWireMessageMethodsForwardingToSinkOutcomeWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    forward_message: anytype,
+    request_message: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchOutcome {
+    const outcome = try dispatchWireMessageMethodsForwardingOutcomeWithApplyHandler(
+        state,
+        allocator,
+        response_message,
+        forward_message,
+        request_message,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        apply_context,
+        apply_handler,
+    );
+    try sendForwardedMessageIfNeeded(outcome, forward_context, forward_handler, forward_message);
+    return outcome;
+}
+
+pub fn dispatchWireMessageMethodsForwardingToSinksOutcomeWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    forward_message: anytype,
+    request_message: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchOutcome {
+    const outcome = try dispatchWireMessageMethodsForwardingOutcomeWithApplyHandler(
+        state,
+        allocator,
+        response_message,
+        forward_message,
+        request_message,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        apply_context,
+        apply_handler,
+    );
+    try sendResponseMessageIfNeeded(outcome, response_context, response_handler, response_message);
+    try sendForwardedMessageIfNeeded(outcome, forward_context, forward_handler, forward_message);
+    return outcome;
+}
+
 pub fn dispatchWireMessages(
     state: *State,
     allocator: std.mem.Allocator,
@@ -3921,6 +4016,120 @@ pub fn dispatchWireMessagesMethodsForwardingToSink(
             call_entries,
             forward_context,
             forward_handler,
+        );
+        stats.record(outcome);
+    }
+    return stats;
+}
+
+pub fn dispatchWireMessagesMethodsForwardingWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    if (response_messages.len < request_messages.len or forward_messages.len < request_messages.len) return error.InvalidTransition;
+    var stats: WireDispatchStats = .{};
+    for (request_messages, 0..) |request_message, index| {
+        const outcome = try dispatchWireMessageMethodsForwardingOutcomeWithApplyHandler(
+            state,
+            allocator,
+            response_messages[index],
+            forward_messages[index],
+            request_message,
+            bootstrap_context,
+            bootstrap_handler,
+            call_context,
+            call_entries,
+            apply_context,
+            apply_handler,
+        );
+        stats.record(outcome);
+    }
+    return stats;
+}
+
+pub fn dispatchWireMessagesMethodsForwardingToSinkWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    if (response_messages.len < request_messages.len or forward_messages.len < request_messages.len) return error.InvalidTransition;
+    var stats: WireDispatchStats = .{};
+    for (request_messages, 0..) |request_message, index| {
+        const outcome = try dispatchWireMessageMethodsForwardingToSinkOutcomeWithApplyHandler(
+            state,
+            allocator,
+            response_messages[index],
+            forward_messages[index],
+            request_message,
+            bootstrap_context,
+            bootstrap_handler,
+            call_context,
+            call_entries,
+            forward_context,
+            forward_handler,
+            apply_context,
+            apply_handler,
+        );
+        stats.record(outcome);
+    }
+    return stats;
+}
+
+pub fn dispatchWireMessagesMethodsForwardingToSinksWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    if (response_messages.len < request_messages.len or forward_messages.len < request_messages.len) return error.InvalidTransition;
+    var stats: WireDispatchStats = .{};
+    for (request_messages, 0..) |request_message, index| {
+        const outcome = try dispatchWireMessageMethodsForwardingToSinksOutcomeWithApplyHandler(
+            state,
+            allocator,
+            response_messages[index],
+            forward_messages[index],
+            request_message,
+            bootstrap_context,
+            bootstrap_handler,
+            call_context,
+            call_entries,
+            response_context,
+            response_handler,
+            forward_context,
+            forward_handler,
+            apply_context,
+            apply_handler,
         );
         stats.record(outcome);
     }
