@@ -131,6 +131,10 @@ pub const WireDispatchStats = struct {
         if (capacity < self.denseOutputSlots()) return error.InvalidTransition;
     }
 
+    pub fn validateUnifiedDenseOutputBuilders(self: @This(), output_messages: anytype) Error!void {
+        try self.validateUnifiedDenseOutputCapacity(output_messages.len);
+    }
+
     pub fn initializedAnyResponse(self: @This()) bool {
         return self.response_initialized != 0;
     }
@@ -268,6 +272,10 @@ pub const RpcTurnPlan = struct {
 
     pub fn validateUnifiedOutputCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.totalOutputMessages()) return error.InvalidTransition;
+    }
+
+    pub fn validateUnifiedOutputBuilders(self: @This(), output_messages: anytype) Error!void {
+        try self.validateUnifiedOutputCapacity(output_messages.len);
     }
 
     pub fn validateOutputBuilders(self: @This(), response_messages: anytype, forward_messages: anytype) Error!void {

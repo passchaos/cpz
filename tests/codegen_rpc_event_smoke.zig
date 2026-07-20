@@ -6795,10 +6795,12 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try stats.validateDenseForwardCapacity(1);
     try stats.validateDenseOutputCapacity(2, 1);
     try stats.validateUnifiedDenseOutputCapacity(3);
+    try stats.validateUnifiedDenseOutputBuilders(requests[0..3]);
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseResponseCapacity(1));
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseForwardCapacity(0));
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseOutputCapacity(2, 0));
     try std.testing.expectError(error.InvalidTransition, stats.validateUnifiedDenseOutputCapacity(2));
+    try std.testing.expectError(error.InvalidTransition, stats.validateUnifiedDenseOutputBuilders(requests[0..2]));
     try std.testing.expect(stats.initializedAnyResponse());
     try std.testing.expect(stats.requiredAnyForward());
     try std.testing.expect(stats.appliedAnyState());
@@ -6816,9 +6818,11 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 0), turn_plan.disembargoMessages());
     try turn_plan.validateOutputCapacity(2, 1);
     try turn_plan.validateUnifiedOutputCapacity(3);
+    try turn_plan.validateUnifiedOutputBuilders(requests[0..3]);
     try std.testing.expectError(error.InvalidTransition, turn_plan.validateOutputCapacity(1, 1));
     try std.testing.expectError(error.InvalidTransition, turn_plan.validateOutputCapacity(2, 0));
     try std.testing.expectError(error.InvalidTransition, turn_plan.validateUnifiedOutputCapacity(2));
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateUnifiedOutputBuilders(requests[0..2]));
     try std.testing.expectEqual(turn_plan, try cpz.rpc.planRpcTurnMethods(&state, requests[0..], entries));
 
     try std.testing.expect(state.questionState(70) == null);
@@ -6858,6 +6862,8 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
         defer disembargo_builder.deinit();
         const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
         const disembargo_builders = [_]generated.Message.Builder{disembargo_root};
+        try embargo_plan.validateUnifiedOutputBuilders(disembargo_builders[0..]);
+        try std.testing.expectError(error.InvalidTransition, embargo_plan.validateUnifiedOutputBuilders(disembargo_builders[0..0]));
         try embargo_plan.validateOutputBuilderSets(no_messages[0..], no_messages[0..], disembargo_builders[0..]);
         try std.testing.expectError(error.InvalidTransition, embargo_plan.validateOutputBuilderSets(no_messages[0..], no_messages[0..], disembargo_builders[0..0]));
     }
