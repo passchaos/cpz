@@ -10690,6 +10690,12 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub const @"cpz.method.{s}.metadata": cpz.schema.InterfaceMethodMetadata = @This().@"cpz.methods"[{}];
             \\
         , .{ method_name, method.ordinal, method_name, method_index, method_name, method_name_literal, method_name, method.ordinal, method_name, method_index });
+        if (decl.id) |_| {
+            try appendFmt(allocator, out,
+                \\    pub const @"cpz.method.{s}.callMethod": cpz.rpc.CallMethod = .{{ .interface_id = @This().@"cpz.type_id", .method_id = {} }};
+                \\
+            , .{ method_name, method.ordinal });
+        }
         const signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.signature);
         defer allocator.free(signature_literal);
         try appendFmt(allocator, out,
