@@ -3982,6 +3982,87 @@ test "rpc resolve cap descriptors replace imported promises" {
     try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
 }
 
+test "rpc resolved call targets follow transitive import chains" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyCapDescriptor(.{ .sender_promise = 110 });
+    try state.resolveImportTo(110, .{ .sender_promise = 111 });
+    try state.applyCapDescriptor(.{ .sender_promise = 111 });
+    try state.resolveImportTo(111, .{ .sender_hosted = 112 });
+    try state.applyCapDescriptor(.{ .sender_hosted = 112 });
+
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 111 },
+        state.callTargetForwardTarget(.{ .imported_cap = 110 }).?,
+    );
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 112 },
+        (try state.callTargetTransitiveForwardTarget(.{ .imported_cap = 110 })).?,
+    );
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 112 },
+        try state.transitiveEffectiveCallTarget(.{ .imported_cap = 110 }),
+    );
+    try std.testing.expectEqual(
+        cpz.rpc.CapDescriptor{ .sender_hosted = 112 },
+        (try state.callTargetFinalResolution(.{ .imported_cap = 110 })).?,
+    );
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    const call = try root.init_call();
+    try call.set_questionId(110);
+    const target = try call.init_target();
+    try target.set_importedCap(110);
+    _ = try call.init_params();
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 112 },
+        (try state.wireCallTargetTransitiveForwardTarget(try message.call())).?,
+    );
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 112 },
+        try state.transitiveEffectiveWireCallTarget(try message.call()),
+    );
+    try std.testing.expectEqual(
+        cpz.rpc.CapDescriptor{ .sender_hosted = 112 },
+        (try state.wireCallTargetFinalResolution(try message.call())).?,
+    );
+}
+
+test "rpc resolved call targets detect import resolution cycles" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyCapDescriptor(.{ .sender_promise = 120 });
+    try state.applyCapDescriptor(.{ .sender_promise = 121 });
+    try state.resolveImportTo(120, .{ .sender_promise = 121 });
+    try state.resolveImportTo(121, .{ .sender_promise = 120 });
+
+    try std.testing.expectError(error.InvalidTransition, state.callTargetFinalResolution(.{ .imported_cap = 120 }));
+    try std.testing.expectError(error.InvalidTransition, state.callTargetTransitiveForwardTarget(.{ .imported_cap = 120 }));
+    try std.testing.expectError(error.InvalidTransition, state.transitiveEffectiveCallTarget(.{ .imported_cap = 120 }));
+}
+
+test "rpc resolved call targets preserve receiver-answer forwards" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(130, .call);
+    try state.applyCapDescriptor(.{ .sender_promise = 131 });
+    try state.resolveImportTo(131, .{ .receiver_answer = .{ .question_id = 130 } });
+
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 130 } },
+        (try state.callTargetTransitiveForwardTarget(.{ .imported_cap = 131 })).?,
+    );
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 130 } },
+        try state.transitiveEffectiveCallTarget(.{ .imported_cap = 131 }),
+    );
+}
+
 test "rpc resolve exceptions mark promise exports resolved" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer builder.deinit();

@@ -87,6 +87,9 @@ that a complete RPC runtime exists.
   generated target builders, and validated against tracked imports/answers. An
   owning target decoder can include promised-answer transform paths, which can
   also be decoded and written for noop and get-pointer-field operations.
+  Remembered Resolve targets can be queried as one-hop or transitive forwarding
+  targets with cycle detection, giving dispatch loops a safe way to route calls
+  that arrive for already-resolved imported promises.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver entries plus third-party vine/contact capability usage
   and optional `attachedFd` index metadata, and written back into generated
@@ -169,10 +172,10 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Turn the now-recorded structural RPC data into behavior: forward calls to
-   remembered `Resolve` targets, queue/release `Disembargo` traffic, complete
-   `Accept` provisions after embargo release, and coordinate multi-part `Join`
-   results.
+1. Turn the now-recorded structural RPC data into behavior: use the transitive
+   `Resolve` forwarding helpers in an actual call-forwarding path, queue/release
+   `Disembargo` traffic, complete `Accept` provisions after embargo release, and
+   coordinate multi-part `Join` results.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation for non-capability payload shapes as well as

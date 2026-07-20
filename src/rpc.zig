@@ -319,6 +319,14 @@ pub const CapDescriptorInfo = struct {
     third_party_contact: ?AnyPointerUsage = null,
 };
 
+pub fn callTargetFromForwardableCapDescriptor(descriptor: CapDescriptor) ?CallTarget {
+    return switch (descriptor) {
+        .sender_hosted, .sender_promise, .third_party_hosted => |id| .{ .imported_cap = id },
+        .receiver_answer => |answer| .{ .promised_answer = answer },
+        .none, .receiver_hosted => null,
+    };
+}
+
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's
 /// `rpc.capnp`. Keeping the mapping here lets code generated from that schema
 /// be decoded without making this runtime module import a generated file.
@@ -2631,19 +2639,40 @@ pub const State = struct {
 
     pub fn callTargetForwardTarget(self: *const State, target: CallTarget) ?CallTarget {
         const resolution = self.callTargetResolution(target) orelse return null;
-        return switch (resolution) {
-            .sender_hosted, .sender_promise, .third_party_hosted => |id| .{ .imported_cap = id },
-            .receiver_answer => |answer| .{ .promised_answer = answer },
-            .none, .receiver_hosted => null,
-        };
+        return callTargetFromForwardableCapDescriptor(resolution);
+    }
+
+    pub fn callTargetFinalResolution(self: *const State, target: CallTarget) Error!?CapDescriptor {
+        var current = target;
+        var final_resolution: ?CapDescriptor = null;
+        var remaining = self.imports.count() + 1;
+        while (remaining != 0) : (remaining -= 1) {
+            const resolution = self.callTargetResolution(current) orelse return final_resolution;
+            final_resolution = resolution;
+            current = callTargetFromForwardableCapDescriptor(resolution) orelse return final_resolution;
+        }
+        return error.InvalidTransition;
+    }
+
+    pub fn callTargetTransitiveForwardTarget(self: *const State, target: CallTarget) Error!?CallTarget {
+        const final_resolution = (try self.callTargetFinalResolution(target)) orelse return null;
+        return callTargetFromForwardableCapDescriptor(final_resolution);
     }
 
     pub fn effectiveCallTarget(self: *const State, target: CallTarget) CallTarget {
         return self.callTargetForwardTarget(target) orelse target;
     }
 
+    pub fn transitiveEffectiveCallTarget(self: *const State, target: CallTarget) Error!CallTarget {
+        return (try self.callTargetTransitiveForwardTarget(target)) orelse target;
+    }
+
     pub fn wireCallTargetResolution(self: *const State, call: anytype) !?CapDescriptor {
         return self.callTargetResolution(try callTargetFromWireCall(call));
+    }
+
+    pub fn wireCallTargetFinalResolution(self: *const State, call: anytype) !?CapDescriptor {
+        return try self.callTargetFinalResolution(try callTargetFromWireCall(call));
     }
 
     pub fn wireCallTargetResolved(self: *const State, call: anytype) !bool {
@@ -2654,8 +2683,16 @@ pub const State = struct {
         return self.callTargetForwardTarget(try callTargetFromWireCall(call));
     }
 
+    pub fn wireCallTargetTransitiveForwardTarget(self: *const State, call: anytype) !?CallTarget {
+        return try self.callTargetTransitiveForwardTarget(try callTargetFromWireCall(call));
+    }
+
     pub fn effectiveWireCallTarget(self: *const State, call: anytype) !CallTarget {
         return self.effectiveCallTarget(try callTargetFromWireCall(call));
+    }
+
+    pub fn transitiveEffectiveWireCallTarget(self: *const State, call: anytype) !CallTarget {
+        return try self.transitiveEffectiveCallTarget(try callTargetFromWireCall(call));
     }
 
     pub fn validateWireDisembargo(self: *const State, disembargo: anytype) !void {
