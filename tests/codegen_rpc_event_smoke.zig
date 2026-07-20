@@ -15099,6 +15099,106 @@ test "rpc method turn dispatcher filters pending accept disembargos with dense o
     try std.testing.expectEqualStrings("filter-method-turn-109", info.context.accept);
 }
 
+test "rpc method turn dispatcher filters pending accept disembargos without sinks" {
+    const BootstrapHandler = struct {
+        fn handle(_: void, bootstrap: anytype) !u32 {
+            return bootstrap.questionId();
+        }
+    };
+    const Context = struct { selected: u32 = 0 };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .empty;
+        }
+    };
+    const HandoffHandler = struct {
+        fn handle(_: void, _: u32, _: cpz.rpc.AnyPointerUsage) !u32 {
+            return 0;
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xcccc, .method_id = 12 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 152,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "filter-method-no-sink-152",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 153,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "filter-method-no-sink-153",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+
+    const request_messages = try std.testing.allocator.alloc(generated.Message, 0);
+    defer std.testing.allocator.free(request_messages);
+    const response_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(response_messages);
+    const forward_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(forward_messages);
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    const disembargo_messages = [_]generated.Message.Builder{disembargo_root};
+
+    var context: Context = .{};
+    const applied = try cpz.rpc.dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosForEmbargoFromHandlers(
+        &state,
+        std.testing.allocator,
+        response_messages,
+        forward_messages,
+        disembargo_messages[0..],
+        request_messages,
+        {},
+        BootstrapHandler.handle,
+        &context,
+        entries,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "filter-method-no-sink-153",
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{}, applied.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{}, applied.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 1), applied.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 1), applied.totalOutputMessages());
+    try std.testing.expectEqual(@as(u32, 0), context.selected);
+    try std.testing.expectEqual(@as(usize, 2), state.pendingAcceptEmbargoCount());
+
+    var reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
+    try std.testing.expectEqualStrings("filter-method-no-sink-153", info.context.accept);
+}
+
 test "rpc method turn dispatcher reports apply details before handoff outputs" {
     const BootstrapHandler = struct {
         fn handle(seen_question: *u32, bootstrap: anytype) !u32 {
