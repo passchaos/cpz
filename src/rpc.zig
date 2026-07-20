@@ -1948,6 +1948,26 @@ pub fn initWireCallServiceActionPlanOutputs(
     return stats;
 }
 
+pub fn initWireCallServiceActionPlanOutputsToSinks(
+    state: *State,
+    allocator: std.mem.Allocator,
+    calls: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    response_messages: anytype,
+    forward_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try initWireCallServiceActionPlanOutputs(state, allocator, calls, plans, response_messages, forward_messages, context, entries);
+    for (response_messages[0..stats.responseMessages()]) |message| try response_handler(response_context, message);
+    for (forward_messages[0..stats.forward]) |message| try forward_handler(forward_context, message);
+    return stats;
+}
+
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
     const target = (try state.wireCallTargetTransitiveForwardTarget(source_call)) orelse return error.InvalidTransition;
     try initForwardedWireCall(call, source_call, target);

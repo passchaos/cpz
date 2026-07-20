@@ -8163,6 +8163,64 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 73), combined_forward_call.questionId());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(combined_forward_call));
 
+    const ResponseSink = struct {
+        sent: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.answer_sum += try (try message.get_return_()).get_answerId();
+        }
+    };
+    const ForwardSink = struct {
+        sent: usize = 0,
+        question_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.question_sum += try (try message.get_call()).get_questionId();
+        }
+    };
+    var sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer sink_state.deinit();
+    try sink_state.addImport(5);
+    try sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var sink_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_response_builder0.deinit();
+    const sink_response0 = try generated.Message.initRootTyped(&sink_response_builder0);
+    var sink_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_response_builder1.deinit();
+    const sink_response1 = try generated.Message.initRootTyped(&sink_response_builder1);
+    var sink_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_forward_builder.deinit();
+    const sink_forward = try generated.Message.initRootTyped(&sink_forward_builder);
+    const sink_responses = [_]generated.Message.Builder{ sink_response0, sink_response1 };
+    const sink_forwards = [_]generated.Message.Builder{sink_forward};
+    var sink_context: Context = .{};
+    var response_sink: ResponseSink = .{};
+    var forward_sink: ForwardSink = .{};
+    try std.testing.expectEqual(wire_stats, try cpz.rpc.initWireCallServiceActionPlanOutputsToSinks(
+        &sink_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        sink_responses[0..],
+        sink_forwards[0..],
+        &sink_context,
+        entries,
+        &response_sink,
+        ResponseSink.handle,
+        &forward_sink,
+        ForwardSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 71 + 72), response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 73), forward_sink.question_sum);
+
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
     var short_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
