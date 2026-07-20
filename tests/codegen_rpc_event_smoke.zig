@@ -8713,6 +8713,10 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expect(wire_plans[2].action.isUnimplemented());
     var mismatched_question_plans = wire_plans;
     mismatched_question_plans[0].question_id = 999;
+    var mismatched_forward_plans = wire_plans;
+    mismatched_forward_plans[1].question_id = 999;
+    var mismatched_unimplemented_plans = wire_plans;
+    mismatched_unimplemented_plans[2].question_id = 999;
     var mismatched_question_state = cpz.rpc.State.init(std.testing.allocator);
     defer mismatched_question_state.deinit();
     try mismatched_question_state.addImport(5);
@@ -8747,6 +8751,7 @@ test "rpc service action stats aggregate wire and tracked calls" {
     const no_forward_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
     defer std.testing.allocator.free(no_forward_messages);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initForwardedWireCallMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], no_forward_messages));
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initForwardedWireCallMessagesFromServiceActionPlans(calls[0..], mismatched_forward_plans[0..], forwarded_messages[0..]));
 
     var dispatch_state = cpz.rpc.State.init(std.testing.allocator);
     defer dispatch_state.deinit();
@@ -8777,6 +8782,15 @@ test "rpc service action stats aggregate wire and tracked calls" {
     var dispatch_response_reader = cpz.MessageReader.init(try dispatch_response_builder.segmentsConst(), .{});
     const dispatch_return = try generated.Message.fromReader(try dispatch_response_reader.getRoot()).return_();
     try std.testing.expectEqual(@as(u32, 71), dispatch_return.answerId());
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireCallServiceActionPlans(
+        &dispatch_state,
+        std.testing.allocator,
+        calls[0..],
+        mismatched_question_plans[0..],
+        dispatch_responses[0..],
+        &dispatch_context,
+        entries,
+    ));
 
     var unimplemented_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer unimplemented_response_builder.deinit();
@@ -8796,6 +8810,7 @@ test "rpc service action stats aggregate wire and tracked calls" {
     };
     try std.testing.expectEqualStrings("unimplemented method", exception.reason.?);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initUnimplementedReturnMessagesFromServiceActionPlans(calls[0..], wire_plans[0..], no_forward_messages));
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initUnimplementedReturnMessagesFromServiceActionPlans(calls[0..], mismatched_unimplemented_plans[0..], unimplemented_responses[0..]));
 
     var combined_state = cpz.rpc.State.init(std.testing.allocator);
     defer combined_state.deinit();

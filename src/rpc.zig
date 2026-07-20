@@ -1883,6 +1883,7 @@ pub fn initForwardedWireCallMessagesFromServiceActionPlans(calls: anytype, plans
         switch (plan.action) {
             .forward => |target| {
                 if (plan.source_index >= calls.len) return error.InvalidTransition;
+                if (plan.question_id != calls[plan.source_index].questionId()) return error.InvalidTransition;
                 if (forward_count >= forward_messages.len) return error.InvalidTransition;
                 try initForwardedWireCallMessage(forward_messages[forward_count], calls[plan.source_index], target);
                 forward_count += 1;
@@ -1899,6 +1900,7 @@ pub fn initUnimplementedReturnMessagesFromServiceActionPlans(calls: anytype, pla
         switch (plan.action) {
             .unimplemented => {
                 if (plan.source_index >= calls.len) return error.InvalidTransition;
+                if (plan.question_id != calls[plan.source_index].questionId()) return error.InvalidTransition;
                 if (response_count >= response_messages.len) return error.InvalidTransition;
                 try initWireReturnException(try response_messages[response_count].init_return_(), calls[plan.source_index].questionId(), true, false, .{
                     .reason = "unimplemented method",
@@ -1926,6 +1928,7 @@ pub fn dispatchWireCallServiceActionPlans(
         switch (plan.action) {
             .dispatch => |entry_index| {
                 if (plan.source_index >= calls.len) return error.InvalidTransition;
+                if (plan.question_id != calls[plan.source_index].questionId()) return error.InvalidTransition;
                 if (response_count >= response_messages.len) return error.InvalidTransition;
                 var matched = false;
                 inline for (entries, 0..) |entry, index| {
