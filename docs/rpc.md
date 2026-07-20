@@ -135,6 +135,9 @@ that a complete RPC runtime exists.
   target needs forwarding, or state was applied, and apply other supported
   top-level wire messages to state; a batch helper can aggregate those outcomes
   over caller-provided message readers, including method-table call dispatch.
+  Forwarding helpers can copy an inbound Call into a new outgoing Call while
+  preserving question ID, params, method/routing metadata, and flags, and only
+  rewriting the target to an explicit or remembered resolved destination.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
@@ -172,10 +175,10 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Turn the now-recorded structural RPC data into behavior: wire the
-   `forward_required` dispatch outcome to an actual transport forwarding path,
-   queue/release `Disembargo` traffic, complete `Accept` provisions after
-   embargo release, and coordinate multi-part `Join` results.
+1. Turn the now-recorded structural RPC data into behavior: connect the
+   `forward_required` outcome and forwarded-Call builders to actual transport
+   send queues, queue/release `Disembargo` traffic, complete `Accept`
+   provisions after embargo release, and coordinate multi-part `Join` results.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation for non-capability payload shapes as well as

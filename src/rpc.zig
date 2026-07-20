@@ -1155,6 +1155,31 @@ pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, re
     return descriptors;
 }
 
+pub fn initForwardedWireCall(call: anytype, source_call: anytype, target: CallTarget) !void {
+    // Preserve the original call payload, method id, routing flags, and question
+    // id exactly; forwarding should only rewrite the destination capability.
+    // A later transport loop can then serialize this builder without asking the
+    // application handler to reinterpret or rebuild params.
+    try call.copyFrom(source_call);
+    try writeCallTargetToWire(target, try call.init_target());
+}
+
+pub fn initForwardedWireCallMessage(message: anytype, source_call: anytype, target: CallTarget) !void {
+    try initForwardedWireCall(try message.init_call(), source_call, target);
+}
+
+pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
+    const target = (try state.wireCallTargetTransitiveForwardTarget(source_call)) orelse return error.InvalidTransition;
+    try initForwardedWireCall(call, source_call, target);
+    return target;
+}
+
+pub fn initForwardedWireCallMessageToResolvedTarget(state: *const State, message: anytype, source_call: anytype) !CallTarget {
+    const target = (try state.wireCallTargetTransitiveForwardTarget(source_call)) orelse return error.InvalidTransition;
+    try initForwardedWireCallMessage(message, source_call, target);
+    return target;
+}
+
 pub fn initWireCallWithOptions(
     allocator: std.mem.Allocator,
     call: anytype,

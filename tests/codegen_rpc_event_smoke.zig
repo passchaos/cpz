@@ -3139,6 +3139,80 @@ test "rpc single-message dispatcher reports resolved call forwarding" {
     );
 }
 
+test "rpc forward helpers copy calls and rewrite targets" {
+    var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer request_builder.deinit();
+    const request_root = try generated.Message.initRootTyped(&request_builder);
+    const call = try request_root.init_call();
+    try call.set_questionId(170);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x777, .method_id = 7 }, call);
+    try cpz.rpc.writeSendResultsToToWire(.yourself, call);
+    try cpz.rpc.writeCallFlagsToWire(.{
+        .no_promise_pipelining = true,
+        .only_promise_pipeline = true,
+    }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(170);
+    try cpz.rpc.initWireCallParamsUInt32List(call, &.{ 1, 2, 3 }, &.{.{ .sender_hosted = 172 }});
+
+    var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+    const request = generated.Message.fromReader(try request_reader.getRoot());
+    const source_call = try request.call();
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyCapDescriptor(.{ .sender_promise = 170 });
+    try state.resolveImportTo(170, .{ .sender_hosted = 171 });
+    try state.applyCapDescriptor(.{ .sender_hosted = 171 });
+
+    var forwarded_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer forwarded_builder.deinit();
+    const forwarded_root = try generated.Message.initRootTyped(&forwarded_builder);
+    try std.testing.expectEqual(
+        cpz.rpc.CallTarget{ .imported_cap = 171 },
+        try cpz.rpc.initForwardedWireCallMessageToResolvedTarget(&state, forwarded_root, source_call),
+    );
+
+    var forwarded_reader = cpz.MessageReader.init(try forwarded_builder.segmentsConst(), .{});
+    const forwarded = try generated.Message.fromReader(try forwarded_reader.getRoot()).call();
+    try std.testing.expectEqual(@as(u32, 170), forwarded.questionId());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 171 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x777, .method_id = 7 }, cpz.rpc.callMethodFromWireCall(forwarded));
+    try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(forwarded));
+    try std.testing.expectEqual(cpz.rpc.CallFlags{
+        .no_promise_pipelining = true,
+        .only_promise_pipeline = true,
+    }, cpz.rpc.callFlagsFromWireCall(forwarded));
+    const params = try forwarded.params();
+    try expectPayloadUInt32List(params, &.{ 1, 2, 3 });
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, params);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 172 }, descriptors[0]);
+}
+
+test "rpc forward helpers reject unresolved calls" {
+    var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer request_builder.deinit();
+    const request_root = try generated.Message.initRootTyped(&request_builder);
+    const call = try request_root.init_call();
+    try call.set_questionId(171);
+    const target = try call.init_target();
+    try target.set_importedCap(171);
+    _ = try call.init_params();
+
+    var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+    const source_call = try generated.Message.fromReader(try request_reader.getRoot()).call();
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(171);
+
+    var forwarded_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer forwarded_builder.deinit();
+    const forwarded_root = try generated.Message.initRootTyped(&forwarded_builder);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initForwardedWireCallMessageToResolvedTarget(&state, forwarded_root, source_call));
+}
+
 test "rpc generic dispatch return helper builds non-result outcomes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
