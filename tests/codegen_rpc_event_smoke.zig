@@ -2302,6 +2302,40 @@ test "rpc top-level call helpers initialize UInt32 list payloads" {
     }
 }
 
+test "rpc call uint32-list-info helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    const infos = [_]cpz.rpc.CapDescriptorInfo{.{ .descriptor = .{ .sender_promise = 100 }, .attached_fd = 19 }};
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageUInt32ListInfoWithOptionsAndApplyState(
+        &state,
+        root,
+        100,
+        .{ .imported_cap = 5 },
+        &.{ 5, 10, 15 },
+        infos[0..],
+        .{ .method = .{ .interface_id = 0x100, .method_id = 10 } },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(100));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(100));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
+    const tracked = state.callInfo(100).?;
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x100, .method_id = 10 }, tracked.method);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const params = try (try generated.Message.fromReader(try reader.getRoot()).call()).params();
+    try expectPayloadUInt32List(params, &.{ 5, 10, 15 });
+    const decoded_infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, params);
+    defer std.testing.allocator.free(decoded_infos);
+    try std.testing.expectEqual(@as(usize, 1), decoded_infos.len);
+    try std.testing.expectEqual(infos[0], decoded_infos[0]);
+}
+
 test "rpc top-level call helpers initialize registry-backed UInt32 list payloads" {
     var registry: cpz.CapabilityRegistry([]const u8) = .{};
     defer registry.deinit(std.testing.allocator);

@@ -2065,6 +2065,43 @@ pub fn initWireCallMessageUInt32ListInfoWithOptions(message: anytype, question_i
     try initWireCallParamsUInt32ListInfo(call, values, infos);
 }
 
+pub fn initWireCallMessageUInt32ListInfoWithOptionsAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    values: []const u32,
+    infos: []const CapDescriptorInfo,
+    options: CallOptions,
+) !void {
+    try state.validateCallTarget(target);
+    for (infos) |info| try state.validateCapDescriptor(info.descriptor);
+    try initWireCallMessageUInt32ListInfoWithOptions(message, question_id, target, values, infos, options);
+    try state.openQuestion(question_id, .call);
+    try state.trackCallInfo(.{
+        .question_id = question_id,
+        .target = target,
+        .method = options.method,
+        .send_results_to = options.send_results_to,
+        .flags = options.flags,
+    });
+    for (infos) |info| try state.applyCapDescriptor(info.descriptor);
+    const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
+    defer state.allocator.free(descriptors);
+    try state.trackParamImports(question_id, descriptors);
+}
+
+pub fn initWireCallMessageUInt32ListInfoAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    values: []const u32,
+    infos: []const CapDescriptorInfo,
+) !void {
+    try initWireCallMessageUInt32ListInfoWithOptionsAndApplyState(state, message, question_id, target, values, infos, .{});
+}
+
 pub fn initWireCallMessageTextFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
