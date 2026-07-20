@@ -2499,6 +2499,29 @@ pub fn initWireReturnMessageDataFromRegistry(
     try initWireReturnResultsDataFromRegistry(allocator, return_, data, registry);
 }
 
+pub fn initWireReturnMessageDataFromRegistryAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    data: []const u8,
+    registry: anytype,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireReturnMessageDataAndApplyState(
+        state,
+        message,
+        answer_id,
+        release_param_caps,
+        no_finish_needed,
+        data,
+        descriptors,
+    );
+}
+
 pub fn initWireReturnMessageUInt32ListFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
