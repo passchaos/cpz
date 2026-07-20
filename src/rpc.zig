@@ -130,6 +130,35 @@ pub const StateHandoffStats = struct {
     }
 };
 
+pub const HandoffReturnCapability = struct {
+    question_id: QuestionId,
+    export_id: ExportId,
+};
+
+pub const HandoffReturn = union(enum) {
+    provide: HandoffReturnCapability,
+    accept: HandoffReturnCapability,
+    join: HandoffReturnCapability,
+};
+
+pub const StateHandoffReturnStats = struct {
+    provides: usize = 0,
+    accepts: usize = 0,
+    joins: usize = 0,
+
+    pub fn record(self: *@This(), completion: HandoffReturn) void {
+        switch (completion) {
+            .provide => self.provides += 1,
+            .accept => self.accepts += 1,
+            .join => self.joins += 1,
+        }
+    }
+
+    pub fn total(self: @This()) usize {
+        return self.provides + self.accepts + self.joins;
+    }
+};
+
 pub const StateQuestionStats = struct {
     questions: usize = 0,
     open_questions: usize = 0,
@@ -2311,6 +2340,24 @@ pub fn dispatchWireMessagesMethodsForwarding(
     return stats;
 }
 
+pub fn initWireHandoffReturnMessage(message: anytype, completion: HandoffReturn) !void {
+    switch (completion) {
+        .provide => |value| try initCapabilityReturnMessage(message, value.question_id, value.export_id),
+        .accept => |value| try initCapabilityReturnMessage(message, value.question_id, value.export_id),
+        .join => |value| try initWireJoinResultReturnMessage(message, value.question_id, true, 0, &.{.{ .sender_hosted = value.export_id }}),
+    }
+}
+
+pub fn initWireHandoffReturnMessages(response_messages: anytype, completions: []const HandoffReturn) !StateHandoffReturnStats {
+    if (response_messages.len < completions.len) return error.InvalidTransition;
+    var stats: StateHandoffReturnStats = .{};
+    for (completions, 0..) |completion, index| {
+        try initWireHandoffReturnMessage(response_messages[index], completion);
+        stats.record(completion);
+    }
+    return stats;
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);
@@ -3540,6 +3587,24 @@ pub const State = struct {
     pub fn initTrackedProvideReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
         _ = self.provideRecipient(question_id) orelse return error.InvalidTransition;
         try initCapabilityReturnMessage(message, question_id, export_id);
+    }
+
+    pub fn initTrackedHandoffReturnMessage(self: *const State, message: anytype, completion: HandoffReturn) !void {
+        switch (completion) {
+            .provide => |value| try self.initTrackedProvideReturnMessage(message, value.question_id, value.export_id),
+            .accept => |value| try self.initReadyAcceptReturnMessage(message, value.question_id, value.export_id),
+            .join => |value| try self.initTrackedJoinResultReturnMessage(message, value.question_id, value.export_id),
+        }
+    }
+
+    pub fn initTrackedHandoffReturnMessages(self: *const State, response_messages: anytype, completions: []const HandoffReturn) !StateHandoffReturnStats {
+        if (response_messages.len < completions.len) return error.InvalidTransition;
+        var stats: StateHandoffReturnStats = .{};
+        for (completions, 0..) |completion, index| {
+            try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
+            stats.record(completion);
+        }
+        return stats;
     }
 
     pub fn handoffStats(self: *const State) StateHandoffStats {

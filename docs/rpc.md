@@ -174,7 +174,8 @@ that a complete RPC runtime exists.
   and a provision capability is present. Join top-level messages record target
   and key-part pointer usage; callers can query/count the tracked key-part usage
   and initialize a tracked Join result Return only when that key part is present.
-  Join result
+  Provide/Accept/Join handoff completions can also initialize single or batched
+  Return messages with readiness gates preserved. Join result
   returns can initialize and decode their result capability payloads. Finish clears recorded Provide/Accept/Join handoff
   bookkeeping for the finished question. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
@@ -198,8 +199,8 @@ that a complete RPC runtime exists.
 
 1. Turn the now-recorded structural RPC data into behavior: connect initialized
    forwarded Calls to actual transport send queues, queue/release `Disembargo`
-   traffic, complete `Accept` provisions after embargo release, and coordinate
-   multi-part `Join` results.
+   traffic, connect initialized handoff Returns to actual transport send queues,
+   and coordinate multi-part `Join` results.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation for non-capability payload shapes as well as

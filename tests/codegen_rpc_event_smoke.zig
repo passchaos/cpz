@@ -18,6 +18,16 @@ fn expectPayloadUInt32List(payload: anytype, expected: []const u32) !void {
     try cpz.rpc.validateWirePayload(std.testing.allocator, payload);
 }
 
+fn expectReturnCapabilityResult(message: anytype, expected_export_id: cpz.rpc.ExportId) !void {
+    const return_ = try message.return_();
+    const results = try return_.results();
+    try std.testing.expectEqual(@as(u32, 0), try (try results.content()).getCapabilityIndex());
+    const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, return_);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = expected_export_id }, descriptors[0]);
+}
+
 test "rpc wire events decode generated message union tags and ids" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -4528,6 +4538,133 @@ test "rpc ready accept returns require provision capabilities" {
     defer response_builder.deinit();
     const response_root = try generated.Message.initRootTyped(&response_builder);
     try std.testing.expectError(error.InvalidTransition, state.initReadyAcceptReturnMessage(response_root, 65, 91));
+}
+
+test "rpc tracked handoff batches initialize ready return messages" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(300);
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireProvideMessage(root, .{
+            .question_id = 90,
+            .target = .{ .imported_cap = 300 },
+            .has_recipient = true,
+            .recipient_max_capability_count = 2,
+            .recipient_capability = 1,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 91,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = null,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireJoinMessage(root, .{
+            .question_id = 92,
+            .target = .{ .imported_cap = 300 },
+            .has_key_part = true,
+            .key_part_max_capability_count = 3,
+            .key_part_capability = 2,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+
+    try std.testing.expectEqual(cpz.rpc.StateHandoffStats{
+        .provides = 1,
+        .provide_recipients = 1,
+        .accepts = 1,
+        .ready_accept_provisions = 1,
+        .joins = 1,
+        .join_key_parts = 1,
+    }, state.handoffStats());
+
+    var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder0.deinit();
+    const response0 = try generated.Message.initRootTyped(&response_builder0);
+    var response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder1.deinit();
+    const response1 = try generated.Message.initRootTyped(&response_builder1);
+    var response_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder2.deinit();
+    const response2 = try generated.Message.initRootTyped(&response_builder2);
+
+    const responses = [_]generated.Message.Builder{ response0, response1, response2 };
+    const completions = [_]cpz.rpc.HandoffReturn{
+        .{ .provide = .{ .question_id = 90, .export_id = 390 } },
+        .{ .accept = .{ .question_id = 91, .export_id = 391 } },
+        .{ .join = .{ .question_id = 92, .export_id = 392 } },
+    };
+    const stats = try state.initTrackedHandoffReturnMessages(responses[0..], completions[0..]);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, stats);
+    try std.testing.expectEqual(@as(usize, 3), stats.total());
+
+    {
+        var response_reader = cpz.MessageReader.init(try response_builder0.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        try std.testing.expectEqual(@as(u32, 90), (try response.return_()).answerId());
+        try expectReturnCapabilityResult(response, 390);
+    }
+    {
+        var response_reader = cpz.MessageReader.init(try response_builder1.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        try std.testing.expectEqual(@as(u32, 91), (try response.return_()).answerId());
+        try expectReturnCapabilityResult(response, 391);
+    }
+    {
+        var response_reader = cpz.MessageReader.init(try response_builder2.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        const return_ = try response.return_();
+        try std.testing.expectEqual(@as(u32, 92), return_.answerId());
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(return_));
+        try expectReturnCapabilityResult(response, 392);
+    }
+
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessages(responses[0..2], completions[0..]));
+}
+
+test "rpc tracked handoff batches preserve readiness gates" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireAcceptMessage(root, .{
+        .question_id = 93,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "still-embargoed",
+    });
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+    const responses = [_]generated.Message.Builder{response_root};
+    const completions = [_]cpz.rpc.HandoffReturn{
+        .{ .accept = .{ .question_id = 93, .export_id = 393 } },
+    };
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessages(responses[0..], completions[0..]));
 }
 
 test "rpc disembargo helpers decode targets and loopback contexts" {
