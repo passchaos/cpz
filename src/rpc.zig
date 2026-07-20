@@ -568,6 +568,22 @@ pub const CallInfo = struct {
     pub fn matchesMethod(self: @This(), method: CallMethod) bool {
         return self.method.matches(method.interface_id, method.method_id);
     }
+
+    pub fn sendsResultsTo(self: @This(), target: CallSendResultsTo) bool {
+        return self.send_results_to == target;
+    }
+
+    pub fn allowsThirdPartyTailCall(self: @This()) bool {
+        return self.flags.allow_third_party_tail_call;
+    }
+
+    pub fn forbidsPromisePipelining(self: @This()) bool {
+        return self.flags.no_promise_pipelining;
+    }
+
+    pub fn onlyAllowsPromisePipeline(self: @This()) bool {
+        return self.flags.only_promise_pipeline;
+    }
 };
 
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
@@ -12181,6 +12197,26 @@ pub const State = struct {
 
     pub fn callMatchesMethod(self: *const State, id: QuestionId, interface_id: u64, method_id: u16) ?bool {
         return self.callMatchesCallMethod(id, .{ .interface_id = interface_id, .method_id = method_id });
+    }
+
+    pub fn callSendsResultsTo(self: *const State, id: QuestionId, target: CallSendResultsTo) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.sendsResultsTo(target);
+    }
+
+    pub fn callAllowsThirdPartyTailCall(self: *const State, id: QuestionId) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.allowsThirdPartyTailCall();
+    }
+
+    pub fn callForbidsPromisePipelining(self: *const State, id: QuestionId) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.forbidsPromisePipelining();
+    }
+
+    pub fn callOnlyAllowsPromisePipeline(self: *const State, id: QuestionId) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.onlyAllowsPromisePipeline();
     }
 
     pub fn callInfoCount(self: *const State) usize {
