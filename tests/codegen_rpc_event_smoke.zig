@@ -3700,8 +3700,23 @@ test "rpc top-level provide and join messages validate targets" {
         const tracked = state.provideInfo(61).?;
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 2), tracked.recipient_capability);
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.provideRecipient(61).?);
+        {
+            var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer response_builder.deinit();
+            const response_root = try generated.Message.initRootTyped(&response_builder);
+            try state.initTrackedProvideReturnMessage(response_root, 61, 86);
+
+            var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+            const response = generated.Message.fromReader(try response_reader.getRoot());
+            const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());
+            defer std.testing.allocator.free(descriptors);
+            try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+            try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 86 }, descriptors[0]);
+        }
         try state.finishQuestion(61);
         try std.testing.expect(state.provideInfo(61) == null);
+        try std.testing.expect(state.provideRecipient(61) == null);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -3750,6 +3765,31 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expect(state.joinInfo(62) == null);
         try std.testing.expect(state.joinKeyPart(62) == null);
     }
+}
+
+test "rpc tracked provide returns require recipients" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireProvideMessage(root, .{
+        .question_id = 69,
+        .target = .{ .imported_cap = 70 },
+        .has_recipient = false,
+        .recipient_max_capability_count = 0,
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(70);
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expect(state.provideRecipient(69) == null);
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedProvideReturnMessage(response_root, 69, 87));
 }
 
 test "rpc provide info helpers write targets and recipients" {

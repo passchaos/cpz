@@ -3173,8 +3173,18 @@ pub const State = struct {
         return tracker.info();
     }
 
+    pub fn provideRecipient(self: *const State, id: QuestionId) ?AnyPointerUsage {
+        const tracker = self.provides.get(id) orelse return null;
+        return tracker.recipient;
+    }
+
     pub fn provideCount(self: *const State) usize {
         return self.provides.count();
+    }
+
+    pub fn initTrackedProvideReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
+        _ = self.provideRecipient(question_id) orelse return error.InvalidTransition;
+        try initCapabilityReturnMessage(message, question_id, export_id);
     }
 
     pub fn callInfo(self: *const State, id: QuestionId) ?CallInfo {
