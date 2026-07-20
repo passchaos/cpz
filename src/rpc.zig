@@ -6655,6 +6655,58 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn readyHandoffReturnsFromHandlersAlloc(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        provide_context: anytype,
+        provide_handler: anytype,
+        accept_context: anytype,
+        accept_handler: anytype,
+        join_context: anytype,
+        join_handler: anytype,
+    ) ![]HandoffReturn {
+        const needed = self.provideRecipientCount() + self.readyAcceptProvisionCount() + self.joinKeyPartCount();
+        var completions = try allocator.alloc(HandoffReturn, needed);
+        errdefer allocator.free(completions);
+
+        var index: usize = 0;
+        var provides = self.provides.iterator();
+        while (provides.next()) |entry| {
+            if (entry.value_ptr.recipient) |recipient| {
+                completions[index] = .{ .provide = .{
+                    .question_id = entry.key_ptr.*,
+                    .export_id = try provide_handler(provide_context, entry.key_ptr.*, recipient),
+                } };
+                index += 1;
+            }
+        }
+
+        var accepts = self.accepts.iterator();
+        while (accepts.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.provision != null and (accept.embargo == null or accept.embargo_released)) {
+                completions[index] = .{ .accept = .{
+                    .question_id = entry.key_ptr.*,
+                    .export_id = try accept_handler(accept_context, entry.key_ptr.*, accept.provision.?),
+                } };
+                index += 1;
+            }
+        }
+
+        var joins = self.joins.iterator();
+        while (joins.next()) |entry| {
+            if (entry.value_ptr.key_part) |key_part| {
+                completions[index] = .{ .join = .{
+                    .question_id = entry.key_ptr.*,
+                    .export_id = try join_handler(join_context, entry.key_ptr.*, key_part),
+                } };
+                index += 1;
+            }
+        }
+
+        return completions;
+    }
+
     pub fn initReadyHandoffReturnMessagesFromHandlers(
         self: *const State,
         response_messages: anytype,

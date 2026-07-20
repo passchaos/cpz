@@ -9807,6 +9807,48 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(u32, 103 + 104 + 105), answer_sum);
     try std.testing.expectEqual(@as(u32, 703 + 704 + 705), export_sum);
 
+    var planned_provide_context: Context = .{};
+    var planned_accept_context: Context = .{};
+    var planned_join_context: Context = .{};
+    const planned = try state.readyHandoffReturnsFromHandlersAlloc(
+        std.testing.allocator,
+        &planned_provide_context,
+        Context.handle,
+        &planned_accept_context,
+        Context.handle,
+        &planned_join_context,
+        Context.handle,
+    );
+    defer std.testing.allocator.free(planned);
+    try std.testing.expectEqual(@as(usize, 3), planned.len);
+
+    var planned_stats: cpz.rpc.StateHandoffReturnStats = .{};
+    var planned_question_sum: u32 = 0;
+    var planned_export_sum: u32 = 0;
+    for (planned) |completion| {
+        planned_stats.record(completion);
+        switch (completion) {
+            .provide => |value| {
+                planned_question_sum += value.question_id;
+                planned_export_sum += value.export_id;
+            },
+            .accept => |value| {
+                planned_question_sum += value.question_id;
+                planned_export_sum += value.export_id;
+            },
+            .join => |value| {
+                planned_question_sum += value.question_id;
+                planned_export_sum += value.export_id;
+            },
+        }
+    }
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, planned_stats);
+    try std.testing.expectEqual(@as(u32, 103 + 104 + 105), planned_question_sum);
+    try std.testing.expectEqual(@as(u32, 703 + 704 + 705), planned_export_sum);
+    try std.testing.expectEqual(@as(usize, 1), planned_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), planned_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), planned_join_context.seen);
+
     var sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer sink_builder0.deinit();
     const sink_response0 = try generated.Message.initRootTyped(&sink_builder0);
