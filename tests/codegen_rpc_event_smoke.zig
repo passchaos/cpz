@@ -14724,6 +14724,22 @@ test "rpc turn helper sends pending accept disembargos to a sink" {
     try std.testing.expect(seen_76);
     try std.testing.expect(seen_77);
 
+    var no_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer no_sink_builder0.deinit();
+    const no_sink_root0 = try generated.Message.initRootTyped(&no_sink_builder0);
+    var no_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer no_sink_builder1.deinit();
+    const no_sink_root1 = try generated.Message.initRootTyped(&no_sink_builder1);
+    const no_sink_messages = [_]generated.Message.Builder{ no_sink_root0, no_sink_root1 };
+    try std.testing.expectEqual(
+        @as(usize, 2),
+        try cpz.rpc.dispatchRpcTurnPendingAcceptDisembargos(
+            &state,
+            no_sink_messages[0..],
+            .{ .imported_cap = 5 },
+        ),
+    );
+
     var filtered_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer filtered_builder.deinit();
     const filtered_root = try generated.Message.initRootTyped(&filtered_builder);
@@ -14744,6 +14760,23 @@ test "rpc turn helper sends pending accept disembargos to a sink" {
     var filtered_reader = cpz.MessageReader.init(try filtered_builder.segmentsConst(), .{});
     const filtered_info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try filtered_reader.getRoot()).disembargo());
     try std.testing.expectEqualStrings("turn-disembargo-76", filtered_info.context.accept);
+
+    var filtered_no_sink_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer filtered_no_sink_builder.deinit();
+    const filtered_no_sink_root = try generated.Message.initRootTyped(&filtered_no_sink_builder);
+    const filtered_no_sink_messages = [_]generated.Message.Builder{filtered_no_sink_root};
+    try std.testing.expectEqual(
+        @as(usize, 1),
+        try cpz.rpc.dispatchRpcTurnPendingAcceptDisembargosForEmbargo(
+            &state,
+            filtered_no_sink_messages[0..],
+            .{ .imported_cap = 5 },
+            "turn-disembargo-77",
+        ),
+    );
+    var filtered_no_sink_reader = cpz.MessageReader.init(try filtered_no_sink_builder.segmentsConst(), .{});
+    const filtered_no_sink_info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try filtered_no_sink_reader.getRoot()).disembargo());
+    try std.testing.expectEqualStrings("turn-disembargo-77", filtered_no_sink_info.context.accept);
 
     var missing_sink: Sink = .{};
     try std.testing.expectEqual(

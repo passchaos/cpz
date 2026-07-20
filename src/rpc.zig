@@ -5735,6 +5735,16 @@ pub fn dispatchRpcTurnPendingAcceptDisembargosToSink(
     return state.initPendingAcceptDisembargoMessagesToSink(message_builders, target, sink_context, sink_handler);
 }
 
+pub fn dispatchRpcTurnPendingAcceptDisembargos(
+    state: *const State,
+    message_builders: anytype,
+    target: CallTarget,
+) !usize {
+    const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoCount() };
+    try plan.validateDisembargoCapacity(message_builders.len);
+    return state.initPendingAcceptDisembargoMessages(message_builders, target);
+}
+
 pub fn dispatchRpcTurnPendingAcceptDisembargosForEmbargoToSink(
     state: *const State,
     message_builders: anytype,
@@ -5746,6 +5756,17 @@ pub fn dispatchRpcTurnPendingAcceptDisembargosForEmbargoToSink(
     const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoMatchCount(embargo) };
     try plan.validateDisembargoCapacity(message_builders.len);
     return state.initPendingAcceptDisembargoMessagesForEmbargoToSink(message_builders, target, embargo, sink_context, sink_handler);
+}
+
+pub fn dispatchRpcTurnPendingAcceptDisembargosForEmbargo(
+    state: *const State,
+    message_builders: anytype,
+    target: CallTarget,
+    embargo: []const u8,
+) !usize {
+    const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoMatchCount(embargo) };
+    try plan.validateDisembargoCapacity(message_builders.len);
+    return state.initPendingAcceptDisembargoMessagesForEmbargo(message_builders, target, embargo);
 }
 
 pub fn dispatchWireMessagesMethods(
