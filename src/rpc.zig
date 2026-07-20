@@ -2843,6 +2843,52 @@ pub fn dispatchWireMessagesToSink(
     return stats;
 }
 
+pub fn dispatchWireMessagesToDenseSink(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+) !WireDispatchStats {
+    var stats: WireDispatchStats = .{};
+    var response_index: usize = 0;
+    for (request_messages) |request_message| {
+        switch (try eventFromWireMessage(request_message)) {
+            .bootstrap => {
+                if (response_index >= response_messages.len) return error.InvalidTransition;
+                try dispatchBootstrap(state, response_messages[response_index], try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+                try response_handler(response_context, response_messages[response_index]);
+                response_index += 1;
+                stats.recordResponseInitialized();
+            },
+            .call => {
+                const call = try request_message.call();
+                try state.validateWireCallTarget(call);
+                if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+                    try state.applyWireCall(allocator, call);
+                    stats.recordForwardRequired();
+                } else {
+                    if (response_index >= response_messages.len) return error.InvalidTransition;
+                    try dispatchCall(state, allocator, response_messages[response_index], call, call_context, call_handler);
+                    try response_handler(response_context, response_messages[response_index]);
+                    response_index += 1;
+                    stats.recordResponseInitialized();
+                }
+            },
+            else => {
+                try state.applyWireMessage(allocator, request_message);
+                stats.recordStateApplied();
+            },
+        }
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesForwarding(
     state: *State,
     allocator: std.mem.Allocator,

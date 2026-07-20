@@ -155,7 +155,8 @@ that a complete RPC runtime exists.
   top-level wire messages to state; a batch helper can aggregate those outcomes
   over caller-provided message readers, including method-table call dispatch.
   Response-sink variants can hand initialized Bootstrap/Call responses directly
-  to an embedding transport/enqueue callback while ignoring state-only events.
+  to an embedding transport/enqueue callback while ignoring state-only events,
+  including dense response queues that skip state-only messages.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
