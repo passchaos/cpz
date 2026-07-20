@@ -10778,6 +10778,38 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         for (method.param_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, &alias_scope, method_name, "params", field, "    ");
         for (method.result_fields) |field| try emitMethodFieldDefaultFlatContainer(allocator, out, file, &alias_scope, method_name, "results", field, "    ");
     }
+    if (decl.id != null and decl.methods.len != 0) {
+        try appendFmt(allocator, out,
+            \\    pub fn @"cpz.methodEntries"(handlers: anytype) @TypeOf(.{{
+            \\
+        , .{});
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            try appendFmt(allocator, out,
+                \\        @This().@"cpz.method.{s}.entry"(handlers[@This().@"cpz.method.{s}.index"]),
+                \\
+            , .{ method_name, method_name });
+        }
+        try appendFmt(allocator, out,
+            \\    }}) {{
+            \\        return .{{
+            \\
+        , .{});
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            try appendFmt(allocator, out,
+                \\            @This().@"cpz.method.{s}.entry"(handlers[@This().@"cpz.method.{s}.index"]),
+                \\
+            , .{ method_name, method_name });
+        }
+        try appendFmt(allocator, out,
+            \\        }};
+            \\    }}
+            \\
+        , .{});
+    }
     try appendFmt(allocator, out,
         \\}};
         \\

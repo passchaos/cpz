@@ -5218,6 +5218,10 @@ test "generated interface method constants compile" {
     const metadata_entry = generated.ExtendedService.@"cpz.method.pong.metadata".methodEntry(generated.ExtendedService.@"cpz.type_id", EntryHandler.handle);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", metadata_entry.method);
     try cpz.rpc.validateCallMethodEntries(.{metadata_entry});
+    const generated_entries = generated.ExtendedService.@"cpz.methodEntries"(.{EntryHandler.handle});
+    try std.testing.expectEqual(@as(usize, 1), generated_entries.len);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated_entries[0].method);
+    try cpz.rpc.validateCallMethodEntries(generated_entries);
     try std.testing.expectEqual(@as(usize, 2), generated.ExtendedService.@"cpz.parameterCount");
     try std.testing.expectEqualSlices([]const u8, &[_][]const u8{ "Req", "Resp" }, generated.ExtendedService.@"cpz.parameters");
     try std.testing.expectEqual(@as(usize, 0), generated.ExtendedService.@"cpz.parameter.Req.index");
