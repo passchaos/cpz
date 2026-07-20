@@ -139,7 +139,8 @@ that a complete RPC runtime exists.
   reference counts, and a helper can build a Return containing a single
   capability result directly from a Bootstrap request reader. A minimal
   bootstrap dispatcher can apply the request and invoke an application callback
-  that returns the bootstrap export ID. A minimal Call dispatcher can do the
+  that returns the bootstrap export ID. Typed Call dispatchers can also forward
+  already-resolved targets without invoking local handlers. A minimal Call dispatcher can do the
   same for calls that return a single capability, text/data/UInt32-list
   payloads, or caller-filled struct payloads through generic or typed
   convenience dispatchers, with descriptor-info or registry-backed cap tables
