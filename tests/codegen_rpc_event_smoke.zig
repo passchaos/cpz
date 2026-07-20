@@ -8040,6 +8040,11 @@ test "rpc service action stats aggregate wire and tracked calls" {
     }, message_stats);
     try std.testing.expectEqual(@as(usize, 3), message_stats.actions());
     try std.testing.expectEqual(@as(usize, 5), message_stats.total());
+    const message_action_stats = cpz.rpc.TrackedCallServiceActionStats{
+        .dispatch = 1,
+        .forward = 1,
+        .unimplemented = 1,
+    };
     var message_plans: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
     try std.testing.expectEqual(message_stats, try state.initWireMessageServiceActionPlans(messages[0..], entries, message_plans[0..]));
     try std.testing.expectEqual(@as(usize, 0), message_plans[0].source_index);
@@ -8224,6 +8229,98 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 3), message_plan_sink.sent);
     try std.testing.expectEqual(@as(usize, 0 + 2 + 3), message_plan_sink.source_sum);
     try std.testing.expectEqual(@as(u32, 71 + 72 + 73), message_plan_sink.question_sum);
+
+    var message_direct_sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_direct_sink_state.deinit();
+    try message_direct_sink_state.addImport(5);
+    try message_direct_sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_direct_sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_direct_sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_direct_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_sink_builder0.deinit();
+    const message_direct_sink_output0 = try generated.Message.initRootTyped(&message_direct_sink_builder0);
+    var message_direct_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_sink_builder1.deinit();
+    const message_direct_sink_output1 = try generated.Message.initRootTyped(&message_direct_sink_builder1);
+    var message_direct_sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_sink_builder2.deinit();
+    const message_direct_sink_output2 = try generated.Message.initRootTyped(&message_direct_sink_builder2);
+    const message_direct_sink_outputs = [_]generated.Message.Builder{ message_direct_sink_output0, message_direct_sink_output1, message_direct_sink_output2 };
+    var message_direct_sink_context: Context = .{};
+    var message_direct_sink: MessageUnifiedSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputsToSink(
+        &message_direct_sink_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_sink_outputs[0..2],
+        &message_direct_sink_context,
+        entries,
+        &message_direct_sink,
+        MessageUnifiedSink.handle,
+    ));
+    try std.testing.expectEqual(message_action_stats, try cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputsToSink(
+        &message_direct_sink_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_sink_outputs[0..],
+        &message_direct_sink_context,
+        entries,
+        &message_direct_sink,
+        MessageUnifiedSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_direct_sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), message_direct_sink.sent);
+    try std.testing.expectEqual(@as(usize, 2), message_direct_sink.responses);
+    try std.testing.expectEqual(@as(usize, 1), message_direct_sink.forwards);
+    try std.testing.expectEqual(@as(u32, 71 + 72), message_direct_sink.answer_sum);
+    try std.testing.expectEqual(@as(u32, 73), message_direct_sink.question_sum);
+
+    var message_direct_plan_sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_direct_plan_sink_state.deinit();
+    try message_direct_plan_sink_state.addImport(5);
+    try message_direct_plan_sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_direct_plan_sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_direct_plan_sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_direct_plan_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_plan_sink_builder0.deinit();
+    const message_direct_plan_sink_output0 = try generated.Message.initRootTyped(&message_direct_plan_sink_builder0);
+    var message_direct_plan_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_plan_sink_builder1.deinit();
+    const message_direct_plan_sink_output1 = try generated.Message.initRootTyped(&message_direct_plan_sink_builder1);
+    var message_direct_plan_sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_plan_sink_builder2.deinit();
+    const message_direct_plan_sink_output2 = try generated.Message.initRootTyped(&message_direct_plan_sink_builder2);
+    const message_direct_plan_sink_outputs = [_]generated.Message.Builder{ message_direct_plan_sink_output0, message_direct_plan_sink_output1, message_direct_plan_sink_output2 };
+    var message_direct_plan_sink_context: Context = .{};
+    var message_direct_plan_sink: MessagePlanSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputPlansToSink(
+        &message_direct_plan_sink_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_plan_sink_outputs[0..2],
+        &message_direct_plan_sink_context,
+        entries,
+        &message_direct_plan_sink,
+        MessagePlanSink.handle,
+    ));
+    try std.testing.expectEqual(message_action_stats, try cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputPlansToSink(
+        &message_direct_plan_sink_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_plan_sink_outputs[0..],
+        &message_direct_plan_sink_context,
+        entries,
+        &message_direct_plan_sink,
+        MessagePlanSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_direct_plan_sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), message_direct_plan_sink.sent);
+    try std.testing.expectEqual(@as(usize, 0 + 2 + 3), message_direct_plan_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 71 + 72 + 73), message_direct_plan_sink.question_sum);
 
     var message_split_state = cpz.rpc.State.init(std.testing.allocator);
     defer message_split_state.deinit();
@@ -8677,6 +8774,51 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1 + 2), plan_sink.source_sum);
     try std.testing.expectEqual(@as(u32, 71 + 72 + 73), plan_sink.question_sum);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, wire_plans[0..2], unified_outputs[0..], &plan_sink, PlanSink.handle));
+
+    var direct_plan_sink_state = cpz.rpc.State.init(std.testing.allocator);
+    defer direct_plan_sink_state.deinit();
+    try direct_plan_sink_state.addImport(5);
+    try direct_plan_sink_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try direct_plan_sink_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try direct_plan_sink_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var direct_plan_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_plan_sink_builder0.deinit();
+    const direct_plan_sink_output0 = try generated.Message.initRootTyped(&direct_plan_sink_builder0);
+    var direct_plan_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_plan_sink_builder1.deinit();
+    const direct_plan_sink_output1 = try generated.Message.initRootTyped(&direct_plan_sink_builder1);
+    var direct_plan_sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_plan_sink_builder2.deinit();
+    const direct_plan_sink_output2 = try generated.Message.initRootTyped(&direct_plan_sink_builder2);
+    const direct_plan_sink_outputs = [_]generated.Message.Builder{ direct_plan_sink_output0, direct_plan_sink_output1, direct_plan_sink_output2 };
+    var direct_plan_sink_context: Context = .{};
+    var direct_plan_sink: PlanSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanUnifiedOutputPlansToSink(
+        &direct_plan_sink_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_plan_sink_outputs[0..2],
+        &direct_plan_sink_context,
+        entries,
+        &direct_plan_sink,
+        PlanSink.handle,
+    ));
+    try std.testing.expectEqual(wire_stats, try cpz.rpc.initWireCallServiceActionPlanUnifiedOutputPlansToSink(
+        &direct_plan_sink_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_plan_sink_outputs[0..],
+        &direct_plan_sink_context,
+        entries,
+        &direct_plan_sink,
+        PlanSink.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), direct_plan_sink_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), direct_plan_sink.sent);
+    try std.testing.expectEqual(@as(usize, 0 + 1 + 2), direct_plan_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 71 + 72 + 73), direct_plan_sink.question_sum);
 
     var plan_sink_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
     defer plan_sink_wrapper_state.deinit();

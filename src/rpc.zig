@@ -2143,6 +2143,22 @@ pub fn initWireCallServiceActionPlanUnifiedOutputsToSink(
     return stats;
 }
 
+pub fn initWireCallServiceActionPlanUnifiedOutputPlansToSink(
+    state: *State,
+    allocator: std.mem.Allocator,
+    calls: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try initWireCallServiceActionPlanUnifiedOutputs(state, allocator, calls, plans, output_messages, context, entries);
+    try sendRpcServiceActionUnifiedOutputPlansToSink(stats, plans, output_messages, sink_context, sink_handler);
+    return stats;
+}
+
 pub fn initWireMessageServiceActionPlanUnifiedOutputs(
     state: *State,
     allocator: std.mem.Allocator,
@@ -2164,6 +2180,38 @@ pub fn initWireMessageServiceActionPlanUnifiedOutputs(
         context,
         entries,
     );
+}
+
+pub fn initWireMessageServiceActionPlanUnifiedOutputsToSink(
+    state: *State,
+    allocator: std.mem.Allocator,
+    messages: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try initWireMessageServiceActionPlanUnifiedOutputs(state, allocator, messages, plans, output_messages, context, entries);
+    try sendRpcServiceActionUnifiedOutputsToSink(stats, output_messages, sink_context, sink_handler);
+    return stats;
+}
+
+pub fn initWireMessageServiceActionPlanUnifiedOutputPlansToSink(
+    state: *State,
+    allocator: std.mem.Allocator,
+    messages: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try initWireMessageServiceActionPlanUnifiedOutputs(state, allocator, messages, plans, output_messages, context, entries);
+    try sendRpcServiceActionUnifiedOutputPlansToSink(stats, plans, output_messages, sink_context, sink_handler);
+    return stats;
 }
 
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
