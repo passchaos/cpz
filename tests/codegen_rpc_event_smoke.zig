@@ -14624,6 +14624,93 @@ test "rpc turn dispatcher fills unified outputs with pending disembargos" {
     }
 }
 
+test "rpc turn dispatcher filters pending accept disembargos into unified outputs" {
+    const BootstrapHandler = struct {
+        fn handle(_: void, bootstrap: anytype) !u32 {
+            return bootstrap.questionId();
+        }
+    };
+    const CallHandler = struct {
+        fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
+    const HandoffHandler = struct {
+        fn handle(_: void, _: u32, _: cpz.rpc.AnyPointerUsage) !u32 {
+            return 0;
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 156,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "filter-unified-156",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 157,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "filter-unified-157",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+
+    const request_messages = try std.testing.allocator.alloc(generated.Message, 0);
+    defer std.testing.allocator.free(request_messages);
+    var output_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder.deinit();
+    const output = try generated.Message.initRootTyped(&output_builder);
+    const outputs = [_]generated.Message.Builder{output};
+
+    const applied = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoFromHandlers(
+        &state,
+        std.testing.allocator,
+        outputs[0..],
+        request_messages,
+        {},
+        BootstrapHandler.handle,
+        {},
+        CallHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "filter-unified-157",
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{}, applied.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{}, applied.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 1), applied.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 1), applied.totalOutputMessages());
+    try std.testing.expectEqual(@as(usize, 2), state.pendingAcceptEmbargoCount());
+
+    var reader = cpz.MessageReader.init(try output_builder.segmentsConst(), .{});
+    const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
+    try std.testing.expectEqualStrings("filter-unified-157", info.context.accept);
+}
+
 test "rpc turn dispatcher sends pending accept disembargos with dense outputs" {
     const BootstrapHandler = struct {
         fn handle(seen_question: *u32, bootstrap: anytype) !u32 {
