@@ -7862,9 +7862,11 @@ test "rpc method table dispatcher selects matching handlers" {
             return .{ .capability = 106 };
         }
     };
+    const first_method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 };
+    const second_method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 2 };
     const entries = .{
-        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 }, .handler = Handlers.first },
-        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 2 }, .handler = Handlers.second },
+        first_method.methodEntry(Handlers.first),
+        second_method.methodEntry(Handlers.second),
     };
     const duplicate_entries = .{
         .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 }, .handler = Handlers.first },
@@ -7872,6 +7874,10 @@ test "rpc method table dispatcher selects matching handlers" {
     };
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.validateCallMethodEntries(duplicate_entries));
     try std.testing.expectEqual(@as(?usize, 1), try entries[1].method.entryIndex(entries));
+    try std.testing.expect(entries[1].matches(0xabc, 2));
+    try std.testing.expect(!entries[1].matches(0xabc, 3));
+    try std.testing.expectEqual(entries[1].method, entries[1].callOptions().method);
+    try std.testing.expectEqual(@as(?usize, 1), try entries[1].entryIndex(entries));
     try std.testing.expectEqual(@as(?usize, 0), try cpz.rpc.callMethodEntryIndex(entries[0].method, entries));
     try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.callMethodEntryIndex(.{ .interface_id = 0xabc, .method_id = 3 }, entries));
 

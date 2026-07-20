@@ -963,6 +963,18 @@ pub fn CallMethodEntry(comptime Handler: type) type {
     return struct {
         method: CallMethod,
         handler: Handler,
+
+        pub fn matches(self: @This(), interface_id: u64, method_id: u16) bool {
+            return self.method.matches(interface_id, method_id);
+        }
+
+        pub fn callOptions(self: @This()) CallOptions {
+            return self.method.callOptions();
+        }
+
+        pub fn entryIndex(self: @This(), comptime entries: anytype) Error!?usize {
+            return self.method.entryIndex(entries);
+        }
     };
 }
 
