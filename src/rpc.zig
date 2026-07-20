@@ -1054,6 +1054,16 @@ pub fn initWirePayloadStructInfoWith(
     try initWirePayloadCapTableInfo(payload, infos);
 }
 
+pub fn initWirePayloadText(payload: anytype, text: []const u8, descriptors: []const CapDescriptor) !void {
+    try (try payload.get_contentAsPointer()).setText(text);
+    try initWirePayloadCapTable(payload, descriptors);
+}
+
+pub fn initWirePayloadData(payload: anytype, data: []const u8, descriptors: []const CapDescriptor) !void {
+    try (try payload.get_contentAsPointer()).setData(data);
+    try initWirePayloadCapTable(payload, descriptors);
+}
+
 pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, registry: anytype) ![]CapDescriptor {
     const descriptors = try allocator.alloc(CapDescriptor, registry.len());
     errdefer allocator.free(descriptors);
@@ -1662,6 +1672,14 @@ pub fn initWireCallParamsStructInfoWith(
     try initWirePayloadStructInfoWith(try call.init_params(), struct_size, infos, context, fill);
 }
 
+pub fn initWireCallParamsText(call: anytype, text: []const u8, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadText(try call.init_params(), text, descriptors);
+}
+
+pub fn initWireCallParamsData(call: anytype, data: []const u8, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadData(try call.init_params(), data, descriptors);
+}
+
 pub fn initWireReturnResultsCapTable(return_: anytype, descriptors: []const CapDescriptor) !void {
     try initWirePayloadCapTable(try return_.init_results(), descriptors);
 }
@@ -1696,6 +1714,14 @@ pub fn initWireReturnResultsStructInfoWith(
     fill: anytype,
 ) !void {
     try initWirePayloadStructInfoWith(try return_.init_results(), struct_size, infos, context, fill);
+}
+
+pub fn initWireReturnResultsText(return_: anytype, text: []const u8, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadText(try return_.init_results(), text, descriptors);
+}
+
+pub fn initWireReturnResultsData(return_: anytype, data: []const u8, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadData(try return_.init_results(), data, descriptors);
 }
 
 pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {
