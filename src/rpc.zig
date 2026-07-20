@@ -2147,6 +2147,29 @@ pub fn initWireReturnMessagePayloadCapabilityFromRegistry(
     try initWireReturnResultsCapabilityFromRegistry(allocator, return_, capability_index, registry);
 }
 
+pub fn initWireReturnMessagePayloadCapabilityFromRegistryAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+    registry: anytype,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireReturnMessagePayloadCapabilityAndApplyState(
+        state,
+        message,
+        answer_id,
+        release_param_caps,
+        no_finish_needed,
+        capability_index,
+        descriptors,
+    );
+}
+
 pub fn initWireReturnMessageStructWith(
     message: anytype,
     answer_id: AnswerId,
