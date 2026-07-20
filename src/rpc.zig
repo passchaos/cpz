@@ -4077,6 +4077,32 @@ pub const State = struct {
         return tracker.embargo == null or tracker.embargo_released;
     }
 
+    pub fn acceptPendingEmbargo(self: *const State, id: QuestionId) ?[]const u8 {
+        const tracker = self.accepts.get(id) orelse return null;
+        if (tracker.embargo_released) return null;
+        return tracker.embargo;
+    }
+
+    pub fn pendingAcceptEmbargoCount(self: *const State) usize {
+        var count: usize = 0;
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.embargo != null and !accept.embargo_released) count += 1;
+        }
+        return count;
+    }
+
+    pub fn pendingAcceptEmbargoIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error![]QuestionId {
+        var ids = std.ArrayList(QuestionId).empty;
+        errdefer ids.deinit(allocator);
+        var iterator = self.accepts.iterator();
+        while (iterator.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.embargo != null and !accept.embargo_released) try ids.append(allocator, entry.key_ptr.*);
+        }
+        return ids.toOwnedSlice(allocator);
+    }
+
     pub fn readyAcceptProvision(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const tracker = self.accepts.get(id) orelse return null;
         if (tracker.embargo != null and !tracker.embargo_released) return null;
