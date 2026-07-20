@@ -578,6 +578,15 @@ pub const CallInfo = struct {
         return if (self.send_results_to == .third_party) self.send_results_to_third_party else null;
     }
 
+    pub fn callOptions(self: @This()) CallOptions {
+        return .{
+            .method = self.method,
+            .send_results_to = self.send_results_to,
+            .send_results_to_third_party = self.thirdPartyResultsUsage(),
+            .flags = self.flags,
+        };
+    }
+
     pub fn allowsThirdPartyTailCall(self: @This()) bool {
         return self.flags.allow_third_party_tail_call;
     }
@@ -12225,6 +12234,11 @@ pub const State = struct {
     pub fn callThirdPartyResultsUsage(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const info = self.callInfo(id) orelse return null;
         return info.thirdPartyResultsUsage();
+    }
+
+    pub fn callOptions(self: *const State, id: QuestionId) ?CallOptions {
+        const info = self.callInfo(id) orelse return null;
+        return info.callOptions();
     }
 
     pub fn callAllowsThirdPartyTailCall(self: *const State, id: QuestionId) ?bool {

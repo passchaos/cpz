@@ -223,9 +223,10 @@ that a complete RPC runtime exists.
   payloads, blobs, primitive lists,
   caller-filled structs, and descriptor-info metadata.
   A generated Call reader can also be applied as a unit:
-  target validation, question opening, method/routing metadata recording, direct
-  `CallMethod`/send-results/third-party result-target/flag querying for future
-  service dispatch, plus params capability-table bookkeeping.
+  target validation, question opening, method/routing metadata recording,
+  `CallOptions` restoration, and direct `CallMethod`/send-results/third-party
+  result-target/flag querying for future service dispatch, plus params
+  capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application, return detailed Disembargo release

@@ -2798,6 +2798,12 @@ test "rpc call uint32-list helper can apply initialized state" {
     try std.testing.expectEqual(@as(?bool, true), state.callAllowsThirdPartyTailCall(97));
     try std.testing.expectEqual(@as(?bool, false), state.callForbidsPromisePipelining(97));
     try std.testing.expectEqual(@as(?bool, false), state.callOnlyAllowsPromisePipeline(97));
+    const tracked_options = tracked.callOptions();
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x97, .method_id = 7 }, tracked_options.method);
+    try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, tracked_options.send_results_to);
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, tracked_options.send_results_to_third_party.?);
+    try std.testing.expect(tracked_options.flags.allow_third_party_tail_call);
+    try std.testing.expectEqual(tracked_options, state.callOptions(97).?);
 
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     const call = try generated.Message.fromReader(try reader.getRoot()).call();
@@ -2854,6 +2860,13 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expectEqual(@as(?bool, null), state.callSendsResultsTo(51, .caller));
     try std.testing.expect(state.callThirdPartyResultsUsage(51) == null);
     try std.testing.expectEqual(@as(?bool, null), state.callForbidsPromisePipelining(51));
+    const tracked_options = tracked.callOptions();
+    try std.testing.expectEqual(expected_method, tracked_options.method);
+    try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, tracked_options.send_results_to);
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, tracked_options.send_results_to_third_party.?);
+    try std.testing.expect(tracked_options.flags.no_promise_pipelining);
+    try std.testing.expectEqual(tracked_options, state.callOptions(50).?);
+    try std.testing.expect(state.callOptions(51) == null);
 }
 
 test "rpc return results expose capability descriptor tables" {
