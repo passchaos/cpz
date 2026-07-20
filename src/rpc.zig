@@ -1869,6 +1869,41 @@ pub fn initWireCallMessageDataWithOptions(message: anytype, question_id: Questio
     try initWireCallParamsData(call, data, descriptors);
 }
 
+pub fn initWireCallMessageDataWithOptionsAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    data: []const u8,
+    descriptors: []const CapDescriptor,
+    options: CallOptions,
+) !void {
+    try state.validateCallTarget(target);
+    for (descriptors) |descriptor| try state.validateCapDescriptor(descriptor);
+    try initWireCallMessageDataWithOptions(message, question_id, target, data, descriptors, options);
+    try state.openQuestion(question_id, .call);
+    try state.trackCallInfo(.{
+        .question_id = question_id,
+        .target = target,
+        .method = options.method,
+        .send_results_to = options.send_results_to,
+        .flags = options.flags,
+    });
+    for (descriptors) |descriptor| try state.applyCapDescriptor(descriptor);
+    try state.trackParamImports(question_id, descriptors);
+}
+
+pub fn initWireCallMessageDataAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    data: []const u8,
+    descriptors: []const CapDescriptor,
+) !void {
+    try initWireCallMessageDataWithOptionsAndApplyState(state, message, question_id, target, data, descriptors, .{});
+}
+
 pub fn initWireCallMessageUInt32List(message: anytype, question_id: QuestionId, target: CallTarget, values: []const u32, descriptors: []const CapDescriptor) !void {
     const call = try message.init_call();
     try call.set_questionId(question_id);

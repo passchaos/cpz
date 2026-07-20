@@ -2031,6 +2031,40 @@ test "rpc top-level call helpers initialize data payloads" {
     }
 }
 
+test "rpc call data helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageDataWithOptionsAndApplyState(
+        &state,
+        root,
+        96,
+        .{ .imported_cap = 5 },
+        "state call data",
+        &.{.{ .sender_hosted = 98 }},
+        .{
+            .method = .{ .interface_id = 0x96, .method_id = 6 },
+            .flags = .{ .only_promise_pipeline = true },
+        },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(96));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(96));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(98));
+    const tracked = state.callInfo(96).?;
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x96, .method_id = 6 }, tracked.method);
+    try std.testing.expect(tracked.flags.only_promise_pipeline);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call = try generated.Message.fromReader(try reader.getRoot()).call();
+    try std.testing.expectEqualSlices(u8, "state call data", try (try (try call.params()).content()).getData());
+}
+
 test "rpc top-level call payload helpers support routing options" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
