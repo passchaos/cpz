@@ -1801,6 +1801,52 @@ test "rpc call struct helper can apply initialized state" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 108 }, descriptors[0]);
 }
 
+test "rpc call struct-info helper can apply initialized state" {
+    const Fill = struct {
+        fn write(value: *const u32, builder: cpz.StructBuilder) !void {
+            try builder.setUInt32(0, value.*, 0);
+            (try builder.getPointerField(0)).setCapability(0);
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    const infos = [_]cpz.rpc.CapDescriptorInfo{.{ .descriptor = .{ .sender_promise = 109 }, .attached_fd = 21 }};
+    var value: u32 = 0x13579bdf;
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageStructInfoWithOptionsAndApplyState(
+        &state,
+        root,
+        108,
+        .{ .imported_cap = 5 },
+        cpz.StructSize{ .data_words = 1, .pointer_count = 1 },
+        infos[0..],
+        &value,
+        Fill.write,
+        .{ .method = .{ .interface_id = 0x108, .method_id = 19 } },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(108));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(108));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(109));
+    const tracked = state.callInfo(108).?;
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x108, .method_id = 19 }, tracked.method);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const params = try (try generated.Message.fromReader(try reader.getRoot()).call()).params();
+    const content = try (try params.content()).getStruct(null);
+    try std.testing.expectEqual(@as(u32, 0x13579bdf), content.getUInt32(0, 0));
+    try std.testing.expectEqual(@as(u32, 0), try content.getPointerField(0).getCapabilityIndex());
+    const decoded_infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, params);
+    defer std.testing.allocator.free(decoded_infos);
+    try std.testing.expectEqual(@as(usize, 1), decoded_infos.len);
+    try std.testing.expectEqual(infos[0], decoded_infos[0]);
+}
+
 test "rpc top-level call helpers initialize registry-backed struct payloads" {
     const Fill = struct {
         fn write(value: *const u32, builder: cpz.StructBuilder) !void {

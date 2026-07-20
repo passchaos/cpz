@@ -1933,6 +1933,56 @@ pub fn initWireCallMessageStructInfoWithOptions(
     try initWireCallParamsStructInfoWith(call, struct_size, infos, context, fill);
 }
 
+pub fn initWireCallMessageStructInfoWithOptionsAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    fill: anytype,
+    options: CallOptions,
+) !void {
+    try state.validateCallTarget(target);
+    for (infos) |info| try state.validateCapDescriptor(info.descriptor);
+
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    const params = try call.init_params();
+    const content_pointer = try params.get_contentAsPointer();
+    const content = try content_pointer.initStruct(struct_size);
+    try fill(context, content);
+    if ((try content.validate()).maxCapabilityCount() > infos.len) return error.InvalidCapabilityPointer;
+    try initWirePayloadCapTableInfo(params, infos);
+
+    try state.openQuestion(question_id, .call);
+    try state.trackCallInfo(.{
+        .question_id = question_id,
+        .target = target,
+        .method = options.method,
+        .send_results_to = options.send_results_to,
+        .flags = options.flags,
+    });
+    for (infos) |info| try state.applyCapDescriptor(info.descriptor);
+    const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
+    defer state.allocator.free(descriptors);
+    try state.trackParamImports(question_id, descriptors);
+}
+
+pub fn initWireCallMessageStructInfoWithAndApplyState(
+    state: *State,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    fill: anytype,
+) !void {
+    try initWireCallMessageStructInfoWithOptionsAndApplyState(state, message, question_id, target, struct_size, infos, context, fill, .{});
+}
+
 pub fn initWireCallMessageStructFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
