@@ -2750,6 +2750,22 @@ pub fn planRpcTurnMethods(state: *const State, request_messages: anytype, compti
     };
 }
 
+pub fn planRpcTurnForAcceptEmbargo(state: *const State, request_messages: anytype, embargo: []const u8) !RpcTurnPlan {
+    return .{
+        .dispatch = try planWireMessagesDispatch(state, request_messages),
+        .handoff_returns = state.readyHandoffReturnStats(),
+        .pending_disembargos = state.pendingAcceptEmbargoMatchCount(embargo),
+    };
+}
+
+pub fn planRpcTurnMethodsForAcceptEmbargo(state: *const State, request_messages: anytype, comptime call_entries: anytype, embargo: []const u8) !RpcTurnPlan {
+    return .{
+        .dispatch = try planWireMessagesMethodsDispatch(state, request_messages, call_entries),
+        .handoff_returns = state.readyHandoffReturnStats(),
+        .pending_disembargos = state.pendingAcceptEmbargoMatchCount(embargo),
+    };
+}
+
 pub fn dispatchWireMessageOutcome(
     state: *State,
     allocator: std.mem.Allocator,
