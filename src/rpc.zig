@@ -682,6 +682,19 @@ pub const TrackedCallServiceActionStats = struct {
         return .{ .start = start, .end = start + self.unimplemented };
     }
 
+    pub fn responseRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.responseMessages() };
+    }
+
+    pub fn dispatchResponseRange(self: @This()) OutputRange {
+        return self.dispatchRange();
+    }
+
+    pub fn unimplementedResponseRange(self: @This()) OutputRange {
+        const start = self.dispatch;
+        return .{ .start = start, .end = start + self.unimplemented };
+    }
+
     pub fn validateDispatchCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.dispatch) return error.InvalidTransition;
     }
@@ -702,6 +715,15 @@ pub const TrackedCallServiceActionStats = struct {
 
     pub fn validateResponseCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.responseMessages()) return error.InvalidTransition;
+    }
+
+    pub fn validateOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
+        try self.validateResponseCapacity(response_capacity);
+        try self.validateForwardCapacity(forward_capacity);
+    }
+
+    pub fn validateOutputBuilders(self: @This(), response_messages: anytype, forward_messages: anytype) Error!void {
+        try self.validateOutputCapacity(response_messages.len, forward_messages.len);
     }
 
     pub fn validateActionCapacity(self: @This(), capacity: usize) Error!void {

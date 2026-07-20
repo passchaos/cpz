@@ -161,8 +161,8 @@ that a complete RPC runtime exists.
   conversion/lookup helpers, and generated-or-metadata factories so method
   tables and Call builders can reference schema-defined interface/method IDs directly. A compile-time method table dispatcher
   can validate unique method entries, preview matching entry indexes, service
-  actions, aggregate action stats/ranges/capacity checks, grouped action queues,
-  or source-preserving plans that can materialize or enqueue split/combined
+  actions, aggregate action stats/ranges plus split/output capacity checks,
+  grouped action queues, or source-preserving plans that can materialize or enqueue split/combined
   dispatch responses, forwarded Calls, and unimplemented Return exceptions for
   pre-apply wire calls and tracked calls, select among multiple handlers, and
   can be used by the single-message dispatcher. A
