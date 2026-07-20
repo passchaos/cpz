@@ -2081,6 +2081,47 @@ pub fn initWireCallServiceActionPlanUnifiedOutputsToSink(
     return stats;
 }
 
+pub fn initWireMessageServiceActionPlanUnifiedOutputs(
+    state: *State,
+    allocator: std.mem.Allocator,
+    messages: anytype,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    context: anytype,
+    comptime entries: anytype,
+) !TrackedCallServiceActionStats {
+    const stats = try validateWireCallServiceActionPlans(messages, plans, entries);
+    try stats.validateActionCapacity(output_messages.len);
+
+    var response_index = stats.outputResponseRange().start;
+    var forward_index = stats.outputForwardRange().start;
+    for (plans) |plan| {
+        const call = try messages[plan.source_index].call();
+        switch (plan.action) {
+            .dispatch => |entry_index| {
+                inline for (entries, 0..) |entry, index| {
+                    if (index == entry_index) {
+                        try dispatchCallMethod(state, allocator, output_messages[response_index], call, entry.method, context, entry.handler);
+                        response_index += 1;
+                    }
+                }
+            },
+            .forward => |target| {
+                try initForwardedWireCallMessage(output_messages[forward_index], call, target);
+                forward_index += 1;
+            },
+            .unimplemented => {
+                try initWireReturnException(try output_messages[response_index].init_return_(), call.questionId(), true, false, .{
+                    .reason = "unimplemented method",
+                    .type_raw = 3,
+                });
+                response_index += 1;
+            },
+        }
+    }
+    return stats;
+}
+
 pub fn initForwardedWireCallToResolvedTarget(state: *const State, call: anytype, source_call: anytype) !CallTarget {
     const target = (try state.wireCallTargetTransitiveForwardTarget(source_call)) orelse return error.InvalidTransition;
     try initForwardedWireCall(call, source_call, target);
@@ -12847,6 +12888,20 @@ pub const State = struct {
     ) !TrackedCallServiceActionStats {
         const stats = try self.initWireCallServiceActionPlans(calls, entries, plans);
         return initWireCallServiceActionPlanUnifiedOutputs(self, allocator, calls, plans[0..stats.actions()], output_messages, context, entries);
+    }
+
+    pub fn dispatchWireMessageServiceActionsUnified(
+        self: *State,
+        allocator: std.mem.Allocator,
+        messages: anytype,
+        comptime entries: anytype,
+        plans: []TrackedCallServiceActionPlan,
+        output_messages: anytype,
+        context: anytype,
+    ) !TrackedCallServiceActionStats {
+        const stats = try self.initWireMessageServiceActionPlans(messages, entries, plans);
+        _ = try initWireMessageServiceActionPlanUnifiedOutputs(self, allocator, messages, plans[0..stats.actions()], output_messages, context, entries);
+        return stats;
     }
 
     pub fn dispatchWireCallServiceActionsUnifiedToSink(

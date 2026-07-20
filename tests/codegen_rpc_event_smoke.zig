@@ -8051,6 +8051,39 @@ test "rpc service action stats aggregate wire and tracked calls" {
     var short_message_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireMessageServiceActionPlans(messages[0..], entries, short_message_plans[0..]));
 
+    var message_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
+    defer message_wrapper_state.deinit();
+    try message_wrapper_state.addImport(5);
+    try message_wrapper_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try message_wrapper_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try message_wrapper_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var message_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_output_builder0.deinit();
+    const message_output0 = try generated.Message.initRootTyped(&message_output_builder0);
+    var message_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_output_builder1.deinit();
+    const message_output1 = try generated.Message.initRootTyped(&message_output_builder1);
+    var message_output_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_output_builder2.deinit();
+    const message_output2 = try generated.Message.initRootTyped(&message_output_builder2);
+    const message_outputs = [_]generated.Message.Builder{ message_output0, message_output1, message_output2 };
+    var message_context: Context = .{};
+    try std.testing.expectError(error.InvalidTransition, message_wrapper_state.dispatchWireMessageServiceActionsUnified(std.testing.allocator, messages[0..], entries, short_message_plans[0..], message_outputs[0..], &message_context));
+    try std.testing.expectEqual(
+        message_stats,
+        try message_wrapper_state.dispatchWireMessageServiceActionsUnified(std.testing.allocator, messages[0..], entries, message_plan_buffer[0..], message_outputs[0..], &message_context),
+    );
+    try std.testing.expectEqual(@as(u32, 71), message_context.selected);
+    var message_output_reader0 = cpz.MessageReader.init(try message_output_builder0.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 71), (try generated.Message.fromReader(try message_output_reader0.getRoot()).return_()).answerId());
+    var message_output_reader1 = cpz.MessageReader.init(try message_output_builder1.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 72), (try generated.Message.fromReader(try message_output_reader1.getRoot()).return_()).answerId());
+    var message_output_reader2 = cpz.MessageReader.init(try message_output_builder2.segmentsConst(), .{});
+    const message_forward_call = try generated.Message.fromReader(try message_output_reader2.getRoot()).call();
+    try std.testing.expectEqual(@as(u32, 73), message_forward_call.questionId());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(message_forward_call));
+
     const wire_stats = try state.wireCallServiceActionStats(calls[0..], entries);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
         .dispatch = 1,
