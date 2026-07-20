@@ -2021,6 +2021,21 @@ pub fn initWireReturnException(
     try writeExceptionInfoToWire(exception, wire_exception);
 }
 
+pub fn initWireReturnExceptionMessageAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    exception: ExceptionInfo,
+) !void {
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try initWireReturnException(try message.init_return_(), answer_id, release_param_caps, no_finish_needed, exception);
+    try state.resolveAnswer(answer_id, .return_);
+    try state.trackResultImports(answer_id, &.{});
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+}
+
 pub fn initWireReturnCanceled(return_: anytype, answer_id: AnswerId, release_param_caps: bool) !void {
     try return_.set_answerId(answer_id);
     try return_.set_releaseParamCaps(release_param_caps);

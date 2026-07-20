@@ -3637,6 +3637,45 @@ test "rpc return exception helpers write outcomes" {
     try std.testing.expectEqualStrings("retry later", info.trace.?);
 }
 
+test "rpc return exception helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(58);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    try cpz.rpc.initWireCallParamsText(call, "exception state return", &.{.{ .sender_hosted = 101 }});
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    try state.applyWireCall(std.testing.allocator, try generated.Message.fromReader(try call_reader.getRoot()).call());
+
+    var return_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer return_builder.deinit();
+    const return_root = try generated.Message.initRootTyped(&return_builder);
+    try cpz.rpc.initWireReturnExceptionMessageAndApplyState(&state, return_root, 58, true, false, .{
+        .reason = "state exception",
+        .type_raw = 3,
+    });
+
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(58));
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(58));
+    try std.testing.expectEqual(@as(usize, 0), state.paramImportCount(58));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(101));
+
+    var return_reader = cpz.MessageReader.init(try return_builder.segmentsConst(), .{});
+    const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try generated.Message.fromReader(try return_reader.getRoot()).return_());
+    const info = switch (outcome) {
+        .exception => |value| value,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqualStrings("state exception", info.reason.?);
+    try std.testing.expectEqual(@as(u16, 3), info.type_raw);
+}
+
 test "rpc non-result return helpers write outcomes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
