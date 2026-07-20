@@ -7264,6 +7264,51 @@ pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosFr
     return turn_plan;
 }
 
+pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    var turn_plan = try dispatchRpcTurnMethodsForwardingUnifiedDenseFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        apply_context,
+        apply_handler,
+    );
+    try turn_plan.validateUnifiedOutputBuilders(output_messages);
+    turn_plan.pending_disembargos = try state.initPendingAcceptDisembargoMessages(
+        try turn_plan.disembargoMessageRange().slice(output_messages),
+        disembargo_target,
+    );
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
