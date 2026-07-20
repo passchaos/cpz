@@ -169,7 +169,7 @@ that a complete RPC runtime exists.
   Call initialization can include send-results routing (including third-party
   contact capability usage), boolean call flags, and non-capability payload
   helper variants, including registry-backed payloads, that also set
-  method/routing options.
+  method/routing options for blobs, primitive lists, and caller-filled structs.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording, and
   method-match querying for future service dispatch, plus params

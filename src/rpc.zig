@@ -1476,6 +1476,21 @@ pub fn initWireCallMessageStructWith(
     try initWireCallParamsStructWith(call, struct_size, descriptors, context, fill);
 }
 
+pub fn initWireCallMessageStructWithOptions(
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    descriptors: []const CapDescriptor,
+    context: anytype,
+    fill: anytype,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsStructWith(call, struct_size, descriptors, context, fill);
+}
+
 pub fn initWireCallMessageStructInfoWith(
     message: anytype,
     question_id: QuestionId,
@@ -1504,6 +1519,22 @@ pub fn initWireCallMessageStructFromRegistry(
     const call = try message.init_call();
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsStructFromRegistry(allocator, call, struct_size, registry, context, fill);
+}
+
+pub fn initWireCallMessageStructFromRegistryWithOptions(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
     try initWireCallParamsStructFromRegistry(allocator, call, struct_size, registry, context, fill);
 }
 

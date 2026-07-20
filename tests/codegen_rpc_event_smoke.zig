@@ -1558,6 +1558,80 @@ test "rpc top-level call helpers initialize registry-backed struct payloads" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
 }
 
+test "rpc top-level call struct helpers support routing options" {
+    const Fill = struct {
+        fn write(value: *const u32, builder: cpz.StructBuilder) !void {
+            try builder.setUInt32(0, value.*, 0);
+        }
+    };
+
+    {
+        var value: u32 = 0x01020304;
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireCallMessageStructWithOptions(
+            root,
+            82,
+            .{ .imported_cap = 5 },
+            cpz.StructSize{ .data_words = 1, .pointer_count = 0 },
+            &.{.{ .sender_hosted = 83 }},
+            &value,
+            Fill.write,
+            .{
+                .method = .{ .interface_id = 0x9020, .method_id = 15 },
+                .send_results_to = .yourself,
+            },
+        );
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call = try generated.Message.fromReader(try reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9020, .method_id = 15 }, cpz.rpc.callMethodFromWireCall(call));
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(call));
+        const params = try call.params();
+        const content = try (try params.content()).getStruct(null);
+        try std.testing.expectEqual(@as(u32, 0x01020304), content.getUInt32(0, 0));
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, params);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 83 }, descriptors[0]);
+    }
+    {
+        var registry: cpz.CapabilityRegistry([]const u8) = .{};
+        defer registry.deinit(std.testing.allocator);
+        _ = try registry.register(std.testing.allocator, "option-registry-struct");
+
+        var value: u32 = 0x05060708;
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireCallMessageStructFromRegistryWithOptions(
+            std.testing.allocator,
+            root,
+            83,
+            .{ .imported_cap = 5 },
+            cpz.StructSize{ .data_words = 1, .pointer_count = 0 },
+            &registry,
+            &value,
+            Fill.write,
+            .{
+                .method = .{ .interface_id = 0x9021, .method_id = 16 },
+                .flags = .{ .only_promise_pipeline = true },
+            },
+        );
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const call = try generated.Message.fromReader(try reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9021, .method_id = 16 }, cpz.rpc.callMethodFromWireCall(call));
+        try std.testing.expectEqual(cpz.rpc.CallFlags{ .only_promise_pipeline = true }, cpz.rpc.callFlagsFromWireCall(call));
+        const params = try call.params();
+        const content = try (try params.content()).getStruct(null);
+        try std.testing.expectEqual(@as(u32, 0x05060708), content.getUInt32(0, 0));
+        const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, params);
+        defer std.testing.allocator.free(descriptors);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 0 }, descriptors[0]);
+    }
+}
+
 test "rpc top-level call helpers initialize struct payload descriptor info" {
     const Fill = struct {
         fn write(value: *const u32, builder: cpz.StructBuilder) !void {
