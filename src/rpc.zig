@@ -130,6 +130,23 @@ pub const StateHandoffStats = struct {
     }
 };
 
+pub const StateReadyHandoffIds = struct {
+    provides: []QuestionId,
+    accepts: []QuestionId,
+    joins: []QuestionId,
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        allocator.free(self.provides);
+        allocator.free(self.accepts);
+        allocator.free(self.joins);
+        self.* = undefined;
+    }
+
+    pub fn total(self: @This()) usize {
+        return self.provides.len + self.accepts.len + self.joins.len;
+    }
+};
+
 pub const HandoffReturnCapability = struct {
     question_id: QuestionId,
     export_id: ExportId,
@@ -4124,6 +4141,49 @@ pub const State = struct {
     pub fn initTrackedProvideReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
         _ = self.provideRecipient(question_id) orelse return error.InvalidTransition;
         try initCapabilityReturnMessage(message, question_id, export_id);
+    }
+
+    pub fn readyProvideIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error![]QuestionId {
+        var ids = std.ArrayList(QuestionId).empty;
+        errdefer ids.deinit(allocator);
+        var iterator = self.provides.iterator();
+        while (iterator.next()) |entry| {
+            if (entry.value_ptr.recipient != null) try ids.append(allocator, entry.key_ptr.*);
+        }
+        return ids.toOwnedSlice(allocator);
+    }
+
+    pub fn readyAcceptIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error![]QuestionId {
+        var ids = std.ArrayList(QuestionId).empty;
+        errdefer ids.deinit(allocator);
+        var iterator = self.accepts.iterator();
+        while (iterator.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.provision != null and (accept.embargo == null or accept.embargo_released)) {
+                try ids.append(allocator, entry.key_ptr.*);
+            }
+        }
+        return ids.toOwnedSlice(allocator);
+    }
+
+    pub fn readyJoinIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error![]QuestionId {
+        var ids = std.ArrayList(QuestionId).empty;
+        errdefer ids.deinit(allocator);
+        var iterator = self.joins.iterator();
+        while (iterator.next()) |entry| {
+            if (entry.value_ptr.key_part != null) try ids.append(allocator, entry.key_ptr.*);
+        }
+        return ids.toOwnedSlice(allocator);
+    }
+
+    pub fn readyHandoffIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error!StateReadyHandoffIds {
+        const provides = try self.readyProvideIdsAlloc(allocator);
+        errdefer allocator.free(provides);
+        const accepts = try self.readyAcceptIdsAlloc(allocator);
+        errdefer allocator.free(accepts);
+        const joins = try self.readyJoinIdsAlloc(allocator);
+        errdefer allocator.free(joins);
+        return .{ .provides = provides, .accepts = accepts, .joins = joins };
     }
 
     pub fn initTrackedHandoffReturnMessage(self: *const State, message: anytype, completion: HandoffReturn) !void {

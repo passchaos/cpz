@@ -5328,6 +5328,12 @@ test "rpc tracked handoff batches initialize ready return messages" {
         .joins = 1,
         .join_key_parts = 1,
     }, state.handoffStats());
+    var ready_ids = try state.readyHandoffIdsAlloc(std.testing.allocator);
+    defer ready_ids.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 3), ready_ids.total());
+    try std.testing.expectEqualSlices(u32, &.{90}, ready_ids.provides);
+    try std.testing.expectEqualSlices(u32, &.{91}, ready_ids.accepts);
+    try std.testing.expectEqualSlices(u32, &.{92}, ready_ids.joins);
 
     var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder0.deinit();
@@ -5388,6 +5394,9 @@ test "rpc tracked handoff batches preserve readiness gates" {
     });
     var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
     try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    var ready_ids = try state.readyHandoffIdsAlloc(std.testing.allocator);
+    defer ready_ids.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 0), ready_ids.total());
 
     var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder.deinit();
