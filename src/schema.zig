@@ -10838,6 +10838,11 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\        return @This().@"cpz.callOptionsByIndex"(@"cpz.method".index);
             \\    }}
             \\
+            \\    pub fn @"cpz.callOptionsByCallMethod"(@"cpz.callMethod": cpz.rpc.CallMethod) ?cpz.rpc.CallOptions {{
+            \\        const @"cpz.method" = @This().@"cpz.methodByCallMethod"(@"cpz.callMethod") orelse return null;
+            \\        return @This().@"cpz.callOptionsByIndex"(@"cpz.method".index);
+            \\    }}
+            \\
         , .{});
         try appendFmt(allocator, out,
             \\    pub fn @"cpz.methodEntries"(handlers: anytype) @TypeOf(.{{
