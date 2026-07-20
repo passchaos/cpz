@@ -150,7 +150,8 @@ that a complete RPC runtime exists.
   method-aware call dispatcher can filter on interface/method IDs, build
   capability, empty, text/data/UInt32-list payload returns and caller-filled struct payload returns with descriptor,
   descriptor-info, or registry-backed cap tables, and emit an unimplemented exception for
-  mismatches; a compile-time method table dispatcher
+  mismatches; typed method helpers can also report or initialize forwarding
+  for already-resolved targets without invoking local handlers. A compile-time method table dispatcher
   can validate unique method entries, select among multiple handlers, and can be
   used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through

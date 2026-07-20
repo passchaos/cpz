@@ -2880,6 +2880,82 @@ pub fn dispatchCallMethodReturningStructFromRegistry(
     try dispatchCallMethodReturningStructWith(state, allocator, response_message, call, expected_method, struct_size, descriptors, context, handler);
 }
 
+pub fn dispatchCallMethodReturningCapabilityOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    try state.validateWireCallTarget(call);
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        return .forward_required;
+    }
+    try dispatchCallMethodReturningCapability(state, allocator, response_message, call, expected_method, context, handler);
+    return .response_initialized;
+}
+
+pub fn dispatchCallMethodReturningCapabilityForwardingOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    forward_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    try state.validateWireCallTarget(call);
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        _ = try initForwardedWireCallMessageToResolvedTarget(state, forward_message, call);
+        return .forward_required;
+    }
+    try dispatchCallMethodReturningCapability(state, allocator, response_message, call, expected_method, context, handler);
+    return .response_initialized;
+}
+
+pub fn dispatchCallMethodReturningEmptyOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    try state.validateWireCallTarget(call);
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        return .forward_required;
+    }
+    try dispatchCallMethodReturningEmpty(state, allocator, response_message, call, expected_method, context, handler);
+    return .response_initialized;
+}
+
+pub fn dispatchCallMethodReturningEmptyForwardingOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    forward_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    try state.validateWireCallTarget(call);
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        _ = try initForwardedWireCallMessageToResolvedTarget(state, forward_message, call);
+        return .forward_required;
+    }
+    try dispatchCallMethodReturningEmpty(state, allocator, response_message, call, expected_method, context, handler);
+    return .response_initialized;
+}
+
 pub fn dispatchCallMethodOutcome(
     state: *State,
     allocator: std.mem.Allocator,
