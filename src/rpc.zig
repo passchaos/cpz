@@ -62,16 +62,23 @@ pub const DispatchResult = union(enum) {
 
 pub const WireDispatchOutcome = enum {
     response_initialized,
+    /// The call target has already been resolved to another capability. The
+    /// dispatcher recorded the inbound call in state, but deliberately did not
+    /// initialize a response or invoke the local application handler; the
+    /// transport/runtime layer should forward the original call instead.
+    forward_required,
     state_applied,
 };
 
 pub const WireDispatchStats = struct {
     response_initialized: usize = 0,
+    forward_required: usize = 0,
     state_applied: usize = 0,
 
     pub fn record(self: *@This(), outcome: WireDispatchOutcome) void {
         switch (outcome) {
             .response_initialized => self.response_initialized += 1,
+            .forward_required => self.forward_required += 1,
             .state_applied => self.state_applied += 1,
         }
     }
@@ -80,12 +87,16 @@ pub const WireDispatchStats = struct {
         self.record(.response_initialized);
     }
 
+    pub fn recordForwardRequired(self: *@This()) void {
+        self.record(.forward_required);
+    }
+
     pub fn recordStateApplied(self: *@This()) void {
         self.record(.state_applied);
     }
 
     pub fn total(self: @This()) usize {
-        return self.response_initialized + self.state_applied;
+        return self.response_initialized + self.forward_required + self.state_applied;
     }
 };
 
@@ -1725,6 +1736,27 @@ pub fn dispatchCall(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchCallOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    try state.validateWireCallTarget(call);
+    // Keep this check before invoking the application handler. A resolved
+    // imported promise is not a local service target anymore; treating it as
+    // local would duplicate work that should be forwarded to the replacement
+    // capability once a transport loop exists.
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        return .forward_required;
+    }
+    try dispatchCall(state, allocator, response_message, call, context, handler);
+    return .response_initialized;
+}
+
 pub fn dispatchCallMethod(
     state: *State,
     allocator: std.mem.Allocator,
@@ -1744,6 +1776,24 @@ pub fn dispatchCallMethod(
     }
     const result = try handler(context, call);
     try initDispatchReturnMessage(response_message, call.questionId(), result);
+}
+
+pub fn dispatchCallMethodOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    try state.validateWireCallTarget(call);
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        return .forward_required;
+    }
+    try dispatchCallMethod(state, allocator, response_message, call, expected_method, context, handler);
+    return .response_initialized;
 }
 
 pub fn validateCallMethodEntries(comptime entries: anytype) Error!void {
@@ -1780,6 +1830,24 @@ pub fn dispatchCallMethods(
     });
 }
 
+pub fn dispatchCallMethodsOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    context: anytype,
+    comptime entries: anytype,
+) !WireDispatchOutcome {
+    try validateCallMethodEntries(entries);
+    try state.validateWireCallTarget(call);
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        return .forward_required;
+    }
+    try dispatchCallMethods(state, allocator, response_message, call, context, entries);
+    return .response_initialized;
+}
+
 pub fn dispatchWireMessageOutcome(
     state: *State,
     allocator: std.mem.Allocator,
@@ -1796,8 +1864,7 @@ pub fn dispatchWireMessageOutcome(
             return .response_initialized;
         },
         .call => {
-            try dispatchCall(state, allocator, response_message, try request_message.call(), call_context, call_handler);
-            return .response_initialized;
+            return dispatchCallOutcome(state, allocator, response_message, try request_message.call(), call_context, call_handler);
         },
         else => {
             try state.applyWireMessage(allocator, request_message);
@@ -1844,8 +1911,7 @@ pub fn dispatchWireMessageMethodsOutcome(
             return .response_initialized;
         },
         .call => {
-            try dispatchCallMethods(state, allocator, response_message, try request_message.call(), call_context, call_entries);
-            return .response_initialized;
+            return dispatchCallMethodsOutcome(state, allocator, response_message, try request_message.call(), call_context, call_entries);
         },
         else => {
             try state.applyWireMessage(allocator, request_message);

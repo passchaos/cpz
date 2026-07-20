@@ -131,10 +131,10 @@ that a complete RPC runtime exists.
   can validate unique method entries, select among multiple handlers, and can be
   used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
-  those callbacks, report whether a response was initialized or state was
-  applied, and apply other supported top-level wire messages to state; a batch
-  helper can aggregate those outcomes over caller-provided message readers,
-  including method-table call dispatch.
+  those callbacks, report whether a response was initialized, a resolved call
+  target needs forwarding, or state was applied, and apply other supported
+  top-level wire messages to state; a batch helper can aggregate those outcomes
+  over caller-provided message readers, including method-table call dispatch.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
@@ -172,10 +172,10 @@ that a complete RPC runtime exists.
 
 ## Next useful increments
 
-1. Turn the now-recorded structural RPC data into behavior: use the transitive
-   `Resolve` forwarding helpers in an actual call-forwarding path, queue/release
-   `Disembargo` traffic, complete `Accept` provisions after embargo release, and
-   coordinate multi-part `Join` results.
+1. Turn the now-recorded structural RPC data into behavior: wire the
+   `forward_required` dispatch outcome to an actual transport forwarding path,
+   queue/release `Disembargo` traffic, complete `Accept` provisions after
+   embargo release, and coordinate multi-part `Join` results.
 2. Add higher-level generated request/response builders that combine
    `CapabilityRegistry(T)`, payload content construction, cap-table descriptor
    emission, and state validation for non-capability payload shapes as well as
