@@ -6447,6 +6447,64 @@ test "rpc batch apply aggregates detailed disembargo results" {
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(69));
 }
 
+test "rpc batch apply handler observes detailed disembargo results" {
+    const Context = struct {
+        calls: usize = 0,
+        released_accepts: usize = 0,
+        released_question_sum: u32 = 0,
+
+        fn handle(context: *@This(), result: cpz.rpc.WireMessageApplyResult) !void {
+            context.calls += 1;
+            switch (result) {
+                .disembargo => |info| {
+                    context.released_accepts += info.released_accepts;
+                    for (info.released_accept_ids) |id| context.released_question_sum += id;
+                },
+                else => {},
+            }
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 70,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "handler-70",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    const accept_message = generated.Message.fromReader(try accept_reader.getRoot());
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "handler-70" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+    const messages = [_]generated.Message{ accept_message, disembargo_message };
+    var context: Context = .{};
+    const stats = try state.applyWireMessagesAllocWithHandler(std.testing.allocator, messages[0..], &context, Context.handle);
+    try std.testing.expectEqual(cpz.rpc.WireMessageApplyStats{
+        .state_applied = 1,
+        .disembargos = 1,
+        .released_accepts = 1,
+    }, stats);
+    try std.testing.expectEqual(@as(usize, 2), context.calls);
+    try std.testing.expectEqual(@as(usize, 1), context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 70), context.released_question_sum);
+}
+
 test "rpc disembargo helper initializes released accept returns from handlers" {
     const HandlerContext = struct {
         seen: usize = 0,

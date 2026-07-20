@@ -4246,6 +4246,24 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn applyWireMessagesAllocWithHandler(
+        self: *State,
+        allocator: std.mem.Allocator,
+        messages: anytype,
+        context: anytype,
+        handler: anytype,
+    ) !WireMessageApplyStats {
+        var stats: WireMessageApplyStats = .{};
+        for (messages) |message| {
+            var result = try self.applyWireMessageAlloc(allocator, message);
+            errdefer result.deinit(allocator);
+            stats.record(result);
+            try handler(context, result);
+            result.deinit(allocator);
+        }
+        return stats;
+    }
+
     pub fn applyWireFinish(self: *State, finish: Finish) Error!void {
         if (finish.release_result_caps) try self.validateResultImports(finish.question_id);
         try self.finishQuestion(finish.question_id);
