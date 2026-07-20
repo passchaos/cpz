@@ -3153,6 +3153,45 @@ pub fn dispatchCallMethodReturningStructForwardingOutcome(
     return .response_initialized;
 }
 
+pub fn dispatchCallMethodReturningStructInfoForwardingOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    forward_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    struct_size: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    try state.validateWireCallTarget(call);
+    if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null) {
+        try state.applyWireCall(allocator, call);
+        _ = try initForwardedWireCallMessageToResolvedTarget(state, forward_message, call);
+        return .forward_required;
+    }
+    try dispatchCallMethodReturningStructInfoWith(state, allocator, response_message, call, expected_method, struct_size, infos, context, handler);
+    return .response_initialized;
+}
+
+pub fn dispatchCallMethodReturningStructFromRegistryForwardingOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    forward_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    handler: anytype,
+) !WireDispatchOutcome {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    return dispatchCallMethodReturningStructForwardingOutcome(state, allocator, response_message, forward_message, call, expected_method, struct_size, descriptors, context, handler);
+}
+
 pub fn dispatchCallMethodReturningCapabilityOutcome(
     state: *State,
     allocator: std.mem.Allocator,

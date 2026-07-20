@@ -5025,6 +5025,55 @@ test "rpc method-aware typed dispatch outcomes flag resolved targets" {
     {
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
+        try state.applyCapDescriptor(.{ .sender_promise = 458 });
+        try state.resolveImportTo(458, .{ .sender_hosted = 459 });
+        try state.applyCapDescriptor(.{ .sender_hosted = 459 });
+
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(458);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 4 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(458);
+        try cpz.rpc.initWireCallParamsUInt32List(call, &.{ 4, 58 }, &.{.{ .sender_hosted = 460 }});
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer forward_builder.deinit();
+        const forward_root = try generated.Message.initRootTyped(&forward_builder);
+        const infos = [_]cpz.rpc.CapDescriptorInfo{.{ .descriptor = .{ .sender_promise = 461 }, .attached_fd = 28 }};
+        var value: u32 = 0xa000;
+        try std.testing.expectEqual(
+            cpz.rpc.WireDispatchOutcome.forward_required,
+            try cpz.rpc.dispatchCallMethodReturningStructInfoForwardingOutcome(
+                &state,
+                std.testing.allocator,
+                response_root,
+                forward_root,
+                try request.call(),
+                .{ .interface_id = 0xabc, .method_id = 4 },
+                cpz.StructSize{ .data_words = 1, .pointer_count = 0 },
+                infos[0..],
+                &value,
+                StructOutcomeHandler.write,
+            ),
+        );
+        try std.testing.expectEqual(@as(u32, 0xa000), value);
+        var forward_reader = cpz.MessageReader.init(try forward_builder.segmentsConst(), .{});
+        const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 459 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+        try expectPayloadUInt32List(try forwarded.params(), &.{ 4, 58 });
+    }
+
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
         try state.applyCapDescriptor(.{ .sender_promise = 454 });
         try state.resolveImportTo(454, .{ .sender_hosted = 455 });
         try state.applyCapDescriptor(.{ .sender_hosted = 455 });
@@ -5070,6 +5119,57 @@ test "rpc method-aware typed dispatch outcomes flag resolved targets" {
         const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 455 }, try cpz.rpc.callTargetFromWireCall(forwarded));
         try expectPayloadUInt32List(try forwarded.params(), &.{ 45, 54 });
+    }
+
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.applyCapDescriptor(.{ .sender_promise = 462 });
+        try state.resolveImportTo(462, .{ .sender_hosted = 463 });
+        try state.applyCapDescriptor(.{ .sender_hosted = 463 });
+
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(462);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 4 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(462);
+        try cpz.rpc.initWireCallParamsUInt32List(call, &.{ 4, 62 }, &.{.{ .sender_hosted = 464 }});
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer forward_builder.deinit();
+        const forward_root = try generated.Message.initRootTyped(&forward_builder);
+        var registry: cpz.CapabilityRegistry([]const u8) = .{};
+        defer registry.deinit(std.testing.allocator);
+        _ = try registry.register(std.testing.allocator, "unused-struct-forward-registry");
+        var value: u32 = 0xb000;
+        try std.testing.expectEqual(
+            cpz.rpc.WireDispatchOutcome.forward_required,
+            try cpz.rpc.dispatchCallMethodReturningStructFromRegistryForwardingOutcome(
+                &state,
+                std.testing.allocator,
+                response_root,
+                forward_root,
+                try request.call(),
+                .{ .interface_id = 0xabc, .method_id = 4 },
+                cpz.StructSize{ .data_words = 1, .pointer_count = 0 },
+                &registry,
+                &value,
+                StructOutcomeHandler.write,
+            ),
+        );
+        try std.testing.expectEqual(@as(u32, 0xb000), value);
+        var forward_reader = cpz.MessageReader.init(try forward_builder.segmentsConst(), .{});
+        const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 463 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+        try expectPayloadUInt32List(try forwarded.params(), &.{ 4, 62 });
     }
 }
 
