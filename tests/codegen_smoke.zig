@@ -5221,6 +5221,40 @@ test "generated interface method constants compile" {
     try std.testing.expectEqualStrings("pong", generated.ExtendedService.@"cpz.methodByCallMethod"(generated.ExtendedService.@"cpz.method.pong.callMethod").?.name);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callMethodByCallMethod"(generated.ExtendedService.@"cpz.method.pong.callMethod").?);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByCallMethod"(generated.ExtendedService.@"cpz.method.pong.callMethod").?.method);
+    const WireEntryHandler = struct {
+        fn handle(_: *u32, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
+    const MatchingWireCall = struct {
+        pub fn interfaceId(_: @This()) u64 {
+            return generated.ExtendedService.@"cpz.type_id";
+        }
+
+        pub fn methodId(_: @This()) u16 {
+            return generated.ExtendedService.pong;
+        }
+    };
+    const matching_wire_call = MatchingWireCall{};
+    try std.testing.expectEqualStrings("pong", generated.ExtendedService.@"cpz.methodByWireCall"(matching_wire_call).?.name);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callMethodByWireCall"(matching_wire_call).?);
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByWireCall"(matching_wire_call).?.method);
+    const wire_entry = generated.ExtendedService.@"cpz.methodEntryByWireCall"(matching_wire_call, WireEntryHandler.handle).?;
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", wire_entry.callMethod());
+    const MismatchedWireCall = struct {
+        pub fn interfaceId(_: @This()) u64 {
+            return 0;
+        }
+
+        pub fn methodId(_: @This()) u16 {
+            return generated.ExtendedService.pong;
+        }
+    };
+    const mismatched_wire_call = MismatchedWireCall{};
+    try std.testing.expect(generated.ExtendedService.@"cpz.methodByWireCall"(mismatched_wire_call) == null);
+    try std.testing.expect(generated.ExtendedService.@"cpz.callMethodByWireCall"(mismatched_wire_call) == null);
+    try std.testing.expect(generated.ExtendedService.@"cpz.callOptionsByWireCall"(mismatched_wire_call) == null);
+    try std.testing.expect(generated.ExtendedService.@"cpz.methodEntryByWireCall"(mismatched_wire_call, WireEntryHandler.handle) == null);
     try std.testing.expectEqual(@as(?cpz.schema.InterfaceMethodMetadata, null), generated.ExtendedService.@"cpz.methodByCallMethod"(.{
         .interface_id = 0xe57e0001,
         .method_id = 99,

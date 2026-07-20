@@ -10848,6 +10848,18 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\        return @This().@"cpz.callOptionsByIndex"(@"cpz.method".index);
             \\    }}
             \\
+            \\    pub fn @"cpz.methodByWireCall"(@"cpz.call": anytype) ?cpz.schema.InterfaceMethodMetadata {{
+            \\        return @This().@"cpz.methodByCallMethod"(cpz.rpc.callMethodFromWireCall(@"cpz.call"));
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callMethodByWireCall"(@"cpz.call": anytype) ?cpz.rpc.CallMethod {{
+            \\        return @This().@"cpz.callMethodByCallMethod"(cpz.rpc.callMethodFromWireCall(@"cpz.call"));
+            \\    }}
+            \\
+            \\    pub fn @"cpz.callOptionsByWireCall"(@"cpz.call": anytype) ?cpz.rpc.CallOptions {{
+            \\        return @This().@"cpz.callOptionsByCallMethod"(cpz.rpc.callMethodFromWireCall(@"cpz.call"));
+            \\    }}
+            \\
             \\    pub fn @"cpz.methodEntryByIndex"(@"cpz.index": usize, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
             \\        const @"cpz.callMethod" = @This().@"cpz.callMethodByIndex"(@"cpz.index") orelse return null;
             \\        return @"cpz.callMethod".methodEntry(handler);
@@ -10866,6 +10878,10 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    pub fn @"cpz.methodEntryByCallMethod"(@"cpz.callMethod": cpz.rpc.CallMethod, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
             \\        const @"cpz.canonicalCallMethod" = @This().@"cpz.callMethodByCallMethod"(@"cpz.callMethod") orelse return null;
             \\        return @"cpz.canonicalCallMethod".methodEntry(handler);
+            \\    }}
+            \\
+            \\    pub fn @"cpz.methodEntryByWireCall"(@"cpz.call": anytype, handler: anytype) ?cpz.rpc.CallMethodEntry(@TypeOf(handler)) {{
+            \\        return @This().@"cpz.methodEntryByCallMethod"(cpz.rpc.callMethodFromWireCall(@"cpz.call"), handler);
             \\    }}
             \\
         , .{});

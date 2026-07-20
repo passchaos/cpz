@@ -242,6 +242,8 @@ that a complete RPC runtime exists.
   without each helper manually reassembling the same fields. Runtime and
   generated method-table entries expose the same tracked-info construction
   helper for code paths that select a handler before recording call state.
+  Generated interfaces can also resolve methods, call options, and method
+  entries directly from a generated Call reader's interface/method IDs.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
   tracked/effective target querying, dispatch-info snapshots that can directly
