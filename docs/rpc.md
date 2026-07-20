@@ -193,9 +193,9 @@ that a complete RPC runtime exists.
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
   slices, and append ready handoff Returns to the same response queue or sink
-  for embedding transports; the ordinary no-sink turn helper can also populate a
-  unified response/forward output queue with dispatch and ready handoff Returns
-  before forwarded Calls.
+  for embedding transports; ordinary and method-table no-sink turn helpers can
+  also populate a unified response/forward output queue with dispatch and ready
+  handoff Returns before forwarded Calls.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.

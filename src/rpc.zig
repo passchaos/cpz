@@ -6181,6 +6181,93 @@ fn appliedRpcTurnPlan(state: *const State, dispatch: WireDispatchStats, handoff_
     };
 }
 
+fn dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
+    comptime method_dispatch: bool,
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_dispatch: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+) !RpcTurnPlan {
+    const ForwardedCall = struct {
+        request_index: usize,
+        target: CallTarget,
+    };
+
+    if (method_dispatch) try validateCallMethodEntries(call_dispatch);
+
+    var dispatch_stats: WireDispatchStats = .{};
+    var response_index: usize = 0;
+    var forwarded_calls = std.ArrayList(ForwardedCall).empty;
+    defer forwarded_calls.deinit(allocator);
+
+    for (request_messages, 0..) |request_message, request_index| {
+        switch (try eventFromWireMessage(request_message)) {
+            .bootstrap => {
+                if (response_index >= output_messages.len) return error.InvalidTransition;
+                try dispatchBootstrap(state, output_messages[response_index], try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
+                response_index += 1;
+                dispatch_stats.recordResponseInitialized();
+            },
+            .call => {
+                const call = try request_message.call();
+                try state.validateWireCallTarget(call);
+                if (try state.wireCallTargetTransitiveForwardTarget(call)) |target| {
+                    try state.applyWireCall(allocator, call);
+                    try forwarded_calls.append(allocator, .{ .request_index = request_index, .target = target });
+                    dispatch_stats.recordForwardRequired();
+                } else {
+                    if (response_index >= output_messages.len) return error.InvalidTransition;
+                    if (method_dispatch) {
+                        try dispatchCallMethods(state, allocator, output_messages[response_index], call, call_context, call_dispatch);
+                    } else {
+                        try dispatchCall(state, allocator, output_messages[response_index], call, call_context, call_dispatch);
+                    }
+                    response_index += 1;
+                    dispatch_stats.recordResponseInitialized();
+                }
+            },
+            else => {
+                try state.applyWireMessage(allocator, request_message);
+                dispatch_stats.recordStateApplied();
+            },
+        }
+    }
+
+    const ready_handoffs = state.readyHandoffReturnStats();
+    if (output_messages.len < response_index + ready_handoffs.total() + forwarded_calls.items.len) return error.InvalidTransition;
+    const handoff_stats = try state.initReadyHandoffReturnMessagesFromHandlers(
+        output_messages[response_index..][0..ready_handoffs.total()],
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+    );
+
+    var forward_index = response_index + handoff_stats.total();
+    for (forwarded_calls.items) |forwarded_call| {
+        try initForwardedWireCallMessage(
+            output_messages[forward_index],
+            try request_messages[forwarded_call.request_index].call(),
+            forwarded_call.target,
+        );
+        forward_index += 1;
+    }
+
+    return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
+}
+
 pub fn dispatchRpcTurnForwardingToDenseSinksFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
@@ -6287,49 +6374,16 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseFromHandlers(
     join_context: anytype,
     join_handler: anytype,
 ) !RpcTurnPlan {
-    const ForwardedCall = struct {
-        request_index: usize,
-        target: CallTarget,
-    };
-
-    var dispatch_stats: WireDispatchStats = .{};
-    var response_index: usize = 0;
-    var forwarded_calls = std.ArrayList(ForwardedCall).empty;
-    defer forwarded_calls.deinit(allocator);
-
-    for (request_messages, 0..) |request_message, request_index| {
-        switch (try eventFromWireMessage(request_message)) {
-            .bootstrap => {
-                if (response_index >= output_messages.len) return error.InvalidTransition;
-                try dispatchBootstrap(state, output_messages[response_index], try request_message.bootstrap(), bootstrap_context, bootstrap_handler);
-                response_index += 1;
-                dispatch_stats.recordResponseInitialized();
-            },
-            .call => {
-                const call = try request_message.call();
-                try state.validateWireCallTarget(call);
-                if (try state.wireCallTargetTransitiveForwardTarget(call)) |target| {
-                    try state.applyWireCall(allocator, call);
-                    try forwarded_calls.append(allocator, .{ .request_index = request_index, .target = target });
-                    dispatch_stats.recordForwardRequired();
-                } else {
-                    if (response_index >= output_messages.len) return error.InvalidTransition;
-                    try dispatchCall(state, allocator, output_messages[response_index], call, call_context, call_handler);
-                    response_index += 1;
-                    dispatch_stats.recordResponseInitialized();
-                }
-            },
-            else => {
-                try state.applyWireMessage(allocator, request_message);
-                dispatch_stats.recordStateApplied();
-            },
-        }
-    }
-
-    const ready_handoffs = state.readyHandoffReturnStats();
-    if (output_messages.len < response_index + ready_handoffs.total() + forwarded_calls.items.len) return error.InvalidTransition;
-    const handoff_stats = try state.initReadyHandoffReturnMessagesFromHandlers(
-        output_messages[response_index..][0..ready_handoffs.total()],
+    return dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
+        false,
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
         provide_context,
         provide_handler,
         accept_context,
@@ -6337,18 +6391,6 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseFromHandlers(
         join_context,
         join_handler,
     );
-
-    var forward_index = response_index + handoff_stats.total();
-    for (forwarded_calls.items) |forwarded_call| {
-        try initForwardedWireCallMessage(
-            output_messages[forward_index],
-            try request_messages[forwarded_call.request_index].call(),
-            forwarded_call.target,
-        );
-        forward_index += 1;
-    }
-
-    return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
 }
 
 pub fn dispatchRpcTurnForwardingDenseAndPendingAcceptDisembargosFromHandlers(
@@ -6965,6 +7007,41 @@ pub fn dispatchRpcTurnMethodsForwardingDenseFromHandlers(
         join_handler,
     );
     return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
+}
+
+pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseFromHandlers(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+) !RpcTurnPlan {
+    return dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
+        true,
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+    );
 }
 
 pub fn dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosFromHandlers(
