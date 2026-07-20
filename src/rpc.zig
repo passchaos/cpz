@@ -2700,6 +2700,23 @@ pub fn initEmptyReturnMessage(message: anytype, answer_id: AnswerId, release_par
     _ = try return_.init_results();
 }
 
+pub fn initEmptyReturnMessageAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+) !void {
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try initEmptyReturnMessage(message, answer_id, release_param_caps, no_finish_needed);
+    try state.resolveAnswer(answer_id, .return_);
+    try state.trackResultImports(answer_id, &.{});
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+    if (no_finish_needed) {
+        try state.finishQuestion(answer_id);
+    }
+}
+
 pub fn initDispatchReturnMessage(message: anytype, answer_id: AnswerId, result: DispatchResult) !void {
     return switch (result) {
         .empty => initEmptyReturnMessage(message, answer_id, true, true),

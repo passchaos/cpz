@@ -3742,6 +3742,39 @@ test "rpc no-finish-needed returns complete questions without result caps" {
     try std.testing.expect(state.canReuseQuestionId(54));
 }
 
+test "rpc empty return helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(55);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    try cpz.rpc.initWireCallParamsText(call, "empty state return", &.{.{ .sender_hosted = 100 }});
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    try state.applyWireCall(std.testing.allocator, try generated.Message.fromReader(try call_reader.getRoot()).call());
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(100));
+
+    var return_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer return_builder.deinit();
+    const return_root = try generated.Message.initRootTyped(&return_builder);
+    try cpz.rpc.initEmptyReturnMessageAndApplyState(&state, return_root, 55, true, true);
+
+    try std.testing.expect(state.questionComplete(55));
+    try std.testing.expectEqual(@as(usize, 0), state.paramImportCount(55));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(100));
+
+    var return_reader = cpz.MessageReader.init(try return_builder.segmentsConst(), .{});
+    const return_ = try generated.Message.fromReader(try return_reader.getRoot()).return_();
+    try std.testing.expect(return_.releaseParamCaps());
+    try std.testing.expect(return_.noFinishNeeded());
+    _ = try return_.results();
+}
+
 test "rpc top-level no-finish flow permits question id reuse" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
