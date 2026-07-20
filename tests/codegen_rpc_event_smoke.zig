@@ -8165,6 +8165,14 @@ test "rpc service action stats aggregate wire and tracked calls" {
     const return_message = generated.Message.fromReader(try return_reader.getRoot());
 
     const messages = [_]generated.Message{ dispatch_message, bootstrap_message, unimplemented_message, forward_message, return_message };
+    const dispatch_message_info = (try state.wireMessageDispatchInfo(messages[0])).?;
+    try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 71), dispatch_message_info.info.question_id);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x4242, .method_id = 1 }, dispatch_message_info.info.callMethod());
+    const dispatch_message_action = (try state.wireMessageServiceAction(messages[0], entries)).?;
+    try std.testing.expect(dispatch_message_action.isDispatch());
+    try std.testing.expectEqual(@as(usize, 0), dispatch_message_action.dispatch);
+    try std.testing.expect((try state.wireMessageDispatchInfo(messages[1])) == null);
+    try std.testing.expect((try state.wireMessageServiceAction(messages[1], entries)) == null);
     const message_stats = try state.wireMessageServiceActionStats(messages[0..], entries);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
         .dispatch = 1,

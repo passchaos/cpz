@@ -13139,6 +13139,18 @@ pub const State = struct {
         return try dispatch_info.serviceAction(entries);
     }
 
+    pub fn wireMessageDispatchInfo(self: *const State, message: anytype) !?TrackedCallDispatchInfo {
+        return switch (try eventFromWireMessage(message)) {
+            .call => try self.wireCallDispatchInfo(try message.call()),
+            else => null,
+        };
+    }
+
+    pub fn wireMessageServiceAction(self: *const State, message: anytype, comptime entries: anytype) !?TrackedCallServiceAction {
+        const dispatch_info = (try self.wireMessageDispatchInfo(message)) orelse return null;
+        return try dispatch_info.serviceAction(entries);
+    }
+
     pub fn wireCallServiceActionStats(self: *const State, calls: anytype, comptime entries: anytype) !TrackedCallServiceActionStats {
         var stats: TrackedCallServiceActionStats = .{};
         for (calls) |call| stats.record(try self.wireCallServiceAction(call, entries));
@@ -13148,10 +13160,10 @@ pub const State = struct {
     pub fn wireMessageServiceActionStats(self: *const State, messages: anytype, comptime entries: anytype) !TrackedCallServiceActionStats {
         var stats: TrackedCallServiceActionStats = .{};
         for (messages) |message| {
-            switch (try eventFromWireMessage(message)) {
-                .call => stats.record(try self.wireCallServiceAction(try message.call(), entries)),
-                else => stats.recordSkipped(),
-            }
+            if (try self.wireMessageServiceAction(message, entries)) |action|
+                stats.record(action)
+            else
+                stats.recordSkipped();
         }
         return stats;
     }
@@ -13229,9 +13241,8 @@ pub const State = struct {
             .unimplemented = stats.unimplementedRange().start,
         };
         for (messages) |message| {
-            switch (try eventFromWireMessage(message)) {
-                .call => storeServiceActionByRange(stats, actions, &indexes, try self.wireCallServiceAction(try message.call(), entries)),
-                else => {},
+            if (try self.wireMessageServiceAction(message, entries)) |action| {
+                storeServiceActionByRange(stats, actions, &indexes, action);
             }
         }
         return stats;
@@ -13279,17 +13290,12 @@ pub const State = struct {
             .unimplemented = stats.unimplementedRange().start,
         };
         for (messages, 0..) |message, source_index| {
-            switch (try eventFromWireMessage(message)) {
-                .call => {
-                    const call = try message.call();
-                    const action = try self.wireCallServiceAction(call, entries);
-                    storeServiceActionPlanByRange(stats, plans, &indexes, .{
-                        .source_index = source_index,
-                        .question_id = call.questionId(),
-                        .action = action,
-                    });
-                },
-                else => {},
+            if (try self.wireMessageDispatchInfo(message)) |dispatch_info| {
+                storeServiceActionPlanByRange(stats, plans, &indexes, .{
+                    .source_index = source_index,
+                    .question_id = dispatch_info.info.question_id,
+                    .action = try dispatch_info.serviceAction(entries),
+                });
             }
         }
         return stats;
