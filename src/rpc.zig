@@ -1790,6 +1790,41 @@ pub fn initWireCallMessagePayloadCapabilityFromRegistryWithOptions(
     try initWireCallParamsCapabilityFromRegistry(allocator, call, capability_index, registry);
 }
 
+pub fn initWireCallMessagePayloadCapabilityFromRegistryWithOptionsAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    registry: anytype,
+    options: CallOptions,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireCallMessagePayloadCapabilityWithOptionsAndApplyState(
+        state,
+        message,
+        question_id,
+        target,
+        capability_index,
+        descriptors,
+        options,
+    );
+}
+
+pub fn initWireCallMessagePayloadCapabilityFromRegistryAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    capability_index: u32,
+    registry: anytype,
+) !void {
+    try initWireCallMessagePayloadCapabilityFromRegistryWithOptionsAndApplyState(state, allocator, message, question_id, target, capability_index, registry, .{});
+}
+
 pub fn initWireCallMessageStructWith(
     message: anytype,
     question_id: QuestionId,
