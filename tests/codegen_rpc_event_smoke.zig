@@ -4226,6 +4226,91 @@ test "rpc method-aware call dispatcher filters methods" {
     }
 }
 
+test "rpc method-aware call dispatcher builds capability and empty returns" {
+    const CapabilityHandler = struct {
+        fn handle(seen_question: *u32, call: anytype) !u32 {
+            seen_question.* = call.questionId();
+            return call.questionId() + 120;
+        }
+    };
+    const EmptyHandler = struct {
+        fn handle(seen_question: *u32, call: anytype) !void {
+            seen_question.* = call.questionId();
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(65);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 9 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var seen_question: u32 = 0;
+        try cpz.rpc.dispatchCallMethodReturningCapability(
+            &state,
+            std.testing.allocator,
+            response_root,
+            try request.call(),
+            .{ .interface_id = 0xabc, .method_id = 9 },
+            &seen_question,
+            CapabilityHandler.handle,
+        );
+        try std.testing.expectEqual(@as(u32, 65), seen_question);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try response_reader.getRoot());
+        try expectReturnCapabilityResult(response, 185);
+    }
+
+    {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        const call = try request_root.init_call();
+        try call.set_questionId(66);
+        try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0xabc, .method_id = 10 }, call);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        _ = try call.init_params();
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+        var seen_question: u32 = 0;
+        try cpz.rpc.dispatchCallMethodReturningEmpty(
+            &state,
+            std.testing.allocator,
+            response_root,
+            try request.call(),
+            .{ .interface_id = 0xabc, .method_id = 10 },
+            &seen_question,
+            EmptyHandler.handle,
+        );
+        try std.testing.expectEqual(@as(u32, 66), seen_question);
+
+        var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        const return_ = try generated.Message.fromReader(try response_reader.getRoot()).return_();
+        try std.testing.expect(return_.releaseParamCaps());
+        try std.testing.expect(return_.noFinishNeeded());
+    }
+}
+
 test "rpc method-aware call dispatcher builds text payload returns" {
     const Handler = struct {
         fn handle(_: *u32, call: anytype) ![]const u8 {

@@ -2587,6 +2587,48 @@ pub fn dispatchCallMethod(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn dispatchCallMethodReturningCapability(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    const export_id = try handler(context, call);
+    try initCapabilityReturnMessage(response_message, call.questionId(), export_id);
+}
+
+pub fn dispatchCallMethodReturningEmpty(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    call: anytype,
+    expected_method: CallMethod,
+    context: anytype,
+    handler: anytype,
+) !void {
+    try state.applyWireCall(allocator, call);
+    if (!callMethodFromWireCall(call).matches(expected_method.interface_id, expected_method.method_id)) {
+        try initWireReturnException(try response_message.init_return_(), call.questionId(), true, false, .{
+            .reason = "unimplemented method",
+            .type_raw = 3,
+        });
+        return;
+    }
+    try handler(context, call);
+    try initEmptyReturnMessage(response_message, call.questionId(), true, true);
+}
+
 pub fn dispatchCallMethodReturningText(
     state: *State,
     allocator: std.mem.Allocator,
