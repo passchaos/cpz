@@ -127,6 +127,10 @@ pub const WireDispatchStats = struct {
         try self.validateDenseForwardCapacity(forward_capacity);
     }
 
+    pub fn validateDenseOutputBuilders(self: @This(), response_messages: anytype, forward_messages: anytype) Error!void {
+        try self.validateDenseOutputCapacity(response_messages.len, forward_messages.len);
+    }
+
     pub fn validateUnifiedDenseOutputCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.denseOutputSlots()) return error.InvalidTransition;
     }
