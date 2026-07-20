@@ -1166,6 +1166,10 @@ pub const InterfaceMethodMetadata = struct {
         return .{ .method = self.callMethod(interface_id), .handler = handler };
     }
 
+    pub fn callOptions(self: InterfaceMethodMetadata, interface_id: u64) @import("rpc.zig").CallOptions {
+        return .{ .method = self.callMethod(interface_id) };
+    }
+
     pub fn matchesSignature(self: InterfaceMethodMetadata, method_signature: []const u8) bool {
         return std.mem.eql(u8, self.signature, method_signature);
     }
@@ -10705,11 +10709,12 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         if (decl.id) |_| {
             try appendFmt(allocator, out,
                 \\    pub const @"cpz.method.{s}.callMethod": cpz.rpc.CallMethod = .{{ .interface_id = @This().@"cpz.type_id", .method_id = {} }};
+                \\    pub const @"cpz.method.{s}.callOptions": cpz.rpc.CallOptions = .{{ .method = @This().@"cpz.method.{s}.callMethod" }};
                 \\    pub fn @"cpz.method.{s}.entry"(handler: anytype) struct {{ method: cpz.rpc.CallMethod, handler: @TypeOf(handler) }} {{
                 \\        return .{{ .method = @This().@"cpz.method.{s}.callMethod", .handler = handler }};
                 \\    }}
                 \\
-            , .{ method_name, method.ordinal, method_name, method_name });
+            , .{ method_name, method.ordinal, method_name, method_name, method_name, method_name });
         }
         const signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.signature);
         defer allocator.free(signature_literal);

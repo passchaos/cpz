@@ -5187,7 +5187,12 @@ test "generated interface method constants compile" {
         generated.ExtendedService.@"cpz.method.pong.callMethod",
     );
     try std.testing.expect(generated.ExtendedService.@"cpz.method.pong.callMethod".matches(0xe57e0001, generated.ExtendedService.pong));
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.method.pong.callOptions".method);
+    try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.caller, generated.ExtendedService.@"cpz.method.pong.callOptions".send_results_to);
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.method.pong.metadata".callMethod(generated.ExtendedService.@"cpz.type_id"));
+    const metadata_options = generated.ExtendedService.@"cpz.method.pong.metadata".callOptions(generated.ExtendedService.@"cpz.type_id");
+    try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", metadata_options.method);
+    try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.caller, metadata_options.send_results_to);
     try std.testing.expect(generated.ExtendedService.@"cpz.method.pong.metadata".matchesCallMethod(generated.ExtendedService.@"cpz.type_id", generated.ExtendedService.@"cpz.method.pong.callMethod"));
     try std.testing.expect(!generated.ExtendedService.@"cpz.method.pong.metadata".matchesCallMethod(0, generated.ExtendedService.@"cpz.method.pong.callMethod"));
     try std.testing.expectEqualStrings("pong", generated.ExtendedService.@"cpz.methodByCallMethod"(generated.ExtendedService.@"cpz.method.pong.callMethod").?.name);
