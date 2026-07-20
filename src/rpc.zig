@@ -364,6 +364,25 @@ pub const DisembargoApplyInfo = struct {
     }
 };
 
+pub const PendingAcceptEmbargo = struct {
+    question_id: QuestionId,
+    embargo: []const u8,
+};
+
+pub const PendingAcceptEmbargos = struct {
+    items: []PendingAcceptEmbargo,
+
+    pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
+        for (self.items) |item| allocator.free(item.embargo);
+        allocator.free(self.items);
+        self.* = undefined;
+    }
+
+    pub fn len(self: @This()) usize {
+        return self.items.len;
+    }
+};
+
 pub const ResolveInfo = struct {
     promise_id: ExportId,
     cap: ?CapDescriptor = null,
@@ -4101,6 +4120,28 @@ pub const State = struct {
             if (accept.embargo != null and !accept.embargo_released) try ids.append(allocator, entry.key_ptr.*);
         }
         return ids.toOwnedSlice(allocator);
+    }
+
+    pub fn pendingAcceptEmbargosAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error!PendingAcceptEmbargos {
+        var items = std.ArrayList(PendingAcceptEmbargo).empty;
+        errdefer {
+            for (items.items) |item| allocator.free(item.embargo);
+            items.deinit(allocator);
+        }
+        var iterator = self.accepts.iterator();
+        while (iterator.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.embargo) |embargo| {
+                if (!accept.embargo_released) {
+                    const owned_embargo = try allocator.dupe(u8, embargo);
+                    items.append(allocator, .{ .question_id = entry.key_ptr.*, .embargo = owned_embargo }) catch |err| {
+                        allocator.free(owned_embargo);
+                        return err;
+                    };
+                }
+            }
+        }
+        return .{ .items = try items.toOwnedSlice(allocator) };
     }
 
     pub fn readyAcceptProvision(self: *const State, id: QuestionId) ?AnyPointerUsage {

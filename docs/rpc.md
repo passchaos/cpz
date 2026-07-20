@@ -75,8 +75,9 @@ that a complete RPC runtime exists.
   applying accept disembargos reports how many tracked Accept embargos were
   released, though full embargo queue handling remains future work. Disembargo
   batches can be initialized and handed directly to an embedding transport/enqueue
-  callback, pending Accept embargos can be queried for queueing, and their
-  targets are validated against tracked imports/answers before a full queue exists.
+  callback, pending Accept embargos can be queried or snapshotted for queueing,
+  and their targets are validated against tracked imports/answers before a full
+  queue exists.
   ThirdPartyAnswer wire readers/builders expose completion pointer capability
   usage and resolve existing answers by official `AnswerId` while remaining
   distinct from ordinary Return events.

@@ -5205,6 +5205,13 @@ test "rpc top-level accept messages open questions" {
         defer std.testing.allocator.free(pending_ids);
         try std.testing.expectEqualSlices(u32, &.{64}, pending_ids);
     }
+    {
+        var pending = try state.pendingAcceptEmbargosAlloc(std.testing.allocator);
+        defer pending.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 1), pending.len());
+        try std.testing.expectEqual(@as(u32, 64), pending.items[0].question_id);
+        try std.testing.expectEqualStrings("embargo-64", pending.items[0].embargo);
+    }
     try std.testing.expect(state.readyAcceptProvision(64) == null);
     try std.testing.expectEqual(@as(usize, 0), state.readyAcceptProvisionCount());
     {
@@ -5234,6 +5241,11 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
     try std.testing.expect(state.acceptPendingEmbargo(64) == null);
     try std.testing.expectEqual(@as(usize, 0), state.pendingAcceptEmbargoCount());
+    {
+        var pending = try state.pendingAcceptEmbargosAlloc(std.testing.allocator);
+        defer pending.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 0), pending.len());
+    }
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.readyAcceptProvision(64).?);
     try std.testing.expectEqual(@as(usize, 1), state.readyAcceptProvisionCount());
     try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .accepts = 1, .ready_accept_provisions = 1 }, state.handoffStats());
