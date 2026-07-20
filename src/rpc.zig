@@ -7958,6 +7958,35 @@ pub fn dispatchWireMessagesMethodsForwardingUnifiedDense(
     );
 }
 
+pub fn dispatchWireMessagesMethodsForwardingUnifiedDenseWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    const planned = try planWireMessagesMethodsDispatch(state, request_messages, call_entries);
+    try planned.validateUnifiedDenseOutputBuilders(output_messages);
+    return dispatchWireMessagesMethodsForwardingDenseWithApplyHandler(
+        state,
+        allocator,
+        try planned.denseResponseRange().slice(output_messages),
+        try planned.denseForwardRange().slice(output_messages),
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        apply_context,
+        apply_handler,
+    );
+}
+
 pub fn dispatchWireMessagesMethodsForwardingDenseWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,
