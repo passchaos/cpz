@@ -239,6 +239,7 @@ pub const StateHandoffReturnStats = struct {
 pub const RpcTurnPlan = struct {
     dispatch: WireDispatchStats = .{},
     handoff_returns: StateHandoffReturnStats = .{},
+    pending_disembargos: usize = 0,
 
     pub fn responseMessages(self: @This()) usize {
         return self.dispatch.response_initialized + self.handoff_returns.total();
@@ -252,8 +253,12 @@ pub const RpcTurnPlan = struct {
         return self.dispatch.state_applied;
     }
 
+    pub fn disembargoMessages(self: @This()) usize {
+        return self.pending_disembargos;
+    }
+
     pub fn totalOutputMessages(self: @This()) usize {
-        return self.responseMessages() + self.forwardedMessages();
+        return self.responseMessages() + self.forwardedMessages() + self.disembargoMessages();
     }
 
     pub fn validateOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
@@ -267,6 +272,10 @@ pub const RpcTurnPlan = struct {
 
     pub fn validateOutputBuilders(self: @This(), response_messages: anytype, forward_messages: anytype) Error!void {
         try self.validateOutputCapacity(response_messages.len, forward_messages.len);
+    }
+
+    pub fn validateDisembargoCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.disembargoMessages()) return error.InvalidTransition;
     }
 };
 
@@ -2724,6 +2733,7 @@ pub fn planRpcTurn(state: *const State, request_messages: anytype) !RpcTurnPlan 
     return .{
         .dispatch = try planWireMessagesDispatch(state, request_messages),
         .handoff_returns = state.readyHandoffReturnStats(),
+        .pending_disembargos = state.pendingAcceptEmbargoCount(),
     };
 }
 
@@ -2731,6 +2741,7 @@ pub fn planRpcTurnMethods(state: *const State, request_messages: anytype, compti
     return .{
         .dispatch = try planWireMessagesMethodsDispatch(state, request_messages, call_entries),
         .handoff_returns = state.readyHandoffReturnStats(),
+        .pending_disembargos = state.pendingAcceptEmbargoCount(),
     };
 }
 

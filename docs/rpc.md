@@ -167,8 +167,9 @@ that a complete RPC runtime exists.
   for callers that want to enqueue or inspect initialized messages themselves.
   Non-mutating dispatch planning helpers can preview response, forward, and
   state-only counts plus dense output slot requirements before builders are
-  allocated, with turn-level plans that combine dispatch and ready handoff
-  returns plus capacity checks for split or unified output queues. A minimal
+  allocated, with turn-level plans that combine dispatch, ready handoff
+  returns, and pending Disembargo queue counts plus capacity checks for split
+  or unified output queues. A minimal
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
   slices, and append ready handoff Returns to the same response sink for

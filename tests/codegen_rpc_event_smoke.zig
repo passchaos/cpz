@@ -4600,6 +4600,7 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 1), turn_plan.forwardedMessages());
     try std.testing.expectEqual(@as(usize, 1), turn_plan.stateOnlyMessages());
     try std.testing.expectEqual(@as(usize, 3), turn_plan.totalOutputMessages());
+    try std.testing.expectEqual(@as(usize, 0), turn_plan.disembargoMessages());
     try turn_plan.validateOutputCapacity(2, 1);
     try turn_plan.validateUnifiedOutputCapacity(3);
     try std.testing.expectError(error.InvalidTransition, turn_plan.validateOutputCapacity(1, 1));
@@ -4610,6 +4611,31 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expect(state.questionState(70) == null);
     try std.testing.expect(state.questionState(71) == null);
     try std.testing.expectEqual(@as(usize, 0), state.callInfoCount());
+
+    {
+        var embargo_state = cpz.rpc.State.init(std.testing.allocator);
+        defer embargo_state.deinit();
+        var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer accept_builder.deinit();
+        const accept_root = try generated.Message.initRootTyped(&accept_builder);
+        try cpz.rpc.initWireAcceptMessage(accept_root, .{
+            .question_id = 75,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "turn-plan-75",
+        });
+        var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+        try embargo_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+        const no_messages = [_]generated.Message{};
+        const embargo_plan = try cpz.rpc.planRpcTurn(&embargo_state, no_messages[0..]);
+        try std.testing.expectEqual(@as(usize, 1), embargo_plan.disembargoMessages());
+        try std.testing.expectEqual(@as(usize, 1), embargo_plan.totalOutputMessages());
+        try embargo_plan.validateDisembargoCapacity(1);
+        try std.testing.expectError(error.InvalidTransition, embargo_plan.validateDisembargoCapacity(0));
+        try embargo_plan.validateUnifiedOutputCapacity(1);
+    }
 
     var bad_call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer bad_call_builder.deinit();
@@ -9833,7 +9859,9 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.responseMessages());
     try std.testing.expectEqual(@as(usize, 0), handoff_turn_plan.forwardedMessages());
     try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.totalOutputMessages());
+    try std.testing.expectEqual(@as(usize, 0), handoff_turn_plan.disembargoMessages());
     try handoff_turn_plan.validateOutputCapacity(3, 0);
+    try handoff_turn_plan.validateDisembargoCapacity(0);
     try handoff_turn_plan.validateUnifiedOutputCapacity(3);
 
     var planned_provide_context: Context = .{};
