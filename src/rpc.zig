@@ -2889,6 +2889,30 @@ pub fn dispatchWireMessagesToDenseSink(
     return stats;
 }
 
+pub fn dispatchWireMessagesDense(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+) !WireDispatchStats {
+    return dispatchWireMessagesToDenseSink(
+        state,
+        allocator,
+        response_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        {},
+        ignoreInitializedMessage,
+    );
+}
+
 pub fn dispatchWireMessagesForwarding(
     state: *State,
     allocator: std.mem.Allocator,
@@ -3197,6 +3221,30 @@ pub fn dispatchWireMessagesMethodsToDenseSink(
         }
     }
     return stats;
+}
+
+pub fn dispatchWireMessagesMethodsDense(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+) !WireDispatchStats {
+    return dispatchWireMessagesMethodsToDenseSink(
+        state,
+        allocator,
+        response_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        {},
+        ignoreInitializedMessage,
+    );
 }
 
 pub fn dispatchWireMessagesMethodsForwardingToSinks(

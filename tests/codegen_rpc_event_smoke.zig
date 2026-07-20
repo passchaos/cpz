@@ -4785,6 +4785,88 @@ test "rpc dense response dispatcher skips response slots for state-only messages
     try std.testing.expect(state.questionComplete(39));
 }
 
+test "rpc dense response dispatcher initializes compact output slots" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 3200;
+        }
+    };
+    const CallHandler = struct {
+        fn handle(context: *u32, call: anytype) !cpz.rpc.DispatchResult {
+            context.* = call.questionId();
+            return .{ .text = "dense response" };
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    try state.openQuestion(41, .call);
+
+    var return_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer return_builder.deinit();
+    const return_root = try generated.Message.initRootTyped(&return_builder);
+    const return_ = try return_root.init_return_();
+    try return_.set_answerId(41);
+    try return_.set_noFinishNeeded(true);
+    _ = try return_.init_results();
+    var return_reader = cpz.MessageReader.init(try return_builder.segmentsConst(), .{});
+    const return_message = generated.Message.fromReader(try return_reader.getRoot());
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(40);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response = try generated.Message.initRootTyped(&response_builder);
+
+    const responses = [_]generated.Message.Builder{response};
+    const requests = [_]generated.Message{ return_message, call_message };
+    var bootstrap_seen: u32 = 0;
+    var call_seen: u32 = 0;
+    const stats = try cpz.rpc.dispatchWireMessagesDense(
+        &state,
+        std.testing.allocator,
+        responses[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &call_seen,
+        CallHandler.handle,
+    );
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 40), call_seen);
+    try std.testing.expectEqual(@as(usize, 1), stats.response_initialized);
+    try std.testing.expectEqual(@as(usize, 0), stats.forward_required);
+    try std.testing.expectEqual(@as(usize, 1), stats.state_applied);
+    try std.testing.expect(state.questionComplete(41));
+
+    var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+    const response_message = generated.Message.fromReader(try response_reader.getRoot());
+    const response_return = try response_message.return_();
+    try std.testing.expectEqual(@as(u32, 40), response_return.answerId());
+    try std.testing.expectEqualStrings("dense response", try (try (try response_return.results()).content()).getText());
+
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessagesDense(
+        &state,
+        std.testing.allocator,
+        responses[0..0],
+        requests[1..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &call_seen,
+        CallHandler.handle,
+    ));
+}
+
 test "rpc batch forwarding dispatcher aggregates forwarded calls" {
     const BootstrapHandler = struct {
         fn handle(_: *u32, bootstrap: anytype) !u32 {
@@ -5948,6 +6030,92 @@ test "rpc dense method-table response dispatcher skips state-only slots" {
     try std.testing.expectEqual(@as(usize, 1), sink.sent);
     try std.testing.expectEqual(@as(u32, 39), sink.last_answer);
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(39));
+}
+
+test "rpc dense method-table dispatcher initializes compact output slots" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 9200;
+        }
+    };
+    const Context = struct {
+        selected: u32 = 0,
+    };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .{ .text = "method dense" };
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x5557, .method_id = 7 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    try state.openQuestion(43, .call);
+
+    var finish_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer finish_builder.deinit();
+    const finish_root = try generated.Message.initRootTyped(&finish_builder);
+    try cpz.rpc.initWireFinishMessage(finish_root, .{ .question_id = 43, .release_result_caps = false });
+    var finish_reader = cpz.MessageReader.init(try finish_builder.segmentsConst(), .{});
+    const finish_message = generated.Message.fromReader(try finish_reader.getRoot());
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(42);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x5557, .method_id = 7 }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response = try generated.Message.initRootTyped(&response_builder);
+
+    var bootstrap_seen: u32 = 0;
+    var context: Context = .{};
+    const responses = [_]generated.Message.Builder{response};
+    const requests = [_]generated.Message{ finish_message, call_message };
+    const stats = try cpz.rpc.dispatchWireMessagesMethodsDense(
+        &state,
+        std.testing.allocator,
+        responses[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+    );
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 42), context.selected);
+    try std.testing.expectEqual(@as(usize, 1), stats.response_initialized);
+    try std.testing.expectEqual(@as(usize, 0), stats.forward_required);
+    try std.testing.expectEqual(@as(usize, 1), stats.state_applied);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(43));
+
+    var response_reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+    const response_message = generated.Message.fromReader(try response_reader.getRoot());
+    const response_return = try response_message.return_();
+    try std.testing.expectEqual(@as(u32, 42), response_return.answerId());
+    try std.testing.expectEqualStrings("method dense", try (try (try response_return.results()).content()).getText());
+
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessagesMethodsDense(
+        &state,
+        std.testing.allocator,
+        responses[0..0],
+        requests[1..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+    ));
 }
 
 test "rpc top-level provide and join messages validate targets" {
