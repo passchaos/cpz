@@ -152,8 +152,11 @@ that a complete RPC runtime exists.
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized, a resolved call
   target needs forwarding, or state was applied, and apply other supported
-  top-level wire messages to state; a batch helper can aggregate those outcomes
-  over caller-provided message readers, including method-table call dispatch.
+  top-level wire messages to state; apply-handler variants expose detailed
+  state-only results such as released Accept IDs from Disembargo before
+  deinitializing temporary result allocations, and a batch helper can aggregate
+  those outcomes over caller-provided message readers, including method-table
+  call dispatch.
   Response-sink variants can hand initialized Bootstrap/Call responses directly
   to an embedding transport/enqueue callback while ignoring state-only events,
   including dense response queues (with or without method tables) that skip
