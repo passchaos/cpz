@@ -589,6 +589,10 @@ pub const CallInfo = struct {
         return self.callMethod().matchesWireCall(call);
     }
 
+    pub fn matchesWireMessage(self: @This(), message: anytype) !bool {
+        return self.callMethod().matchesWireMessage(message);
+    }
+
     pub fn sendsResultsTo(self: @This(), target: CallSendResultsTo) bool {
         return self.send_results_to == target;
     }
@@ -1003,6 +1007,11 @@ pub const CallMethod = struct {
         return self.matchesCallMethod(callMethodFromWireCall(call));
     }
 
+    pub fn matchesWireMessage(self: @This(), message: anytype) !bool {
+        const method = (try callMethodFromWireMessage(message)) orelse return false;
+        return self.matchesCallMethod(method);
+    }
+
     pub fn callOptions(self: @This()) CallOptions {
         return .{ .method = self };
     }
@@ -1035,6 +1044,10 @@ pub fn CallMethodEntry(comptime Handler: type) type {
 
         pub fn matchesWireCall(self: @This(), call: anytype) bool {
             return self.method.matchesWireCall(call);
+        }
+
+        pub fn matchesWireMessage(self: @This(), message: anytype) !bool {
+            return self.method.matchesWireMessage(message);
         }
 
         pub fn callOptions(self: @This()) CallOptions {
@@ -1098,6 +1111,10 @@ pub const CallOptions = struct {
 
     pub fn matchesWireCall(self: @This(), call: anytype) bool {
         return self.method.matchesWireCall(call);
+    }
+
+    pub fn matchesWireMessage(self: @This(), message: anytype) !bool {
+        return self.method.matchesWireMessage(message);
     }
 
     pub fn methodEntry(self: @This(), handler: anytype) CallMethodEntry(@TypeOf(handler)) {
@@ -13707,6 +13724,11 @@ pub const State = struct {
     pub fn callMatchesWireCall(self: *const State, id: QuestionId, call: anytype) ?bool {
         const info = self.callInfo(id) orelse return null;
         return info.matchesWireCall(call);
+    }
+
+    pub fn callMatchesWireMessage(self: *const State, id: QuestionId, message: anytype) !?bool {
+        const info = self.callInfo(id) orelse return null;
+        return try info.matchesWireMessage(message);
     }
 
     pub fn callSendsResultsTo(self: *const State, id: QuestionId, target: CallSendResultsTo) ?bool {

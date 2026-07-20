@@ -421,10 +421,13 @@ test "rpc message helpers expose call method options only for calls" {
     const call_message = generated.Message.fromReader(try call_reader.getRoot());
     try std.testing.expectEqual(options.method, (try cpz.rpc.callMethodFromWireMessage(call_message)).?);
     try std.testing.expectEqual(options, (try cpz.rpc.callOptionsFromWireMessage(call_message)).?);
+    try std.testing.expect(try options.method.matchesWireMessage(call_message));
+    try std.testing.expect(try options.matchesWireMessage(call_message));
     const call_info = (try cpz.rpc.callInfoFromWireMessage(call_message)).?;
     try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 88), call_info.question_id);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, call_info.target);
     try std.testing.expectEqual(options, call_info.callOptions());
+    try std.testing.expect(try call_info.matchesWireMessage(call_message));
     try std.testing.expectEqual(call_info, try cpz.rpc.callInfoFromWireCall(try call_message.call()));
 
     var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -436,6 +439,8 @@ test "rpc message helpers expose call method options only for calls" {
     try std.testing.expect((try cpz.rpc.callMethodFromWireMessage(bootstrap_message)) == null);
     try std.testing.expect((try cpz.rpc.callOptionsFromWireMessage(bootstrap_message)) == null);
     try std.testing.expect((try cpz.rpc.callInfoFromWireMessage(bootstrap_message)) == null);
+    try std.testing.expect(!(try options.method.matchesWireMessage(bootstrap_message)));
+    try std.testing.expect(!(try options.matchesWireMessage(bootstrap_message)));
 }
 
 test "rpc call helpers decode and write method ids" {
@@ -3015,9 +3020,11 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expectEqual(expected_method, tracked.method);
     try std.testing.expect(tracked.matchesMethod(expected_method));
     try std.testing.expect(tracked.matchesWireCall(try message.call()));
+    try std.testing.expect(try tracked.matchesWireMessage(message));
     try std.testing.expectEqual(@as(?bool, true), state.callMatchesCallMethod(50, expected_method));
     try std.testing.expectEqual(@as(?bool, true), state.callMatchesMethod(50, 0x50, 5));
     try std.testing.expectEqual(@as(?bool, true), state.callMatchesWireCall(50, try message.call()));
+    try std.testing.expectEqual(@as(?bool, true), try state.callMatchesWireMessage(50, message));
     const MismatchedWireCall = struct {
         pub fn interfaceId(_: @This()) u64 {
             return 0x50;
@@ -3032,6 +3039,7 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expectEqual(@as(?bool, false), state.callMatchesMethod(50, 0x50, 6));
     try std.testing.expectEqual(@as(?bool, null), state.callMatchesCallMethod(51, expected_method));
     try std.testing.expectEqual(@as(?bool, null), state.callMatchesWireCall(51, try message.call()));
+    try std.testing.expectEqual(@as(?bool, null), try state.callMatchesWireMessage(51, message));
     try std.testing.expect(tracked.flags.no_promise_pipelining);
     try std.testing.expect(tracked.sendsResultsTo(.third_party));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, tracked.thirdPartyResultsUsage().?);
@@ -8088,6 +8096,8 @@ test "rpc method table dispatcher selects matching handlers" {
         try std.testing.expectEqual(@as(?usize, 1), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
         try std.testing.expect(entries[1].matchesWireCall(try request.call()));
         try std.testing.expect(!entries[0].matchesWireCall(try request.call()));
+        try std.testing.expect(try entries[1].matchesWireMessage(request));
+        try std.testing.expect(!(try entries[0].matchesWireMessage(request)));
         const preview_action = try state.wireCallServiceAction(try request.call(), entries);
         try std.testing.expect(preview_action.isDispatch());
         try std.testing.expectEqual(@as(usize, 1), preview_action.dispatch);

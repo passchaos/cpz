@@ -245,9 +245,10 @@ that a complete RPC runtime exists.
   Generated interfaces can also resolve methods, call options, and method
   entries directly from a generated Call reader's interface/method IDs or from
   a top-level Message reader when it contains a Call.
-  Runtime call methods/options/entries expose matching predicates for both
-  `CallMethod` values and generated Call readers, and tracked calls can be
-  compared directly with generated Call readers. Top-level Message readers can
+  Runtime call methods/options/entries expose matching predicates for
+  `CallMethod` values, generated Call readers, and top-level Message readers
+  that contain Calls; tracked calls can be compared directly with generated
+  Call or Message readers. Top-level Message readers can
   also be queried for Call method/options when their active union member is
   `Call`, otherwise they report no Call metadata. Call readers and top-level
   Call messages can be decoded into the same `CallInfo` shape used for tracked
