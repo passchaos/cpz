@@ -1506,6 +1506,21 @@ pub fn initWireCallMessageStructInfoWith(
     try initWireCallParamsStructInfoWith(call, struct_size, infos, context, fill);
 }
 
+pub fn initWireCallMessageStructInfoWithOptions(
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    fill: anytype,
+    options: CallOptions,
+) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsStructInfoWith(call, struct_size, infos, context, fill);
+}
+
 pub fn initWireCallMessageStructFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
@@ -1584,6 +1599,12 @@ pub fn initWireCallMessageTextInfo(message: anytype, question_id: QuestionId, ta
     try initWireCallParamsTextInfo(call, text, infos);
 }
 
+pub fn initWireCallMessageTextInfoWithOptions(message: anytype, question_id: QuestionId, target: CallTarget, text: []const u8, infos: []const CapDescriptorInfo, options: CallOptions) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsTextInfo(call, text, infos);
+}
+
 pub fn initWireCallMessageDataInfo(message: anytype, question_id: QuestionId, target: CallTarget, data: []const u8, infos: []const CapDescriptorInfo) !void {
     const call = try message.init_call();
     try call.set_questionId(question_id);
@@ -1591,10 +1612,22 @@ pub fn initWireCallMessageDataInfo(message: anytype, question_id: QuestionId, ta
     try initWireCallParamsDataInfo(call, data, infos);
 }
 
+pub fn initWireCallMessageDataInfoWithOptions(message: anytype, question_id: QuestionId, target: CallTarget, data: []const u8, infos: []const CapDescriptorInfo, options: CallOptions) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
+    try initWireCallParamsDataInfo(call, data, infos);
+}
+
 pub fn initWireCallMessageUInt32ListInfo(message: anytype, question_id: QuestionId, target: CallTarget, values: []const u32, infos: []const CapDescriptorInfo) !void {
     const call = try message.init_call();
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsUInt32ListInfo(call, values, infos);
+}
+
+pub fn initWireCallMessageUInt32ListInfoWithOptions(message: anytype, question_id: QuestionId, target: CallTarget, values: []const u32, infos: []const CapDescriptorInfo, options: CallOptions) !void {
+    const call = try message.init_call();
+    try initWireCallHeaderWithOptions(call, question_id, target, options);
     try initWireCallParamsUInt32ListInfo(call, values, infos);
 }
 
