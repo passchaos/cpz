@@ -183,8 +183,8 @@ that a complete RPC runtime exists.
   Disembargo messages to a separate embedding sink in one validated call. A minimal
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
-  slices, and append ready handoff Returns to the same response sink for
-  embedding transports.
+  slices, and append ready handoff Returns to the same response queue or sink
+  for embedding transports.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
