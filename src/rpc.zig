@@ -4191,6 +4191,60 @@ pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlers(
     return .{ .dispatch = dispatch_stats, .handoff_returns = handoff_stats };
 }
 
+pub fn dispatchRpcTurnMethodsForwardingToDenseSinksFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    const dispatch_stats = try dispatchWireMessagesMethodsForwardingToDenseSinksWithApplyHandler(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        response_context,
+        response_handler,
+        forward_context,
+        forward_handler,
+        apply_context,
+        apply_handler,
+    );
+    const handoff_stats = try state.initReadyHandoffReturnMessagesFromHandlersToSink(
+        response_messages[dispatch_stats.response_initialized..],
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        response_context,
+        response_handler,
+    );
+    return .{ .dispatch = dispatch_stats, .handoff_returns = handoff_stats };
+}
+
 pub fn dispatchWireMessagesMethods(
     state: *State,
     allocator: std.mem.Allocator,
