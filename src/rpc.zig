@@ -6183,6 +6183,7 @@ fn appliedRpcTurnPlan(state: *const State, dispatch: WireDispatchStats, handoff_
 
 fn dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
     comptime method_dispatch: bool,
+    comptime observe_apply: bool,
     state: *State,
     allocator: std.mem.Allocator,
     output_messages: anytype,
@@ -6197,6 +6198,8 @@ fn dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
     accept_handler: anytype,
     join_context: anytype,
     join_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
 ) !RpcTurnPlan {
     const ForwardedCall = struct {
         request_index: usize,
@@ -6237,7 +6240,11 @@ fn dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
                 }
             },
             else => {
-                try state.applyWireMessage(allocator, request_message);
+                if (observe_apply) {
+                    try applyStateWireMessageWithHandler(state, allocator, request_message, apply_context, apply_handler);
+                } else {
+                    try state.applyWireMessage(allocator, request_message);
+                }
                 dispatch_stats.recordStateApplied();
             },
         }
@@ -6376,6 +6383,7 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseFromHandlers(
 ) !RpcTurnPlan {
     return dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
         false,
+        false,
         state,
         allocator,
         output_messages,
@@ -6390,6 +6398,48 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseFromHandlers(
         accept_handler,
         join_context,
         join_handler,
+        {},
+        ignoreInitializedMessage,
+    );
+}
+
+pub fn dispatchRpcTurnForwardingUnifiedDenseFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    return dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
+        false,
+        true,
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        apply_context,
+        apply_handler,
     );
 }
 
@@ -7027,6 +7077,7 @@ pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseFromHandlers(
 ) !RpcTurnPlan {
     return dispatchRpcTurnForwardingUnifiedDenseFromHandlersImpl(
         true,
+        false,
         state,
         allocator,
         output_messages,
@@ -7041,6 +7092,8 @@ pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseFromHandlers(
         accept_handler,
         join_context,
         join_handler,
+        {},
+        ignoreInitializedMessage,
     );
 }
 

@@ -15251,6 +15251,195 @@ test "rpc turn dispatcher fills dense outputs with apply details" {
     }
 }
 
+test "rpc turn dispatcher fills unified dense outputs with apply details" {
+    const BootstrapHandler = struct {
+        fn handle(seen_question: *u32, bootstrap: anytype) !u32 {
+            seen_question.* = bootstrap.questionId();
+            return bootstrap.questionId() + 500;
+        }
+    };
+    const CallHandler = struct {
+        fn handle(context: *u32, call: anytype) !cpz.rpc.DispatchResult {
+            context.* = call.questionId();
+            return .empty;
+        }
+    };
+    const HandoffHandler = struct {
+        seen: usize = 0,
+        question_sum: u32 = 0,
+        capability_sum: u32 = 0,
+
+        fn handle(context: *@This(), question_id: u32, usage: cpz.rpc.AnyPointerUsage) !u32 {
+            context.seen += 1;
+            context.question_sum += question_id;
+            context.capability_sum += usage.capability orelse 0;
+            return question_id + 900;
+        }
+    };
+    const ApplyContext = struct {
+        calls: usize = 0,
+        released_accepts: usize = 0,
+        released_question_sum: u32 = 0,
+
+        fn handle(context: *@This(), result: cpz.rpc.WireMessageApplyResult) !void {
+            context.calls += 1;
+            switch (result) {
+                .disembargo => |info| {
+                    context.released_accepts += info.released_accepts;
+                    for (info.released_accept_ids) |id| context.released_question_sum += id;
+                },
+                .state_applied => {},
+            }
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    try state.applyCapDescriptor(.{ .sender_promise = 690 });
+    try state.resolveImportTo(690, .{ .sender_hosted = 691 });
+    try state.applyCapDescriptor(.{ .sender_hosted = 691 });
+
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireProvideMessage(root, .{
+            .question_id = 133,
+            .target = .{ .imported_cap = 5 },
+            .has_recipient = true,
+            .recipient_max_capability_count = 1,
+            .recipient_capability = 0,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 134,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "unified-no-sink-apply-134",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+
+    var bootstrap_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer bootstrap_builder.deinit();
+    const bootstrap_root = try generated.Message.initRootTyped(&bootstrap_builder);
+    try cpz.rpc.initWireBootstrapMessage(bootstrap_root, 132);
+    var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
+    const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(690);
+    const target = try call.init_target();
+    try target.set_importedCap(690);
+    try cpz.rpc.initWireCallParamsText(call, "unified no-sink apply forward", &.{.{ .sender_hosted = 692 }});
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "unified-no-sink-apply-134" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+
+    const requests = [_]generated.Message{ bootstrap_message, call_message, disembargo_message };
+
+    var output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder0.deinit();
+    const output0 = try generated.Message.initRootTyped(&output_builder0);
+    var output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder1.deinit();
+    const output1 = try generated.Message.initRootTyped(&output_builder1);
+    var output_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder2.deinit();
+    const output2 = try generated.Message.initRootTyped(&output_builder2);
+    var output_builder3 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer output_builder3.deinit();
+    const output3 = try generated.Message.initRootTyped(&output_builder3);
+    const outputs = [_]generated.Message.Builder{ output0, output1, output2, output3 };
+
+    var bootstrap_seen: u32 = 0;
+    var call_seen: u32 = 0;
+    var provide_context: HandoffHandler = .{};
+    var accept_context: HandoffHandler = .{};
+    var join_context: HandoffHandler = .{};
+    var apply_context: ApplyContext = .{};
+    const applied = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseFromHandlersWithApplyHandler(
+        &state,
+        std.testing.allocator,
+        outputs[0..],
+        requests[0..],
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &call_seen,
+        CallHandler.handle,
+        &provide_context,
+        HandoffHandler.handle,
+        &accept_context,
+        HandoffHandler.handle,
+        &join_context,
+        HandoffHandler.handle,
+        &apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .response_initialized = 1, .forward_required = 1, .state_applied = 1 }, applied.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1 }, applied.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 0), applied.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 4), applied.totalOutputMessages());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 3 }, applied.responseMessageRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 3, .end = 4 }, applied.forwardedMessageRange());
+    try std.testing.expectEqual(@as(u32, 132), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 0), call_seen);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 134), apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(usize, 1), provide_context.seen);
+    try std.testing.expectEqual(@as(u32, 133), provide_context.question_sum);
+    try std.testing.expectEqual(@as(usize, 1), accept_context.seen);
+    try std.testing.expectEqual(@as(u32, 134), accept_context.question_sum);
+    try std.testing.expectEqual(@as(usize, 0), join_context.seen);
+
+    {
+        var reader = cpz.MessageReader.init(try output_builder0.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(@as(u32, 132), (try response.return_()).answerId());
+        try expectReturnCapabilityResult(response, 632);
+    }
+    {
+        var reader = cpz.MessageReader.init(try output_builder1.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(@as(u32, 133), (try response.return_()).answerId());
+        try expectReturnCapabilityResult(response, 1033);
+    }
+    {
+        var reader = cpz.MessageReader.init(try output_builder2.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(@as(u32, 134), (try response.return_()).answerId());
+        try expectReturnCapabilityResult(response, 1034);
+    }
+    {
+        var reader = cpz.MessageReader.init(try output_builder3.segmentsConst(), .{});
+        const forwarded = try generated.Message.fromReader(try reader.getRoot()).call();
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 691 }, try cpz.rpc.callTargetFromWireCall(forwarded));
+        try std.testing.expectEqualStrings("unified no-sink apply forward", try (try (try forwarded.params()).content()).getText());
+    }
+}
+
 test "rpc turn dispatcher fills pending disembargos with apply details" {
     const BootstrapHandler = struct {
         fn handle(_: void, bootstrap: anytype) !u32 {
