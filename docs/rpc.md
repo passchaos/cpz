@@ -86,7 +86,9 @@ that a complete RPC runtime exists.
   capability tombstones together.
   Open questions remember the RPC message kind that created them, giving later
   protocol-state code a typed hook for bootstrap/call/handoff-specific rules.
-  Resolved answers remember the message kind that resolved them.
+  Resolved answers remember the message kind that resolved them. Capability
+  stats summarize live/released/resolved import/export lifetimes and import
+  reference counts.
   Call `sendResultsTo` caller/yourself/third-party targets can be decoded and
   written, including third-party contact pointer capability usage.
   Generated RPC `Call.target` readers can be decoded into a lightweight

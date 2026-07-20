@@ -141,6 +141,30 @@ pub const StateQuestionStats = struct {
     }
 };
 
+pub const StateCapabilityStats = struct {
+    exports: usize = 0,
+    live_exports: usize = 0,
+    released_exports: usize = 0,
+    resolved_exports: usize = 0,
+    imports: usize = 0,
+    live_imports: usize = 0,
+    released_imports: usize = 0,
+    resolved_imports: usize = 0,
+    import_references: usize = 0,
+
+    pub fn live(self: @This()) usize {
+        return self.live_exports + self.live_imports;
+    }
+
+    pub fn released(self: @This()) usize {
+        return self.released_exports + self.released_imports;
+    }
+
+    pub fn resolved(self: @This()) usize {
+        return self.resolved_exports + self.resolved_imports;
+    }
+};
+
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
@@ -3341,6 +3365,31 @@ pub const State = struct {
         return tracker.reference_count;
     }
 
+    pub fn capabilityStats(self: *const State) StateCapabilityStats {
+        var stats = StateCapabilityStats{
+            .exports = self.exports.count(),
+            .imports = self.imports.count(),
+        };
+        var exports = self.exports.valueIterator();
+        while (exports.next()) |export_tracker| {
+            switch (export_tracker.state) {
+                .live => stats.live_exports += 1,
+                .released => stats.released_exports += 1,
+            }
+            if (export_tracker.resolved) stats.resolved_exports += 1;
+        }
+        var imports = self.imports.valueIterator();
+        while (imports.next()) |import_tracker| {
+            switch (import_tracker.state) {
+                .live => stats.live_imports += 1,
+                .released => stats.released_imports += 1,
+            }
+            if (import_tracker.resolved) stats.resolved_imports += 1;
+            stats.import_references += import_tracker.reference_count;
+        }
+        return stats;
+    }
+
     pub fn importResolved(self: *const State, id: ImportId) ?bool {
         const tracker = self.imports.get(id) orelse return null;
         return tracker.resolved;
@@ -3717,6 +3766,14 @@ test "rpc state tracks import and export lifetimes" {
     try testing.expectEqual(@as(usize, 1), state.importCount());
     try testing.expectEqual(@as(?CapabilityLifetime, .live), state.exportState(10));
     try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(20));
+    try testing.expectEqual(StateCapabilityStats{
+        .exports = 1,
+        .live_exports = 1,
+        .imports = 1,
+        .live_imports = 1,
+        .import_references = 1,
+    }, state.capabilityStats());
+    try testing.expectEqual(@as(usize, 2), state.capabilityStats().live());
 
     try testing.expectError(error.InvalidTransition, state.addExport(10));
     try testing.expectError(error.InvalidTransition, state.addImport(20));
@@ -3727,6 +3784,7 @@ test "rpc state tracks import and export lifetimes" {
     try state.releaseImport(20);
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.exportState(10));
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(20));
+    try testing.expectEqual(@as(usize, 2), state.capabilityStats().released());
     try testing.expectError(error.ExportAlreadyReleased, state.releaseExport(10));
     try testing.expectError(error.ImportAlreadyReleased, state.releaseImport(20));
     try state.forgetReleasedExport(10);
@@ -3742,6 +3800,9 @@ test "rpc state tracks import and export lifetimes" {
     try state.addImport(22);
     try state.releaseExport(11);
     try state.releaseImport(21);
+    try state.resolveExportTo(12, null);
+    try state.resolveImportTo(22, null);
+    try testing.expectEqual(@as(usize, 2), state.capabilityStats().resolved());
     const removed = state.forgetReleasedCapabilities();
     try testing.expectEqual(@as(usize, 1), removed.exports);
     try testing.expectEqual(@as(usize, 1), removed.imports);
