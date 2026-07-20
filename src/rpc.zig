@@ -614,6 +614,24 @@ pub const TrackedCallDispatchInfo = struct {
     }
 };
 
+pub const TrackedCallServiceAction = union(enum) {
+    dispatch: usize,
+    forward: CallTarget,
+    unimplemented,
+
+    pub fn isDispatch(self: @This()) bool {
+        return self == .dispatch;
+    }
+
+    pub fn isForward(self: @This()) bool {
+        return self == .forward;
+    }
+
+    pub fn isUnimplemented(self: @This()) bool {
+        return self == .unimplemented;
+    }
+};
+
 fn anyPointerUsageFromWire(pointer: anytype) !AnyPointerUsage {
     const capability = pointer.getCapabilityIndex() catch |err| switch (err) {
         error.InvalidPointerKind, error.NullPointer => null,
@@ -12281,6 +12299,13 @@ pub const State = struct {
     pub fn trackedCallMethodEntryIndex(self: *const State, id: QuestionId, comptime entries: anytype) Error!?usize {
         const info = self.callInfo(id) orelse return null;
         return try info.method.entryIndex(entries);
+    }
+
+    pub fn trackedCallServiceAction(self: *const State, id: QuestionId, comptime entries: anytype) Error!?TrackedCallServiceAction {
+        const dispatch_info = (try self.trackedCallDispatchInfo(id)) orelse return null;
+        if (dispatch_info.transitive_forward_target) |target| return .{ .forward = target };
+        if (try dispatch_info.info.method.entryIndex(entries)) |index| return .{ .dispatch = index };
+        return .unimplemented;
     }
 
     pub fn callMatchesCallMethod(self: *const State, id: QuestionId, method: CallMethod) ?bool {

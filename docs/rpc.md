@@ -160,9 +160,9 @@ that a complete RPC runtime exists.
   `CallMethod` helpers for `CallOptions` and method-table entries, metadata
   conversion/lookup helpers, and generated-or-metadata factories so method
   tables and Call builders can reference schema-defined interface/method IDs directly. A compile-time method table dispatcher
-  can validate unique method entries, preview matching entry indexes for wire or
-  tracked calls, select among multiple handlers, and can be used by the
-  single-message dispatcher. A
+  can validate unique method entries, preview matching entry indexes or service
+  actions for wire/tracked calls, select among multiple handlers, and can be
+  used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized, a resolved call
   target needs forwarding, or state was applied, and apply other supported
@@ -225,10 +225,10 @@ that a complete RPC runtime exists.
   caller-filled structs, and descriptor-info metadata.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
-  tracked/effective target querying, dispatch-info snapshots, `CallOptions`
-  restoration, and direct `CallMethod`/send-results/third-party result-target/
-  flag querying for future service dispatch, plus params capability-table
-  bookkeeping.
+  tracked/effective target querying, dispatch-info snapshots, service-action
+  previews, `CallOptions` restoration, and direct `CallMethod`/send-results/
+  third-party result-target/flag querying for future service dispatch, plus
+  params capability-table bookkeeping.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application, return detailed Disembargo release
