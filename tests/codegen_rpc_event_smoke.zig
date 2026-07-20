@@ -2498,6 +2498,26 @@ test "rpc registry call data helper can apply initialized state" {
 }
 
 test "rpc top-level call payload helpers support routing options" {
+    const fluent_options = (cpz.rpc.CallOptions{})
+        .withMethod(.{ .interface_id = 0x9000, .method_id = 9 })
+        .withSendResultsTo(.yourself)
+        .withFlags(.{ .no_promise_pipelining = true });
+    try fluent_options.validate();
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9000, .method_id = 9 }, fluent_options.method);
+    try std.testing.expect(fluent_options.sendsResultsTo(.yourself));
+    try std.testing.expect(fluent_options.forbidsPromisePipelining());
+    try std.testing.expect(fluent_options.thirdPartyResultsUsage() == null);
+
+    const third_party_options = (cpz.rpc.CallOptions{})
+        .withMethod(.{ .interface_id = 0x9002, .method_id = 11 })
+        .withThirdPartyResults(.{ .max_capability_count = 4, .capability = 3 })
+        .withFlags(.{ .allow_third_party_tail_call = true });
+    try third_party_options.validate();
+    try std.testing.expect(third_party_options.sendsResultsTo(.third_party));
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, third_party_options.thirdPartyResultsUsage().?);
+    try std.testing.expect(third_party_options.allowsThirdPartyTailCall());
+    try std.testing.expect(third_party_options.withSendResultsTo(.caller).thirdPartyResultsUsage() == null);
+
     try (cpz.rpc.CallOptions{
         .method = .{ .interface_id = 0x9000, .method_id = 9 },
         .send_results_to = .yourself,

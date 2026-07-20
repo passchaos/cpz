@@ -988,6 +988,32 @@ pub const CallOptions = struct {
     send_results_to_third_party: ?AnyPointerUsage = null,
     flags: CallFlags = .{},
 
+    pub fn withMethod(self: @This(), method: CallMethod) @This() {
+        var options = self;
+        options.method = method;
+        return options;
+    }
+
+    pub fn withSendResultsTo(self: @This(), target: CallSendResultsTo) @This() {
+        var options = self;
+        options.send_results_to = target;
+        if (target != .third_party) options.send_results_to_third_party = null;
+        return options;
+    }
+
+    pub fn withThirdPartyResults(self: @This(), usage: AnyPointerUsage) @This() {
+        var options = self;
+        options.send_results_to = .third_party;
+        options.send_results_to_third_party = usage;
+        return options;
+    }
+
+    pub fn withFlags(self: @This(), flags: CallFlags) @This() {
+        var options = self;
+        options.flags = flags;
+        return options;
+    }
+
     pub fn validate(self: @This()) Error!void {
         if (self.send_results_to_third_party != null and self.send_results_to != .third_party) return error.InvalidTransition;
         if (self.send_results_to_third_party) |usage| try validateAnyPointerUsageCapability(usage);
