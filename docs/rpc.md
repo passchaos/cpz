@@ -180,8 +180,8 @@ that a complete RPC runtime exists.
   from the same turn plan, either all at once or filtered by embargo token.
   Combined turn helpers, with or without method-table dispatch and
   apply-detail callbacks, can now dispatch dense responses/forwards, append
-  ready handoff Returns, and send all or token-filtered pending Accept
-  Disembargo messages to a separate embedding sink in one validated call. A minimal
+  ready handoff Returns, and initialize or send all or token-filtered pending Accept
+  Disembargo messages in one validated call. A minimal
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
   slices, and append ready handoff Returns to the same response queue or sink
