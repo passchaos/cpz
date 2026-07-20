@@ -127,6 +127,20 @@ pub const StateHandoffStats = struct {
     }
 };
 
+pub const StateQuestionStats = struct {
+    questions: usize = 0,
+    open_questions: usize = 0,
+    finished_questions: usize = 0,
+    answers: usize = 0,
+    unresolved_answers: usize = 0,
+    resolved_answers: usize = 0,
+    complete_questions: usize = 0,
+
+    pub fn active(self: @This()) usize {
+        return self.open_questions + self.unresolved_answers;
+    }
+};
+
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
@@ -2682,6 +2696,30 @@ pub const State = struct {
         return answer.state == .resolved;
     }
 
+    pub fn questionStats(self: *const State) StateQuestionStats {
+        var stats = StateQuestionStats{
+            .questions = self.questions.count(),
+            .answers = self.answers.count(),
+        };
+        var questions = self.questions.iterator();
+        while (questions.next()) |entry| {
+            switch (entry.value_ptr.state) {
+                .idle => {},
+                .open => stats.open_questions += 1,
+                .finished => stats.finished_questions += 1,
+            }
+            if (self.questionComplete(entry.key_ptr.*)) stats.complete_questions += 1;
+        }
+        var answers = self.answers.valueIterator();
+        while (answers.next()) |answer| {
+            switch (answer.state) {
+                .unresolved => stats.unresolved_answers += 1,
+                .resolved => stats.resolved_answers += 1,
+            }
+        }
+        return stats;
+    }
+
     pub fn canReuseQuestionId(self: *const State, id: QuestionId) bool {
         return (!self.questions.contains(id) and !self.answers.contains(id)) or self.questionComplete(id);
     }
@@ -3595,6 +3633,13 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expectEqual(@as(?QuestionState, .open), state.questionState(1));
     try testing.expectEqual(@as(?MessageKind, .call), state.questionKind(1));
     try testing.expectEqual(@as(?AnswerState, .unresolved), state.answerState(1));
+    try testing.expectEqual(StateQuestionStats{
+        .questions = 1,
+        .open_questions = 1,
+        .answers = 1,
+        .unresolved_answers = 1,
+    }, state.questionStats());
+    try testing.expectEqual(@as(usize, 2), state.questionStats().active());
 
     try testing.expectError(error.QuestionAlreadyOpen, state.openQuestion(1, .bootstrap));
     try testing.expectError(error.InvalidTransition, state.openQuestion(2, .finish));
@@ -3615,6 +3660,13 @@ test "rpc state tracks in-flight questions and answers" {
     try testing.expect(state.questionComplete(1));
     try testing.expect(state.questionReadyToForget(1));
     try testing.expect(state.canReuseQuestionId(1));
+    try testing.expectEqual(StateQuestionStats{
+        .questions = 1,
+        .finished_questions = 1,
+        .answers = 1,
+        .resolved_answers = 1,
+        .complete_questions = 1,
+    }, state.questionStats());
     try state.forgetQuestion(1);
     try testing.expect(!state.hasQuestion(1));
     try testing.expect(!state.hasAnswer(1));
