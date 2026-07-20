@@ -776,6 +776,7 @@ pub fn sendResultsToThirdPartyUsageFromWireCall(call: anytype) !?AnyPointerUsage
 }
 
 pub fn writeSendResultsToThirdPartyToWire(call: anytype, usage: AnyPointerUsage) !void {
+    try validateAnyPointerUsageCapability(usage);
     try call.clear_sendResultsTo_thirdParty();
     if (usage.capability) |index| {
         (try call.get_sendResultsTo_thirdPartyAsPointer()).setCapability(index);
@@ -1035,6 +1036,7 @@ pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !vo
 
 pub fn writeCapDescriptorInfoToWire(info: CapDescriptorInfo, builder: anytype) !void {
     if (info.third_party_contact != null and info.descriptor != .third_party_hosted) return error.InvalidTransition;
+    if (info.third_party_contact) |contact| try validateAnyPointerUsageCapability(contact);
     try writeCapDescriptorToWire(info.descriptor, builder);
     if (info.third_party_contact) |contact| {
         if (contact.capability) |index| {

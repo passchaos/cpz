@@ -37,7 +37,8 @@ that a complete RPC runtime exists.
   take-from-other-question are decoded and can resolve tracked answers without a
   results payload; these non-result outcomes can also be written.
   Await-from-third-party returns expose their pointer capability usage and can be
-  written for future third-party answer handling.
+  written for future third-party answer handling with capability-index bounds
+  validation.
   Call interface/method IDs and routing flags for third-party tail calls,
   no-promise-pipelining, and only-promise-pipeline can be decoded and written.
   Returns with `releaseParamCaps` release imports introduced by the matching
@@ -66,8 +67,9 @@ that a complete RPC runtime exists.
   presence/capability usage and optional embargo bytes alongside the question
   ID, for future provision/embargo handling.
   Join wire readers/builders expose target and key-part pointer capability
-  usage for future join result handling. Handoff pointer-usage writers reject
-  capability indexes outside the encoded pointer's declared capability count.
+  usage for future join result handling. Handoff and third-party pointer-usage
+  writers reject capability indexes outside the encoded pointer's declared
+  capability count.
   Disembargo wire readers/builders and wire events can decode and write targets
   plus sender/receiver loopback context IDs and accept embargo bytes, though
   full embargo queue handling remains future work. Disembargo targets are
@@ -94,7 +96,7 @@ that a complete RPC runtime exists.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver entries plus third-party vine/contact capability usage
   and optional `attachedFd` index metadata, and written back into generated
-  payload builders.
+  payload builders with third-party contact capability-index bounds validation.
   `CapabilityRegistry(T)` can seed sender-hosted descriptor tables for outgoing
   payloads. `Payload.capTable` can be decoded into caller-owned descriptor or
   descriptor-info slices, with absent tables treated as empty; helpers can

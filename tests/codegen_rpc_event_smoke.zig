@@ -264,6 +264,12 @@ test "rpc call helpers decode and write send-results-to targets" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const call = try generated.Call.initRootTyped(&builder);
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeSendResultsToThirdPartyToWire(call, .{ .max_capability_count = 4, .capability = 4 }));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const call = try generated.Call.initRootTyped(&builder);
         try cpz.rpc.writeSendResultsToToWire(.third_party, call);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
@@ -537,6 +543,15 @@ test "rpc cap descriptor info helpers preserve attached fd indexes" {
         const info = try decodeCapDescriptorInfo(&builder);
         try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 15 }, info.descriptor);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 6, .capability = 5 }, info.third_party_contact.?);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
+        try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeCapDescriptorInfoToWire(.{
+            .descriptor = .{ .third_party_hosted = 16 },
+            .third_party_contact = .{ .max_capability_count = 6, .capability = 6 },
+        }, descriptor));
     }
 }
 
