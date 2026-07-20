@@ -352,6 +352,36 @@ pub fn sendRpcTurnUnifiedOutputsToSink(turn_plan: RpcTurnPlan, output_messages: 
     }
 }
 
+/// Send initialized unified turn outputs to role-specific enqueue callbacks.
+///
+/// This keeps the compact single-buffer allocation strategy while letting
+/// runtimes route locally-produced Returns, forwarded Calls, and pending
+/// Disembargos to different transport queues.  The ranges are derived from the
+/// validated plan rather than recomputed from message union tags so the enqueue
+/// order stays identical to the no-sink unified turn helpers.
+pub fn sendRpcTurnUnifiedOutputsToSinks(
+    turn_plan: RpcTurnPlan,
+    output_messages: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    disembargo_context: anytype,
+    disembargo_handler: anytype,
+) !void {
+    try turn_plan.validateUnifiedOutputBuilders(output_messages);
+
+    for (try turn_plan.responseMessageRange().slice(output_messages)) |output_message| {
+        try response_handler(response_context, output_message);
+    }
+    for (try turn_plan.forwardedMessageRange().slice(output_messages)) |output_message| {
+        try forward_handler(forward_context, output_message);
+    }
+    for (try turn_plan.disembargoMessageRange().slice(output_messages)) |output_message| {
+        try disembargo_handler(disembargo_context, output_message);
+    }
+}
+
 pub const StateQuestionStats = struct {
     questions: usize = 0,
     open_questions: usize = 0,

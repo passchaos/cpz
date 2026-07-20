@@ -15017,6 +15017,84 @@ test "rpc unified sink helper variants accept empty turns" {
     ));
 }
 
+test "rpc unified output helper sends role ranges to separate sinks" {
+    const ResponseSink = struct {
+        sent: usize = 0,
+        last_answer: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            const return_ = try message.get_return_();
+            context.sent += 1;
+            context.last_answer = try return_.get_answerId();
+        }
+    };
+    const ForwardSink = struct {
+        sent: usize = 0,
+        last_question: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            try expectQueuedForwardedCallBuilder(message, 302, .{ .imported_cap = 3 });
+            context.sent += 1;
+            context.last_question = 302;
+        }
+    };
+    const DisembargoSink = struct {
+        sent: usize = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            try expectQueuedDisembargoBuilder(message, .{ .imported_cap = 4 }, "role-disembargo");
+            context.sent += 1;
+        }
+    };
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response = try generated.Message.initRootTyped(&response_builder);
+    try cpz.rpc.initEmptyReturnMessage(response, 301, true, true);
+
+    var forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer forward_builder.deinit();
+    const forward = try generated.Message.initRootTyped(&forward_builder);
+    try cpz.rpc.initWireCallMessageText(forward, 302, .{ .imported_cap = 3 }, "role forward", &.{});
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo, .{
+        .target = .{ .imported_cap = 4 },
+        .context = .{ .accept = "role-disembargo" },
+    });
+
+    var unused_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer unused_builder.deinit();
+    const unused = try generated.Message.initRootTyped(&unused_builder);
+    const outputs = [_]generated.Message.Builder{ response, forward, disembargo, unused };
+    const plan: cpz.rpc.RpcTurnPlan = .{
+        .dispatch = .{ .response_initialized = 1, .forward_required = 1 },
+        .pending_disembargos = 1,
+    };
+
+    var response_sink: ResponseSink = .{};
+    var forward_sink: ForwardSink = .{};
+    var disembargo_sink: DisembargoSink = .{};
+    try cpz.rpc.sendRpcTurnUnifiedOutputsToSinks(
+        plan,
+        outputs[0..],
+        &response_sink,
+        ResponseSink.handle,
+        &forward_sink,
+        ForwardSink.handle,
+        &disembargo_sink,
+        DisembargoSink.handle,
+    );
+    try std.testing.expectEqual(@as(usize, 1), response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 301), response_sink.last_answer);
+    try std.testing.expectEqual(@as(usize, 1), forward_sink.sent);
+    try std.testing.expectEqual(@as(u32, 302), forward_sink.last_question);
+    try std.testing.expectEqual(@as(usize, 1), disembargo_sink.sent);
+    try std.testing.expectEqual(generated.Message.Union0.unimplemented, (try unused.which()).?);
+}
+
 test "rpc turn dispatcher filters pending accept disembargos into unified outputs" {
     const BootstrapHandler = struct {
         fn handle(_: void, bootstrap: anytype) !u32 {

@@ -202,7 +202,8 @@ that a complete RPC runtime exists.
   the same unified queue, including token-filtered Disembargo emission, and both
   unified forms can expose state-only apply details while doing so. Unified
   output queues can also be validated and sent as their initialized prefix to a
-  single embedding transport/enqueue sink, including ordinary, method-table,
+  single embedding transport/enqueue sink, or split by output role into
+  response/forward/Disembargo sinks, including ordinary, method-table,
   token-filtered, and apply-detail variants.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
