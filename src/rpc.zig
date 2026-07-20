@@ -2238,6 +2238,42 @@ pub fn initWireReturnMessageStructInfoWith(
     try initWireReturnResultsStructInfoWith(return_, struct_size, infos, context, fill);
 }
 
+pub fn initWireReturnMessageStructInfoWithAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    struct_size: anytype,
+    infos: []const CapDescriptorInfo,
+    context: anytype,
+    fill: anytype,
+) !void {
+    for (infos) |info| try state.validateCapDescriptor(info.descriptor);
+    if (release_param_caps) try state.validateParamImports(answer_id);
+
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    const results = try return_.init_results();
+    const content_pointer = try results.get_contentAsPointer();
+    const content = try content_pointer.initStruct(struct_size);
+    try fill(context, content);
+    if ((try content.validate()).maxCapabilityCount() > infos.len) return error.InvalidCapabilityPointer;
+    try initWirePayloadCapTableInfo(results, infos);
+
+    try state.resolveAnswer(answer_id, .return_);
+    for (infos) |info| try state.applyCapDescriptor(info.descriptor);
+    const descriptors = try capDescriptorsFromInfosAlloc(state.allocator, infos);
+    defer state.allocator.free(descriptors);
+    try state.trackResultImports(answer_id, descriptors);
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+    if (no_finish_needed and infos.len == 0) {
+        try state.finishQuestion(answer_id);
+    }
+}
+
 pub fn initWireReturnMessageStructFromRegistry(
     allocator: std.mem.Allocator,
     message: anytype,
