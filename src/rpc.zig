@@ -53,6 +53,9 @@ pub const ReturnOutcome = union(enum) {
 pub const DispatchResult = union(enum) {
     empty,
     capability: ExportId,
+    text: []const u8,
+    data: []const u8,
+    uint32_list: []const u32,
     exception: ExceptionInfo,
     canceled,
     results_sent_elsewhere,
@@ -1788,6 +1791,9 @@ pub fn initDispatchReturnMessage(message: anytype, answer_id: AnswerId, result: 
     return switch (result) {
         .empty => initEmptyReturnMessage(message, answer_id, true, true),
         .capability => |export_id| initCapabilityReturnMessage(message, answer_id, export_id),
+        .text => |text| initWireReturnMessageText(message, answer_id, true, false, text, &.{}),
+        .data => |data| initWireReturnMessageData(message, answer_id, true, false, data, &.{}),
+        .uint32_list => |values| initWireReturnMessageUInt32List(message, answer_id, true, false, values, &.{}),
         .exception => |exception| initWireReturnException(try message.init_return_(), answer_id, true, false, exception),
         .canceled => initWireReturnCanceled(try message.init_return_(), answer_id, true),
         .results_sent_elsewhere => initWireReturnResultsSentElsewhere(try message.init_return_(), answer_id, true),

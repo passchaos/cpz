@@ -3280,6 +3280,42 @@ test "rpc forward helpers reject unresolved calls" {
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initForwardedWireCallMessageToResolvedTarget(&state, forwarded_root, source_call));
 }
 
+test "rpc generic dispatch return helper builds non-capability payloads" {
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initDispatchReturnMessage(root, 36, .{ .text = "text result" });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+        try std.testing.expect(return_.releaseParamCaps());
+        try std.testing.expect(!return_.noFinishNeeded());
+        try std.testing.expectEqualStrings("text result", try (try (try return_.results()).content()).getText());
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initDispatchReturnMessage(root, 37, .{ .data = "data result" });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+        try std.testing.expect(return_.releaseParamCaps());
+        try std.testing.expectEqualSlices(u8, "data result", try (try (try return_.results()).content()).getData());
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initDispatchReturnMessage(root, 38, .{ .uint32_list = &.{ 4, 5, 6 } });
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const results = try (try generated.Message.fromReader(try reader.getRoot()).return_()).results();
+        try expectPayloadUInt32List(results, &.{ 4, 5, 6 });
+    }
+}
+
 test "rpc generic dispatch return helper builds non-result outcomes" {
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
