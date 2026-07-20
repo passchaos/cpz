@@ -2015,6 +2015,47 @@ pub fn initWireCallMessageStructFromRegistryWithOptions(
     try initWireCallParamsStructFromRegistry(allocator, call, struct_size, registry, context, fill);
 }
 
+pub fn initWireCallMessageStructFromRegistryWithOptionsAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+    options: CallOptions,
+) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWireCallMessageStructWithOptionsAndApplyState(
+        state,
+        message,
+        question_id,
+        target,
+        struct_size,
+        descriptors,
+        context,
+        fill,
+        options,
+    );
+}
+
+pub fn initWireCallMessageStructFromRegistryAndApplyState(
+    state: *State,
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+) !void {
+    try initWireCallMessageStructFromRegistryWithOptionsAndApplyState(state, allocator, message, question_id, target, struct_size, registry, context, fill, .{});
+}
+
 pub fn initWireCallMessageText(message: anytype, question_id: QuestionId, target: CallTarget, text: []const u8, descriptors: []const CapDescriptor) !void {
     const call = try message.init_call();
     try call.set_questionId(question_id);
