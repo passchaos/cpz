@@ -1247,6 +1247,13 @@ pub fn initWireCallMessageData(message: anytype, question_id: QuestionId, target
     try initWireCallParamsData(call, data, descriptors);
 }
 
+pub fn initWireCallMessageUInt32List(message: anytype, question_id: QuestionId, target: CallTarget, values: []const u32, descriptors: []const CapDescriptor) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsUInt32List(call, values, descriptors);
+}
+
 pub fn initWireCallMessageTextInfo(message: anytype, question_id: QuestionId, target: CallTarget, text: []const u8, infos: []const CapDescriptorInfo) !void {
     const call = try message.init_call();
     try call.set_questionId(question_id);
@@ -1259,6 +1266,13 @@ pub fn initWireCallMessageDataInfo(message: anytype, question_id: QuestionId, ta
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
     try initWireCallParamsDataInfo(call, data, infos);
+}
+
+pub fn initWireCallMessageUInt32ListInfo(message: anytype, question_id: QuestionId, target: CallTarget, values: []const u32, infos: []const CapDescriptorInfo) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsUInt32ListInfo(call, values, infos);
 }
 
 pub fn initWireCallMessageTextFromRegistry(
@@ -1287,6 +1301,20 @@ pub fn initWireCallMessageDataFromRegistry(
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
     try initWireCallParamsDataFromRegistry(allocator, call, data, registry);
+}
+
+pub fn initWireCallMessageUInt32ListFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    values: []const u32,
+    registry: anytype,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsUInt32ListFromRegistry(allocator, call, values, registry);
 }
 
 pub fn initWireBootstrap(bootstrap: anytype, question_id: QuestionId) !void {
@@ -1468,6 +1496,21 @@ pub fn initWireReturnMessageData(
     try initWireReturnResultsData(return_, data, descriptors);
 }
 
+pub fn initWireReturnMessageUInt32List(
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    values: []const u32,
+    descriptors: []const CapDescriptor,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsUInt32List(return_, values, descriptors);
+}
+
 pub fn initWireReturnMessageTextInfo(
     message: anytype,
     answer_id: AnswerId,
@@ -1496,6 +1539,21 @@ pub fn initWireReturnMessageDataInfo(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     try initWireReturnResultsDataInfo(return_, data, infos);
+}
+
+pub fn initWireReturnMessageUInt32ListInfo(
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    values: []const u32,
+    infos: []const CapDescriptorInfo,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsUInt32ListInfo(return_, values, infos);
 }
 
 pub fn initWireReturnMessageTextFromRegistry(
@@ -1528,6 +1586,22 @@ pub fn initWireReturnMessageDataFromRegistry(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     try initWireReturnResultsDataFromRegistry(allocator, return_, data, registry);
+}
+
+pub fn initWireReturnMessageUInt32ListFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    values: []const u32,
+    registry: anytype,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsUInt32ListFromRegistry(allocator, return_, values, registry);
 }
 
 pub fn joinResultCapabilityFromWireReturn(return_: anytype) !?u32 {
@@ -1901,6 +1975,10 @@ pub fn initWireCallParamsData(call: anytype, data: []const u8, descriptors: []co
     try initWirePayloadData(try call.init_params(), data, descriptors);
 }
 
+pub fn initWireCallParamsUInt32List(call: anytype, values: []const u32, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadUInt32List(try call.init_params(), values, descriptors);
+}
+
 pub fn initWireCallParamsTextInfo(call: anytype, text: []const u8, infos: []const CapDescriptorInfo) !void {
     try initWirePayloadTextInfo(try call.init_params(), text, infos);
 }
@@ -1909,12 +1987,20 @@ pub fn initWireCallParamsDataInfo(call: anytype, data: []const u8, infos: []cons
     try initWirePayloadDataInfo(try call.init_params(), data, infos);
 }
 
+pub fn initWireCallParamsUInt32ListInfo(call: anytype, values: []const u32, infos: []const CapDescriptorInfo) !void {
+    try initWirePayloadUInt32ListInfo(try call.init_params(), values, infos);
+}
+
 pub fn initWireCallParamsTextFromRegistry(allocator: std.mem.Allocator, call: anytype, text: []const u8, registry: anytype) !void {
     try initWirePayloadTextFromRegistry(allocator, try call.init_params(), text, registry);
 }
 
 pub fn initWireCallParamsDataFromRegistry(allocator: std.mem.Allocator, call: anytype, data: []const u8, registry: anytype) !void {
     try initWirePayloadDataFromRegistry(allocator, try call.init_params(), data, registry);
+}
+
+pub fn initWireCallParamsUInt32ListFromRegistry(allocator: std.mem.Allocator, call: anytype, values: []const u32, registry: anytype) !void {
+    try initWirePayloadUInt32ListFromRegistry(allocator, try call.init_params(), values, registry);
 }
 
 pub fn initWireReturnResultsCapTable(return_: anytype, descriptors: []const CapDescriptor) !void {
@@ -1972,6 +2058,10 @@ pub fn initWireReturnResultsData(return_: anytype, data: []const u8, descriptors
     try initWirePayloadData(try return_.init_results(), data, descriptors);
 }
 
+pub fn initWireReturnResultsUInt32List(return_: anytype, values: []const u32, descriptors: []const CapDescriptor) !void {
+    try initWirePayloadUInt32List(try return_.init_results(), values, descriptors);
+}
+
 pub fn initWireReturnResultsTextInfo(return_: anytype, text: []const u8, infos: []const CapDescriptorInfo) !void {
     try initWirePayloadTextInfo(try return_.init_results(), text, infos);
 }
@@ -1980,12 +2070,20 @@ pub fn initWireReturnResultsDataInfo(return_: anytype, data: []const u8, infos: 
     try initWirePayloadDataInfo(try return_.init_results(), data, infos);
 }
 
+pub fn initWireReturnResultsUInt32ListInfo(return_: anytype, values: []const u32, infos: []const CapDescriptorInfo) !void {
+    try initWirePayloadUInt32ListInfo(try return_.init_results(), values, infos);
+}
+
 pub fn initWireReturnResultsTextFromRegistry(allocator: std.mem.Allocator, return_: anytype, text: []const u8, registry: anytype) !void {
     try initWirePayloadTextFromRegistry(allocator, try return_.init_results(), text, registry);
 }
 
 pub fn initWireReturnResultsDataFromRegistry(allocator: std.mem.Allocator, return_: anytype, data: []const u8, registry: anytype) !void {
     try initWirePayloadDataFromRegistry(allocator, try return_.init_results(), data, registry);
+}
+
+pub fn initWireReturnResultsUInt32ListFromRegistry(allocator: std.mem.Allocator, return_: anytype, values: []const u32, registry: anytype) !void {
+    try initWirePayloadUInt32ListFromRegistry(allocator, try return_.init_results(), values, registry);
 }
 
 pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {
