@@ -141,9 +141,10 @@ that a complete RPC runtime exists.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
-  Dispatch variants that accept a caller-provided forward-message builder can
-  initialize that outgoing Call when they return `forward_required`, leaving
-  only actual transport queueing to the embedding runtime.
+  Dispatch variants that accept caller-provided forward-message builders,
+  including batch dispatch helpers, can initialize outgoing Calls when they
+  return `forward_required`, leaving only actual transport queueing to the
+  embedding runtime.
   Call initialization can include send-results routing (including third-party
   contact capability usage) and boolean call flags.
   A generated Call reader can also be applied as a unit:
