@@ -79,7 +79,8 @@ that a complete RPC runtime exists.
   distinct from ordinary Return events.
   Completed question IDs can be queried for cleanup readiness, reused, or
   explicitly forgotten individually or in batches once both Finish and
-  Return-like answer resolution have been observed.
+  Return-like answer resolution have been observed. A state cleanup helper can
+  reclaim both completed questions and released capability tombstones together.
   Open questions remember the RPC message kind that created them, giving later
   protocol-state code a typed hook for bootstrap/call/handoff-specific rules.
   Resolved answers remember the message kind that resolved them.

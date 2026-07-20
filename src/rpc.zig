@@ -100,6 +100,16 @@ pub const WireDispatchStats = struct {
     }
 };
 
+pub const StateCleanupStats = struct {
+    questions: usize = 0,
+    exports: usize = 0,
+    imports: usize = 0,
+
+    pub fn total(self: @This()) usize {
+        return self.questions + self.exports + self.imports;
+    }
+};
+
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
@@ -3192,6 +3202,15 @@ pub const State = struct {
         };
     }
 
+    pub fn cleanup(self: *State) StateCleanupStats {
+        const capabilities = self.forgetReleasedCapabilities();
+        return .{
+            .questions = self.forgetCompletedQuestions(),
+            .exports = capabilities.exports,
+            .imports = capabilities.imports,
+        };
+    }
+
     pub fn releaseImportCount(self: *State, release: CapabilityRelease) Error!void {
         const tracker = self.imports.getPtr(release.id) orelse return error.InvalidTransition;
         try tracker.releaseCount(release.reference_count);
@@ -3602,6 +3621,32 @@ test "rpc state tracks import and export lifetimes" {
     try testing.expect(state.hasImport(22));
     try testing.expectEqual(@as(usize, 0), state.forgetReleasedExports());
     try testing.expectEqual(@as(usize, 0), state.forgetReleasedImports());
+}
+
+test "rpc state cleanup forgets completed and released entries" {
+    const testing = std.testing;
+    var state = State.init(testing.allocator);
+    defer state.deinit();
+
+    try state.openQuestion(100, .call);
+    try state.finishQuestion(100);
+    try state.resolveAnswer(100, .return_);
+    try state.openQuestion(101, .call);
+    try state.addExport(200);
+    try state.addImport(300);
+    try state.releaseExport(200);
+    try state.releaseImport(300);
+
+    const cleaned = state.cleanup();
+    try testing.expectEqual(@as(usize, 1), cleaned.questions);
+    try testing.expectEqual(@as(usize, 1), cleaned.exports);
+    try testing.expectEqual(@as(usize, 1), cleaned.imports);
+    try testing.expectEqual(@as(usize, 3), cleaned.total());
+    try testing.expect(!state.hasQuestion(100));
+    try testing.expect(state.hasQuestion(101));
+    try testing.expect(!state.hasExport(200));
+    try testing.expect(!state.hasImport(300));
+    try testing.expectEqual(@as(usize, 0), state.cleanup().total());
 }
 
 test "rpc state applies capability descriptors to table lifetimes" {
