@@ -2007,6 +2007,29 @@ pub fn initWireReturnAwaitFromThirdParty(
     try return_.set_awaitFromThirdParty_capability(capability_index);
 }
 
+fn applyInitializedNonResultReturnState(
+    state: *State,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+) !void {
+    if (release_param_caps) try state.validateParamImports(answer_id);
+    try state.resolveAnswer(answer_id, .return_);
+    try state.trackResultImports(answer_id, &.{});
+    if (release_param_caps) try state.releaseParamImports(answer_id);
+}
+
+pub fn initWireReturnAwaitFromThirdPartyMessageAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    capability_index: u32,
+) !void {
+    try initWireReturnAwaitFromThirdParty(try message.init_return_(), answer_id, release_param_caps, no_finish_needed, capability_index);
+    try applyInitializedNonResultReturnState(state, answer_id, release_param_caps);
+}
+
 pub fn initWireReturnException(
     return_: anytype,
     answer_id: AnswerId,
@@ -2042,10 +2065,30 @@ pub fn initWireReturnCanceled(return_: anytype, answer_id: AnswerId, release_par
     try return_.set_canceled();
 }
 
+pub fn initWireReturnCanceledMessageAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+) !void {
+    try initWireReturnCanceled(try message.init_return_(), answer_id, release_param_caps);
+    try applyInitializedNonResultReturnState(state, answer_id, release_param_caps);
+}
+
 pub fn initWireReturnResultsSentElsewhere(return_: anytype, answer_id: AnswerId, release_param_caps: bool) !void {
     try return_.set_answerId(answer_id);
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_resultsSentElsewhere();
+}
+
+pub fn initWireReturnResultsSentElsewhereMessageAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+) !void {
+    try initWireReturnResultsSentElsewhere(try message.init_return_(), answer_id, release_param_caps);
+    try applyInitializedNonResultReturnState(state, answer_id, release_param_caps);
 }
 
 pub fn initWireReturnTakeFromOtherQuestion(
@@ -2057,6 +2100,18 @@ pub fn initWireReturnTakeFromOtherQuestion(
     try return_.set_answerId(answer_id);
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_takeFromOtherQuestion(other_question_id);
+}
+
+pub fn initWireReturnTakeFromOtherQuestionMessageAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    other_question_id: QuestionId,
+) !void {
+    if (!state.answers.contains(other_question_id)) return error.QuestionNotOpen;
+    try initWireReturnTakeFromOtherQuestion(try message.init_return_(), answer_id, release_param_caps, other_question_id);
+    try applyInitializedNonResultReturnState(state, answer_id, release_param_caps);
 }
 
 pub fn initWireReturnMessage(

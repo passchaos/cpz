@@ -3717,6 +3717,67 @@ test "rpc non-result return helpers write outcomes" {
     }
 }
 
+test "rpc non-result return helpers can apply initialized state" {
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.addImport(5);
+
+        var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+        defer call_builder.deinit();
+        const call_root = try generated.Message.initRootTyped(&call_builder);
+        const call = try call_root.init_call();
+        try call.set_questionId(201);
+        const target = try call.init_target();
+        try target.set_importedCap(5);
+        try cpz.rpc.initWireCallParamsData(call, "cancel params", &.{.{ .sender_hosted = 102 }});
+        var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+        try state.applyWireCall(std.testing.allocator, try generated.Message.fromReader(try call_reader.getRoot()).call());
+
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireReturnCanceledMessageAndApplyState(&state, root, 201, true);
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(201));
+        try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(102));
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.canceled, try cpz.rpc.returnOutcomeFromWireReturn(try generated.Message.fromReader(try reader.getRoot()).return_()));
+    }
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.openQuestion(202, .call);
+
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireReturnResultsSentElsewhereMessageAndApplyState(&state, root, 202, false);
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(202));
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results_sent_elsewhere, try cpz.rpc.returnOutcomeFromWireReturn(try generated.Message.fromReader(try reader.getRoot()).return_()));
+    }
+    {
+        var state = cpz.rpc.State.init(std.testing.allocator);
+        defer state.deinit();
+        try state.openQuestion(203, .call);
+        try state.openQuestion(204, .call);
+
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireReturnTakeFromOtherQuestionMessageAndApplyState(&state, root, 203, false, 204);
+        try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(203));
+
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try std.testing.expectEqual(
+            cpz.rpc.ReturnOutcome{ .take_from_other_question = 204 },
+            try cpz.rpc.returnOutcomeFromWireReturn(try generated.Message.fromReader(try reader.getRoot()).return_()),
+        );
+    }
+}
+
 test "rpc await-from-third-party return helpers write outcomes" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();
@@ -3737,6 +3798,27 @@ test "rpc await-from-third-party return helpers write outcomes" {
     };
     try std.testing.expectEqual(@as(?u32, 6), usage.capability);
     try std.testing.expectEqual(@as(usize, 7), usage.max_capability_count);
+}
+
+test "rpc await-from-third-party return helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(205, .call);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireReturnAwaitFromThirdPartyMessageAndApplyState(&state, root, 205, false, true, 7);
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(205));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try generated.Message.fromReader(try reader.getRoot()).return_());
+    const usage = switch (outcome) {
+        .await_from_third_party => |value| value,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqual(@as(?u32, 7), usage.capability);
+    try std.testing.expectEqual(@as(usize, 8), usage.max_capability_count);
 }
 
 test "rpc wire returns resolve answers and apply result cap tables" {
