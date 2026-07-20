@@ -3959,6 +3959,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqualStrings("embargo-64", tracked.embargo.?);
     try std.testing.expectEqual(@as(?bool, false), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, false), state.acceptReady(64));
+    try std.testing.expect(state.readyAcceptProvision(64) == null);
     {
         var premature_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer premature_builder.deinit();
@@ -3981,6 +3982,7 @@ test "rpc top-level accept messages open questions" {
     try state.applyWireMessage(std.testing.allocator, disembargo_message);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.readyAcceptProvision(64).?);
     {
         var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer response_builder.deinit();
@@ -3996,6 +3998,31 @@ test "rpc top-level accept messages open questions" {
     }
     try state.finishQuestion(64);
     try std.testing.expect(state.acceptInfo(64) == null);
+}
+
+test "rpc ready accept returns require provision capabilities" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireAcceptMessage(root, .{
+        .question_id = 65,
+        .has_provision = false,
+        .provision_max_capability_count = 0,
+        .embargo = null,
+    });
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const message = generated.Message.fromReader(try reader.getRoot());
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.applyWireMessage(std.testing.allocator, message);
+    try std.testing.expectEqual(@as(?bool, true), state.acceptReady(65));
+    try std.testing.expect(state.readyAcceptProvision(65) == null);
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response_root = try generated.Message.initRootTyped(&response_builder);
+    try std.testing.expectError(error.InvalidTransition, state.initReadyAcceptReturnMessage(response_root, 65, 91));
 }
 
 test "rpc disembargo helpers decode targets and loopback contexts" {

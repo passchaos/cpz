@@ -3138,8 +3138,14 @@ pub const State = struct {
         return tracker.embargo == null or tracker.embargo_released;
     }
 
+    pub fn readyAcceptProvision(self: *const State, id: QuestionId) ?AnyPointerUsage {
+        const tracker = self.accepts.get(id) orelse return null;
+        if (tracker.embargo != null and !tracker.embargo_released) return null;
+        return tracker.provision;
+    }
+
     pub fn initReadyAcceptReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
-        if (self.acceptReady(question_id) != true) return error.InvalidTransition;
+        _ = self.readyAcceptProvision(question_id) orelse return error.InvalidTransition;
         try initCapabilityReturnMessage(message, question_id, export_id);
     }
 
