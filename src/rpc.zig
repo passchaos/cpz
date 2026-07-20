@@ -593,12 +593,20 @@ pub const CallInfo = struct {
         return self.callMethod().matchesWireMessage(message);
     }
 
+    pub fn hasMethod(self: @This()) bool {
+        return self.callOptions().hasMethod();
+    }
+
     pub fn sendsResultsTo(self: @This(), target: CallSendResultsTo) bool {
         return self.send_results_to == target;
     }
 
     pub fn thirdPartyResultsUsage(self: @This()) ?AnyPointerUsage {
         return if (self.send_results_to == .third_party) self.send_results_to_third_party else null;
+    }
+
+    pub fn hasThirdPartyResultsUsage(self: @This()) bool {
+        return self.thirdPartyResultsUsage() != null;
     }
 
     pub fn callOptions(self: @This()) CallOptions {
@@ -13751,6 +13759,11 @@ pub const State = struct {
         return try info.matchesWireMessage(message);
     }
 
+    pub fn callHasMethod(self: *const State, id: QuestionId) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.hasMethod();
+    }
+
     pub fn callSendsResultsTo(self: *const State, id: QuestionId, target: CallSendResultsTo) ?bool {
         const info = self.callInfo(id) orelse return null;
         return info.sendsResultsTo(target);
@@ -13759,6 +13772,11 @@ pub const State = struct {
     pub fn callThirdPartyResultsUsage(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const info = self.callInfo(id) orelse return null;
         return info.thirdPartyResultsUsage();
+    }
+
+    pub fn callHasThirdPartyResultsUsage(self: *const State, id: QuestionId) ?bool {
+        const info = self.callInfo(id) orelse return null;
+        return info.hasThirdPartyResultsUsage();
     }
 
     pub fn callOptions(self: *const State, id: QuestionId) ?CallOptions {
