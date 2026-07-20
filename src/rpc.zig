@@ -2802,6 +2802,34 @@ pub fn initDispatchReturnMessage(message: anytype, answer_id: AnswerId, result: 
     };
 }
 
+pub fn initDispatchReturnMessageAndApplyState(
+    state: *State,
+    message: anytype,
+    answer_id: AnswerId,
+    result: DispatchResult,
+) !void {
+    return switch (result) {
+        .empty => initEmptyReturnMessageAndApplyState(state, message, answer_id, true, true),
+        .capability => |export_id| initWireReturnMessagePayloadCapabilityAndApplyState(
+            state,
+            message,
+            answer_id,
+            true,
+            false,
+            0,
+            &.{.{ .sender_hosted = export_id }},
+        ),
+        .text => |text| initWireReturnMessageTextAndApplyState(state, message, answer_id, true, false, text, &.{}),
+        .data => |data| initWireReturnMessageDataAndApplyState(state, message, answer_id, true, false, data, &.{}),
+        .uint32_list => |values| initWireReturnMessageUInt32ListAndApplyState(state, message, answer_id, true, false, values, &.{}),
+        .exception => |exception| initWireReturnExceptionMessageAndApplyState(state, message, answer_id, true, false, exception),
+        .canceled => initWireReturnCanceledMessageAndApplyState(state, message, answer_id, true),
+        .results_sent_elsewhere => initWireReturnResultsSentElsewhereMessageAndApplyState(state, message, answer_id, true),
+        .take_from_other_question => |question_id| initWireReturnTakeFromOtherQuestionMessageAndApplyState(state, message, answer_id, true, question_id),
+        .await_from_third_party => |capability_index| initWireReturnAwaitFromThirdPartyMessageAndApplyState(state, message, answer_id, true, false, capability_index),
+    };
+}
+
 pub fn initBootstrapReturnMessage(message: anytype, answer_id: AnswerId, export_id: ExportId) !void {
     try initCapabilityReturnMessage(message, answer_id, export_id);
 }

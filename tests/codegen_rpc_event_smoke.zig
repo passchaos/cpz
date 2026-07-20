@@ -3896,6 +3896,36 @@ test "rpc empty return helper can apply initialized state" {
     _ = try return_.results();
 }
 
+test "rpc dispatch return helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(56);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    try cpz.rpc.initWireCallParamsText(call, "dispatch state return", &.{.{ .sender_hosted = 103 }});
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    try state.applyWireCall(std.testing.allocator, try generated.Message.fromReader(try call_reader.getRoot()).call());
+
+    var return_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer return_builder.deinit();
+    const return_root = try generated.Message.initRootTyped(&return_builder);
+    try cpz.rpc.initDispatchReturnMessageAndApplyState(&state, return_root, 56, .{ .capability = 104 });
+
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(56));
+    try std.testing.expectEqual(@as(usize, 0), state.paramImportCount(56));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .released), state.importState(103));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(104));
+
+    var return_reader = cpz.MessageReader.init(try return_builder.segmentsConst(), .{});
+    try expectReturnCapabilityResult(generated.Message.fromReader(try return_reader.getRoot()), 104);
+}
+
 test "rpc top-level no-finish flow permits question id reuse" {
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
