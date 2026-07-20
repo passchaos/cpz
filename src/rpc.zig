@@ -988,6 +988,11 @@ pub const CallOptions = struct {
     send_results_to_third_party: ?AnyPointerUsage = null,
     flags: CallFlags = .{},
 
+    pub fn validate(self: @This()) Error!void {
+        if (self.send_results_to_third_party != null and self.send_results_to != .third_party) return error.InvalidTransition;
+        if (self.send_results_to_third_party) |usage| try validateAnyPointerUsageCapability(usage);
+    }
+
     pub fn matchesMethod(self: @This(), method: CallMethod) bool {
         return self.method.matches(method.interface_id, method.method_id);
     }
@@ -2562,10 +2567,10 @@ fn initWireCallHeaderWithOptions(
     target: CallTarget,
     options: CallOptions,
 ) !void {
+    try options.validate();
     try call.set_questionId(question_id);
     try writeCallTargetToWire(target, try call.init_target());
     try writeCallMethodToWire(options.method, call);
-    if (options.send_results_to_third_party != null and options.send_results_to != .third_party) return error.InvalidTransition;
     if (options.send_results_to_third_party) |usage|
         try writeSendResultsToThirdPartyToWire(call, usage)
     else

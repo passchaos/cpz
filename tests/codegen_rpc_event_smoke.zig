@@ -2498,6 +2498,28 @@ test "rpc registry call data helper can apply initialized state" {
 }
 
 test "rpc top-level call payload helpers support routing options" {
+    try (cpz.rpc.CallOptions{
+        .method = .{ .interface_id = 0x9000, .method_id = 9 },
+        .send_results_to = .yourself,
+        .flags = .{ .no_promise_pipelining = true },
+    }).validate();
+    try (cpz.rpc.CallOptions{
+        .method = .{ .interface_id = 0x9002, .method_id = 11 },
+        .send_results_to = .third_party,
+        .send_results_to_third_party = .{ .max_capability_count = 4, .capability = 3 },
+        .flags = .{ .allow_third_party_tail_call = true },
+    }).validate();
+    try (cpz.rpc.CallOptions{
+        .send_results_to = .third_party,
+    }).validate();
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.CallOptions{
+        .send_results_to_third_party = .{ .max_capability_count = 4, .capability = 3 },
+    }).validate());
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.CallOptions{
+        .send_results_to = .third_party,
+        .send_results_to_third_party = .{ .max_capability_count = 4, .capability = 4 },
+    }).validate());
+
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
         defer builder.deinit();
