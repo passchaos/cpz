@@ -173,8 +173,9 @@ that a complete RPC runtime exists.
   state-only counts plus dense output slot requirements before builders are
   allocated, with turn-level plans that combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
-  or unified output queues, including validation for separate Disembargo
-  builder sets; pending Accept Disembargos can be planned or emitted to their
+  or unified output queues, including helpers for validating builders and
+  slicing unified output ranges into response, forward, and Disembargo regions.
+  Separate builder-set validation is also available; pending Accept Disembargos can be planned or emitted to their
   own sink, or initialized into caller-owned builders without an immediate sink,
   from the same turn plan, either all at once or filtered by embargo token.
   Combined turn helpers, with or without method-table dispatch and
