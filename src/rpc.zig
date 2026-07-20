@@ -1101,6 +1101,14 @@ pub const CallOptions = struct {
         if (self.send_results_to_third_party) |usage| try validateAnyPointerUsageCapability(usage);
     }
 
+    pub fn isDefault(self: @This()) bool {
+        return self.method.isDefault() and self.send_results_to == .caller and self.send_results_to_third_party == null and self.flags.isDefault();
+    }
+
+    pub fn hasMethod(self: @This()) bool {
+        return !self.method.isDefault();
+    }
+
     pub fn callMethod(self: @This()) CallMethod {
         return self.method;
     }
@@ -1135,6 +1143,10 @@ pub const CallOptions = struct {
 
     pub fn thirdPartyResultsUsage(self: @This()) ?AnyPointerUsage {
         return if (self.send_results_to == .third_party) self.send_results_to_third_party else null;
+    }
+
+    pub fn hasThirdPartyResultsUsage(self: @This()) bool {
+        return self.thirdPartyResultsUsage() != null;
     }
 
     pub fn allowsThirdPartyTailCall(self: @This()) bool {

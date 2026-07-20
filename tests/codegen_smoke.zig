@@ -5195,7 +5195,10 @@ test "generated interface method constants compile" {
     try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].matchesMethod(generated.ExtendedService.@"cpz.method.pong.callMethod"));
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptions"[0].callMethod());
     try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].sendsResultsTo(.caller));
+    try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].isDefault());
+    try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].hasMethod());
     try std.testing.expect(generated.ExtendedService.@"cpz.callOptions"[0].flags.isDefault());
+    try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].hasThirdPartyResultsUsage());
     try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].allowsThirdPartyTailCall());
     try std.testing.expect(!generated.ExtendedService.@"cpz.callOptions"[0].forbidsPromisePipelining());
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated.ExtendedService.@"cpz.callOptionsByIndex"(0).?.method);

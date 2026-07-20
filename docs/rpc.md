@@ -238,6 +238,8 @@ that a complete RPC runtime exists.
   Method IDs, result routing, and call flags can also be decoded from or written
   to generated Call readers/builders as a single `CallOptions` value, so
   dispatch and initialization paths share the same validation rules.
+  `CallOptions` exposes predicates for default state, explicit method IDs, and
+  third-party result-target capability usage.
   `CallOptions` can build the corresponding tracked `CallInfo`, and tracked
   calls can restore both `CallMethod` and `CallOptions` for later dispatch
   without each helper manually reassembling the same fields. Runtime and

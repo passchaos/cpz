@@ -2591,11 +2591,15 @@ test "rpc top-level call payload helpers support routing options" {
         .withSendResultsTo(.yourself)
         .withFlags(.{ .no_promise_pipelining = true });
     try fluent_options.validate();
+    try std.testing.expect((cpz.rpc.CallOptions{}).isDefault());
+    try std.testing.expect(!fluent_options.isDefault());
+    try std.testing.expect(fluent_options.hasMethod());
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9000, .method_id = 9 }, fluent_options.method);
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9000, .method_id = 9 }, fluent_options.callMethod());
     try std.testing.expect(fluent_options.sendsResultsTo(.yourself));
     try std.testing.expect(fluent_options.forbidsPromisePipelining());
     try std.testing.expect(fluent_options.thirdPartyResultsUsage() == null);
+    try std.testing.expect(!fluent_options.hasThirdPartyResultsUsage());
     const fluent_call_info = fluent_options.callInfo(900, .{ .imported_cap = 7 });
     try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 900), fluent_call_info.question_id);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 7 }, fluent_call_info.target);
@@ -2609,6 +2613,7 @@ test "rpc top-level call payload helpers support routing options" {
     try third_party_options.validate();
     try std.testing.expect(third_party_options.sendsResultsTo(.third_party));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, third_party_options.thirdPartyResultsUsage().?);
+    try std.testing.expect(third_party_options.hasThirdPartyResultsUsage());
     try std.testing.expect(third_party_options.allowsThirdPartyTailCall());
     try std.testing.expect(third_party_options.withSendResultsTo(.caller).thirdPartyResultsUsage() == null);
     const option_entry = comptime ((cpz.rpc.CallOptions{})
