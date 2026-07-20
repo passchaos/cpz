@@ -7988,6 +7988,11 @@ test "rpc method table dispatcher selects matching handlers" {
     try std.testing.expect(entries[1].matches(0xabc, 2));
     try std.testing.expect(!entries[1].matches(0xabc, 3));
     try std.testing.expectEqual(entries[1].method, entries[1].callOptions().method);
+    const entry_call_info = entries[1].callInfo(211, .{ .imported_cap = 5 });
+    try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 211), entry_call_info.question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, entry_call_info.target);
+    try std.testing.expectEqual(entries[1].method, entry_call_info.callMethod());
+    try std.testing.expectEqual(entries[1].callOptions(), entry_call_info.callOptions());
     try std.testing.expectEqual(@as(?usize, 1), try entries[1].entryIndex(entries));
     try std.testing.expectEqual(@as(?usize, 0), try cpz.rpc.callMethodEntryIndex(entries[0].method, entries));
     try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.callMethodEntryIndex(.{ .interface_id = 0xabc, .method_id = 3 }, entries));

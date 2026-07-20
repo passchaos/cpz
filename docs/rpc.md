@@ -239,7 +239,9 @@ that a complete RPC runtime exists.
   dispatch and initialization paths share the same validation rules.
   `CallOptions` can build the corresponding tracked `CallInfo`, and tracked
   calls can restore both `CallMethod` and `CallOptions` for later dispatch
-  without each helper manually reassembling the same fields.
+  without each helper manually reassembling the same fields. Runtime and
+  generated method-table entries expose the same tracked-info construction
+  helper for code paths that select a handler before recording call state.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
   tracked/effective target querying, dispatch-info snapshots, service-action

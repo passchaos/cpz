@@ -1007,6 +1007,10 @@ pub fn CallMethodEntry(comptime Handler: type) type {
             return self.method.callOptions();
         }
 
+        pub fn callInfo(self: @This(), question_id: QuestionId, target: CallTarget) CallInfo {
+            return self.callOptions().callInfo(question_id, target);
+        }
+
         pub fn entryIndex(self: @This(), comptime entries: anytype) Error!?usize {
             return self.method.entryIndex(entries);
         }

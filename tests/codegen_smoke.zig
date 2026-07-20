@@ -5279,6 +5279,11 @@ test "generated interface method constants compile" {
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated_entries[0].callMethod());
     try std.testing.expect(generated_entries[0].matches(generated.ExtendedService.@"cpz.type_id", generated.ExtendedService.pong));
     try std.testing.expectEqual(generated.ExtendedService.@"cpz.method.pong.callMethod", generated_entries[0].callOptions().method);
+    const generated_entry_info = generated_entries[0].callInfo(44, .{ .imported_cap = 7 });
+    try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 44), generated_entry_info.question_id);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 7 }, generated_entry_info.target);
+    try std.testing.expectEqual(generated_entries[0].callMethod(), generated_entry_info.callMethod());
+    try std.testing.expectEqual(generated_entries[0].callOptions(), generated_entry_info.callOptions());
     try std.testing.expectEqual(@as(?usize, 0), try generated_entries[0].entryIndex(generated_entries));
     try cpz.rpc.validateCallMethodEntries(generated_entries);
     const generated_field_entries = generated.ExtendedService.@"cpz.methodEntriesFromFields"(.{ .pong = EntryHandler.handle });
