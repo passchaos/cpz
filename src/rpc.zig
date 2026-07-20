@@ -1616,6 +1616,11 @@ pub fn callOptionsFromWireCall(call: anytype) !CallOptions {
     return options;
 }
 
+pub fn callInfoFromWireCall(call: anytype) !CallInfo {
+    const options = try callOptionsFromWireCall(call);
+    return options.callInfo(call.questionId(), try callTargetFromWireCall(call));
+}
+
 pub fn writeCallOptionsToWire(options: CallOptions, call: anytype) !void {
     try options.validate();
     try writeCallMethodToWire(options.method, call);
@@ -1638,6 +1643,14 @@ pub fn callOptionsFromWireMessage(message: anytype) !?CallOptions {
     const tag = std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse return error.InvalidTransition;
     return switch (tag) {
         .call => try callOptionsFromWireCall(try message.call()),
+        else => null,
+    };
+}
+
+pub fn callInfoFromWireMessage(message: anytype) !?CallInfo {
+    const tag = std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse return error.InvalidTransition;
+    return switch (tag) {
+        .call => try callInfoFromWireCall(try message.call()),
         else => null,
     };
 }
@@ -13159,18 +13172,16 @@ pub const State = struct {
     }
 
     pub fn wireCallDispatchInfo(self: *const State, call: anytype) !TrackedCallDispatchInfo {
-        const target = try callTargetFromWireCall(call);
-        try self.validateCallTarget(target);
-        const options = try callOptionsFromWireCall(call);
-        const info = options.callInfo(call.questionId(), target);
+        const info = try callInfoFromWireCall(call);
+        try self.validateCallTarget(info.target);
         return .{
             .info = info,
-            .options = options,
-            .resolution = self.callTargetResolution(target),
-            .forward_target = self.callTargetForwardTarget(target),
-            .effective_target = self.effectiveCallTarget(target),
-            .transitive_forward_target = try self.callTargetTransitiveForwardTarget(target),
-            .transitive_effective_target = try self.transitiveEffectiveCallTarget(target),
+            .options = info.callOptions(),
+            .resolution = self.callTargetResolution(info.target),
+            .forward_target = self.callTargetForwardTarget(info.target),
+            .effective_target = self.effectiveCallTarget(info.target),
+            .transitive_forward_target = try self.callTargetTransitiveForwardTarget(info.target),
+            .transitive_effective_target = try self.transitiveEffectiveCallTarget(info.target),
         };
     }
 
