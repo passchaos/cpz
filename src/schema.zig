@@ -10874,6 +10874,40 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
             \\    }}
             \\
         , .{});
+        try appendFmt(allocator, out,
+            \\    pub fn @"cpz.methodEntriesFromFields"(handlers: anytype) @TypeOf(.{{
+            \\
+        , .{});
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            const method_name_literal = try zigStringLiteralAlloc(allocator, method.name);
+            defer allocator.free(method_name_literal);
+            try appendFmt(allocator, out,
+                \\        @This().@"cpz.method.{s}.entry"(@field(handlers, {s})),
+                \\
+            , .{ method_name, method_name_literal });
+        }
+        try appendFmt(allocator, out,
+            \\    }}) {{
+            \\        return .{{
+            \\
+        , .{});
+        for (decl.methods) |method| {
+            const method_name = try zigIdentAlloc(allocator, method.name);
+            defer allocator.free(method_name);
+            const method_name_literal = try zigStringLiteralAlloc(allocator, method.name);
+            defer allocator.free(method_name_literal);
+            try appendFmt(allocator, out,
+                \\            @This().@"cpz.method.{s}.entry"(@field(handlers, {s})),
+                \\
+            , .{ method_name, method_name_literal });
+        }
+        try appendFmt(allocator, out,
+            \\        }};
+            \\    }}
+            \\
+        , .{});
     }
     try appendFmt(allocator, out,
         \\}};
