@@ -236,6 +236,36 @@ pub const StateHandoffReturnStats = struct {
     }
 };
 
+pub const RpcTurnPlan = struct {
+    dispatch: WireDispatchStats = .{},
+    handoff_returns: StateHandoffReturnStats = .{},
+
+    pub fn responseMessages(self: @This()) usize {
+        return self.dispatch.response_initialized + self.handoff_returns.total();
+    }
+
+    pub fn forwardedMessages(self: @This()) usize {
+        return self.dispatch.forward_required;
+    }
+
+    pub fn stateOnlyMessages(self: @This()) usize {
+        return self.dispatch.state_applied;
+    }
+
+    pub fn totalOutputMessages(self: @This()) usize {
+        return self.responseMessages() + self.forwardedMessages();
+    }
+
+    pub fn validateOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
+        if (response_capacity < self.responseMessages()) return error.InvalidTransition;
+        if (forward_capacity < self.forwardedMessages()) return error.InvalidTransition;
+    }
+
+    pub fn validateUnifiedOutputCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.totalOutputMessages()) return error.InvalidTransition;
+    }
+};
+
 pub const StateQuestionStats = struct {
     questions: usize = 0,
     open_questions: usize = 0,
@@ -2684,6 +2714,20 @@ pub fn planWireMessagesMethodsDispatch(state: *const State, request_messages: an
         stats.record(try planWireMessageDispatch(state, request_message));
     }
     return stats;
+}
+
+pub fn planRpcTurn(state: *const State, request_messages: anytype) !RpcTurnPlan {
+    return .{
+        .dispatch = try planWireMessagesDispatch(state, request_messages),
+        .handoff_returns = state.readyHandoffReturnStats(),
+    };
+}
+
+pub fn planRpcTurnMethods(state: *const State, request_messages: anytype, comptime call_entries: anytype) !RpcTurnPlan {
+    return .{
+        .dispatch = try planWireMessagesMethodsDispatch(state, request_messages, call_entries),
+        .handoff_returns = state.readyHandoffReturnStats(),
+    };
 }
 
 pub fn dispatchWireMessageOutcome(

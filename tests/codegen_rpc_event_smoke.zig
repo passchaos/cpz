@@ -4593,6 +4593,20 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     const method_stats = try cpz.rpc.planWireMessagesMethodsDispatch(&state, requests[0..], entries);
     try std.testing.expectEqual(stats, method_stats);
 
+    const turn_plan = try cpz.rpc.planRpcTurn(&state, requests[0..]);
+    try std.testing.expectEqual(stats, turn_plan.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{}, turn_plan.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 2), turn_plan.responseMessages());
+    try std.testing.expectEqual(@as(usize, 1), turn_plan.forwardedMessages());
+    try std.testing.expectEqual(@as(usize, 1), turn_plan.stateOnlyMessages());
+    try std.testing.expectEqual(@as(usize, 3), turn_plan.totalOutputMessages());
+    try turn_plan.validateOutputCapacity(2, 1);
+    try turn_plan.validateUnifiedOutputCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateOutputCapacity(1, 1));
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateOutputCapacity(2, 0));
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateUnifiedOutputCapacity(2));
+    try std.testing.expectEqual(turn_plan, try cpz.rpc.planRpcTurnMethods(&state, requests[0..], entries));
+
     try std.testing.expect(state.questionState(70) == null);
     try std.testing.expect(state.questionState(71) == null);
     try std.testing.expectEqual(@as(usize, 0), state.callInfoCount());
@@ -9811,6 +9825,16 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_return_stats);
     try ready_return_stats.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_return_stats.validateCapacity(2));
+
+    const no_turn_messages = [_]generated.Message{};
+    const handoff_turn_plan = try cpz.rpc.planRpcTurn(&state, no_turn_messages[0..]);
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{}, handoff_turn_plan.dispatch);
+    try std.testing.expectEqual(ready_return_stats, handoff_turn_plan.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.responseMessages());
+    try std.testing.expectEqual(@as(usize, 0), handoff_turn_plan.forwardedMessages());
+    try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.totalOutputMessages());
+    try handoff_turn_plan.validateOutputCapacity(3, 0);
+    try handoff_turn_plan.validateUnifiedOutputCapacity(3);
 
     var planned_provide_context: Context = .{};
     var planned_accept_context: Context = .{};

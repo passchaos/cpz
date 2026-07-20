@@ -167,7 +167,8 @@ that a complete RPC runtime exists.
   for callers that want to enqueue or inspect initialized messages themselves.
   Non-mutating dispatch planning helpers can preview response, forward, and
   state-only counts plus dense output slot requirements before builders are
-  allocated, with capacity checks for split or unified dense output queues.
+  allocated, with turn-level plans that combine dispatch and ready handoff
+  returns plus capacity checks for split or unified output queues.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
