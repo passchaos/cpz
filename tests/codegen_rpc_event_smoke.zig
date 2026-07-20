@@ -1940,6 +1940,40 @@ test "rpc top-level call helpers initialize text payload descriptors" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 90 }, descriptors[0]);
 }
 
+test "rpc call text helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageTextWithOptionsAndApplyState(
+        &state,
+        root,
+        84,
+        .{ .imported_cap = 5 },
+        "state call text",
+        &.{.{ .sender_hosted = 91 }},
+        .{
+            .method = .{ .interface_id = 0x84, .method_id = 4 },
+            .flags = .{ .no_promise_pipelining = true },
+        },
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), state.questionState(84));
+    try std.testing.expectEqual(@as(usize, 1), state.paramImportCount(84));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(91));
+    const tracked = state.callInfo(84).?;
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, tracked.target);
+    try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x84, .method_id = 4 }, tracked.method);
+    try std.testing.expect(tracked.flags.no_promise_pipelining);
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call = try generated.Message.fromReader(try reader.getRoot()).call();
+    try std.testing.expectEqualStrings("state call text", try (try (try call.params()).content()).getText());
+}
+
 test "rpc top-level call helpers initialize registry-backed text payloads" {
     var registry: cpz.CapabilityRegistry([]const u8) = .{};
     defer registry.deinit(std.testing.allocator);
