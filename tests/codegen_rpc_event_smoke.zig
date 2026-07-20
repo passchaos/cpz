@@ -2721,6 +2721,38 @@ test "rpc return data helper can apply initialized state" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 84 }, descriptors[0]);
 }
 
+test "rpc return uint32-list helper can apply initialized state" {
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.openQuestion(82, .call);
+
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireReturnMessageUInt32ListAndApplyState(
+        &state,
+        root,
+        82,
+        false,
+        false,
+        &.{ 3, 6, 9 },
+        &.{.{ .sender_hosted = 85 }},
+    );
+
+    try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(82));
+    try std.testing.expectEqual(@as(usize, 1), state.resultImportCount(82));
+    try std.testing.expectEqual(@as(?cpz.rpc.CapabilityLifetime, .live), state.importState(85));
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+    const results = try return_.results();
+    try expectPayloadUInt32List(results, &.{ 3, 6, 9 });
+    const descriptors = try cpz.rpc.capTableFromWirePayload(std.testing.allocator, results);
+    defer std.testing.allocator.free(descriptors);
+    try std.testing.expectEqual(@as(usize, 1), descriptors.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 85 }, descriptors[0]);
+}
+
 test "rpc top-level return helpers initialize struct payloads" {
     const Fill = struct {
         fn write(value: *const u32, builder: cpz.StructBuilder) !void {
