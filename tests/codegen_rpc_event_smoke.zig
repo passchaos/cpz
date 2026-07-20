@@ -3904,6 +3904,7 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 2), tracked.recipient_capability);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.provideRecipient(61).?);
+        try std.testing.expectEqual(@as(usize, 1), state.provideRecipientCount());
         {
             var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
             defer response_builder.deinit();
@@ -3920,6 +3921,7 @@ test "rpc top-level provide and join messages validate targets" {
         try state.finishQuestion(61);
         try std.testing.expect(state.provideInfo(61) == null);
         try std.testing.expect(state.provideRecipient(61) == null);
+        try std.testing.expectEqual(@as(usize, 0), state.provideRecipientCount());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -3950,6 +3952,7 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 63 } }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 4), tracked.key_part_capability);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, state.joinKeyPart(62).?);
+        try std.testing.expectEqual(@as(usize, 1), state.joinKeyPartCount());
         {
             var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
             defer response_builder.deinit();
@@ -3967,6 +3970,7 @@ test "rpc top-level provide and join messages validate targets" {
         try state.finishQuestion(62);
         try std.testing.expect(state.joinInfo(62) == null);
         try std.testing.expect(state.joinKeyPart(62) == null);
+        try std.testing.expectEqual(@as(usize, 0), state.joinKeyPartCount());
     }
 }
 
@@ -3988,6 +3992,7 @@ test "rpc tracked provide returns require recipients" {
     try state.addImport(70);
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expect(state.provideRecipient(69) == null);
+    try std.testing.expectEqual(@as(usize, 0), state.provideRecipientCount());
 
     var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder.deinit();
@@ -4213,6 +4218,7 @@ test "rpc tracked join results require key parts" {
     try state.addImport(71);
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expect(state.joinKeyPart(70) == null);
+    try std.testing.expectEqual(@as(usize, 0), state.joinKeyPartCount());
 
     var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder.deinit();
@@ -4270,6 +4276,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?bool, false), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, false), state.acceptReady(64));
     try std.testing.expect(state.readyAcceptProvision(64) == null);
+    try std.testing.expectEqual(@as(usize, 0), state.readyAcceptProvisionCount());
     {
         var premature_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer premature_builder.deinit();
@@ -4296,6 +4303,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.readyAcceptProvision(64).?);
+    try std.testing.expectEqual(@as(usize, 1), state.readyAcceptProvisionCount());
     {
         var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer response_builder.deinit();
@@ -4311,6 +4319,7 @@ test "rpc top-level accept messages open questions" {
     }
     try state.finishQuestion(64);
     try std.testing.expect(state.acceptInfo(64) == null);
+    try std.testing.expectEqual(@as(usize, 0), state.readyAcceptProvisionCount());
 }
 
 test "rpc ready accept returns require provision capabilities" {
@@ -4331,6 +4340,7 @@ test "rpc ready accept returns require provision capabilities" {
     try state.applyWireMessage(std.testing.allocator, message);
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(65));
     try std.testing.expect(state.readyAcceptProvision(65) == null);
+    try std.testing.expectEqual(@as(usize, 0), state.readyAcceptProvisionCount());
 
     var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder.deinit();

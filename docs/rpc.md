@@ -157,16 +157,17 @@ that a complete RPC runtime exists.
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application or simpler state events; Provide
   top-level messages validate targets and record recipient pointer usage, and
-  callers can query the tracked recipient usage and initialize a tracked Provide
-  Return only when that recipient is present.
+  callers can query and count tracked recipient usage and initialize a tracked
+  Provide Return only when that recipient is present.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
-  for future provision handling; callers can query when an accepted provision is
-  ready for completion plus its provision pointer usage, and initialize the
-  accepted capability Return only after that readiness gate passes and a
-  provision capability is present. Join top-level messages record target and key-part
-  pointer usage; callers can query the tracked key-part usage and initialize a
-  tracked Join result Return only when that key part is present. Join result
+  for future provision handling; callers can query/count when an accepted
+  provision is ready for completion plus its provision pointer usage, and
+  initialize the accepted capability Return only after that readiness gate passes
+  and a provision capability is present. Join top-level messages record target
+  and key-part pointer usage; callers can query/count the tracked key-part usage
+  and initialize a tracked Join result Return only when that key part is present.
+  Join result
   returns can initialize and decode their result capability payloads. Finish clears recorded Provide/Accept/Join handoff
   bookkeeping for the finished question. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their

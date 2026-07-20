@@ -3321,6 +3321,17 @@ pub const State = struct {
         return tracker.provision;
     }
 
+    pub fn readyAcceptProvisionCount(self: *const State) usize {
+        var count: usize = 0;
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.provision != null and (accept.embargo == null or accept.embargo_released)) {
+                count += 1;
+            }
+        }
+        return count;
+    }
+
     pub fn initReadyAcceptReturnMessage(self: *const State, message: anytype, question_id: QuestionId, export_id: ExportId) !void {
         _ = self.readyAcceptProvision(question_id) orelse return error.InvalidTransition;
         try initCapabilityReturnMessage(message, question_id, export_id);
@@ -3334,6 +3345,15 @@ pub const State = struct {
     pub fn joinKeyPart(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.key_part;
+    }
+
+    pub fn joinKeyPartCount(self: *const State) usize {
+        var count: usize = 0;
+        var iterator = self.joins.valueIterator();
+        while (iterator.next()) |join| {
+            if (join.key_part != null) count += 1;
+        }
+        return count;
     }
 
     pub fn joinCount(self: *const State) usize {
@@ -3353,6 +3373,15 @@ pub const State = struct {
     pub fn provideRecipient(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const tracker = self.provides.get(id) orelse return null;
         return tracker.recipient;
+    }
+
+    pub fn provideRecipientCount(self: *const State) usize {
+        var count: usize = 0;
+        var iterator = self.provides.valueIterator();
+        while (iterator.next()) |provide| {
+            if (provide.recipient != null) count += 1;
+        }
+        return count;
     }
 
     pub fn provideCount(self: *const State) usize {
