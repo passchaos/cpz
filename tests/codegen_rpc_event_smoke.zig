@@ -7896,6 +7896,9 @@ test "rpc method table dispatcher selects matching handlers" {
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
         try std.testing.expectEqual(@as(?usize, 1), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
+        const preview_action = try state.wireCallServiceAction(try request.call(), entries);
+        try std.testing.expect(preview_action.isDispatch());
+        try std.testing.expectEqual(@as(usize, 1), preview_action.dispatch);
         var context: Context = .{};
         try cpz.rpc.dispatchCallMethods(&state, std.testing.allocator, response_root, try request.call(), &context, entries);
         try std.testing.expectEqual(@as(u32, 229), context.selected);
@@ -7928,6 +7931,8 @@ test "rpc method table dispatcher selects matching handlers" {
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
         try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
+        const preview_action = try state.wireCallServiceAction(try request.call(), entries);
+        try std.testing.expect(preview_action.isUnimplemented());
         var context: Context = .{};
         try cpz.rpc.dispatchCallMethods(&state, std.testing.allocator, response_root, try request.call(), &context, entries);
         try std.testing.expectEqual(@as(u32, 0), context.selected);
@@ -8002,6 +8007,9 @@ test "rpc call dispatch outcomes flag resolved targets for forwarding" {
     try std.testing.expect(dispatch_info.needsForward());
     const default_method = cpz.rpc.CallMethod{};
     const entries = .{default_method.methodEntry(Handler.handle)};
+    const preview_action = try state.wireCallServiceAction(try request.call(), entries);
+    try std.testing.expect(preview_action.isForward());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, preview_action.forward);
     const action = (try state.trackedCallServiceAction(140, entries)).?;
     try std.testing.expect(action.isForward());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, action.forward);

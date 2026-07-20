@@ -12308,6 +12308,13 @@ pub const State = struct {
         return .unimplemented;
     }
 
+    pub fn wireCallServiceAction(self: *const State, call: anytype, comptime entries: anytype) !TrackedCallServiceAction {
+        try self.validateWireCallTarget(call);
+        if (try self.wireCallTargetTransitiveForwardTarget(call)) |target| return .{ .forward = target };
+        if (try callMethodFromWireCall(call).entryIndex(entries)) |index| return .{ .dispatch = index };
+        return .unimplemented;
+    }
+
     pub fn callMatchesCallMethod(self: *const State, id: QuestionId, method: CallMethod) ?bool {
         const info = self.callInfo(id) orelse return null;
         return info.matchesMethod(method);
