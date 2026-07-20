@@ -1234,6 +1234,34 @@ pub fn initWireCallMessageDataInfo(message: anytype, question_id: QuestionId, ta
     try initWireCallParamsDataInfo(call, data, infos);
 }
 
+pub fn initWireCallMessageTextFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    text: []const u8,
+    registry: anytype,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsTextFromRegistry(allocator, call, text, registry);
+}
+
+pub fn initWireCallMessageDataFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    data: []const u8,
+    registry: anytype,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsDataFromRegistry(allocator, call, data, registry);
+}
+
 pub fn initWireBootstrap(bootstrap: anytype, question_id: QuestionId) !void {
     try bootstrap.set_questionId(question_id);
 }
@@ -1441,6 +1469,38 @@ pub fn initWireReturnMessageDataInfo(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     try initWireReturnResultsDataInfo(return_, data, infos);
+}
+
+pub fn initWireReturnMessageTextFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    text: []const u8,
+    registry: anytype,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsTextFromRegistry(allocator, return_, text, registry);
+}
+
+pub fn initWireReturnMessageDataFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    data: []const u8,
+    registry: anytype,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsDataFromRegistry(allocator, return_, data, registry);
 }
 
 pub fn joinResultCapabilityFromWireReturn(return_: anytype) !?u32 {
