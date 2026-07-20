@@ -1412,6 +1412,16 @@ pub fn dispatchCallMethod(
     try initDispatchReturnMessage(response_message, call.questionId(), result);
 }
 
+pub fn validateCallMethodEntries(comptime entries: anytype) Error!void {
+    inline for (entries, 0..) |entry, index| {
+        inline for (entries, 0..) |other, other_index| {
+            if (other_index > index and entry.method.matches(other.method.interface_id, other.method.method_id)) {
+                return error.InvalidTransition;
+            }
+        }
+    }
+}
+
 pub fn dispatchCallMethods(
     state: *State,
     allocator: std.mem.Allocator,
@@ -1420,6 +1430,7 @@ pub fn dispatchCallMethods(
     context: anytype,
     comptime entries: anytype,
 ) !void {
+    try validateCallMethodEntries(entries);
     const method = callMethodFromWireCall(call);
     inline for (entries) |entry| {
         if (method.matches(entry.method.interface_id, entry.method.method_id)) {

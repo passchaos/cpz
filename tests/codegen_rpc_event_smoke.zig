@@ -2171,6 +2171,11 @@ test "rpc method table dispatcher selects matching handlers" {
         .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 }, .handler = Handlers.first },
         .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 2 }, .handler = Handlers.second },
     };
+    const duplicate_entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 }, .handler = Handlers.first },
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0xabc, .method_id = 1 }, .handler = Handlers.second },
+    };
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.validateCallMethodEntries(duplicate_entries));
 
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
