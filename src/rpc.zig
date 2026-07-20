@@ -632,6 +632,10 @@ pub const TrackedCallDispatchInfo = struct {
         return self.transitive_forward_target != null;
     }
 
+    pub fn dispatchOutcome(self: @This()) WireDispatchOutcome {
+        return if (self.needsForward()) .forward_required else .response_initialized;
+    }
+
     pub fn methodEntryIndex(self: @This(), comptime entries: anytype) Error!?usize {
         return self.info.callMethod().entryIndex(entries);
     }
@@ -5807,12 +5811,8 @@ pub fn planWireMessageDispatch(state: *const State, request_message: anytype) !W
     switch (try eventFromWireMessage(request_message)) {
         .bootstrap => return .response_initialized,
         .call => {
-            const call = try request_message.call();
-            try state.validateWireCallTarget(call);
-            return if ((try state.wireCallTargetTransitiveForwardTarget(call)) != null)
-                .forward_required
-            else
-                .response_initialized;
+            const dispatch_info = try state.wireCallDispatchInfo(try request_message.call());
+            return dispatch_info.dispatchOutcome();
         },
         else => return .state_applied,
     }

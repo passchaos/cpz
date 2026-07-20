@@ -255,8 +255,8 @@ that a complete RPC runtime exists.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
   tracked/effective target querying, dispatch-info snapshots that can directly
-  compute method-entry indexes and service actions, service-action previews,
-  `CallOptions` restoration, and direct `CallMethod`/send-results/
+  compute method-entry indexes, service actions, and dispatch outcomes,
+  service-action previews, `CallOptions` restoration, and direct `CallMethod`/send-results/
   third-party result-target/flag querying for future service dispatch, plus
   params capability-table bookkeeping. The same dispatch-info snapshot can be
   built from an unapplied wire Call or top-level Call message for pre-apply

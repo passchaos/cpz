@@ -2996,6 +2996,7 @@ test "rpc wire calls apply target and params state together" {
     try std.testing.expect(dispatch_info.forward_target == null);
     try std.testing.expect(dispatch_info.transitive_forward_target == null);
     try std.testing.expect(!dispatch_info.needsForward());
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, dispatch_info.dispatchOutcome());
     const Noop = struct {
         fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
             return .empty;
@@ -10153,6 +10154,7 @@ test "rpc call dispatch outcomes flag resolved targets for forwarding" {
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, dispatch_info.transitive_forward_target.?);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 141 }, dispatch_info.transitive_effective_target);
     try std.testing.expect(dispatch_info.needsForward());
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.forward_required, dispatch_info.dispatchOutcome());
     const default_method = cpz.rpc.CallMethod{};
     const entries = .{default_method.methodEntry(Handler.handle)};
     const wire_dispatch_info = try state.wireCallDispatchInfo(try request.call());
