@@ -4144,6 +4144,53 @@ pub const State = struct {
         return .{ .items = try items.toOwnedSlice(allocator) };
     }
 
+    pub fn initPendingAcceptDisembargoMessages(self: *const State, message_builders: anytype, target: CallTarget) !usize {
+        const needed = self.pendingAcceptEmbargoCount();
+        if (message_builders.len < needed) return error.InvalidTransition;
+        try self.validateCallTarget(target);
+        var index: usize = 0;
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.embargo) |embargo| {
+                if (!accept.embargo_released) {
+                    try initWireDisembargoMessage(message_builders[index], .{
+                        .target = target,
+                        .context = .{ .accept = embargo },
+                    });
+                    index += 1;
+                }
+            }
+        }
+        return index;
+    }
+
+    pub fn initPendingAcceptDisembargoMessagesToSink(
+        self: *const State,
+        message_builders: anytype,
+        target: CallTarget,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !usize {
+        const needed = self.pendingAcceptEmbargoCount();
+        if (message_builders.len < needed) return error.InvalidTransition;
+        try self.validateCallTarget(target);
+        var index: usize = 0;
+        var iterator = self.accepts.valueIterator();
+        while (iterator.next()) |accept| {
+            if (accept.embargo) |embargo| {
+                if (!accept.embargo_released) {
+                    try initWireDisembargoMessage(message_builders[index], .{
+                        .target = target,
+                        .context = .{ .accept = embargo },
+                    });
+                    try sink_handler(sink_context, message_builders[index]);
+                    index += 1;
+                }
+            }
+        }
+        return index;
+    }
+
     pub fn readyAcceptProvision(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const tracker = self.accepts.get(id) orelse return null;
         if (tracker.embargo != null and !tracker.embargo_released) return null;

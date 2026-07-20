@@ -5221,6 +5221,27 @@ test "rpc top-level accept messages open questions" {
         try std.testing.expectError(error.InvalidTransition, state.initReadyAcceptReturnMessage(premature_root, 64, 90));
     }
 
+    {
+        var pending_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer pending_builder.deinit();
+        const pending_root = try generated.Message.initRootTyped(&pending_builder);
+        const messages = [_]generated.Message.Builder{pending_root};
+        try std.testing.expectError(error.InvalidTransition, state.initPendingAcceptDisembargoMessages(messages[0..], .{ .imported_cap = 5 }));
+    }
+    try state.addImport(5);
+    {
+        var pending_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer pending_builder.deinit();
+        const pending_root = try generated.Message.initRootTyped(&pending_builder);
+        const messages = [_]generated.Message.Builder{pending_root};
+        try std.testing.expectEqual(@as(usize, 1), try state.initPendingAcceptDisembargoMessages(messages[0..], .{ .imported_cap = 5 }));
+
+        var pending_reader = cpz.MessageReader.init(try pending_builder.segmentsConst(), .{});
+        const pending_info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try pending_reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, pending_info.target);
+        try std.testing.expectEqualStrings("embargo-64", pending_info.context.accept);
+    }
+
     var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer disembargo_builder.deinit();
     const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
@@ -5231,8 +5252,6 @@ test "rpc top-level accept messages open questions" {
 
     var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
     const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
-    try std.testing.expectError(error.InvalidTransition, state.applyWireDisembargo(try disembargo_message.disembargo()));
-    try state.addImport(5);
     const released = try state.applyWireDisembargo(try disembargo_message.disembargo());
     try std.testing.expectEqual(@as(usize, 1), released.released_accepts);
     try std.testing.expect(released.releasedAnyAccept());
