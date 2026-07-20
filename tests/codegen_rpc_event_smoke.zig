@@ -1533,6 +1533,25 @@ test "rpc top-level call helpers initialize text payload descriptor info" {
     try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 88 }, .attached_fd = 13 }, infos[0]);
 }
 
+test "rpc top-level call helpers initialize data payload descriptor info" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireCallMessageDataInfo(root, 83, .{ .imported_cap = 5 }, "call info bytes", &.{.{
+        .descriptor = .{ .sender_hosted = 89 },
+        .attached_fd = 14,
+    }});
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const call = try generated.Message.fromReader(try reader.getRoot()).call();
+    const params = try call.params();
+    try std.testing.expectEqualSlices(u8, "call info bytes", try (try params.content()).getData());
+    const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, params);
+    defer std.testing.allocator.free(infos);
+    try std.testing.expectEqual(@as(usize, 1), infos.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 89 }, .attached_fd = 14 }, infos[0]);
+}
+
 test "rpc top-level call helpers initialize text payload descriptors" {
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
     defer builder.deinit();
@@ -2097,6 +2116,25 @@ test "rpc top-level return helpers initialize data payload descriptor info" {
     defer std.testing.allocator.free(infos);
     try std.testing.expectEqual(@as(usize, 1), infos.len);
     try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 89 }, .attached_fd = 14 }, infos[0]);
+}
+
+test "rpc top-level return helpers initialize text payload descriptor info" {
+    var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer builder.deinit();
+    const root = try generated.Message.initRootTyped(&builder);
+    try cpz.rpc.initWireReturnMessageTextInfo(root, 89, true, false, "return info text", &.{.{
+        .descriptor = .{ .sender_promise = 90 },
+        .attached_fd = 15,
+    }});
+
+    var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+    const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
+    const results = try return_.results();
+    try std.testing.expectEqualStrings("return info text", try (try results.content()).getText());
+    const infos = try cpz.rpc.capTableInfoFromWirePayload(std.testing.allocator, results);
+    defer std.testing.allocator.free(infos);
+    try std.testing.expectEqual(@as(usize, 1), infos.len);
+    try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 90 }, .attached_fd = 15 }, infos[0]);
 }
 
 test "rpc top-level return helpers initialize data payload descriptors" {
