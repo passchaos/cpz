@@ -2260,6 +2260,8 @@ fn sendForwardedMessageIfNeeded(outcome: WireDispatchOutcome, forward_context: a
     }
 }
 
+fn ignoreInitializedMessage(_: void, _: anytype) !void {}
+
 pub fn dispatchWireMessageForwardingToSinkOutcome(
     state: *State,
     allocator: std.mem.Allocator,
@@ -4316,6 +4318,31 @@ pub const State = struct {
         join_context: anytype,
         join_handler: anytype,
     ) !StateHandoffReturnStats {
+        return self.initReadyHandoffReturnMessagesFromHandlersToSink(
+            response_messages,
+            provide_context,
+            provide_handler,
+            accept_context,
+            accept_handler,
+            join_context,
+            join_handler,
+            {},
+            ignoreInitializedMessage,
+        );
+    }
+
+    pub fn initReadyHandoffReturnMessagesFromHandlersToSink(
+        self: *const State,
+        response_messages: anytype,
+        provide_context: anytype,
+        provide_handler: anytype,
+        accept_context: anytype,
+        accept_handler: anytype,
+        join_context: anytype,
+        join_handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !StateHandoffReturnStats {
         const needed = self.provideRecipientCount() + self.readyAcceptProvisionCount() + self.joinKeyPartCount();
         if (response_messages.len < needed) return error.InvalidTransition;
         var stats: StateHandoffReturnStats = .{};
@@ -4325,6 +4352,7 @@ pub const State = struct {
             if (entry.value_ptr.recipient) |recipient| {
                 const export_id = try provide_handler(provide_context, entry.key_ptr.*, recipient);
                 try self.initTrackedProvideReturnMessage(response_messages[index], entry.key_ptr.*, export_id);
+                try sink_handler(sink_context, response_messages[index]);
                 stats.provides += 1;
                 index += 1;
             }
@@ -4335,6 +4363,7 @@ pub const State = struct {
             if (accept.provision != null and (accept.embargo == null or accept.embargo_released)) {
                 const export_id = try accept_handler(accept_context, entry.key_ptr.*, accept.provision.?);
                 try self.initReadyAcceptReturnMessage(response_messages[index], entry.key_ptr.*, export_id);
+                try sink_handler(sink_context, response_messages[index]);
                 stats.accepts += 1;
                 index += 1;
             }
@@ -4344,6 +4373,7 @@ pub const State = struct {
             if (entry.value_ptr.key_part) |key_part| {
                 const export_id = try join_handler(join_context, entry.key_ptr.*, key_part);
                 try self.initTrackedJoinResultReturnMessage(response_messages[index], entry.key_ptr.*, export_id);
+                try sink_handler(sink_context, response_messages[index]);
                 stats.joins += 1;
                 index += 1;
             }

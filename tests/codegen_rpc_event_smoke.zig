@@ -5504,6 +5504,16 @@ test "rpc ready handoff handlers initialize return messages" {
             return question_id + 600;
         }
     };
+    const Sink = struct {
+        sent: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            const return_ = try message.get_return_();
+            context.sent += 1;
+            context.answer_sum += try return_.get_answerId();
+        }
+    };
 
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
@@ -5626,6 +5636,38 @@ test "rpc ready handoff handlers initialize return messages" {
     }
     try std.testing.expectEqual(@as(u32, 103 + 104 + 105), answer_sum);
     try std.testing.expectEqual(@as(u32, 703 + 704 + 705), export_sum);
+
+    var sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_builder0.deinit();
+    const sink_response0 = try generated.Message.initRootTyped(&sink_builder0);
+    var sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_builder1.deinit();
+    const sink_response1 = try generated.Message.initRootTyped(&sink_builder1);
+    var sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer sink_builder2.deinit();
+    const sink_response2 = try generated.Message.initRootTyped(&sink_builder2);
+    const sink_responses = [_]generated.Message.Builder{ sink_response0, sink_response1, sink_response2 };
+    var sink_provide_context: Context = .{};
+    var sink_accept_context: Context = .{};
+    var sink_join_context: Context = .{};
+    var sink: Sink = .{};
+    const sink_stats = try state.initReadyHandoffReturnMessagesFromHandlersToSink(
+        sink_responses[0..],
+        &sink_provide_context,
+        Context.handle,
+        &sink_accept_context,
+        Context.handle,
+        &sink_join_context,
+        Context.handle,
+        &sink,
+        Sink.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, sink_stats);
+    try std.testing.expectEqual(@as(usize, 3), sink.sent);
+    try std.testing.expectEqual(@as(u32, 103 + 104 + 105), sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), sink_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), sink_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), sink_join_context.seen);
 
     var short_context: Context = .{};
     try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnMessagesFromHandlers(
