@@ -10693,8 +10693,11 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
         if (decl.id) |_| {
             try appendFmt(allocator, out,
                 \\    pub const @"cpz.method.{s}.callMethod": cpz.rpc.CallMethod = .{{ .interface_id = @This().@"cpz.type_id", .method_id = {} }};
+                \\    pub fn @"cpz.method.{s}.entry"(handler: anytype) struct {{ method: cpz.rpc.CallMethod, handler: @TypeOf(handler) }} {{
+                \\        return .{{ .method = @This().@"cpz.method.{s}.callMethod", .handler = handler }};
+                \\    }}
                 \\
-            , .{ method_name, method.ordinal });
+            , .{ method_name, method.ordinal, method_name, method_name });
         }
         const signature_literal = try zigSchemaSyntaxLiteralAlloc(allocator, method.signature);
         defer allocator.free(signature_literal);
