@@ -130,9 +130,10 @@ that a complete RPC runtime exists.
   descriptor-info metadata, or combine them with payload content capability
   indexes, primitive UInt32 lists, or caller-filled struct payloads at either
   the Call/Return member level or through top-level Message builders. Generated Call builders can
-  initialize question ID, target, and registry-backed params cap tables together;
-  Return builders can initialize answer ID, flags, and registry-backed results
-  cap tables together, either at the Call/Return member level or through
+  initialize question ID, target, registry-backed params cap tables, and
+  caller-filled struct payloads together; Return builders can initialize answer
+  ID, flags, registry-backed results cap tables, and caller-filled struct
+  payloads together, either at the Call/Return member level or through
   top-level Message builders. Top-level Bootstrap,
   Finish/Release builders can initialize their question IDs, flags, and
   reference counts, and a helper can build a Return containing a single

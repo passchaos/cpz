@@ -1482,6 +1482,22 @@ pub fn initWireCallMessageStructInfoWith(
     try initWireCallParamsStructInfoWith(call, struct_size, infos, context, fill);
 }
 
+pub fn initWireCallMessageStructFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    question_id: QuestionId,
+    target: CallTarget,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+) !void {
+    const call = try message.init_call();
+    try call.set_questionId(question_id);
+    try writeCallTargetToWire(target, try call.init_target());
+    try initWireCallParamsStructFromRegistry(allocator, call, struct_size, registry, context, fill);
+}
+
 pub fn initWireCallMessageText(message: anytype, question_id: QuestionId, target: CallTarget, text: []const u8, descriptors: []const CapDescriptor) !void {
     const call = try message.init_call();
     try call.set_questionId(question_id);
@@ -1713,6 +1729,24 @@ pub fn initWireReturnMessageStructInfoWith(
     try return_.set_releaseParamCaps(release_param_caps);
     try return_.set_noFinishNeeded(no_finish_needed);
     try initWireReturnResultsStructInfoWith(return_, struct_size, infos, context, fill);
+}
+
+pub fn initWireReturnMessageStructFromRegistry(
+    allocator: std.mem.Allocator,
+    message: anytype,
+    answer_id: AnswerId,
+    release_param_caps: bool,
+    no_finish_needed: bool,
+    struct_size: anytype,
+    registry: anytype,
+    context: anytype,
+    fill: anytype,
+) !void {
+    const return_ = try message.init_return_();
+    try return_.set_answerId(answer_id);
+    try return_.set_releaseParamCaps(release_param_caps);
+    try return_.set_noFinishNeeded(no_finish_needed);
+    try initWireReturnResultsStructFromRegistry(allocator, return_, struct_size, registry, context, fill);
 }
 
 pub fn initWireReturnMessageText(
