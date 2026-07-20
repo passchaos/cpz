@@ -4287,9 +4287,12 @@ test "rpc top-level accept messages open questions" {
 
     var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
     const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
-    try std.testing.expectError(error.InvalidTransition, state.applyWireMessage(std.testing.allocator, disembargo_message));
+    try std.testing.expectError(error.InvalidTransition, state.applyWireDisembargo(try disembargo_message.disembargo()));
     try state.addImport(5);
-    try state.applyWireMessage(std.testing.allocator, disembargo_message);
+    const released = try state.applyWireDisembargo(try disembargo_message.disembargo());
+    try std.testing.expectEqual(@as(usize, 1), released.released_accepts);
+    try std.testing.expect(released.releasedAnyAccept());
+    try std.testing.expectEqual(@as(usize, 0), (try state.applyWireDisembargo(try disembargo_message.disembargo())).released_accepts);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, true), state.acceptReady(64));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.readyAcceptProvision(64).?);

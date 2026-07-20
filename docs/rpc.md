@@ -71,9 +71,10 @@ that a complete RPC runtime exists.
   writers reject capability indexes outside the encoded pointer's declared
   capability count.
   Disembargo wire readers/builders and wire events can decode and write targets
-  plus sender/receiver loopback context IDs and accept embargo bytes, though
-  full embargo queue handling remains future work. Disembargo targets are
-  validated against tracked imports/answers before that queue exists.
+  plus sender/receiver loopback context IDs and accept embargo bytes, and
+  applying accept disembargos reports how many tracked Accept embargos were
+  released, though full embargo queue handling remains future work. Disembargo
+  targets are validated against tracked imports/answers before that queue exists.
   ThirdPartyAnswer wire readers/builders expose completion pointer capability
   usage and resolve existing answers by official `AnswerId` while remaining
   distinct from ordinary Return events.

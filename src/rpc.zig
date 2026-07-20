@@ -242,6 +242,14 @@ pub const DisembargoInfo = struct {
     context: DisembargoContext,
 };
 
+pub const DisembargoApplyInfo = struct {
+    released_accepts: usize = 0,
+
+    pub fn releasedAnyAccept(self: @This()) bool {
+        return self.released_accepts != 0;
+    }
+};
+
 pub const ResolveInfo = struct {
     promise_id: ExportId,
     cap: ?CapDescriptor = null,
@@ -2888,23 +2896,27 @@ pub const State = struct {
         try self.calls.put(info.question_id, info);
     }
 
-    fn markAcceptedEmbargoReleased(self: *State, embargo: []const u8) void {
+    fn markAcceptedEmbargoReleased(self: *State, embargo: []const u8) usize {
+        var released: usize = 0;
         var iterator = self.accepts.valueIterator();
         while (iterator.next()) |accept| {
             if (accept.embargo) |tracked| {
-                if (std.mem.eql(u8, tracked, embargo)) {
+                if (!accept.embargo_released and std.mem.eql(u8, tracked, embargo)) {
                     accept.embargo_released = true;
+                    released += 1;
                 }
             }
         }
+        return released;
     }
 
-    fn applyDisembargoInfo(self: *State, info: DisembargoInfo) Error!void {
+    fn applyDisembargoInfo(self: *State, info: DisembargoInfo) Error!DisembargoApplyInfo {
         try self.validateCallTarget(info.target);
-        switch (info.context) {
+        const released_accepts = switch (info.context) {
             .accept => |embargo| self.markAcceptedEmbargoReleased(embargo),
-            else => {},
-        }
+            else => 0,
+        };
+        return .{ .released_accepts = released_accepts };
     }
 
     pub fn applyWireCallPayload(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
@@ -3011,8 +3023,12 @@ pub const State = struct {
         try self.validateCallTarget(info.target);
     }
 
-    pub fn applyWireDisembargo(self: *State, disembargo: anytype) !void {
-        try self.applyDisembargoInfo(try disembargoInfoFromWireDisembargo(disembargo));
+    pub fn applyDisembargo(self: *State, info: DisembargoInfo) Error!DisembargoApplyInfo {
+        return self.applyDisembargoInfo(info);
+    }
+
+    pub fn applyWireDisembargo(self: *State, disembargo: anytype) !DisembargoApplyInfo {
+        return self.applyDisembargoInfo(try disembargoInfoFromWireDisembargo(disembargo));
     }
 
     pub fn applyWireCall(self: *State, allocator: std.mem.Allocator, call: anytype) !void {
@@ -3111,7 +3127,9 @@ pub const State = struct {
             .call => self.applyWireCall(allocator, try message.call()),
             .return_ => self.applyWireReturn(allocator, try message.return_()),
             .resolve => self.applyWireResolve(try message.resolve()),
-            .disembargo => self.applyWireDisembargo(try message.disembargo()),
+            .disembargo => {
+                _ = try self.applyWireDisembargo(try message.disembargo());
+            },
             .provide => self.applyWireProvide(try message.provide()),
             .accept => self.applyWireAccept(try message.accept()),
             .join => self.applyWireJoin(try message.join()),
@@ -3377,7 +3395,10 @@ pub const State = struct {
         if (event == .resolve) return self.resolveExport(event.resolve);
         if (event == .release) return self.releaseImportCount(event.release);
         if (event == .finish) return self.applyWireFinish(event.finish);
-        if (event == .disembargo) return self.applyDisembargoInfo(event.disembargo);
+        if (event == .disembargo) {
+            _ = try self.applyDisembargoInfo(event.disembargo);
+            return;
+        }
         if (event == .provide) return self.openQuestion(event.provide, .call);
         if (event == .accept) return self.openQuestion(event.accept, .call);
         if (event == .third_party_answer) return self.resolveAnswer(event.third_party_answer, .return_);
