@@ -8334,6 +8334,40 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 71 + 72), unified_sink.answer_sum);
     try std.testing.expectEqual(@as(u32, 73), unified_sink.question_sum);
 
+    var wrapper_state = cpz.rpc.State.init(std.testing.allocator);
+    defer wrapper_state.deinit();
+    try wrapper_state.addImport(5);
+    try wrapper_state.applyCapDescriptor(.{ .sender_promise = 8 });
+    try wrapper_state.resolveImportTo(8, .{ .sender_hosted = 9 });
+    try wrapper_state.applyCapDescriptor(.{ .sender_hosted = 9 });
+    var wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer wrapper_builder0.deinit();
+    const wrapper_output0 = try generated.Message.initRootTyped(&wrapper_builder0);
+    var wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer wrapper_builder1.deinit();
+    const wrapper_output1 = try generated.Message.initRootTyped(&wrapper_builder1);
+    var wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer wrapper_builder2.deinit();
+    const wrapper_output2 = try generated.Message.initRootTyped(&wrapper_builder2);
+    const wrapper_outputs = [_]generated.Message.Builder{ wrapper_output0, wrapper_output1, wrapper_output2 };
+    var wrapper_context: Context = .{};
+    var short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, wrapper_state.dispatchWireCallServiceActionsUnified(std.testing.allocator, calls[0..], entries, short_plan_buffer[0..], wrapper_outputs[0..], &wrapper_context));
+    try std.testing.expectEqual(
+        wire_stats,
+        try wrapper_state.dispatchWireCallServiceActionsUnified(std.testing.allocator, calls[0..], entries, wrapper_plan_buffer[0..], wrapper_outputs[0..], &wrapper_context),
+    );
+    try std.testing.expectEqual(@as(u32, 71), wrapper_context.selected);
+    var wrapper_reader0 = cpz.MessageReader.init(try wrapper_builder0.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 71), (try generated.Message.fromReader(try wrapper_reader0.getRoot()).return_()).answerId());
+    var wrapper_reader1 = cpz.MessageReader.init(try wrapper_builder1.segmentsConst(), .{});
+    try std.testing.expectEqual(@as(u32, 72), (try generated.Message.fromReader(try wrapper_reader1.getRoot()).return_()).answerId());
+    var wrapper_reader2 = cpz.MessageReader.init(try wrapper_builder2.segmentsConst(), .{});
+    const wrapper_forward = try generated.Message.fromReader(try wrapper_reader2.getRoot()).call();
+    try std.testing.expectEqual(@as(u32, 73), wrapper_forward.questionId());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(wrapper_forward));
+
     var short_actions: [2]cpz.rpc.TrackedCallServiceAction = undefined;
     try std.testing.expectError(error.InvalidTransition, state.initWireCallServiceActions(calls[0..], entries, short_actions[0..]));
     var short_plans: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;

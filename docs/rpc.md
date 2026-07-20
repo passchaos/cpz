@@ -164,8 +164,8 @@ that a complete RPC runtime exists.
   actions, aggregate action stats/ranges plus split/output capacity checks,
   grouped action queues, or source-preserving plans that can materialize or enqueue split/combined/
   unified dispatch responses, forwarded Calls, and unimplemented Return exceptions for
-  pre-apply wire calls and tracked calls, including single-sink unified enqueue,
-  select among multiple handlers, and
+  pre-apply wire calls and tracked calls, including one-call plan+unified-output
+  dispatch and single-sink unified enqueue, select among multiple handlers, and
   can be used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
   those callbacks, report whether a response was initialized, a resolved call
