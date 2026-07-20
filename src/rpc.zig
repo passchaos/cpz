@@ -1087,6 +1087,18 @@ pub fn initWirePayloadDataInfo(payload: anytype, data: []const u8, infos: []cons
     try initWirePayloadCapTableInfo(payload, infos);
 }
 
+pub fn initWirePayloadTextFromRegistry(allocator: std.mem.Allocator, payload: anytype, text: []const u8, registry: anytype) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWirePayloadText(payload, text, descriptors);
+}
+
+pub fn initWirePayloadDataFromRegistry(allocator: std.mem.Allocator, payload: anytype, data: []const u8, registry: anytype) !void {
+    const descriptors = try senderHostedDescriptorsFromRegistryAlloc(allocator, registry);
+    defer allocator.free(descriptors);
+    try initWirePayloadData(payload, data, descriptors);
+}
+
 pub fn senderHostedDescriptorsFromRegistryAlloc(allocator: std.mem.Allocator, registry: anytype) ![]CapDescriptor {
     const descriptors = try allocator.alloc(CapDescriptor, registry.len());
     errdefer allocator.free(descriptors);
@@ -1810,6 +1822,14 @@ pub fn initWireCallParamsDataInfo(call: anytype, data: []const u8, infos: []cons
     try initWirePayloadDataInfo(try call.init_params(), data, infos);
 }
 
+pub fn initWireCallParamsTextFromRegistry(allocator: std.mem.Allocator, call: anytype, text: []const u8, registry: anytype) !void {
+    try initWirePayloadTextFromRegistry(allocator, try call.init_params(), text, registry);
+}
+
+pub fn initWireCallParamsDataFromRegistry(allocator: std.mem.Allocator, call: anytype, data: []const u8, registry: anytype) !void {
+    try initWirePayloadDataFromRegistry(allocator, try call.init_params(), data, registry);
+}
+
 pub fn initWireReturnResultsCapTable(return_: anytype, descriptors: []const CapDescriptor) !void {
     try initWirePayloadCapTable(try return_.init_results(), descriptors);
 }
@@ -1871,6 +1891,14 @@ pub fn initWireReturnResultsTextInfo(return_: anytype, text: []const u8, infos: 
 
 pub fn initWireReturnResultsDataInfo(return_: anytype, data: []const u8, infos: []const CapDescriptorInfo) !void {
     try initWirePayloadDataInfo(try return_.init_results(), data, infos);
+}
+
+pub fn initWireReturnResultsTextFromRegistry(allocator: std.mem.Allocator, return_: anytype, text: []const u8, registry: anytype) !void {
+    try initWirePayloadTextFromRegistry(allocator, try return_.init_results(), text, registry);
+}
+
+pub fn initWireReturnResultsDataFromRegistry(allocator: std.mem.Allocator, return_: anytype, data: []const u8, registry: anytype) !void {
+    try initWirePayloadDataFromRegistry(allocator, try return_.init_results(), data, registry);
 }
 
 pub fn capTableFromWirePayload(allocator: std.mem.Allocator, payload: anytype) ![]CapDescriptor {

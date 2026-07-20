@@ -96,9 +96,9 @@ that a complete RPC runtime exists.
   descriptor-info slices, with absent tables treated as empty; helpers can
   initialize payload content capability indexes, text/data blobs, or
   caller-filled struct content together with descriptor tables, including
-  registry-backed sender-hosted descriptor tables for struct payloads. Payload
-  content capability indexes can be decoded and validated against the decoded
-  cap table length.
+  registry-backed sender-hosted descriptor tables for struct/text/data payloads.
+  Payload content capability indexes can be decoded and validated against the
+  decoded cap table length.
   Decoded descriptor tables can be applied to `State` for basic import
   creation/reference counting and receiver-hosted export/answer validation.
   `Call.params.capTable` can be decoded through the same descriptor pipeline, as
