@@ -96,7 +96,7 @@ that a complete RPC runtime exists.
   callback or appended to caller-owned queues,
   pending Accept embargos can be queried, filtered by embargo token,
   snapshotted globally or by token with non-empty, question, question-token,
-  token matching, and capacity-check helpers, or
+  token matching, capacity-check, and Disembargo materialization helpers, or
   selectively emitted to a sink or appended to caller-owned queues, and their
   targets are validated against tracked imports/answers before a full queue
   exists. Disembargo

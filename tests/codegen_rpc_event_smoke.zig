@@ -18752,6 +18752,28 @@ test "rpc top-level accept messages open questions" {
         try pending.validateMatchCapacity("missing", 0);
         try std.testing.expectError(error.InvalidTransition, pending.validateCapacity(0));
         try std.testing.expectError(error.InvalidTransition, pending.validateMatchCapacity("embargo-64", 0));
+        {
+            var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer disembargo_builder.deinit();
+            const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+            const messages = [_]generated.Message.Builder{disembargo_root};
+            try std.testing.expectEqual(@as(usize, 1), try pending.initDisembargoMessages(messages[0..], .{ .imported_cap = 5 }));
+            var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+            const disembargo_info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try disembargo_reader.getRoot()).disembargo());
+            try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, disembargo_info.target);
+            try std.testing.expectEqualStrings("embargo-64", disembargo_info.context.accept);
+        }
+        {
+            var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer disembargo_builder.deinit();
+            const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+            const messages = [_]generated.Message.Builder{disembargo_root};
+            var queue = std.ArrayList(generated.Message.Builder).empty;
+            defer queue.deinit(std.testing.allocator);
+            try std.testing.expectEqual(@as(usize, 1), try pending.initDisembargoMessagesToQueue(std.testing.allocator, messages[0..], .{ .imported_cap = 5 }, &queue));
+            try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+            try expectQueuedDisembargoBuilder(queue.items[0], .{ .imported_cap = 5 }, "embargo-64");
+        }
         try std.testing.expectEqual(@as(u32, 64), pending.items[0].question_id);
         try std.testing.expectEqualStrings("embargo-64", pending.items[0].embargo);
         try std.testing.expect(pending.items[0].matchesEmbargo("embargo-64"));

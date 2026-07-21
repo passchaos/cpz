@@ -1955,6 +1955,27 @@ pub const PendingAcceptEmbargos = struct {
     pub fn validateMatchCapacity(self: @This(), embargo: []const u8, capacity: usize) Error!void {
         if (capacity < self.matchCount(embargo)) return error.InvalidTransition;
     }
+
+    pub fn initDisembargoMessages(self: @This(), message_builders: anytype, target: CallTarget) !usize {
+        try self.validateCapacity(message_builders.len);
+        var index: usize = 0;
+        for (self.items) |item| {
+            try initWireDisembargoMessage(message_builders[index], .{
+                .target = target,
+                .context = .{ .accept = item.embargo },
+            });
+            index += 1;
+        }
+        return index;
+    }
+
+    pub fn initDisembargoMessagesToQueue(self: @This(), allocator: std.mem.Allocator, message_builders: anytype, target: CallTarget, queue: anytype) !usize {
+        const initialized = try self.initDisembargoMessages(message_builders, target);
+        for (message_builders[0..initialized]) |message| {
+            try queue.append(allocator, message);
+        }
+        return initialized;
+    }
 };
 
 pub const WireMessageApplyResult = union(enum) {
