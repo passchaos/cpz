@@ -780,6 +780,18 @@ pub const RpcTurnPlan = struct {
         return .{ .start = start, .end = start + self.disembargoMessages() };
     }
 
+    pub fn responseLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.responseMessageRange().localIndex(output_index);
+    }
+
+    pub fn forwardLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.forwardedMessageRange().localIndex(output_index);
+    }
+
+    pub fn disembargoLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.disembargoMessageRange().localIndex(output_index);
+    }
+
     pub fn validateOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
         if (response_capacity < self.responseMessages()) return error.InvalidTransition;
         if (forward_capacity < self.forwardedMessages()) return error.InvalidTransition;
@@ -834,14 +846,9 @@ pub const RpcTurnOutputPosition = struct {
 };
 
 pub fn rpcTurnUnifiedOutputPosition(turn_plan: RpcTurnPlan, output_index: usize) ?RpcTurnOutputPosition {
-    const response_end = turn_plan.responseMessages();
-    if (output_index < response_end) return .{ .role = .response, .local_index = output_index };
-
-    const forward_end = response_end + turn_plan.forwardedMessages();
-    if (output_index < forward_end) return .{ .role = .forward, .local_index = output_index - response_end };
-
-    const total_end = forward_end + turn_plan.disembargoMessages();
-    if (output_index < total_end) return .{ .role = .disembargo, .local_index = output_index - forward_end };
+    if (turn_plan.responseLocalIndex(output_index)) |local_index| return .{ .role = .response, .local_index = local_index };
+    if (turn_plan.forwardLocalIndex(output_index)) |local_index| return .{ .role = .forward, .local_index = local_index };
+    if (turn_plan.disembargoLocalIndex(output_index)) |local_index| return .{ .role = .disembargo, .local_index = local_index };
 
     return null;
 }
