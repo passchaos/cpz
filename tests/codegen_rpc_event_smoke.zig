@@ -20665,6 +20665,50 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectEqual(@as(usize, 1), join_role_sink.sent);
     try std.testing.expectEqual(@as(u32, 92), join_role_sink.answer_sum);
 
+    var role_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_queue_builder0.deinit();
+    const role_queue_response0 = try generated.Message.initRootTyped(&role_queue_builder0);
+    var role_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_queue_builder1.deinit();
+    const role_queue_response1 = try generated.Message.initRootTyped(&role_queue_builder1);
+    var role_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_queue_builder2.deinit();
+    const role_queue_response2 = try generated.Message.initRootTyped(&role_queue_builder2);
+    var role_queue_builder3 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_queue_builder3.deinit();
+    const role_queue_response3 = try generated.Message.initRootTyped(&role_queue_builder3);
+    const role_queue_responses = [_]generated.Message.Builder{ role_queue_response0, role_queue_response1, role_queue_response2, role_queue_response3 };
+    var provide_role_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer provide_role_queue.deinit(std.testing.allocator);
+    var accept_role_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer accept_role_queue.deinit(std.testing.allocator);
+    var join_role_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer join_role_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessagesToQueues(
+        std.testing.allocator,
+        role_queue_responses[0..3],
+        mixed_completions[0..],
+        &provide_role_queue,
+        &accept_role_queue,
+        &join_role_queue,
+    ));
+    const role_queue_stats = try state.initTrackedHandoffReturnMessagesToQueues(
+        std.testing.allocator,
+        role_queue_responses[0..],
+        mixed_completions[0..],
+        &provide_role_queue,
+        &accept_role_queue,
+        &join_role_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 2, .accepts = 1, .joins = 1 }, role_queue_stats);
+    try std.testing.expectEqual(@as(usize, 2), provide_role_queue.items.len);
+    try expectQueuedReturnAnswer(provide_role_queue.items[0], 90);
+    try expectQueuedReturnAnswer(provide_role_queue.items[1], 90);
+    try std.testing.expectEqual(@as(usize, 1), accept_role_queue.items.len);
+    try expectQueuedReturnAnswer(accept_role_queue.items[0], 91);
+    try std.testing.expectEqual(@as(usize, 1), join_role_queue.items.len);
+    try expectQueuedReturnAnswer(join_role_queue.items[0], 92);
+
     try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessages(responses[0..2], completions[0..]));
     const invalid_completions = [_]cpz.rpc.HandoffReturn{.{ .join = .{ .question_id = 999, .export_id = 999 } }};
     try std.testing.expectError(error.InvalidTransition, state.validateTrackedHandoffReturn(invalid_completions[0]));

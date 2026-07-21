@@ -19119,6 +19119,30 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initTrackedHandoffReturnMessagesToQueues(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        response_messages: anytype,
+        completions: []const HandoffReturn,
+        provide_queue: anytype,
+        accept_queue: anytype,
+        join_queue: anytype,
+    ) !StateHandoffReturnStats {
+        if (response_messages.len < completions.len) return error.InvalidTransition;
+        try self.validateTrackedHandoffReturns(completions);
+        var stats: StateHandoffReturnStats = .{};
+        for (completions, 0..) |completion, index| {
+            try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
+            switch (completion) {
+                .provide => try provide_queue.append(allocator, response_messages[index]),
+                .accept => try accept_queue.append(allocator, response_messages[index]),
+                .join => try join_queue.append(allocator, response_messages[index]),
+            }
+            stats.record(completion);
+        }
+        return stats;
+    }
+
     pub fn initReadyHandoffReturnPlanMessagesToSink(
         self: *const State,
         response_messages: anytype,
