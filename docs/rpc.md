@@ -198,7 +198,7 @@ that a complete RPC runtime exists.
   split response/forward queues, send compact unified output prefixes with
   optional response/forward role tags, return lightweight output stats, record
   stats from service-action output positions, append outputs to caller-owned
-  queues, or split them back to
+  unified or role-specific queues, or split them back to
   role-specific sinks,
   return and validate output stats from plain or plan-preserving
   service-action output sends against the selected service-action aggregate,

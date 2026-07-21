@@ -3845,6 +3845,23 @@ pub fn appendRpcServiceActionUnifiedOutputsToQueue(allocator: std.mem.Allocator,
     return RpcOutputStats.fromServiceActionStats(stats);
 }
 
+pub fn appendRpcServiceActionUnifiedOutputsToQueues(
+    allocator: std.mem.Allocator,
+    stats: TrackedCallServiceActionStats,
+    output_messages: anytype,
+    response_queue: anytype,
+    forward_queue: anytype,
+) !RpcOutputStats {
+    try stats.validateActionCapacity(output_messages.len);
+    for (try stats.outputResponseRange().slice(output_messages)) |message| {
+        try response_queue.append(allocator, message);
+    }
+    for (try stats.outputForwardRange().slice(output_messages)) |message| {
+        try forward_queue.append(allocator, message);
+    }
+    return RpcOutputStats.fromServiceActionStats(stats);
+}
+
 /// Append source-preserving service-action outputs to an embedder-owned queue.
 ///
 /// The compact unified output buffer is ordered as responses first, then

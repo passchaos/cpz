@@ -8704,6 +8704,32 @@ test "rpc service action stats aggregate wire and tracked calls" {
     );
     try std.testing.expectEqual(@as(usize, 3), service_output_queue.items.len);
 
+    var service_response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer service_response_queue.deinit(std.testing.allocator);
+    var service_forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer service_forward_queue.deinit(std.testing.allocator);
+    const service_split_queue_stats = try cpz.rpc.appendRpcServiceActionUnifiedOutputsToQueues(
+        std.testing.allocator,
+        message_stats,
+        message_outputs[0..],
+        &service_response_queue,
+        &service_forward_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, service_split_queue_stats);
+    try service_split_queue_stats.validateAgainstServiceActionStats(message_stats);
+    try std.testing.expectEqual(@as(usize, 2), service_response_queue.items.len);
+    try std.testing.expectEqual(@as(u32, 71), try (try service_response_queue.items[0].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 72), try (try service_response_queue.items[1].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(usize, 1), service_forward_queue.items.len);
+    try std.testing.expectEqual(@as(u32, 73), try (try service_forward_queue.items[0].get_call()).get_questionId());
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcServiceActionUnifiedOutputsToQueues(
+        std.testing.allocator,
+        message_stats,
+        message_outputs[0..2],
+        &service_response_queue,
+        &service_forward_queue,
+    ));
+
     const MessageRoleResponseSink = struct {
         sent: usize = 0,
         answer_sum: u32 = 0,
