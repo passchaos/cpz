@@ -10151,6 +10151,47 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 73), unified_forward_call.questionId());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 9 }, try cpz.rpc.callTargetFromWireCall(unified_forward_call));
 
+    var direct_output_queue_state = try Seed.state();
+    defer direct_output_queue_state.deinit();
+    var direct_output_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_output_queue_builder0.deinit();
+    const direct_output_queue_output0 = try generated.Message.initRootTyped(&direct_output_queue_builder0);
+    var direct_output_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_output_queue_builder1.deinit();
+    const direct_output_queue_output1 = try generated.Message.initRootTyped(&direct_output_queue_builder1);
+    var direct_output_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_output_queue_builder2.deinit();
+    const direct_output_queue_output2 = try generated.Message.initRootTyped(&direct_output_queue_builder2);
+    const direct_output_queue_outputs = [_]generated.Message.Builder{ direct_output_queue_output0, direct_output_queue_output1, direct_output_queue_output2 };
+    var direct_output_queue_context: Context = .{};
+    var direct_output_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer direct_output_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanUnifiedOutputsToQueue(
+        &direct_output_queue_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_output_queue_outputs[0..2],
+        &direct_output_queue_context,
+        entries,
+        &direct_output_queue,
+    ));
+    try std.testing.expectEqual(wire_stats, try cpz.rpc.initWireCallServiceActionPlanUnifiedOutputsToQueue(
+        &direct_output_queue_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_output_queue_outputs[0..],
+        &direct_output_queue_context,
+        entries,
+        &direct_output_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), direct_output_queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), direct_output_queue.items.len);
+    try std.testing.expectEqual(@as(u32, 71), try (try direct_output_queue.items[0].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 72), try (try direct_output_queue.items[1].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 73), try (try direct_output_queue.items[2].get_call()).get_questionId());
+
     const PlanSink = struct {
         sent: usize = 0,
         source_sum: usize = 0,
@@ -10622,6 +10663,47 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 3), direct_tagged_sink.sent);
     try std.testing.expectEqual(@as(usize, 0 + 1), direct_tagged_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), direct_tagged_sink.forward_local_sum);
+
+    var output_queue_wrapper_state = try Seed.state();
+    defer output_queue_wrapper_state.deinit();
+    var output_queue_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var output_queue_wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_queue_wrapper_builder0.deinit();
+    const output_queue_wrapper_output0 = try generated.Message.initRootTyped(&output_queue_wrapper_builder0);
+    var output_queue_wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_queue_wrapper_builder1.deinit();
+    const output_queue_wrapper_output1 = try generated.Message.initRootTyped(&output_queue_wrapper_builder1);
+    var output_queue_wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_queue_wrapper_builder2.deinit();
+    const output_queue_wrapper_output2 = try generated.Message.initRootTyped(&output_queue_wrapper_builder2);
+    const output_queue_wrapper_outputs = [_]generated.Message.Builder{ output_queue_wrapper_output0, output_queue_wrapper_output1, output_queue_wrapper_output2 };
+    var output_queue_wrapper_context: Context = .{};
+    var output_queue_wrapper = std.ArrayList(generated.Message.Builder).empty;
+    defer output_queue_wrapper.deinit(std.testing.allocator);
+    var output_queue_wrapper_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, output_queue_wrapper_state.dispatchWireCallServiceActionsUnifiedToQueue(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        output_queue_wrapper_short_plan_buffer[0..],
+        output_queue_wrapper_outputs[0..],
+        &output_queue_wrapper_context,
+        &output_queue_wrapper,
+    ));
+    try std.testing.expectEqual(wire_stats, try output_queue_wrapper_state.dispatchWireCallServiceActionsUnifiedToQueue(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        output_queue_wrapper_plan_buffer[0..],
+        output_queue_wrapper_outputs[0..],
+        &output_queue_wrapper_context,
+        &output_queue_wrapper,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), output_queue_wrapper_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), output_queue_wrapper.items.len);
+    try std.testing.expectEqual(@as(u32, 71), try (try output_queue_wrapper.items[0].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 72), try (try output_queue_wrapper.items[1].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 73), try (try output_queue_wrapper.items[2].get_call()).get_questionId());
 
     var tagged_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
     defer tagged_wrapper_state.deinit();
