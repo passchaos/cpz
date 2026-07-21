@@ -70,7 +70,8 @@ that a complete RPC runtime exists.
   Join wire readers/builders expose target and key-part pointer capability
   usage for future join result handling. Handoff and third-party pointer-usage
   writers reject capability indexes outside the encoded pointer's declared
-  capability count.
+  capability count, and shared pointer-usage helpers expose capability presence,
+  equality, and validation predicates.
   Disembargo wire readers/builders and wire events can decode and write targets
   plus sender/receiver loopback context IDs and accept embargo bytes, and
   applying accept disembargos reports how many tracked Accept embargos were

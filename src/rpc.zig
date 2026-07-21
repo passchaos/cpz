@@ -463,12 +463,24 @@ pub const StateCapabilityStats = struct {
 pub const AnyPointerUsage = struct {
     max_capability_count: usize,
     capability: ?u32 = null,
+
+    pub fn hasCapability(self: @This()) bool {
+        return self.capability != null;
+    }
+
+    pub fn matchesCapability(self: @This(), index: u32) bool {
+        return self.capability == index;
+    }
+
+    pub fn validate(self: @This()) Error!void {
+        if (self.capability) |index| {
+            if (@as(usize, index) >= self.max_capability_count) return error.InvalidTransition;
+        }
+    }
 };
 
 fn validateAnyPointerUsageCapability(usage: AnyPointerUsage) Error!void {
-    if (usage.capability) |index| {
-        if (@as(usize, index) >= usage.max_capability_count) return error.InvalidTransition;
-    }
+    try usage.validate();
 }
 
 pub const AcceptInfo = struct {

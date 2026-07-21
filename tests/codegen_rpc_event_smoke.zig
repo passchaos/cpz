@@ -320,13 +320,19 @@ test "rpc call helpers decode and write send-results-to targets" {
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const call_reader = generated.Call.fromReader(try reader.getRoot());
         try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, try cpz.rpc.sendResultsToFromWireCall(call_reader));
-        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, (try cpz.rpc.sendResultsToThirdPartyUsageFromWireCall(call_reader)).?);
+        const usage = (try cpz.rpc.sendResultsToThirdPartyUsageFromWireCall(call_reader)).?;
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, usage);
+        try usage.validate();
+        try std.testing.expect(usage.hasCapability());
+        try std.testing.expect(usage.matchesCapability(3));
+        try std.testing.expect(!usage.matchesCapability(2));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const call = try generated.Call.initRootTyped(&builder);
         try std.testing.expectError(error.InvalidTransition, cpz.rpc.writeSendResultsToThirdPartyToWire(call, .{ .max_capability_count = 4, .capability = 4 }));
+        try std.testing.expectError(error.InvalidTransition, (cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 4 }).validate());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
