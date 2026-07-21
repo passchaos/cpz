@@ -725,16 +725,18 @@ pub const HandoffReturn = union(enum) {
         };
     }
 
-    pub fn questionId(self: @This()) QuestionId {
+    pub fn capability(self: @This()) HandoffReturnCapability {
         return switch (self) {
-            .provide, .accept, .join => |value| value.question_id,
+            .provide, .accept, .join => |value| value,
         };
     }
 
+    pub fn questionId(self: @This()) QuestionId {
+        return self.capability().question_id;
+    }
+
     pub fn exportId(self: @This()) ExportId {
-        return switch (self) {
-            .provide, .accept, .join => |value| value.export_id,
-        };
+        return self.capability().export_id;
     }
 };
 
