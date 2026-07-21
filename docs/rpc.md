@@ -243,7 +243,7 @@ that a complete RPC runtime exists.
   stats accumulated from those dense indexes before builders are allocated, with turn-level plans that expose work/output-presence predicates,
   distinguish dispatch-initialized responses from ready handoff Returns with
   response-source ranges, next-source and role-tagged positions, role-specific
-  source-to-output-index helpers, derived source stats with
+  source-to-output-index helpers, directly exposed derived source stats with
   empty/source-presence predicates, and local indexes, and
   combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
