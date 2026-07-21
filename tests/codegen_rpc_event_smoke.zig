@@ -18033,6 +18033,41 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(usize, 1), sink_accept_context.seen);
     try std.testing.expectEqual(@as(usize, 1), sink_join_context.seen);
 
+    var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder0.deinit();
+    const queue_response0 = try generated.Message.initRootTyped(&queue_builder0);
+    var queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder1.deinit();
+    const queue_response1 = try generated.Message.initRootTyped(&queue_builder1);
+    var queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder2.deinit();
+    const queue_response2 = try generated.Message.initRootTyped(&queue_builder2);
+    const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1, queue_response2 };
+    var queue_provide_context: Context = .{};
+    var queue_accept_context: Context = .{};
+    var queue_join_context: Context = .{};
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    const queue_stats = try state.initReadyHandoffReturnMessagesFromHandlersToQueue(
+        std.testing.allocator,
+        queue_responses[0..],
+        &queue_provide_context,
+        Context.handle,
+        &queue_accept_context,
+        Context.handle,
+        &queue_join_context,
+        Context.handle,
+        &queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, queue_stats);
+    try std.testing.expectEqual(@as(usize, 3), queue.items.len);
+    try expectQueuedReturnAnswer(queue.items[0], 103);
+    try expectQueuedReturnAnswer(queue.items[1], 104);
+    try expectQueuedReturnAnswer(queue.items[2], 105);
+    try std.testing.expectEqual(@as(usize, 1), queue_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), queue_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), queue_join_context.seen);
+
     var short_context: Context = .{};
     try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnMessagesFromHandlers(
         responses[0..2],
@@ -18042,6 +18077,18 @@ test "rpc ready handoff handlers initialize return messages" {
         Context.handle,
         &short_context,
         Context.handle,
+    ));
+    try std.testing.expectEqual(@as(usize, 0), short_context.seen);
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnMessagesFromHandlersToQueue(
+        std.testing.allocator,
+        responses[0..2],
+        &short_context,
+        Context.handle,
+        &short_context,
+        Context.handle,
+        &short_context,
+        Context.handle,
+        &queue,
     ));
     try std.testing.expectEqual(@as(usize, 0), short_context.seen);
 }
