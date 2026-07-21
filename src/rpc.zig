@@ -792,6 +792,10 @@ pub const RpcTurnPlan = struct {
         return self.disembargoMessageRange().localIndex(output_index);
     }
 
+    pub fn unifiedOutputPosition(self: @This(), output_index: usize) ?RpcTurnOutputPosition {
+        return rpcTurnUnifiedOutputPosition(self, output_index);
+    }
+
     pub fn validateOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
         if (response_capacity < self.responseMessages()) return error.InvalidTransition;
         if (forward_capacity < self.forwardedMessages()) return error.InvalidTransition;
