@@ -16820,6 +16820,30 @@ pub fn initWireHandoffReturnMessagesToTaggedQueue(
     return stats;
 }
 
+pub fn initWireHandoffReturnMessagesToSinks(
+    response_messages: anytype,
+    completions: []const HandoffReturn,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+) !StateHandoffReturnStats {
+    if (response_messages.len < completions.len) return error.InvalidTransition;
+    var stats: StateHandoffReturnStats = .{};
+    for (completions, 0..) |completion, index| {
+        try initWireHandoffReturnMessage(response_messages[index], completion);
+        switch (completion) {
+            .provide => try provide_handler(provide_context, response_messages[index]),
+            .accept => try accept_handler(accept_context, response_messages[index]),
+            .join => try join_handler(join_context, response_messages[index]),
+        }
+        stats.record(completion);
+    }
+    return stats;
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);
