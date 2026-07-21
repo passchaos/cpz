@@ -157,7 +157,7 @@ that a complete RPC runtime exists.
   payloads together, either at the Call/Return member level or through
   top-level Message builders, and generic dispatch-result, empty/exception/non-result/capability/capability-info/registry-backed-capability/text/text-info/registry-backed-text/data/data-info/registry-backed-data/UInt32-list/UInt32-list-info/registry-backed-UInt32-list/caller-filled-struct/caller-filled-struct-info/registry-backed-struct Return builders can
   initialize their wire payload while applying the matching answer/result
-  capability bookkeeping to `State`. Top-level Unimplemented, Abort,
+  capability bookkeeping to `State`. Top-level Unimplemented, Abort, Obsolete,
   Bootstrap, Finish/Release builders can initialize their tags, nested
   unimplemented-message payloads, exception metadata, question IDs, flags, and
   reference counts; Unimplemented wire events preserve and can match the nested
