@@ -114,7 +114,7 @@ that a complete RPC runtime exists.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver entries plus third-party vine/contact capability usage
   and optional `attachedFd` index metadata, expose validation and contact usage
-  helpers, and be written back into generated
+  helpers plus call-target forwarding predicates, and be written back into generated
   payload builders with third-party contact capability-index bounds validation.
   `CapabilityRegistry(T)` can seed sender-hosted descriptor tables for outgoing
   payloads. `Payload.capTable` can be decoded into caller-owned descriptor or

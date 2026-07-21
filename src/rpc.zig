@@ -1469,6 +1469,21 @@ pub const CapDescriptor = union(enum) {
     receiver_hosted: ImportId,
     receiver_answer: PromisedAnswerTarget,
     third_party_hosted: ExportId,
+
+    pub fn isForwardableToCallTarget(self: @This()) bool {
+        return switch (self) {
+            .sender_hosted, .sender_promise, .receiver_answer, .third_party_hosted => true,
+            .none, .receiver_hosted => false,
+        };
+    }
+
+    pub fn forwardableCallTarget(self: @This()) ?CallTarget {
+        return switch (self) {
+            .sender_hosted, .sender_promise, .third_party_hosted => |id| .{ .imported_cap = id },
+            .receiver_answer => |answer| .{ .promised_answer = answer },
+            .none, .receiver_hosted => null,
+        };
+    }
 };
 
 pub const CapDescriptorInfo = struct {
@@ -1487,11 +1502,7 @@ pub const CapDescriptorInfo = struct {
 };
 
 pub fn callTargetFromForwardableCapDescriptor(descriptor: CapDescriptor) ?CallTarget {
-    return switch (descriptor) {
-        .sender_hosted, .sender_promise, .third_party_hosted => |id| .{ .imported_cap = id },
-        .receiver_answer => |answer| .{ .promised_answer = answer },
-        .none, .receiver_hosted => null,
-    };
+    return descriptor.forwardableCallTarget();
 }
 
 /// Numeric tags from the top-level `Message` union in Cap'n Proto's

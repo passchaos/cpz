@@ -653,7 +653,10 @@ test "rpc cap descriptor helpers decode common capability table entries" {
         defer builder.deinit();
         const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
         try descriptor.set_senderHosted(8);
-        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 8 }, try decodeCapDescriptor(&builder));
+        const decoded = try decodeCapDescriptor(&builder);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 8 }, decoded);
+        try std.testing.expect(decoded.isForwardableToCallTarget());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 8 }, decoded.forwardableCallTarget().?);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -667,7 +670,10 @@ test "rpc cap descriptor helpers decode common capability table entries" {
         defer builder.deinit();
         const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
         try descriptor.set_receiverHosted(10);
-        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 10 }, try decodeCapDescriptor(&builder));
+        const decoded = try decodeCapDescriptor(&builder);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_hosted = 10 }, decoded);
+        try std.testing.expect(!decoded.isForwardableToCallTarget());
+        try std.testing.expect(decoded.forwardableCallTarget() == null);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -675,7 +681,10 @@ test "rpc cap descriptor helpers decode common capability table entries" {
         const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
         const answer = try descriptor.init_receiverAnswer();
         try answer.set_questionId(11);
-        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 11 } }, try decodeCapDescriptor(&builder));
+        const decoded = try decodeCapDescriptor(&builder);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .receiver_answer = .{ .question_id = 11 } }, decoded);
+        try std.testing.expect(decoded.isForwardableToCallTarget());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 11 } }, decoded.forwardableCallTarget().?);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -684,7 +693,10 @@ test "rpc cap descriptor helpers decode common capability table entries" {
         const third_party = try descriptor.init_thirdPartyHosted();
         (try third_party.get_idAsPointer()).setCapability(3);
         try third_party.set_vineId(12);
-        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 12 }, try decodeCapDescriptor(&builder));
+        const decoded = try decodeCapDescriptor(&builder);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 12 }, decoded);
+        try std.testing.expect(decoded.isForwardableToCallTarget());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 12 }, decoded.forwardableCallTarget().?);
         const info = try decodeCapDescriptorInfo(&builder);
         try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 12 }, info.descriptor);
         try std.testing.expectEqual(@as(u8, 0xff), info.attached_fd);
