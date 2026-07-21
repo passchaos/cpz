@@ -933,6 +933,11 @@ pub const RpcOutputStats = struct {
         self.recordPosition(position);
     }
 
+    pub fn recordServiceActionOutputIndex(self: *@This(), stats: TrackedCallServiceActionStats, output_index: usize) Error!void {
+        const position = stats.unifiedOutputPosition(output_index) orelse return error.InvalidTransition;
+        self.recordServiceActionPosition(position);
+    }
+
     pub fn total(self: @This()) usize {
         return self.responses + self.forwards + self.disembargos;
     }

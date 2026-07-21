@@ -8686,6 +8686,12 @@ test "rpc service action stats aggregate wire and tracked calls" {
     const message_forward_position = message_stats.unifiedOutputPosition(2).?;
     try std.testing.expect(message_forward_position.isForward());
     try std.testing.expect(!message_forward_position.isResponse());
+    var message_indexed_output_stats: cpz.rpc.RpcOutputStats = .{};
+    try message_indexed_output_stats.recordServiceActionOutputIndex(message_stats, 0);
+    try message_indexed_output_stats.recordServiceActionOutputIndex(message_stats, 1);
+    try message_indexed_output_stats.recordServiceActionOutputIndex(message_stats, 2);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, message_indexed_output_stats);
+    try std.testing.expectError(error.InvalidTransition, message_indexed_output_stats.recordServiceActionOutputIndex(message_stats, 3));
     const MessageTaggedSink = struct {
         sent: usize = 0,
         response_local_sum: usize = 0,
