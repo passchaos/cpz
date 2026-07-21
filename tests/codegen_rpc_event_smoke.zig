@@ -166,7 +166,7 @@ test "rpc wire events decode generated message union tags and ids" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try root.set_obsoleteSave();
+        try cpz.rpc.initWireObsoleteSaveMessage(root);
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireMessageTag.obsolete_save, event.tag());
         try std.testing.expect(event.isObsolete());
@@ -178,7 +178,7 @@ test "rpc wire events decode generated message union tags and ids" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try root.set_obsoleteDelete();
+        try cpz.rpc.initWireObsoleteDeleteMessage(root);
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireMessageTag.obsolete_delete, event.tag());
         try std.testing.expect(event.isObsolete());

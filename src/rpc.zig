@@ -12562,6 +12562,14 @@ pub fn initWireUnimplementedMessageFromBuilder(message: anytype, original: anyty
     try message.set_unimplemented_fromBuilder(original);
 }
 
+pub fn initWireObsoleteSaveMessage(message: anytype) !void {
+    try message.set_obsoleteSave();
+}
+
+pub fn initWireObsoleteDeleteMessage(message: anytype) !void {
+    try message.set_obsoleteDelete();
+}
+
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
     return switch (return_.which() orelse return error.InvalidTransition) {
         .results => .results,
