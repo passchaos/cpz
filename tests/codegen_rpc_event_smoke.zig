@@ -18739,6 +18739,11 @@ test "rpc top-level accept messages open questions" {
         try std.testing.expect(pending.hasItems());
         try std.testing.expect(pending.containsQuestion(64));
         try std.testing.expect(!pending.containsQuestion(65));
+        try std.testing.expectEqualStrings("embargo-64", pending.embargoForQuestion(64).?);
+        try std.testing.expect(pending.embargoForQuestion(65) == null);
+        try std.testing.expect(pending.containsQuestionEmbargo(64, "embargo-64"));
+        try std.testing.expect(!pending.containsQuestionEmbargo(64, "missing"));
+        try std.testing.expect(!pending.containsQuestionEmbargo(65, "embargo-64"));
         try std.testing.expectEqual(@as(usize, 1), pending.matchCount("embargo-64"));
         try std.testing.expect(pending.containsEmbargo("embargo-64"));
         try std.testing.expect(!pending.containsEmbargo("missing"));

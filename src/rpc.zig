@@ -1924,6 +1924,18 @@ pub const PendingAcceptEmbargos = struct {
         return false;
     }
 
+    pub fn embargoForQuestion(self: @This(), question_id: QuestionId) ?[]const u8 {
+        for (self.items) |item| {
+            if (item.question_id == question_id) return item.embargo;
+        }
+        return null;
+    }
+
+    pub fn containsQuestionEmbargo(self: @This(), question_id: QuestionId, embargo: []const u8) bool {
+        const tracked = self.embargoForQuestion(question_id) orelse return false;
+        return std.mem.eql(u8, tracked, embargo);
+    }
+
     pub fn matchCount(self: @This(), embargo: []const u8) usize {
         var count: usize = 0;
         for (self.items) |item| {
