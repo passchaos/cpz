@@ -9838,9 +9838,58 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 3), plan_sink.sent);
     try std.testing.expectEqual(@as(usize, 0 + 1 + 2), plan_sink.source_sum);
     try std.testing.expectEqual(@as(u32, 71 + 72 + 73), plan_sink.question_sum);
+    var plan_stats_sink: PlanSink = .{};
+    const plan_output_stats = try cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSinkStats(wire_stats, wire_plans[0..], unified_outputs[0..], &plan_stats_sink, PlanSink.handle);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, plan_output_stats);
+    try plan_output_stats.validateAgainstServiceActionStats(wire_stats);
+    try std.testing.expectEqual(@as(usize, 3), plan_stats_sink.sent);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, wire_plans[0..2], unified_outputs[0..], &plan_sink, PlanSink.handle));
     const overlong_wire_plans = [_]cpz.rpc.TrackedCallServiceActionPlan{ wire_plans[0], wire_plans[1], wire_plans[2], wire_plans[0] };
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, overlong_wire_plans[0..], unified_outputs[0..], &plan_sink, PlanSink.handle));
+
+    const WirePlanResponseSink = struct {
+        sent: usize = 0,
+        source_sum: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), plan: cpz.rpc.TrackedCallServiceActionPlan, message: anytype) !void {
+            try std.testing.expect(plan.action.isDispatch() or plan.action.isUnimplemented());
+            context.sent += 1;
+            context.source_sum += plan.source_index;
+            context.answer_sum += try (try message.get_return_()).get_answerId();
+        }
+    };
+    const WirePlanForwardSink = struct {
+        sent: usize = 0,
+        source_sum: usize = 0,
+        question_sum: u32 = 0,
+
+        fn handle(context: *@This(), plan: cpz.rpc.TrackedCallServiceActionPlan, message: anytype) !void {
+            try std.testing.expect(plan.action.isForward());
+            context.sent += 1;
+            context.source_sum += plan.source_index;
+            context.question_sum += try (try message.get_call()).get_questionId();
+        }
+    };
+    var wire_plan_response_sink: WirePlanResponseSink = .{};
+    var wire_plan_forward_sink: WirePlanForwardSink = .{};
+    const wire_plan_split_stats = try cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSinksStats(
+        wire_stats,
+        wire_plans[0..],
+        unified_outputs[0..],
+        &wire_plan_response_sink,
+        WirePlanResponseSink.handle,
+        &wire_plan_forward_sink,
+        WirePlanForwardSink.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, wire_plan_split_stats);
+    try wire_plan_split_stats.validateAgainstServiceActionStats(wire_stats);
+    try std.testing.expectEqual(@as(usize, 2), wire_plan_response_sink.sent);
+    try std.testing.expectEqual(@as(usize, 0 + 1), wire_plan_response_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 71 + 72), wire_plan_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), wire_plan_forward_sink.sent);
+    try std.testing.expectEqual(@as(usize, 2), wire_plan_forward_sink.source_sum);
+    try std.testing.expectEqual(@as(u32, 73), wire_plan_forward_sink.question_sum);
 
     const TaggedPlanSink = struct {
         sent: usize = 0,
@@ -9880,6 +9929,11 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1 + 2), tagged_plan_sink.source_sum);
     try std.testing.expectEqual(@as(usize, 0 + 1), tagged_plan_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), tagged_plan_sink.forward_local_sum);
+    var tagged_plan_stats_sink: TaggedPlanSink = .{};
+    const tagged_plan_output_stats = try cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSinkStats(wire_stats, wire_plans[0..], unified_outputs[0..], &tagged_plan_stats_sink, TaggedPlanSink.handle);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, tagged_plan_output_stats);
+    try tagged_plan_output_stats.validateAgainstServiceActionStats(wire_stats);
+    try std.testing.expectEqual(@as(usize, 3), tagged_plan_stats_sink.sent);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSink(wire_stats, wire_plans[0..2], unified_outputs[0..], &tagged_plan_sink, TaggedPlanSink.handle));
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSink(wire_stats, overlong_wire_plans[0..], unified_outputs[0..], &tagged_plan_sink, TaggedPlanSink.handle));
 

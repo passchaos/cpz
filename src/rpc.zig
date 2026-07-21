@@ -3843,6 +3843,16 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
     sink_context: anytype,
     sink_handler: anytype,
 ) !void {
+    _ = try sendRpcServiceActionUnifiedOutputPlansToSinkStats(stats, plans, output_messages, sink_context, sink_handler);
+}
+
+pub fn sendRpcServiceActionUnifiedOutputPlansToSinkStats(
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !RpcOutputStats {
     if (plans.len != stats.actions()) return error.InvalidTransition;
     try stats.validateActionCapacity(output_messages.len);
     var response_index = stats.outputResponseRange().start;
@@ -3868,6 +3878,7 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToSink(
         },
         else => {},
     };
+    return RpcOutputStats.fromServiceActionStats(stats);
 }
 
 pub fn sendRpcServiceActionUnifiedOutputPlansToSinks(
@@ -3879,6 +3890,18 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToSinks(
     forward_context: anytype,
     forward_handler: anytype,
 ) !void {
+    _ = try sendRpcServiceActionUnifiedOutputPlansToSinksStats(stats, plans, output_messages, response_context, response_handler, forward_context, forward_handler);
+}
+
+pub fn sendRpcServiceActionUnifiedOutputPlansToSinksStats(
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+) !RpcOutputStats {
     if (plans.len != stats.actions()) return error.InvalidTransition;
     try stats.validateActionCapacity(output_messages.len);
     var response_index = stats.outputResponseRange().start;
@@ -3904,6 +3927,7 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToSinks(
         },
         else => {},
     };
+    return RpcOutputStats.fromServiceActionStats(stats);
 }
 
 pub fn sendRpcServiceActionUnifiedOutputPlansToTaggedSink(
@@ -3913,6 +3937,16 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToTaggedSink(
     sink_context: anytype,
     sink_handler: anytype,
 ) !void {
+    _ = try sendRpcServiceActionUnifiedOutputPlansToTaggedSinkStats(stats, plans, output_messages, sink_context, sink_handler);
+}
+
+pub fn sendRpcServiceActionUnifiedOutputPlansToTaggedSinkStats(
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !RpcOutputStats {
     if (plans.len != stats.actions()) return error.InvalidTransition;
     try stats.validateActionCapacity(output_messages.len);
     var response_index = stats.outputResponseRange().start;
@@ -3943,6 +3977,7 @@ pub fn sendRpcServiceActionUnifiedOutputPlansToTaggedSink(
         },
         else => {},
     };
+    return RpcOutputStats.fromServiceActionStats(stats);
 }
 
 pub fn initWireCallServiceActionPlanUnifiedOutputsToSink(

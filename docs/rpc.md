@@ -200,8 +200,8 @@ that a complete RPC runtime exists.
   stats from service-action output positions, append outputs to caller-owned
   queues, or split them back to
   role-specific sinks,
-  validate returned service-action output stats against the selected service
-  action aggregate,
+  return and validate output stats from plain or plan-preserving
+  service-action output sends against the selected service-action aggregate,
   and reuse existing plans when sending source-preserving plan/message pairs
   directly to caller sinks, optionally with response/forward role tags, grouped action queues,
   or source-preserving plans that can materialize or enqueue split/combined/
