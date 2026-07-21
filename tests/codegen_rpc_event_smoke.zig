@@ -8681,6 +8681,24 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0), message_tagged_sink.forward_local_sum);
     try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, message_tagged_sink.stats);
 
+    const ServiceTaggedQueueItem = struct {
+        position: cpz.rpc.TrackedCallServiceActionOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var service_tagged_queue = std.ArrayList(ServiceTaggedQueueItem).empty;
+    defer service_tagged_queue.deinit(std.testing.allocator);
+    const service_tagged_queue_stats = try cpz.rpc.appendRpcServiceActionUnifiedOutputsToTaggedQueue(std.testing.allocator, message_stats, message_outputs[0..], &service_tagged_queue);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, service_tagged_queue_stats);
+    try service_tagged_queue_stats.validateAgainstServiceActionStats(message_stats);
+    try std.testing.expectEqual(@as(usize, 3), service_tagged_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, service_tagged_queue.items[0].position);
+    try std.testing.expectEqual(@as(u32, 71), try (try service_tagged_queue.items[0].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, service_tagged_queue.items[1].position);
+    try std.testing.expectEqual(@as(u32, 72), try (try service_tagged_queue.items[1].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, service_tagged_queue.items[2].position);
+    try std.testing.expectEqual(@as(u32, 73), try (try service_tagged_queue.items[2].message.get_call()).get_questionId());
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcServiceActionUnifiedOutputsToTaggedQueue(std.testing.allocator, message_stats, message_outputs[0..2], &service_tagged_queue));
+
     const MessageBasicUnifiedSink = struct {
         sent: usize = 0,
 

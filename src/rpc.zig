@@ -3862,6 +3862,22 @@ pub fn appendRpcServiceActionUnifiedOutputsToQueues(
     return RpcOutputStats.fromServiceActionStats(stats);
 }
 
+pub fn appendRpcServiceActionUnifiedOutputsToTaggedQueue(
+    allocator: std.mem.Allocator,
+    stats: TrackedCallServiceActionStats,
+    output_messages: anytype,
+    queue: anytype,
+) !RpcOutputStats {
+    try stats.validateActionCapacity(output_messages.len);
+    var output_stats: RpcOutputStats = .{};
+    for (output_messages[0..stats.actions()], 0..) |message, output_index| {
+        const position = trackedCallServiceActionUnifiedOutputPosition(stats, output_index).?;
+        try queue.append(allocator, .{ .position = position, .message = message });
+        output_stats.recordServiceActionPosition(position);
+    }
+    return output_stats;
+}
+
 /// Append source-preserving service-action outputs to an embedder-owned queue.
 ///
 /// The compact unified output buffer is ordered as responses first, then
