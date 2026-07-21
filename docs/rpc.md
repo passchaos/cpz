@@ -93,7 +93,7 @@ that a complete RPC runtime exists.
   summarize open, finished, unresolved, resolved, complete, total, and active
   entries with convenience predicates, and a
   state cleanup helper can reclaim both completed questions and released
-  capability tombstones together.
+  capability tombstones together while reporting whether any work was done.
   Open questions remember the RPC message kind that created them, giving later
   protocol-state code a typed hook for bootstrap/call/handoff-specific rules.
   Resolved answers remember the message kind that resolved them. Capability

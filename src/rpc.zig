@@ -187,6 +187,14 @@ pub const StateCleanupStats = struct {
     pub fn total(self: @This()) usize {
         return self.questions + self.exports + self.imports;
     }
+
+    pub fn hasWork(self: @This()) bool {
+        return self.total() != 0;
+    }
+
+    pub fn hasCapabilityWork(self: @This()) bool {
+        return self.exports != 0 or self.imports != 0;
+    }
 };
 
 pub const StateHandoffStats = struct {
@@ -14336,11 +14344,16 @@ test "rpc state cleanup forgets completed and released entries" {
     try testing.expectEqual(@as(usize, 1), cleaned.exports);
     try testing.expectEqual(@as(usize, 1), cleaned.imports);
     try testing.expectEqual(@as(usize, 3), cleaned.total());
+    try testing.expect(cleaned.hasWork());
+    try testing.expect(cleaned.hasCapabilityWork());
     try testing.expect(!state.hasQuestion(100));
     try testing.expect(state.hasQuestion(101));
     try testing.expect(!state.hasExport(200));
     try testing.expect(!state.hasImport(300));
-    try testing.expectEqual(@as(usize, 0), state.cleanup().total());
+    const clean_again = state.cleanup();
+    try testing.expectEqual(@as(usize, 0), clean_again.total());
+    try testing.expect(!clean_again.hasWork());
+    try testing.expect(!clean_again.hasCapabilityWork());
 }
 
 test "rpc state applies capability descriptors to table lifetimes" {
