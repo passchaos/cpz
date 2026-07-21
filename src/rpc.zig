@@ -12418,6 +12418,10 @@ pub fn initWireAbortMessage(message: anytype, info: ExceptionInfo) !void {
     try writeAbortInfoToWire(info, try message.init_abort());
 }
 
+pub fn initWireUnimplementedMessage(message: anytype) !void {
+    try message.set_unimplemented();
+}
+
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
     return switch (return_.which() orelse return error.InvalidTransition) {
         .results => .results,

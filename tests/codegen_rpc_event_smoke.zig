@@ -75,6 +75,16 @@ test "rpc wire events decode generated message union tags and ids" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireUnimplementedMessage(root);
+        const event = try decode(&builder);
+        try std.testing.expectEqual(cpz.rpc.WireMessageTag.unimplemented, event.tag());
+        try std.testing.expect(!event.isStateApplicable());
+        try std.testing.expect(event.toStateEvent() == null);
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
         try cpz.rpc.initWireAbortMessage(root, .{
             .reason = "fatal rpc abort",
             .type_raw = @intFromEnum(cpz.rpc.ExceptionType.failed),
