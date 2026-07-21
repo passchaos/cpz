@@ -251,7 +251,7 @@ that a complete RPC runtime exists.
   a top-level Message reader when it contains a Call.
   Runtime call methods/options/entries expose matching predicates for
   `CallMethod` values, generated Call readers, and top-level Message readers
-  that contain Calls; tracked calls can be compared directly with generated
+  that contain Calls, plus wire Call/Message method-entry index helpers; tracked calls can be compared directly with generated
   Call or Message readers. Top-level Message readers can
   also be queried for Call method/options when their active union member is
   `Call`, otherwise they report no Call metadata. Call readers and top-level

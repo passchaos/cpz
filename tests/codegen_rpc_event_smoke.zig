@@ -8111,6 +8111,8 @@ test "rpc method table dispatcher selects matching handlers" {
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
         try std.testing.expectEqual(@as(?usize, 1), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
+        try std.testing.expectEqual(@as(?usize, 1), try cpz.rpc.wireCallMethodEntryIndex(try request.call(), entries));
+        try std.testing.expectEqual(@as(?usize, 1), try cpz.rpc.wireMessageMethodEntryIndex(request, entries));
         try std.testing.expect(entries[1].matchesWireCall(try request.call()));
         try std.testing.expect(!entries[0].matchesWireCall(try request.call()));
         try std.testing.expect(try entries[1].matchesWireMessage(request));
@@ -8150,6 +8152,8 @@ test "rpc method table dispatcher selects matching handlers" {
         defer response_builder.deinit();
         const response_root = try generated.Message.initRootTyped(&response_builder);
         try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.callMethodFromWireCall(try request.call()).entryIndex(entries));
+        try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.wireCallMethodEntryIndex(try request.call(), entries));
+        try std.testing.expectEqual(@as(?usize, null), try cpz.rpc.wireMessageMethodEntryIndex(request, entries));
         const preview_action = try state.wireCallServiceAction(try request.call(), entries);
         try std.testing.expect(preview_action.isUnimplemented());
         var context: Context = .{};
@@ -8260,6 +8264,7 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expect((try state.wireMessageDispatchInfo(messages[1])) == null);
     try std.testing.expect((try state.wireMessageDispatchOutcome(messages[1])) == null);
     try std.testing.expect((try state.wireMessageServiceAction(messages[1], entries)) == null);
+    try std.testing.expect((try cpz.rpc.wireMessageMethodEntryIndex(messages[1], entries)) == null);
     const message_stats = try state.wireMessageServiceActionStats(messages[0..], entries);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionStats{
         .dispatch = 1,

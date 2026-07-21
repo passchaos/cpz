@@ -5783,6 +5783,15 @@ pub fn callMethodEntryIndex(method: CallMethod, comptime entries: anytype) Error
     return null;
 }
 
+pub fn wireCallMethodEntryIndex(call: anytype, comptime entries: anytype) Error!?usize {
+    return callMethodEntryIndex(callMethodFromWireCall(call), entries);
+}
+
+pub fn wireMessageMethodEntryIndex(message: anytype, comptime entries: anytype) !?usize {
+    const method = (try callMethodFromWireMessage(message)) orelse return null;
+    return try callMethodEntryIndex(method, entries);
+}
+
 pub fn dispatchCallMethods(
     state: *State,
     allocator: std.mem.Allocator,
