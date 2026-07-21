@@ -12043,6 +12043,17 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseRange().len());
     try std.testing.expectEqual(@as(usize, 1), stats.denseForwardRange().len());
+    const dense_response_position = stats.unifiedDenseOutputPosition(1).?;
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutputPosition{ .role = .response, .local_index = 1 }, dense_response_position);
+    try std.testing.expect(dense_response_position.isResponse());
+    try std.testing.expect(!dense_response_position.isForward());
+    const dense_forward_position = cpz.rpc.wireDispatchUnifiedDenseOutputPosition(stats, 2).?;
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutputPosition{ .role = .forward, .local_index = 0 }, dense_forward_position);
+    try std.testing.expectEqual(@as(?usize, 0), stats.denseForwardLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, null), stats.denseResponseLocalIndex(2));
+    try std.testing.expect(dense_forward_position.isForward());
+    try std.testing.expect(!dense_forward_position.isResponse());
+    try std.testing.expect(stats.unifiedDenseOutputPosition(3) == null);
     try std.testing.expect(!stats.denseResponseRange().isEmpty());
     try std.testing.expect(stats.denseResponseRange().contains(1));
     try std.testing.expect(!stats.denseResponseRange().contains(2));

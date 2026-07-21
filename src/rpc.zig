@@ -413,6 +413,18 @@ pub const WireDispatchStats = struct {
         return .{ .start = start, .end = start + self.denseForwardSlots() };
     }
 
+    pub fn denseResponseLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.denseResponseRange().localIndex(output_index);
+    }
+
+    pub fn denseForwardLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.denseForwardRange().localIndex(output_index);
+    }
+
+    pub fn unifiedDenseOutputPosition(self: @This(), output_index: usize) ?WireDispatchOutputPosition {
+        return wireDispatchUnifiedDenseOutputPosition(self, output_index);
+    }
+
     pub fn validateDenseResponseCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.denseResponseSlots()) return error.InvalidTransition;
     }
@@ -462,6 +474,31 @@ pub const WireDispatchStats = struct {
         return self.denseOutputSlots() != 0;
     }
 };
+
+pub const WireDispatchOutputRole = enum {
+    response,
+    forward,
+};
+
+pub const WireDispatchOutputPosition = struct {
+    role: WireDispatchOutputRole,
+    local_index: usize,
+
+    pub fn isResponse(self: @This()) bool {
+        return self.role == .response;
+    }
+
+    pub fn isForward(self: @This()) bool {
+        return self.role == .forward;
+    }
+};
+
+pub fn wireDispatchUnifiedDenseOutputPosition(stats: WireDispatchStats, output_index: usize) ?WireDispatchOutputPosition {
+    if (stats.denseResponseLocalIndex(output_index)) |local_index| return .{ .role = .response, .local_index = local_index };
+    if (stats.denseForwardLocalIndex(output_index)) |local_index| return .{ .role = .forward, .local_index = local_index };
+
+    return null;
+}
 
 pub const StateCleanupStats = struct {
     questions: usize = 0,
