@@ -25478,6 +25478,95 @@ test "rpc turn dispatcher filters pending accept disembargos without sinks with 
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
         try std.testing.expectEqualStrings("apply-filter-no-sink-pending-155", info.context.accept);
     }
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 154,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "apply-filter-no-sink-release-154",
+        });
+        var accept_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 155,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "apply-filter-no-sink-pending-155",
+        });
+        var accept_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+    }
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    const queue_forward_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(queue_forward_messages);
+    var queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_disembargo_builder.deinit();
+    const queue_disembargo = try generated.Message.initRootTyped(&queue_disembargo_builder);
+    const queue_responses = [_]generated.Message.Builder{queue_response};
+    const queue_disembargos = [_]generated.Message.Builder{queue_disembargo};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var disembargo_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer disembargo_queue.deinit(std.testing.allocator);
+    var queue_provide_context: HandoffHandler = .{};
+    var queue_accept_context: HandoffHandler = .{};
+    var queue_join_context: HandoffHandler = .{};
+    var queue_apply_context: ApplyContext = .{};
+    const queue_applied = try cpz.rpc.dispatchRpcTurnForwardingDenseAndPendingAcceptDisembargosForEmbargoToQueuesFromHandlersWithApplyHandler(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_forward_messages,
+        queue_disembargos[0..],
+        requests[0..],
+        {},
+        BootstrapHandler.handle,
+        {},
+        CallHandler.handle,
+        &queue_provide_context,
+        HandoffHandler.handle,
+        &queue_accept_context,
+        HandoffHandler.handle,
+        &queue_join_context,
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "apply-filter-no-sink-pending-155",
+        &response_queue,
+        &forward_queue,
+        &disembargo_queue,
+        &queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(applied, queue_applied);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 0), forward_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), disembargo_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 154);
+    try expectQueuedDisembargoBuilder(disembargo_queue.items[0], .{ .imported_cap = 5 }, "apply-filter-no-sink-pending-155");
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 154), queue_apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(usize, 0), queue_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), queue_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 0), queue_join_context.seen);
 }
 
 test "rpc turn dispatcher filters pending accept disembargos into unified outputs with apply details" {
