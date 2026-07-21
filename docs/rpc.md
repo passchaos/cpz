@@ -231,7 +231,8 @@ that a complete RPC runtime exists.
   dispatch, can hand initialized Bootstrap/Call responses directly to an embedding transport/enqueue path while ignoring state-only events,
   including dense response queues (with or without method tables) that skip
   state-only messages; no-sink dense variants can fill compact response queues
-  for callers that want to enqueue or inspect initialized messages themselves.
+  or append their initialized prefix to caller-owned queues for callers that
+  want to enqueue or inspect initialized messages themselves.
   Non-mutating dispatch planning helpers can preview response, forward, and
   state-only counts plus dense output slot requirements before builders are
   allocated, with turn-level plans that expose output-presence predicates,

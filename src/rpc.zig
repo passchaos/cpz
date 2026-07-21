@@ -8966,6 +8966,33 @@ pub fn dispatchWireMessagesDense(
     );
 }
 
+pub fn dispatchWireMessagesDenseToQueue(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    queue: anytype,
+) !WireDispatchStats {
+    const stats = try dispatchWireMessagesDense(
+        state,
+        allocator,
+        response_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+    );
+    for (response_messages[0..stats.response_initialized]) |message| {
+        try queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesDenseWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,
