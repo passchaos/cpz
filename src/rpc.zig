@@ -1208,6 +1208,10 @@ pub const ResolveInfo = struct {
 
 pub const PromisedAnswerTarget = struct {
     question_id: QuestionId,
+
+    pub fn matchesQuestion(self: @This(), id: QuestionId) bool {
+        return self.question_id == id;
+    }
 };
 
 pub const PromisedAnswerOp = union(enum) {
@@ -1233,6 +1237,10 @@ pub const PromisedAnswerOp = union(enum) {
 pub const PromisedAnswerTargetOwned = struct {
     question_id: QuestionId,
     transform: []PromisedAnswerOp,
+
+    pub fn matchesQuestion(self: @This(), id: QuestionId) bool {
+        return self.question_id == id;
+    }
 
     pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
         allocator.free(self.transform);
