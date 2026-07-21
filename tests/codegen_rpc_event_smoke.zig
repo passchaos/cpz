@@ -20687,6 +20687,50 @@ test "rpc tracked handoff plans initialize ready return messages" {
         try expectReturnCapabilityResult(response, 502);
     }
 
+    const TaggedPlanSink = struct {
+        sent: usize = 0,
+        provide_answer_sum: u32 = 0,
+        accept_answer_sum: u32 = 0,
+        join_answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), position: cpz.rpc.HandoffReturnOutputPosition, message: anytype) !void {
+            const answer_id = try (try message.get_return_()).get_answerId();
+            switch (position.role) {
+                .provide => context.provide_answer_sum += answer_id,
+                .accept => context.accept_answer_sum += answer_id,
+                .join => context.join_answer_sum += answer_id,
+            }
+            context.sent += 1;
+        }
+    };
+    var tagged_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_builder0.deinit();
+    const tagged_response0 = try generated.Message.initRootTyped(&tagged_builder0);
+    var tagged_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_builder1.deinit();
+    const tagged_response1 = try generated.Message.initRootTyped(&tagged_builder1);
+    var tagged_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_builder2.deinit();
+    const tagged_response2 = try generated.Message.initRootTyped(&tagged_builder2);
+    const tagged_responses = [_]generated.Message.Builder{ tagged_response0, tagged_response1, tagged_response2 };
+    var tagged_plan_sink: TaggedPlanSink = .{};
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessagesToTaggedSink(
+        tagged_responses[0..2],
+        plan,
+        &tagged_plan_sink,
+        TaggedPlanSink.handle,
+    ));
+    try std.testing.expectEqual(stats, try state.initReadyHandoffReturnPlanMessagesToTaggedSink(
+        tagged_responses[0..],
+        plan,
+        &tagged_plan_sink,
+        TaggedPlanSink.handle,
+    ));
+    try std.testing.expectEqual(@as(usize, 3), tagged_plan_sink.sent);
+    try std.testing.expectEqual(@as(u32, 100), tagged_plan_sink.provide_answer_sum);
+    try std.testing.expectEqual(@as(u32, 101), tagged_plan_sink.accept_answer_sum);
+    try std.testing.expectEqual(@as(u32, 102), tagged_plan_sink.join_answer_sum);
+
     var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer queue_builder0.deinit();
     const queue_response0 = try generated.Message.initRootTyped(&queue_builder0);
