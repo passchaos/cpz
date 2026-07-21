@@ -744,12 +744,28 @@ pub const TrackedCallServiceActionStats = struct {
         return self.dispatch + self.forward + self.unimplemented;
     }
 
+    pub fn hasActions(self: @This()) bool {
+        return self.actions() != 0;
+    }
+
     pub fn responseMessages(self: @This()) usize {
         return self.dispatch + self.unimplemented;
     }
 
+    pub fn hasResponses(self: @This()) bool {
+        return self.responseMessages() != 0;
+    }
+
+    pub fn hasForwards(self: @This()) bool {
+        return self.forward != 0;
+    }
+
     pub fn total(self: @This()) usize {
         return self.actions() + self.missing + self.skipped;
+    }
+
+    pub fn hasGaps(self: @This()) bool {
+        return self.missing != 0 or self.skipped != 0;
     }
 
     pub fn dispatchRange(self: @This()) OutputRange {

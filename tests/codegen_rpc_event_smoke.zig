@@ -8281,11 +8281,17 @@ test "rpc service action stats aggregate wire and tracked calls" {
     }, message_stats);
     try std.testing.expectEqual(@as(usize, 3), message_stats.actions());
     try std.testing.expectEqual(@as(usize, 5), message_stats.total());
+    try std.testing.expect(message_stats.hasActions());
+    try std.testing.expect(message_stats.hasResponses());
+    try std.testing.expect(message_stats.hasForwards());
+    try std.testing.expect(message_stats.hasGaps());
     const message_action_stats = cpz.rpc.TrackedCallServiceActionStats{
         .dispatch = 1,
         .forward = 1,
         .unimplemented = 1,
     };
+    try std.testing.expect(message_action_stats.hasActions());
+    try std.testing.expect(!message_action_stats.hasGaps());
     var message_plans: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
     try std.testing.expectEqual(message_stats, try state.initWireMessageServiceActionPlans(messages[0..], entries, message_plans[0..]));
     try std.testing.expectEqual(@as(usize, 0), message_plans[0].source_index);
