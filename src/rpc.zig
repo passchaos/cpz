@@ -9512,6 +9512,47 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosToTaggedQ
     return turn_plan;
 }
 
+pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosToQueuesFromHandlers(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    response_queue: anytype,
+    forward_queue: anytype,
+    disembargo_queue: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandlers(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+    );
+    _ = try appendRpcTurnUnifiedOutputsToQueues(allocator, turn_plan, output_messages, response_queue, forward_queue, disembargo_queue);
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosToSinksFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
@@ -11027,6 +11068,47 @@ pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosTo
         disembargo_target,
     );
     _ = try appendRpcTurnUnifiedOutputsToTaggedQueue(allocator, turn_plan, output_messages, queue);
+    return turn_plan;
+}
+
+pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosToQueuesFromHandlers(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    response_queue: anytype,
+    forward_queue: anytype,
+    disembargo_queue: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandlers(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+    );
+    _ = try appendRpcTurnUnifiedOutputsToQueues(allocator, turn_plan, output_messages, response_queue, forward_queue, disembargo_queue);
     return turn_plan;
 }
 

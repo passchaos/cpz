@@ -18942,6 +18942,141 @@ test "rpc turn dispatcher appends tagged unified outputs to a caller queue" {
     try std.testing.expectEqual(@as(u32, 0), method_bootstrap_seen);
 }
 
+test "rpc turn dispatcher appends unified outputs to role queues" {
+    const BootstrapHandler = struct {
+        fn handle(seen_question: *u32, bootstrap: anytype) !u32 {
+            seen_question.* = bootstrap.questionId();
+            return bootstrap.questionId() + 500;
+        }
+    };
+    const CallHandler = struct {
+        fn handle(_: void, _: anytype) !cpz.rpc.DispatchResult {
+            return .empty;
+        }
+    };
+    const HandoffHandler = struct {
+        fn handle(_: void, _: u32, _: cpz.rpc.AnyPointerUsage) !u32 {
+            return 0;
+        }
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 194,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "split-queue-194",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+
+    const empty_requests = try std.testing.allocator.alloc(generated.Message, 0);
+    defer std.testing.allocator.free(empty_requests);
+    var output_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer output_builder.deinit();
+    const output = try generated.Message.initRootTyped(&output_builder);
+    const outputs = [_]generated.Message.Builder{output};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var disembargo_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer disembargo_queue.deinit(std.testing.allocator);
+    var bootstrap_seen: u32 = 0;
+    const applied = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosToQueuesFromHandlers(
+        &state,
+        std.testing.allocator,
+        outputs[0..],
+        empty_requests,
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        {},
+        CallHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        &response_queue,
+        &forward_queue,
+        &disembargo_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{}, applied.dispatch);
+    try std.testing.expectEqual(@as(usize, 1), applied.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 0), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 0), forward_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), disembargo_queue.items.len);
+    try expectQueuedDisembargoBuilder(disembargo_queue.items[0], .{ .imported_cap = 5 }, "split-queue-194");
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+
+    const method_entries = .{};
+    var method_state = cpz.rpc.State.init(std.testing.allocator);
+    defer method_state.deinit();
+    try method_state.addImport(5);
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 195,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-split-queue-195",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try method_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    var method_output_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer method_output_builder.deinit();
+    const method_output = try generated.Message.initRootTyped(&method_output_builder);
+    const method_outputs = [_]generated.Message.Builder{method_output};
+    var method_response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer method_response_queue.deinit(std.testing.allocator);
+    var method_forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer method_forward_queue.deinit(std.testing.allocator);
+    var method_disembargo_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer method_disembargo_queue.deinit(std.testing.allocator);
+    var method_bootstrap_seen: u32 = 0;
+    const method_applied = try cpz.rpc.dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosToQueuesFromHandlers(
+        &method_state,
+        std.testing.allocator,
+        method_outputs[0..],
+        empty_requests,
+        &method_bootstrap_seen,
+        BootstrapHandler.handle,
+        {},
+        method_entries,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        &method_response_queue,
+        &method_forward_queue,
+        &method_disembargo_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{}, method_applied.dispatch);
+    try std.testing.expectEqual(@as(usize, 1), method_applied.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 0), method_response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 0), method_forward_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), method_disembargo_queue.items.len);
+    try expectQueuedDisembargoBuilder(method_disembargo_queue.items[0], .{ .imported_cap = 5 }, "method-split-queue-195");
+    try std.testing.expectEqual(@as(u32, 0), method_bootstrap_seen);
+}
+
 test "rpc unified sink helper variants accept empty turns" {
     const BootstrapHandler = struct {
         fn handle(_: void, bootstrap: anytype) !u32 {
