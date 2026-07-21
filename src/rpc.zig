@@ -439,6 +439,32 @@ pub const StateHandoffReturnStats = struct {
         return self.total() != 0;
     }
 
+    pub fn hasProvides(self: @This()) bool {
+        return self.provides != 0;
+    }
+
+    pub fn hasAccepts(self: @This()) bool {
+        return self.accepts != 0;
+    }
+
+    pub fn hasJoins(self: @This()) bool {
+        return self.joins != 0;
+    }
+
+    pub fn provideRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.provides };
+    }
+
+    pub fn acceptRange(self: @This()) OutputRange {
+        const start = self.provides;
+        return .{ .start = start, .end = start + self.accepts };
+    }
+
+    pub fn joinRange(self: @This()) OutputRange {
+        const start = self.provides + self.accepts;
+        return .{ .start = start, .end = start + self.joins };
+    }
+
     pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.total()) return error.InvalidTransition;
     }

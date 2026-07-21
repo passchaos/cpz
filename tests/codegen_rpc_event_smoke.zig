@@ -16386,6 +16386,14 @@ test "rpc ready handoff handlers initialize return messages" {
     const ready_return_stats = state.readyHandoffReturnStats();
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_return_stats);
     try std.testing.expect(ready_return_stats.hasReturns());
+    try std.testing.expect(ready_return_stats.hasProvides());
+    try std.testing.expect(ready_return_stats.hasAccepts());
+    try std.testing.expect(ready_return_stats.hasJoins());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 1 }, ready_return_stats.provideRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 1, .end = 2 }, ready_return_stats.acceptRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, ready_return_stats.joinRange());
+    try ready_return_stats.joinRange().validateCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, ready_return_stats.joinRange().validateCapacity(2));
     try ready_return_stats.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_return_stats.validateCapacity(2));
 
@@ -16440,6 +16448,9 @@ test "rpc ready handoff handlers initialize return messages" {
         }
     }
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, planned_stats);
+    try std.testing.expect(planned_stats.hasProvides());
+    try std.testing.expect(planned_stats.hasAccepts());
+    try std.testing.expect(planned_stats.hasJoins());
     try planned_stats.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, planned_stats.validateCapacity(2));
     try std.testing.expectEqual(@as(u32, 103 + 104 + 105), planned_question_sum);
