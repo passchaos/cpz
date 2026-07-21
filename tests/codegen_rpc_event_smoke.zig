@@ -14688,6 +14688,9 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .provides = 1, .provide_recipients = 1 }, state.handoffStats());
         try std.testing.expectEqual(@as(usize, 1), state.handoffStats().tracked());
         try std.testing.expectEqual(@as(usize, 1), state.handoffStats().ready());
+        try std.testing.expect(state.handoffStats().hasTracked());
+        try std.testing.expect(state.handoffStats().hasReady());
+        try std.testing.expect(!state.handoffStats().hasBlocked());
         {
             var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
             defer response_builder.deinit();
@@ -15149,6 +15152,9 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .accepts = 1, .pending_accept_embargos = 1 }, blocked_stats);
     try std.testing.expectEqual(@as(usize, 1), blocked_stats.blocked());
     try std.testing.expectEqual(@as(usize, 0), blocked_stats.ready());
+    try std.testing.expect(blocked_stats.hasTracked());
+    try std.testing.expect(!blocked_stats.hasReady());
+    try std.testing.expect(blocked_stats.hasBlocked());
     {
         const pending_ids = try state.pendingAcceptEmbargoIdsAlloc(std.testing.allocator);
         defer std.testing.allocator.free(pending_ids);

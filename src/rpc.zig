@@ -210,12 +210,24 @@ pub const StateHandoffStats = struct {
         return self.provides + self.accepts + self.joins;
     }
 
+    pub fn hasTracked(self: @This()) bool {
+        return self.tracked() != 0;
+    }
+
     pub fn ready(self: @This()) usize {
         return self.provide_recipients + self.ready_accept_provisions + self.join_key_parts;
     }
 
+    pub fn hasReady(self: @This()) bool {
+        return self.ready() != 0;
+    }
+
     pub fn blocked(self: @This()) usize {
         return self.pending_accept_embargos;
+    }
+
+    pub fn hasBlocked(self: @This()) bool {
+        return self.blocked() != 0;
     }
 };
 
