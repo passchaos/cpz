@@ -1680,6 +1680,51 @@ pub const CapDescriptor = union(enum) {
     receiver_answer: PromisedAnswerTarget,
     third_party_hosted: ExportId,
 
+    pub fn isNone(self: @This()) bool {
+        return self == .none;
+    }
+
+    pub fn isSenderHosted(self: @This()) bool {
+        return self == .sender_hosted;
+    }
+
+    pub fn isSenderPromise(self: @This()) bool {
+        return self == .sender_promise;
+    }
+
+    pub fn isReceiverHosted(self: @This()) bool {
+        return self == .receiver_hosted;
+    }
+
+    pub fn isReceiverAnswer(self: @This()) bool {
+        return self == .receiver_answer;
+    }
+
+    pub fn isThirdPartyHosted(self: @This()) bool {
+        return self == .third_party_hosted;
+    }
+
+    pub fn exportedId(self: @This()) ?ExportId {
+        return switch (self) {
+            .sender_hosted, .sender_promise, .third_party_hosted => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn importedId(self: @This()) ?ImportId {
+        return switch (self) {
+            .receiver_hosted => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn promisedAnswer(self: @This()) ?PromisedAnswerTarget {
+        return switch (self) {
+            .receiver_answer => |answer| answer,
+            else => null,
+        };
+    }
+
     pub fn isForwardableToCallTarget(self: @This()) bool {
         return switch (self) {
             .sender_hosted, .sender_promise, .receiver_answer, .third_party_hosted => true,
@@ -14788,6 +14833,38 @@ test "rpc state applies capability descriptors to table lifetimes" {
     const testing = std.testing;
     var state = State.init(testing.allocator);
     defer state.deinit();
+
+    const none_descriptor: CapDescriptor = .none;
+    try testing.expect(none_descriptor.isNone());
+    try testing.expect(!none_descriptor.isForwardableToCallTarget());
+    try testing.expectEqual(@as(?ExportId, null), none_descriptor.exportedId());
+    try testing.expectEqual(@as(?ImportId, null), none_descriptor.importedId());
+
+    const sender_descriptor = CapDescriptor{ .sender_hosted = 30 };
+    try testing.expect(sender_descriptor.isSenderHosted());
+    try testing.expect(!sender_descriptor.isReceiverHosted());
+    try testing.expectEqual(@as(?ExportId, 30), sender_descriptor.exportedId());
+    try testing.expectEqual(@as(?ImportId, null), sender_descriptor.importedId());
+    try testing.expect(sender_descriptor.isForwardableToCallTarget());
+    try testing.expectEqual(CallTarget{ .imported_cap = 30 }, sender_descriptor.forwardableCallTarget().?);
+
+    const receiver_descriptor = CapDescriptor{ .receiver_hosted = 31 };
+    try testing.expect(receiver_descriptor.isReceiverHosted());
+    try testing.expectEqual(@as(?ImportId, 31), receiver_descriptor.importedId());
+    try testing.expect(!receiver_descriptor.isForwardableToCallTarget());
+
+    const answer_descriptor = CapDescriptor{ .receiver_answer = .{ .question_id = 32 } };
+    try testing.expect(answer_descriptor.isReceiverAnswer());
+    try testing.expectEqual(PromisedAnswerTarget{ .question_id = 32 }, answer_descriptor.promisedAnswer().?);
+    try testing.expectEqual(CallTarget{ .promised_answer = .{ .question_id = 32 } }, answer_descriptor.forwardableCallTarget().?);
+
+    const sender_promise_descriptor = CapDescriptor{ .sender_promise = 33 };
+    try testing.expect(sender_promise_descriptor.isSenderPromise());
+    try testing.expectEqual(@as(?ExportId, 33), sender_promise_descriptor.exportedId());
+
+    const third_party_descriptor = CapDescriptor{ .third_party_hosted = 34 };
+    try testing.expect(third_party_descriptor.isThirdPartyHosted());
+    try testing.expectEqual(@as(?ExportId, 34), third_party_descriptor.exportedId());
 
     try state.applyCapDescriptor(.{ .sender_hosted = 30 });
     try testing.expectEqual(@as(?CapabilityLifetime, .live), state.importState(30));
