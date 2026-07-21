@@ -340,6 +340,11 @@ pub const OutputRange = struct {
         return index >= self.start and index < self.end;
     }
 
+    pub fn localIndex(self: @This(), index: usize) ?usize {
+        if (!self.contains(index)) return null;
+        return index - self.start;
+    }
+
     pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.end) return error.InvalidTransition;
     }
@@ -15147,6 +15152,12 @@ test "rpc message kind predicates describe state-machine roles" {
     try testing.expect(stats.hasDenseResponses());
     try testing.expect(stats.hasDenseForwards());
     try testing.expect(stats.hasDenseOutputs());
+
+    const forward_range = OutputRange{ .start = 2, .end = 5 };
+    try testing.expectEqual(@as(usize, 3), forward_range.len());
+    try testing.expectEqual(@as(?usize, 0), forward_range.localIndex(2));
+    try testing.expectEqual(@as(?usize, 2), forward_range.localIndex(4));
+    try testing.expect(forward_range.localIndex(5) == null);
 }
 
 test "rpc wire events expose classification and id helpers" {
