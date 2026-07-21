@@ -356,7 +356,8 @@ that a complete RPC runtime exists.
   IDs from the recorded pointer usage, report ready return counts, produce
   reusable completion arrays, expose Provide/Accept/Join return counts, ranges,
   role-local indexes, role-tagged output positions, output-position-derived
-  stats, and capacity checks from ready-ID snapshots, plans, and stats, send grouped ready handoff Return
+  stats, stats/plan validation, and capacity checks from ready-ID snapshots,
+  plans, and stats, send grouped ready handoff Return
   outputs to tagged sinks, role-specific sinks, caller-owned tagged queues, or
   role-specific queues, initialize ready handoff plans directly into tagged
   sinks, tagged queues, role-specific sinks, or role-specific queues, and
