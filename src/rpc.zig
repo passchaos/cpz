@@ -564,6 +564,18 @@ pub const StateReadyHandoffIds = struct {
         const start = self.provides.len + self.accepts.len;
         return .{ .start = start, .end = start + self.joins.len };
     }
+
+    pub fn provideLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.provideRange().localIndex(output_index);
+    }
+
+    pub fn acceptLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.acceptRange().localIndex(output_index);
+    }
+
+    pub fn joinLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.joinRange().localIndex(output_index);
+    }
 };
 
 pub const HandoffReturnCapability = struct {
@@ -638,6 +650,18 @@ pub const HandoffReturnPlan = struct {
     pub fn joinRange(self: @This()) OutputRange {
         const start = self.provides.len + self.accepts.len;
         return .{ .start = start, .end = start + self.joins.len };
+    }
+
+    pub fn provideLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.provideRange().localIndex(output_index);
+    }
+
+    pub fn acceptLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.acceptRange().localIndex(output_index);
+    }
+
+    pub fn joinLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.joinRange().localIndex(output_index);
     }
 
     pub fn stats(self: @This()) StateHandoffReturnStats {
