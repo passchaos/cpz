@@ -354,7 +354,7 @@ that a complete RPC runtime exists.
   materialized into batched handoff Return descriptors or initialized/sent
   directly, including through application handlers that compute result export
   IDs from the recorded pointer usage, report ready return counts, produce
-  reusable completion arrays, expose Provide/Accept/Join return roles, counts, ranges,
+  reusable completion arrays, expose Provide/Accept/Join return roles, capabilities, counts, ranges,
   role-local indexes, role-derived stats, output-index/position-to-question/export/capability/completion
   mapping, next-output and role-tagged output positions,
   output-position-derived stats, stats/plan validation, and capacity checks from ready-ID snapshots,
