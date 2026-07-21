@@ -18440,7 +18440,7 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     var response_sink: ResponseSink = .{};
     var forward_sink: ForwardSink = .{};
     var disembargo_sink: DisembargoSink = .{};
-    try cpz.rpc.sendRpcTurnUnifiedOutputsToSinks(
+    const sent_stats = try cpz.rpc.sendRpcTurnUnifiedOutputsToSinksStats(
         plan,
         outputs[0..],
         &response_sink,
@@ -18455,6 +18455,7 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(@as(usize, 1), forward_sink.sent);
     try std.testing.expectEqual(@as(u32, 302), forward_sink.last_question);
     try std.testing.expectEqual(@as(usize, 1), disembargo_sink.sent);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }, sent_stats);
     try std.testing.expectEqual(generated.Message.Union0.unimplemented, (try unused.which()).?);
 }
 

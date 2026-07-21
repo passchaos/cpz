@@ -944,6 +944,28 @@ pub fn sendRpcTurnUnifiedOutputsToSinks(
     disembargo_context: anytype,
     disembargo_handler: anytype,
 ) !void {
+    _ = try sendRpcTurnUnifiedOutputsToSinksStats(
+        turn_plan,
+        output_messages,
+        response_context,
+        response_handler,
+        forward_context,
+        forward_handler,
+        disembargo_context,
+        disembargo_handler,
+    );
+}
+
+pub fn sendRpcTurnUnifiedOutputsToSinksStats(
+    turn_plan: RpcTurnPlan,
+    output_messages: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+    disembargo_context: anytype,
+    disembargo_handler: anytype,
+) !RpcOutputStats {
     try turn_plan.validateUnifiedOutputBuilders(output_messages);
 
     for (try turn_plan.responseMessageRange().slice(output_messages)) |output_message| {
@@ -955,6 +977,11 @@ pub fn sendRpcTurnUnifiedOutputsToSinks(
     for (try turn_plan.disembargoMessageRange().slice(output_messages)) |output_message| {
         try disembargo_handler(disembargo_context, output_message);
     }
+    return .{
+        .responses = turn_plan.responseMessages(),
+        .forwards = turn_plan.forwardedMessages(),
+        .disembargos = turn_plan.disembargoMessages(),
+    };
 }
 
 pub const StateQuestionStats = struct {
