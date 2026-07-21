@@ -1137,6 +1137,10 @@ pub const RpcTurnPlan = struct {
         return self.handoffReturnRange().localIndex(output_index);
     }
 
+    pub fn responseSourcePosition(self: @This(), output_index: usize) ?RpcTurnResponseSourcePosition {
+        return rpcTurnResponseSourcePosition(self, output_index);
+    }
+
     pub fn hasResponses(self: @This()) bool {
         return self.responseMessages() != 0;
     }
@@ -1237,6 +1241,31 @@ pub const RpcTurnPlan = struct {
         try self.validateDisembargoCapacity(disembargo_messages.len);
     }
 };
+
+pub const RpcTurnResponseSourceRole = enum {
+    dispatch,
+    handoff_return,
+};
+
+pub const RpcTurnResponseSourcePosition = struct {
+    role: RpcTurnResponseSourceRole,
+    local_index: usize,
+
+    pub fn isDispatch(self: @This()) bool {
+        return self.role == .dispatch;
+    }
+
+    pub fn isHandoffReturn(self: @This()) bool {
+        return self.role == .handoff_return;
+    }
+};
+
+pub fn rpcTurnResponseSourcePosition(turn_plan: RpcTurnPlan, output_index: usize) ?RpcTurnResponseSourcePosition {
+    if (turn_plan.dispatchResponseLocalIndex(output_index)) |local_index| return .{ .role = .dispatch, .local_index = local_index };
+    if (turn_plan.handoffReturnLocalIndex(output_index)) |local_index| return .{ .role = .handoff_return, .local_index = local_index };
+
+    return null;
+}
 
 pub const RpcTurnOutputRole = enum {
     response,
