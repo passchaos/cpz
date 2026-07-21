@@ -26379,6 +26379,83 @@ test "rpc method turn dispatcher fills dense outputs with apply details" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 691 }, try cpz.rpc.callTargetFromWireCall(forwarded));
         try expectPayloadUInt32List(try forwarded.params(), &.{ 9, 18 });
     }
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 690 });
+    try queue_state.resolveImportTo(690, .{ .sender_hosted = 691 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 691 });
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 125,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-no-sink-apply-125",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    var queue_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder0.deinit();
+    const queue_response0 = try generated.Message.initRootTyped(&queue_response_builder0);
+    var queue_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder1.deinit();
+    const queue_response1 = try generated.Message.initRootTyped(&queue_response_builder1);
+    var queue_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_forward_builder.deinit();
+    const queue_forward = try generated.Message.initRootTyped(&queue_forward_builder);
+    const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1 };
+    const queue_forwards = [_]generated.Message.Builder{queue_forward};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    var queue_provide_context: HandoffHandler = .{};
+    var queue_accept_context: HandoffHandler = .{};
+    var queue_join_context: HandoffHandler = .{};
+    var queue_apply_context: ApplyContext = .{};
+    const queue_applied = try cpz.rpc.dispatchRpcTurnMethodsForwardingDenseToQueuesFromHandlersWithApplyHandler(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_forwards[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &queue_provide_context,
+        HandoffHandler.handle,
+        &queue_accept_context,
+        HandoffHandler.handle,
+        &queue_join_context,
+        HandoffHandler.handle,
+        &response_queue,
+        &forward_queue,
+        &queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(applied, queue_applied);
+    try std.testing.expectEqual(@as(u32, 124), queue_bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 124);
+    try expectQueuedReturnAnswer(response_queue.items[1], 125);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 690, .{ .imported_cap = 691 });
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 125), queue_apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(usize, 0), queue_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), queue_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 0), queue_join_context.seen);
 }
 
 test "rpc method turn dispatcher fills pending disembargos with apply details" {
