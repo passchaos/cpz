@@ -8476,6 +8476,20 @@ test "rpc service action stats aggregate wire and tracked calls" {
             try std.testing.expectEqual(expected_sources[2], queue[2].plan.source_index);
             try std.testing.expectEqual(@as(u32, 73), try (try queue[2].message.get_call()).get_questionId());
         }
+
+        fn expectSplitPlanQueues(response_queue: []const PlanQueueItem, forward_queue: []const PlanQueueItem, expected_response_sources: [2]usize, expected_forward_source: usize) !void {
+            try std.testing.expectEqual(@as(usize, 2), response_queue.len);
+            try std.testing.expect(response_queue[0].plan.action.isDispatch());
+            try std.testing.expectEqual(expected_response_sources[0], response_queue[0].plan.source_index);
+            try std.testing.expectEqual(@as(u32, 71), try (try response_queue[0].message.get_return_()).get_answerId());
+            try std.testing.expect(response_queue[1].plan.action.isUnimplemented());
+            try std.testing.expectEqual(expected_response_sources[1], response_queue[1].plan.source_index);
+            try std.testing.expectEqual(@as(u32, 72), try (try response_queue[1].message.get_return_()).get_answerId());
+            try std.testing.expectEqual(@as(usize, 1), forward_queue.len);
+            try std.testing.expect(forward_queue[0].plan.action.isForward());
+            try std.testing.expectEqual(expected_forward_source, forward_queue[0].plan.source_index);
+            try std.testing.expectEqual(@as(u32, 73), try (try forward_queue[0].message.get_call()).get_questionId());
+        }
     };
 
     var state = cpz.rpc.State.init(std.testing.allocator);
@@ -9998,10 +10012,33 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, plan_queue_stats);
     try plan_queue_stats.validateAgainstServiceActionStats(wire_stats);
     try QueueChecks.expectPlanQueue(plan_queue.items, .{ 0, 1, 2 });
+    var split_plan_response_queue = std.ArrayList(PlanQueueItem).empty;
+    defer split_plan_response_queue.deinit(std.testing.allocator);
+    var split_plan_forward_queue = std.ArrayList(PlanQueueItem).empty;
+    defer split_plan_forward_queue.deinit(std.testing.allocator);
+    const split_plan_queue_stats = try cpz.rpc.appendRpcServiceActionUnifiedOutputPlansToQueues(
+        std.testing.allocator,
+        wire_stats,
+        wire_plans[0..],
+        unified_outputs[0..],
+        &split_plan_response_queue,
+        &split_plan_forward_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, split_plan_queue_stats);
+    try split_plan_queue_stats.validateAgainstServiceActionStats(wire_stats);
+    try QueueChecks.expectSplitPlanQueues(split_plan_response_queue.items, split_plan_forward_queue.items, .{ 0, 1 }, 2);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, wire_plans[0..2], unified_outputs[0..], &plan_sink, PlanSink.handle));
     const overlong_wire_plans = [_]cpz.rpc.TrackedCallServiceActionPlan{ wire_plans[0], wire_plans[1], wire_plans[2], wire_plans[0] };
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToSink(wire_stats, overlong_wire_plans[0..], unified_outputs[0..], &plan_sink, PlanSink.handle));
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcServiceActionUnifiedOutputPlansToQueue(std.testing.allocator, wire_stats, wire_plans[0..2], unified_outputs[0..], &plan_queue));
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcServiceActionUnifiedOutputPlansToQueues(
+        std.testing.allocator,
+        wire_stats,
+        wire_plans[0..2],
+        unified_outputs[0..],
+        &split_plan_response_queue,
+        &split_plan_forward_queue,
+    ));
 
     const WirePlanResponseSink = struct {
         sent: usize = 0,
