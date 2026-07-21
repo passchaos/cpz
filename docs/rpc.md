@@ -200,8 +200,9 @@ that a complete RPC runtime exists.
   produce compact action queues for Call batches or top-level Message batches,
   top-level-message previews/outputs that skip non-Call messages and can fill
   split response/forward queues, send compact unified output prefixes with
-  optional response/forward role tags, return lightweight output stats, record
-  stats from service-action output positions, append outputs to caller-owned
+  optional response/forward role tags, expose response/forward local indexes
+  and role predicates from service-action output positions, return lightweight
+  output stats, record stats from service-action output positions, append outputs to caller-owned
   unified, role-tagged, or role-specific queues, or split them back to
   role-specific sinks,
   return and validate output stats from plain or plan-preserving
@@ -272,7 +273,8 @@ that a complete RPC runtime exists.
   queues, sent as their initialized prefix to a single embedding
   transport/enqueue sink, sent to one sink with response/forward/Disembargo role
   tags, counted with lightweight output stats returned by untagged, tagged, or
-  split send helpers, accumulated from unified output indexes, checked against
+  split send helpers, accumulated from unified output indexes, queried directly
+  for unified role/local-index positions from the turn plan, checked against
   dispatch/turn plans, or split by output role into separate sinks, including ordinary, method-table,
   token-filtered, and apply-detail variants.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
