@@ -13073,6 +13073,48 @@ test "rpc batch dispatcher routes messages and aggregates outcomes" {
     try std.testing.expectEqual(@as(usize, 2), stats.total());
     try std.testing.expect(state.questionComplete(31));
 
+    const OutcomeObserver = struct {
+        calls: usize = 0,
+        index_sum: usize = 0,
+        observed: cpz.rpc.WireDispatchStats = .{},
+
+        fn handle(context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            context.calls += 1;
+            context.index_sum += index;
+            context.observed.record(outcome);
+        }
+    };
+    var outcome_state = cpz.rpc.State.init(std.testing.allocator);
+    defer outcome_state.deinit();
+    try outcome_state.openQuestion(31, .call);
+    var outcome_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer outcome_response_builder0.deinit();
+    const outcome_response0 = try generated.Message.initRootTyped(&outcome_response_builder0);
+    var outcome_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer outcome_response_builder1.deinit();
+    const outcome_response1 = try generated.Message.initRootTyped(&outcome_response_builder1);
+    const outcome_responses = [_]generated.Message.Builder{ outcome_response0, outcome_response1 };
+    var outcome_bootstrap_seen: u32 = 0;
+    var outcome_call_seen: u32 = 0;
+    var observer: OutcomeObserver = .{};
+    const observed_stats = try cpz.rpc.dispatchWireMessagesWithOutcomeHandler(
+        &outcome_state,
+        std.testing.allocator,
+        outcome_responses[0..],
+        requests[0..],
+        &outcome_bootstrap_seen,
+        BootstrapHandler.handle,
+        &outcome_call_seen,
+        CallHandler.handle,
+        &observer,
+        OutcomeObserver.handle,
+    );
+    try std.testing.expectEqual(stats, observed_stats);
+    try std.testing.expectEqual(stats, observer.observed);
+    try std.testing.expectEqual(@as(usize, 2), observer.calls);
+    try std.testing.expectEqual(@as(usize, 1), observer.index_sum);
+    try std.testing.expect(outcome_state.questionComplete(31));
+
     var response_reader = cpz.MessageReader.init(try response_builder0.segmentsConst(), .{});
     const response = generated.Message.fromReader(try response_reader.getRoot());
     const descriptors = try cpz.rpc.capTableFromWireReturnResults(std.testing.allocator, try response.return_());

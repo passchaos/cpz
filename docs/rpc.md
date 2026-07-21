@@ -336,7 +336,7 @@ that a complete RPC runtime exists.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
   call/return payload-aware application, apply simple message batches with
-  optional per-message observation, return detailed Disembargo release
+  optional per-message dispatch-outcome observation, return detailed Disembargo release
   information when requested with apply-result predicates and released-Accept
   ID helpers, aggregate or observe that detail across batches, or apply simpler
   state events; Provide
