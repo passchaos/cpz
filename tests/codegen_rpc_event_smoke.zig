@@ -16140,6 +16140,7 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expect(completions[2].isJoin());
     try std.testing.expectEqual(@as(u32, 90), completions[0].questionId());
     try std.testing.expectEqual(@as(u32, 392), completions[2].exportId());
+    try state.validateTrackedHandoffReturn(completions[0]);
     try state.validateTrackedHandoffReturns(completions[0..]);
     const stats = try state.initTrackedHandoffReturnMessages(responses[0..], completions[0..]);
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, stats);
@@ -16168,6 +16169,7 @@ test "rpc tracked handoff batches initialize ready return messages" {
 
     try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessages(responses[0..2], completions[0..]));
     const invalid_completions = [_]cpz.rpc.HandoffReturn{.{ .join = .{ .question_id = 999, .export_id = 999 } }};
+    try std.testing.expectError(error.InvalidTransition, state.validateTrackedHandoffReturn(invalid_completions[0]));
     try std.testing.expectError(error.InvalidTransition, state.validateTrackedHandoffReturns(invalid_completions[0..]));
     try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessages(responses[0..], invalid_completions[0..]));
 }

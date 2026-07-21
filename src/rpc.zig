@@ -14072,13 +14072,17 @@ pub const State = struct {
         }
     }
 
+    pub fn validateTrackedHandoffReturn(self: *const State, completion: HandoffReturn) Error!void {
+        switch (completion) {
+            .provide => |value| _ = self.provideRecipient(value.question_id) orelse return error.InvalidTransition,
+            .accept => |value| _ = self.readyAcceptProvision(value.question_id) orelse return error.InvalidTransition,
+            .join => |value| _ = self.joinKeyPart(value.question_id) orelse return error.InvalidTransition,
+        }
+    }
+
     pub fn validateTrackedHandoffReturns(self: *const State, completions: []const HandoffReturn) Error!void {
         for (completions) |completion| {
-            switch (completion) {
-                .provide => |value| _ = self.provideRecipient(value.question_id) orelse return error.InvalidTransition,
-                .accept => |value| _ = self.readyAcceptProvision(value.question_id) orelse return error.InvalidTransition,
-                .join => |value| _ = self.joinKeyPart(value.question_id) orelse return error.InvalidTransition,
-            }
+            try self.validateTrackedHandoffReturn(completion);
         }
     }
 
