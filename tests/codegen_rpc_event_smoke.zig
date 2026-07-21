@@ -18752,6 +18752,19 @@ test "rpc top-level accept messages open questions" {
         try std.testing.expect(pending.items[0].matchesEmbargo("embargo-64"));
         try std.testing.expect(!pending.items[0].matchesEmbargo("missing"));
     }
+    {
+        var matching = try state.pendingAcceptEmbargosMatchingAlloc(std.testing.allocator, "embargo-64");
+        defer matching.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 1), matching.len());
+        try std.testing.expect(matching.containsQuestionEmbargo(64, "embargo-64"));
+        try std.testing.expectEqualStrings("embargo-64", matching.items[0].embargo);
+    }
+    {
+        var missing = try state.pendingAcceptEmbargosMatchingAlloc(std.testing.allocator, "missing");
+        defer missing.deinit(std.testing.allocator);
+        try std.testing.expectEqual(@as(usize, 0), missing.len());
+        try std.testing.expect(!missing.hasItems());
+    }
     try std.testing.expect(state.readyAcceptProvision(64) == null);
     try std.testing.expectEqual(@as(usize, 0), state.readyAcceptProvisionCount());
     {

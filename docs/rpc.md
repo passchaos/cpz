@@ -95,7 +95,8 @@ that a complete RPC runtime exists.
   batches can be initialized and handed directly to an embedding transport/enqueue
   callback or appended to caller-owned queues,
   pending Accept embargos can be queried, filtered by embargo token,
-  snapshotted with non-empty, question, question-token, and token matching helpers, or
+  snapshotted globally or by token with non-empty, question, question-token, and
+  token matching helpers, or
   selectively emitted to a sink or appended to caller-owned queues, and their
   targets are validated against tracked imports/answers before a full queue
   exists. Disembargo

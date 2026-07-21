@@ -17404,6 +17404,28 @@ pub const State = struct {
         return .{ .items = try items.toOwnedSlice(allocator) };
     }
 
+    pub fn pendingAcceptEmbargosMatchingAlloc(self: *const State, allocator: std.mem.Allocator, match_embargo: []const u8) std.mem.Allocator.Error!PendingAcceptEmbargos {
+        var items = std.ArrayList(PendingAcceptEmbargo).empty;
+        errdefer {
+            for (items.items) |item| allocator.free(item.embargo);
+            items.deinit(allocator);
+        }
+        var iterator = self.accepts.iterator();
+        while (iterator.next()) |entry| {
+            const accept = entry.value_ptr;
+            if (accept.embargo) |embargo| {
+                if (!accept.embargo_released and std.mem.eql(u8, embargo, match_embargo)) {
+                    const owned_embargo = try allocator.dupe(u8, embargo);
+                    items.append(allocator, .{ .question_id = entry.key_ptr.*, .embargo = owned_embargo }) catch |err| {
+                        allocator.free(owned_embargo);
+                        return err;
+                    };
+                }
+            }
+        }
+        return .{ .items = try items.toOwnedSlice(allocator) };
+    }
+
     pub fn initPendingAcceptDisembargoMessages(self: *const State, message_builders: anytype, target: CallTarget) !usize {
         const needed = self.pendingAcceptEmbargoCount();
         if (message_builders.len < needed) return error.InvalidTransition;
