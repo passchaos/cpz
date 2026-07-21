@@ -5851,9 +5851,8 @@ pub fn dispatchCallMethods(
     comptime entries: anytype,
 ) !void {
     try validateCallMethodEntries(entries);
-    const method = callMethodFromWireCall(call);
     inline for (entries) |entry| {
-        if (method.matches(entry.method.interface_id, entry.method.method_id)) {
+        if (entry.method.matchesWireCall(call)) {
             try dispatchCallMethod(state, allocator, response_message, call, entry.method, context, entry.handler);
             return;
         }
