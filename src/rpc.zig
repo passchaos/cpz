@@ -12410,6 +12410,14 @@ pub fn writeExceptionInfoToWire(info: ExceptionInfo, exception: anytype) !void {
     try exception.set_traceOrNull(info.trace);
 }
 
+pub fn writeAbortInfoToWire(info: ExceptionInfo, abort: anytype) !void {
+    try writeExceptionInfoToWire(info, abort);
+}
+
+pub fn initWireAbortMessage(message: anytype, info: ExceptionInfo) !void {
+    try writeAbortInfoToWire(info, try message.init_abort());
+}
+
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
     return switch (return_.which() orelse return error.InvalidTransition) {
         .results => .results,

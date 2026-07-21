@@ -75,10 +75,11 @@ test "rpc wire events decode generated message union tags and ids" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        const abort = try root.init_abort();
-        try abort.set_reason("fatal rpc abort");
-        try abort.set_type__raw(@intFromEnum(cpz.rpc.ExceptionType.failed));
-        try abort.set_trace("abort trace");
+        try cpz.rpc.initWireAbortMessage(root, .{
+            .reason = "fatal rpc abort",
+            .type_raw = @intFromEnum(cpz.rpc.ExceptionType.failed),
+            .trace = "abort trace",
+        });
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireMessageTag.abort, event.tag());
         try std.testing.expect(event.isAbort());
