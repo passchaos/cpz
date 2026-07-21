@@ -16761,6 +16761,72 @@ test "rpc dense method-table forwarding dispatcher fills unified output slots an
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 296 }, try cpz.rpc.callTargetFromWireCall(forwarded));
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0xaaab, .method_id = 11 }, cpz.rpc.callMethodFromWireCall(forwarded));
     try expectPayloadUInt32List(try forwarded.params(), &.{ 11, 22 });
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(7);
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 295 });
+    try queue_state.resolveImportTo(295, .{ .sender_hosted = 296 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 296 });
+    var queue_accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_accept_builder.deinit();
+    const queue_accept_root = try generated.Message.initRootTyped(&queue_accept_builder);
+    try cpz.rpc.initWireAcceptMessage(queue_accept_root, .{
+        .question_id = 670,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "unified-method-forward-queue-670",
+    });
+    var queue_accept_reader = cpz.MessageReader.init(try queue_accept_builder.segmentsConst(), .{});
+    try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try queue_accept_reader.getRoot()));
+    var queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_disembargo_builder.deinit();
+    const queue_disembargo_root = try generated.Message.initRootTyped(&queue_disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(queue_disembargo_root, .{
+        .target = .{ .imported_cap = 7 },
+        .context = .{ .accept = "unified-method-forward-queue-670" },
+    });
+    var queue_disembargo_reader = cpz.MessageReader.init(try queue_disembargo_builder.segmentsConst(), .{});
+    const queue_disembargo_message = generated.Message.fromReader(try queue_disembargo_reader.getRoot());
+    var queue_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_output_builder0.deinit();
+    const queue_output0 = try generated.Message.initRootTyped(&queue_output_builder0);
+    var queue_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_output_builder1.deinit();
+    const queue_output1 = try generated.Message.initRootTyped(&queue_output_builder1);
+    const queue_outputs = [_]generated.Message.Builder{ queue_output0, queue_output1 };
+    const queue_requests = [_]generated.Message{ bootstrap_message, call_message, queue_disembargo_message };
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    var queue_apply_context: ApplyContext = .{};
+    const queue_stats = try cpz.rpc.dispatchWireMessagesMethodsForwardingUnifiedDenseToQueuesWithApplyHandler(
+        &queue_state,
+        std.testing.allocator,
+        queue_outputs[0..],
+        queue_requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &response_queue,
+        &forward_queue,
+        &queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 68);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 295, .{ .imported_cap = 296 });
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 670), queue_apply_context.released_question_sum);
 }
 
 test "rpc dense method-table forwarding dispatcher reports detailed state apply results" {

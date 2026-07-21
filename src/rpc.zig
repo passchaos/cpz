@@ -14495,6 +14495,46 @@ pub fn dispatchWireMessagesMethodsForwardingUnifiedDenseWithApplyHandler(
     );
 }
 
+pub fn dispatchWireMessagesMethodsForwardingUnifiedDenseToQueuesWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    response_queue: anytype,
+    forward_queue: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    const planned = try planWireMessagesMethodsDispatch(state, request_messages, call_entries);
+    try planned.validateUnifiedDenseOutputBuilders(output_messages);
+    const response_messages = try planned.denseResponseRange().slice(output_messages);
+    const forward_messages = try planned.denseForwardRange().slice(output_messages);
+    const stats = try dispatchWireMessagesMethodsForwardingDenseWithApplyHandler(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        apply_context,
+        apply_handler,
+    );
+    for (response_messages[0..stats.response_initialized]) |message| {
+        try response_queue.append(allocator, message);
+    }
+    for (forward_messages[0..stats.forward_required]) |message| {
+        try forward_queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesMethodsForwardingDenseWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,
