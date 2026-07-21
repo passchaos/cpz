@@ -273,7 +273,8 @@ that a complete RPC runtime exists.
   queues, sent as their initialized prefix to a single embedding
   transport/enqueue sink, sent to one sink with response/forward/Disembargo role
   tags, counted with lightweight output stats returned by untagged, tagged, or
-  split send helpers, accumulated from unified output indexes, queried directly
+  split send helpers, accumulated from turn-plan or service-action unified
+  output indexes, queried directly
   for unified role/local-index positions from the turn plan, checked against
   dispatch/turn plans, or split by output role into separate sinks, including ordinary, method-table,
   token-filtered, and apply-detail variants.
