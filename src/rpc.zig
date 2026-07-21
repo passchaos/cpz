@@ -1742,12 +1742,39 @@ pub const CapDescriptor = union(enum) {
 };
 
 pub const CapDescriptorInfo = struct {
+    pub const no_attached_fd: u8 = 0xff;
+
     descriptor: CapDescriptor,
-    attached_fd: u8 = 0xff,
+    attached_fd: u8 = no_attached_fd,
     third_party_contact: ?AnyPointerUsage = null,
+
+    pub fn hasAttachedFd(self: @This()) bool {
+        return self.attached_fd != no_attached_fd;
+    }
+
+    pub fn attachedFd(self: @This()) ?u8 {
+        return if (self.hasAttachedFd()) self.attached_fd else null;
+    }
 
     pub fn thirdPartyContactUsage(self: @This()) ?AnyPointerUsage {
         return if (self.descriptor == .third_party_hosted) self.third_party_contact else null;
+    }
+
+    pub fn hasThirdPartyContactUsage(self: @This()) bool {
+        return self.thirdPartyContactUsage() != null;
+    }
+
+    pub fn thirdPartyContactMatchesCapability(self: @This(), index: u32) bool {
+        const contact = self.thirdPartyContactUsage() orelse return false;
+        return contact.matchesCapability(index);
+    }
+
+    pub fn isForwardableToCallTarget(self: @This()) bool {
+        return self.descriptor.isForwardableToCallTarget();
+    }
+
+    pub fn forwardableCallTarget(self: @This()) ?CallTarget {
+        return self.descriptor.forwardableCallTarget();
     }
 
     pub fn validate(self: @This()) Error!void {

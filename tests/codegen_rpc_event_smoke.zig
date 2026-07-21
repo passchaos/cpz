@@ -710,8 +710,15 @@ test "rpc cap descriptor helpers decode common capability table entries" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 12 }, decoded.forwardableCallTarget().?);
         const info = try decodeCapDescriptorInfo(&builder);
         try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 12 }, info.descriptor);
-        try std.testing.expectEqual(@as(u8, 0xff), info.attached_fd);
+        try std.testing.expectEqual(cpz.rpc.CapDescriptorInfo.no_attached_fd, info.attached_fd);
+        try std.testing.expect(!info.hasAttachedFd());
+        try std.testing.expect(info.attachedFd() == null);
+        try std.testing.expect(info.isForwardableToCallTarget());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 12 }, info.forwardableCallTarget().?);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, info.third_party_contact.?);
+        try std.testing.expect(info.hasThirdPartyContactUsage());
+        try std.testing.expect(info.thirdPartyContactMatchesCapability(3));
+        try std.testing.expect(!info.thirdPartyContactMatchesCapability(2));
     }
 }
 
@@ -722,20 +729,29 @@ test "rpc cap descriptor info helpers preserve attached fd indexes" {
         const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
         try descriptor.set_senderHosted(13);
         try descriptor.set_attachedFd(4);
+        const info = try decodeCapDescriptorInfo(&builder);
         try std.testing.expectEqual(
             cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_hosted = 13 }, .attached_fd = 4 },
-            try decodeCapDescriptorInfo(&builder),
+            info,
         );
+        try std.testing.expect(info.hasAttachedFd());
+        try std.testing.expectEqual(@as(?u8, 4), info.attachedFd());
+        try std.testing.expect(info.isForwardableToCallTarget());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 13 }, info.forwardableCallTarget().?);
+        try std.testing.expect(!info.hasThirdPartyContactUsage());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const descriptor = try generated.CapDescriptor.initRootTyped(&builder);
         try cpz.rpc.writeCapDescriptorInfoToWire(.{ .descriptor = .{ .sender_promise = 14 }, .attached_fd = 2 }, descriptor);
+        const info = try decodeCapDescriptorInfo(&builder);
         try std.testing.expectEqual(
             cpz.rpc.CapDescriptorInfo{ .descriptor = .{ .sender_promise = 14 }, .attached_fd = 2 },
-            try decodeCapDescriptorInfo(&builder),
+            info,
         );
+        try std.testing.expect(info.hasAttachedFd());
+        try std.testing.expectEqual(@as(?u8, 2), info.attachedFd());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -747,8 +763,13 @@ test "rpc cap descriptor info helpers preserve attached fd indexes" {
         }, descriptor);
         const info = try decodeCapDescriptorInfo(&builder);
         try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 15 }, info.descriptor);
+        try std.testing.expect(!info.hasAttachedFd());
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 6, .capability = 5 }, info.third_party_contact.?);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 6, .capability = 5 }, info.thirdPartyContactUsage().?);
+        try std.testing.expect(info.hasThirdPartyContactUsage());
+        try std.testing.expect(info.thirdPartyContactMatchesCapability(5));
+        try std.testing.expect(!info.thirdPartyContactMatchesCapability(4));
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 15 }, info.forwardableCallTarget().?);
         try info.validate();
     }
     {
