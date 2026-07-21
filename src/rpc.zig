@@ -1947,6 +1947,14 @@ pub const PendingAcceptEmbargos = struct {
     pub fn containsEmbargo(self: @This(), embargo: []const u8) bool {
         return self.matchCount(embargo) != 0;
     }
+
+    pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.len()) return error.InvalidTransition;
+    }
+
+    pub fn validateMatchCapacity(self: @This(), embargo: []const u8, capacity: usize) Error!void {
+        if (capacity < self.matchCount(embargo)) return error.InvalidTransition;
+    }
 };
 
 pub const WireMessageApplyResult = union(enum) {
