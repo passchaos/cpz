@@ -9517,6 +9517,39 @@ pub fn dispatchWireMessagesForwardingDense(
     return stats;
 }
 
+pub fn dispatchWireMessagesForwardingDenseToQueues(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    response_queue: anytype,
+    forward_queue: anytype,
+) !WireDispatchStats {
+    const stats = try dispatchWireMessagesForwardingDense(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+    );
+    for (response_messages[0..stats.response_initialized]) |message| {
+        try response_queue.append(allocator, message);
+    }
+    for (forward_messages[0..stats.forward_required]) |message| {
+        try forward_queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesForwardingUnifiedDense(
     state: *State,
     allocator: std.mem.Allocator,

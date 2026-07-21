@@ -278,7 +278,8 @@ that a complete RPC runtime exists.
   apply-detail and method-table forwarding batches, can immediately hand or append initialized forwarded Calls, or split ordinary responses and forwarded
   Calls, to embedding transport/enqueue callbacks. Dense batch variants can
   consume compact response/forward output queues instead of one output slot per
-  input message, with or without immediate sink callbacks.
+  input message, with immediate sink callbacks or caller-owned role-specific
+  queue append.
   Call initialization can include send-results routing (including third-party
   contact capability usage), boolean call flags, and non-capability payload
   helper variants, including registry-backed payloads, that also set
