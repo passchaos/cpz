@@ -1145,6 +1145,14 @@ pub const RpcTurnPlan = struct {
         return rpcTurnResponseSourceOutputIndex(self, position);
     }
 
+    pub fn dispatchResponseOutputIndex(self: @This(), local_index: usize) ?usize {
+        return self.responseSourceOutputIndex(.{ .role = .dispatch, .local_index = local_index });
+    }
+
+    pub fn handoffReturnOutputIndex(self: @This(), local_index: usize) ?usize {
+        return self.responseSourceOutputIndex(.{ .role = .handoff_return, .local_index = local_index });
+    }
+
     pub fn hasResponses(self: @This()) bool {
         return self.responseMessages() != 0;
     }

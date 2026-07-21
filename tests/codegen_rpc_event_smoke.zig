@@ -24315,6 +24315,10 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(@as(?usize, 2), cpz.rpc.rpcTurnResponseSourceOutputIndex(mixed_response_plan, handoff_source_position));
     try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.responseSourceOutputIndex(.{ .role = .dispatch, .local_index = 2 }));
     try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.responseSourceOutputIndex(.{ .role = .handoff_return, .local_index = 2 }));
+    try std.testing.expectEqual(@as(?usize, 1), mixed_response_plan.dispatchResponseOutputIndex(1));
+    try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.dispatchResponseOutputIndex(2));
+    try std.testing.expectEqual(@as(?usize, 2), mixed_response_plan.handoffReturnOutputIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.handoffReturnOutputIndex(2));
     try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2, .handoff_returns = 2 }, cpz.rpc.RpcTurnResponseSourceStats.fromTurnPlan(mixed_response_plan));
     var response_source_stats: cpz.rpc.RpcTurnResponseSourceStats = .{};
     try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .dispatch, .local_index = 0 }, response_source_stats.nextPosition(.dispatch));
