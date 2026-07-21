@@ -36,9 +36,10 @@ that a complete RPC runtime exists.
   and standard exception-type matches.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
   while still projecting to the simplified answer-resolving event.
-  Return outcomes for exception, canceled, results-sent-elsewhere, and
-  take-from-other-question are decoded, expose result/non-result predicates, and
-  can resolve tracked answers without a results payload; these non-result
+  Return outcomes for exception, canceled, results-sent-elsewhere,
+  take-from-other-question, and await-from-third-party are decoded, expose
+  result/non-result predicates plus variant-specific ID/capability accessors,
+  and can resolve tracked answers without a results payload; these non-result
   outcomes can also be written.
   Await-from-third-party returns expose their pointer capability usage and can be
   written for future third-party answer handling with capability-index bounds
@@ -167,7 +168,8 @@ that a complete RPC runtime exists.
   exceptions, cancellation, results-sent-elsewhere,
   or take-from-other-question outcomes, including await-from-third-party
   tail-call handoffs. Generic dispatch results expose result/non-result shape
-  predicates before they are materialized into Returns. A
+  predicates plus variant-specific ID/capability accessors before they are
+  materialized into Returns. A
   method-aware call dispatcher can filter on interface/method IDs, build
   capability, empty, text/data/UInt32-list payload returns and caller-filled struct payload returns with descriptor,
   descriptor-info, or registry-backed cap tables, and emit an unimplemented exception for
