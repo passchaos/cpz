@@ -20443,6 +20443,10 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectEqual(@as(?usize, null), ready_ids.acceptLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, 0), ready_ids.joinLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, null), ready_ids.joinLocalIndex(3));
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 0 }, ready_ids.unifiedOutputPosition(0).?);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, ready_ids.unifiedOutputPosition(1).?);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, ready_ids.unifiedOutputPosition(2).?);
+    try std.testing.expect(ready_ids.unifiedOutputPosition(3) == null);
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_ids.stats());
     try ready_ids.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_ids.validateCapacity(2));
@@ -20599,6 +20603,10 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try std.testing.expectEqual(@as(?usize, null), plan.acceptLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, 0), plan.joinLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, null), plan.joinLocalIndex(3));
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 0 }, plan.unifiedOutputPosition(0).?);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, plan.unifiedOutputPosition(1).?);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, plan.unifiedOutputPosition(2).?);
+    try std.testing.expect(plan.unifiedOutputPosition(3) == null);
     try plan.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, plan.joinRange().validateCapacity(2));
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, plan.stats());

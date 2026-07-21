@@ -662,6 +662,10 @@ pub const StateReadyHandoffIds = struct {
         return self.joinRange().localIndex(output_index);
     }
 
+    pub fn unifiedOutputPosition(self: @This(), output_index: usize) ?HandoffReturnOutputPosition {
+        return self.stats().unifiedOutputPosition(output_index);
+    }
+
     pub fn stats(self: @This()) StateHandoffReturnStats {
         return .{
             .provides = self.provides.len,
@@ -759,6 +763,10 @@ pub const HandoffReturnPlan = struct {
 
     pub fn joinLocalIndex(self: @This(), output_index: usize) ?usize {
         return self.joinRange().localIndex(output_index);
+    }
+
+    pub fn unifiedOutputPosition(self: @This(), output_index: usize) ?HandoffReturnOutputPosition {
+        return self.stats().unifiedOutputPosition(output_index);
     }
 
     pub fn stats(self: @This()) StateHandoffReturnStats {
