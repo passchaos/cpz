@@ -20933,6 +20933,44 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(u32, 104), try (try handoff_tagged_queue.items[1].message.get_return_()).get_answerId());
     try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, handoff_tagged_queue.items[2].position);
     try std.testing.expectEqual(@as(u32, 105), try (try handoff_tagged_queue.items[2].message.get_return_()).get_answerId());
+    const RoleHandoffSink = struct {
+        sent: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.answer_sum += try (try message.get_return_()).get_answerId();
+        }
+    };
+    var provide_handoff_sink: RoleHandoffSink = .{};
+    var accept_handoff_sink: RoleHandoffSink = .{};
+    var join_handoff_sink: RoleHandoffSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendHandoffReturnOutputsToSinks(
+        ready_return_stats,
+        responses[0..2],
+        &provide_handoff_sink,
+        RoleHandoffSink.handle,
+        &accept_handoff_sink,
+        RoleHandoffSink.handle,
+        &join_handoff_sink,
+        RoleHandoffSink.handle,
+    ));
+    try std.testing.expectEqual(ready_return_stats, try cpz.rpc.sendHandoffReturnOutputsToSinksStats(
+        ready_return_stats,
+        responses[0..],
+        &provide_handoff_sink,
+        RoleHandoffSink.handle,
+        &accept_handoff_sink,
+        RoleHandoffSink.handle,
+        &join_handoff_sink,
+        RoleHandoffSink.handle,
+    ));
+    try std.testing.expectEqual(@as(usize, 1), provide_handoff_sink.sent);
+    try std.testing.expectEqual(@as(u32, 103), provide_handoff_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), accept_handoff_sink.sent);
+    try std.testing.expectEqual(@as(u32, 104), accept_handoff_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), join_handoff_sink.sent);
+    try std.testing.expectEqual(@as(u32, 105), join_handoff_sink.answer_sum);
     try ready_return_stats.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_return_stats.joinRange().validateCapacity(2));
     try ready_return_stats.validateCapacity(3);

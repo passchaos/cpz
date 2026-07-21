@@ -914,6 +914,45 @@ pub fn appendHandoffReturnOutputsToTaggedQueue(
     return stats;
 }
 
+pub fn sendHandoffReturnOutputsToSinks(
+    stats: StateHandoffReturnStats,
+    response_messages: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+) !void {
+    _ = try sendHandoffReturnOutputsToSinksStats(
+        stats,
+        response_messages,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+    );
+}
+
+pub fn sendHandoffReturnOutputsToSinksStats(
+    stats: StateHandoffReturnStats,
+    response_messages: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+) !StateHandoffReturnStats {
+    try stats.validateCapacity(response_messages.len);
+    for (try stats.provideRange().slice(response_messages)) |message| try provide_handler(provide_context, message);
+    for (try stats.acceptRange().slice(response_messages)) |message| try accept_handler(accept_context, message);
+    for (try stats.joinRange().slice(response_messages)) |message| try join_handler(join_context, message);
+    return stats;
+}
+
 pub const RpcTurnPlan = struct {
     dispatch: WireDispatchStats = .{},
     handoff_returns: StateHandoffReturnStats = .{},
