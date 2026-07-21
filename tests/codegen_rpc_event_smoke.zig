@@ -12817,6 +12817,67 @@ test "rpc batch dispatcher reports apply results while sending responses to a si
     try std.testing.expectEqual(@as(usize, 1), descriptors.len);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 3346 }, descriptors[0]);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(45));
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+
+    var queue_accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_accept_builder.deinit();
+    const queue_accept_root = try generated.Message.initRootTyped(&queue_accept_builder);
+    try cpz.rpc.initWireAcceptMessage(queue_accept_root, .{
+        .question_id = 47,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "queue-47",
+    });
+    var queue_accept_reader = cpz.MessageReader.init(try queue_accept_builder.segmentsConst(), .{});
+    try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try queue_accept_reader.getRoot()));
+
+    var queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_disembargo_builder.deinit();
+    const queue_disembargo_root = try generated.Message.initRootTyped(&queue_disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(queue_disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "queue-47" },
+    });
+    var queue_disembargo_reader = cpz.MessageReader.init(try queue_disembargo_builder.segmentsConst(), .{});
+    const queue_disembargo_message = generated.Message.fromReader(try queue_disembargo_reader.getRoot());
+
+    var queue_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder0.deinit();
+    const queue_response0 = try generated.Message.initRootTyped(&queue_response_builder0);
+    var queue_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer queue_response_builder1.deinit();
+    const queue_response1 = try generated.Message.initRootTyped(&queue_response_builder1);
+    const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1 };
+    const queue_requests = [_]generated.Message{ bootstrap_message, queue_disembargo_message };
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_call_seen: u32 = 0;
+    var queue_apply_context: ApplyContext = .{};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    const queue_stats = try cpz.rpc.dispatchWireMessagesToQueueWithApplyHandler(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_call_seen,
+        CallHandler.handle,
+        &response_queue,
+        &queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .response_initialized = 1, .state_applied = 1 }, queue_stats);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 46);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 47), queue_apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(?bool, true), queue_state.acceptEmbargoReleased(47));
 }
 
 test "rpc batch dispatcher sends initialized responses to a sink" {

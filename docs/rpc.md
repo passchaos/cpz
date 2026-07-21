@@ -225,8 +225,8 @@ that a complete RPC runtime exists.
   Disembargo before deinitializing temporary result allocations, and a batch
   helper can aggregate those outcomes over caller-provided message readers,
   including method-table call dispatch.
-  Response-sink and caller-owned queue variants can hand initialized
-  Bootstrap/Call responses directly to an embedding transport/enqueue path while ignoring state-only events,
+  Response-sink and caller-owned queue variants, including apply-detail batch
+  dispatch, can hand initialized Bootstrap/Call responses directly to an embedding transport/enqueue path while ignoring state-only events,
   including dense response queues (with or without method tables) that skip
   state-only messages; no-sink dense variants can fill compact response queues
   for callers that want to enqueue or inspect initialized messages themselves.
