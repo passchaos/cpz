@@ -16248,6 +16248,43 @@ pub fn dispatchWireMessagesMethodsForwardingToQueueWithApplyHandler(
     return stats;
 }
 
+pub fn dispatchWireMessagesMethodsForwardingWithOutcomeHandlerAndApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    outcome_context: anytype,
+    outcome_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    if (response_messages.len < request_messages.len or forward_messages.len < request_messages.len) return error.InvalidTransition;
+    var stats: WireDispatchStats = .{};
+    for (request_messages, 0..) |request_message, index| {
+        const outcome = try dispatchWireMessageMethodsForwardingOutcomeWithApplyHandler(
+            state,
+            allocator,
+            response_messages[index],
+            forward_messages[index],
+            request_message,
+            bootstrap_context,
+            bootstrap_handler,
+            call_context,
+            call_entries,
+            apply_context,
+            apply_handler,
+        );
+        try outcome_handler(outcome_context, index, outcome);
+        stats.record(outcome);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesMethodsForwardingToQueuesWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,
