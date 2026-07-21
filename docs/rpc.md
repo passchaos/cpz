@@ -352,9 +352,9 @@ that a complete RPC runtime exists.
   materialized into batched handoff Return descriptors or initialized/sent
   directly, including through application handlers that compute result export
   IDs from the recorded pointer usage, report ready return counts, produce
-  reusable completion arrays, expose Provide/Accept/Join return ranges and
-  role-local indexes from ready-ID snapshots, plans, and stats, validate return
-  queue capacity, and optionally enqueue those returns.
+  reusable completion arrays, expose Provide/Accept/Join return counts, ranges,
+  role-local indexes, and capacity checks from ready-ID snapshots, plans, and
+  stats, and optionally enqueue those returns.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
   for future provision handling; callers can query/count when an accepted
