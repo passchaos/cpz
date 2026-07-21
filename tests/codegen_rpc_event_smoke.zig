@@ -20641,6 +20641,52 @@ test "rpc tracked handoff plans initialize ready return messages" {
         try expectReturnCapabilityResult(response, 502);
     }
 
+    var role_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_builder0.deinit();
+    const role_response0 = try generated.Message.initRootTyped(&role_builder0);
+    var role_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_builder1.deinit();
+    const role_response1 = try generated.Message.initRootTyped(&role_builder1);
+    var role_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_builder2.deinit();
+    const role_response2 = try generated.Message.initRootTyped(&role_builder2);
+    const role_responses = [_]generated.Message.Builder{ role_response0, role_response1, role_response2 };
+    var provide_role_sink: Sink = .{};
+    var accept_role_sink: Sink = .{};
+    var join_role_sink: Sink = .{};
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessagesToSinks(
+        role_responses[0..2],
+        plan,
+        &provide_role_sink,
+        Sink.handle,
+        &accept_role_sink,
+        Sink.handle,
+        &join_role_sink,
+        Sink.handle,
+    ));
+    try std.testing.expectEqual(stats, try state.initReadyHandoffReturnPlanMessagesToSinks(
+        role_responses[0..],
+        plan,
+        &provide_role_sink,
+        Sink.handle,
+        &accept_role_sink,
+        Sink.handle,
+        &join_role_sink,
+        Sink.handle,
+    ));
+    try std.testing.expectEqual(@as(usize, 1), provide_role_sink.sent);
+    try std.testing.expectEqual(@as(u32, 100), provide_role_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), accept_role_sink.sent);
+    try std.testing.expectEqual(@as(u32, 101), accept_role_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), join_role_sink.sent);
+    try std.testing.expectEqual(@as(u32, 102), join_role_sink.answer_sum);
+    {
+        var reader = cpz.MessageReader.init(try role_builder2.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(try response.return_()));
+        try expectReturnCapabilityResult(response, 502);
+    }
+
     var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer queue_builder0.deinit();
     const queue_response0 = try generated.Message.initRootTyped(&queue_builder0);
