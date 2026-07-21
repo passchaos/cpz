@@ -19314,6 +19314,22 @@ test "rpc top-level accept messages open questions" {
             try std.testing.expectEqualStrings("embargo-64", info_queue.items[0].context.accept);
         }
         {
+            const InfoSink = struct {
+                sent: usize = 0,
+                last_target: cpz.rpc.CallTarget = .{ .imported_cap = 0 },
+
+                fn handle(context: *@This(), disembargo_info: cpz.rpc.DisembargoInfo) !void {
+                    context.sent += 1;
+                    context.last_target = disembargo_info.target;
+                    try std.testing.expectEqualStrings("embargo-64", disembargo_info.context.accept);
+                }
+            };
+            var sink: InfoSink = .{};
+            try std.testing.expectEqual(@as(usize, 1), try pending.appendDisembargoInfosToSink(.{ .imported_cap = 5 }, &sink, InfoSink.handle));
+            try std.testing.expectEqual(@as(usize, 1), sink.sent);
+            try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, sink.last_target);
+        }
+        {
             var infos: [1]cpz.rpc.DisembargoInfo = undefined;
             try std.testing.expectEqual(@as(usize, 1), try pending.initDisembargoInfosForEmbargo(infos[0..], .{ .imported_cap = 5 }, "embargo-64"));
             try std.testing.expectEqualStrings("embargo-64", infos[0].context.accept);
@@ -19330,6 +19346,22 @@ test "rpc top-level accept messages open questions" {
             try std.testing.expectEqualStrings("embargo-64", info_queue.items[0].context.accept);
             try std.testing.expectEqual(@as(usize, 0), try pending.appendDisembargoInfosForEmbargoToQueue(std.testing.allocator, .{ .imported_cap = 5 }, "missing", &info_queue));
             try std.testing.expectEqual(@as(usize, 1), info_queue.items.len);
+        }
+        {
+            const InfoSink = struct {
+                sent: usize = 0,
+
+                fn handle(context: *@This(), disembargo_info: cpz.rpc.DisembargoInfo) !void {
+                    context.sent += 1;
+                    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, disembargo_info.target);
+                    try std.testing.expectEqualStrings("embargo-64", disembargo_info.context.accept);
+                }
+            };
+            var sink: InfoSink = .{};
+            try std.testing.expectEqual(@as(usize, 1), try pending.appendDisembargoInfosForEmbargoToSink(.{ .imported_cap = 5 }, "embargo-64", &sink, InfoSink.handle));
+            try std.testing.expectEqual(@as(usize, 1), sink.sent);
+            try std.testing.expectEqual(@as(usize, 0), try pending.appendDisembargoInfosForEmbargoToSink(.{ .imported_cap = 5 }, "missing", &sink, InfoSink.handle));
+            try std.testing.expectEqual(@as(usize, 1), sink.sent);
         }
         try std.testing.expectEqual(@as(u32, 64), pending.items[0].question_id);
         try std.testing.expectEqualStrings("embargo-64", pending.items[0].embargo);

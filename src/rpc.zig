@@ -2039,6 +2039,16 @@ pub const PendingAcceptEmbargos = struct {
         return self.len();
     }
 
+    pub fn appendDisembargoInfosToSink(self: @This(), target: CallTarget, sink_context: anytype, sink_handler: anytype) !usize {
+        for (self.items) |item| {
+            try sink_handler(sink_context, DisembargoInfo{
+                .target = target,
+                .context = .{ .accept = item.embargo },
+            });
+        }
+        return self.len();
+    }
+
     pub fn initDisembargoInfosForEmbargo(self: @This(), infos: []DisembargoInfo, target: CallTarget, embargo: []const u8) Error!usize {
         try self.validateMatchCapacity(embargo, infos.len);
         var index: usize = 0;
@@ -2059,6 +2069,20 @@ pub const PendingAcceptEmbargos = struct {
         for (self.items) |item| {
             if (item.matchesEmbargo(embargo)) {
                 try queue.append(allocator, DisembargoInfo{
+                    .target = target,
+                    .context = .{ .accept = item.embargo },
+                });
+                count += 1;
+            }
+        }
+        return count;
+    }
+
+    pub fn appendDisembargoInfosForEmbargoToSink(self: @This(), target: CallTarget, embargo: []const u8, sink_context: anytype, sink_handler: anytype) !usize {
+        var count: usize = 0;
+        for (self.items) |item| {
+            if (item.matchesEmbargo(embargo)) {
+                try sink_handler(sink_context, DisembargoInfo{
                     .target = target,
                     .context = .{ .accept = item.embargo },
                 });
