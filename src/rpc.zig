@@ -1054,6 +1054,13 @@ pub const CallTargetOwned = union(enum) {
         return self.promisedQuestionId() == id;
     }
 
+    pub fn asCallTarget(self: @This()) CallTarget {
+        return switch (self) {
+            .imported_cap => |id| .{ .imported_cap = id },
+            .promised_answer => |answer| .{ .promised_answer = .{ .question_id = answer.question_id } },
+        };
+    }
+
     pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
         switch (self.*) {
             .promised_answer => |*answer| answer.deinit(allocator),

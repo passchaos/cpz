@@ -236,7 +236,8 @@ that a complete RPC runtime exists.
   payloads, blobs, primitive lists,
   caller-filled structs, and descriptor-info metadata.
   Borrowed and owned Call targets expose predicates and ID matchers for imported
-  capabilities and promised answers.
+  capabilities and promised answers, and owned targets can be viewed as
+  lightweight borrowed targets when transform ownership is not needed.
   Method IDs, result routing, and call flags can also be decoded from or written
   to generated Call readers/builders as a single `CallOptions` value, so
   dispatch and initialization paths share the same validation rules. Fluent
