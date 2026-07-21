@@ -705,8 +705,24 @@ pub const RpcTurnPlan = struct {
     handoff_returns: StateHandoffReturnStats = .{},
     pending_disembargos: usize = 0,
 
+    pub fn dispatchResponseMessages(self: @This()) usize {
+        return self.dispatch.response_initialized;
+    }
+
+    pub fn hasDispatchResponses(self: @This()) bool {
+        return self.dispatchResponseMessages() != 0;
+    }
+
+    pub fn handoffReturnMessages(self: @This()) usize {
+        return self.handoff_returns.total();
+    }
+
+    pub fn hasHandoffReturns(self: @This()) bool {
+        return self.handoffReturnMessages() != 0;
+    }
+
     pub fn responseMessages(self: @This()) usize {
-        return self.dispatch.response_initialized + self.handoff_returns.total();
+        return self.dispatchResponseMessages() + self.handoffReturnMessages();
     }
 
     pub fn hasResponses(self: @This()) bool {

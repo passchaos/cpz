@@ -10657,6 +10657,10 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     const turn_plan = try cpz.rpc.planRpcTurn(&state, requests[0..]);
     try std.testing.expectEqual(stats, turn_plan.dispatch);
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{}, turn_plan.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 2), turn_plan.dispatchResponseMessages());
+    try std.testing.expect(turn_plan.hasDispatchResponses());
+    try std.testing.expectEqual(@as(usize, 0), turn_plan.handoffReturnMessages());
+    try std.testing.expect(!turn_plan.hasHandoffReturns());
     try std.testing.expectEqual(@as(usize, 2), turn_plan.responseMessages());
     try std.testing.expectEqual(@as(usize, 1), turn_plan.forwardedMessages());
     try std.testing.expectEqual(@as(usize, 1), turn_plan.stateOnlyMessages());
@@ -16492,6 +16496,10 @@ test "rpc ready handoff handlers initialize return messages" {
     const handoff_turn_plan = try cpz.rpc.planRpcTurn(&state, no_turn_messages[0..]);
     try std.testing.expectEqual(cpz.rpc.WireDispatchStats{}, handoff_turn_plan.dispatch);
     try std.testing.expectEqual(ready_return_stats, handoff_turn_plan.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 0), handoff_turn_plan.dispatchResponseMessages());
+    try std.testing.expect(!handoff_turn_plan.hasDispatchResponses());
+    try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.handoffReturnMessages());
+    try std.testing.expect(handoff_turn_plan.hasHandoffReturns());
     try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.responseMessages());
     try std.testing.expectEqual(@as(usize, 0), handoff_turn_plan.forwardedMessages());
     try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.totalOutputMessages());
