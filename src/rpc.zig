@@ -1945,6 +1945,18 @@ pub const CallSendResultsTo = enum {
     caller,
     yourself,
     third_party,
+
+    pub fn isCaller(self: @This()) bool {
+        return self == .caller;
+    }
+
+    pub fn isYourself(self: @This()) bool {
+        return self == .yourself;
+    }
+
+    pub fn isThirdParty(self: @This()) bool {
+        return self == .third_party;
+    }
 };
 
 pub const CallFlags = struct {

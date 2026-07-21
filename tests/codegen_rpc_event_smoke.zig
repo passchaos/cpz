@@ -424,7 +424,10 @@ test "rpc call helpers decode and write send-results-to targets" {
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const call_reader = generated.Call.fromReader(try reader.getRoot());
-        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, try cpz.rpc.sendResultsToFromWireCall(call_reader));
+        const target = try cpz.rpc.sendResultsToFromWireCall(call_reader);
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.yourself, target);
+        try std.testing.expect(target.isYourself());
+        try std.testing.expect(!target.isCaller());
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -434,7 +437,10 @@ test "rpc call helpers decode and write send-results-to targets" {
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const call_reader = generated.Call.fromReader(try reader.getRoot());
-        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, try cpz.rpc.sendResultsToFromWireCall(call_reader));
+        const target = try cpz.rpc.sendResultsToFromWireCall(call_reader);
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.third_party, target);
+        try std.testing.expect(target.isThirdParty());
+        try std.testing.expect(!target.isYourself());
         const usage = (try cpz.rpc.sendResultsToThirdPartyUsageFromWireCall(call_reader)).?;
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 4, .capability = 3 }, usage);
         try usage.validate();
@@ -474,7 +480,10 @@ test "rpc call helpers decode and write send-results-to targets" {
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const call_reader = generated.Call.fromReader(try reader.getRoot());
-        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.caller, try cpz.rpc.sendResultsToFromWireCall(call_reader));
+        const target = try cpz.rpc.sendResultsToFromWireCall(call_reader);
+        try std.testing.expectEqual(cpz.rpc.CallSendResultsTo.caller, target);
+        try std.testing.expect(target.isCaller());
+        try std.testing.expect(!target.isThirdParty());
     }
 }
 
