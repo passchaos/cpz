@@ -1753,6 +1753,10 @@ pub const WireMessageApplyStats = struct {
         return self.state_applied + self.disembargos;
     }
 
+    pub fn hasWork(self: @This()) bool {
+        return self.total() != 0;
+    }
+
     pub fn appliedAnyState(self: @This()) bool {
         return self.state_applied != 0;
     }
