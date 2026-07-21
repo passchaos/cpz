@@ -217,8 +217,8 @@ that a complete RPC runtime exists.
   combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
   or unified output queues, including helpers for validating builders and
-  slicing/querying unified output ranges into response, forward, and Disembargo
-  regions.
+  slicing/querying unified output ranges and local indexes into response,
+  forward, and Disembargo regions.
   Dense forwarding dispatch, with or without method-table handlers, can also
   fill a single caller-provided unified response/forward queue by using those
   ranges internally; ordinary and method-table forwarding unified dense paths
