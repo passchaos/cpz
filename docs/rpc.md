@@ -60,7 +60,9 @@ that a complete RPC runtime exists.
   replacement cap descriptors or broken-promise exceptions, can initialize
   top-level Resolve messages, and do not conflate the official `ExportId` with
   answer IDs. Resolve metadata exposes predicates and validation for the
-  mutually-exclusive cap/exception payload.
+  mutually-exclusive cap/exception payload, including broken-promise and
+  forwardable-target helpers when the replacement descriptor can be used as a
+  call target.
   Finish wire events preserve the official `releaseResultCaps` flag while still
   projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official
@@ -86,7 +88,9 @@ that a complete RPC runtime exists.
   batches can be initialized and handed directly to an embedding transport/enqueue
   callback, pending Accept embargos can be queried, filtered by embargo token,
   snapshotted with non-empty/matching helpers, or selectively emitted to a sink for queueing, and their targets are
-  validated against tracked imports/answers before a full queue exists.
+  validated against tracked imports/answers before a full queue exists. Disembargo
+  contexts and decoded infos expose sender/receiver/accept predicates, loopback
+  IDs, accept-token matchers, and target matchers for embedding queues.
   ThirdPartyAnswer wire readers/builders expose completion pointer capability
   usage, can reconstitute that usage as `AnyPointerUsage`, and resolve existing
   answers by official `AnswerId` while remaining distinct from ordinary Return
@@ -118,8 +122,9 @@ that a complete RPC runtime exists.
   Generated RPC `CapDescriptor` readers can be decoded for the common
   none/sender/receiver entries plus third-party vine/contact capability usage
   and optional `attachedFd` index metadata, expose validation and contact usage
-  helpers plus call-target forwarding predicates, and be written back into generated
-  payload builders with third-party contact capability-index bounds validation.
+  helpers plus role/ID accessors and call-target forwarding predicates, and be
+  written back into generated payload builders with third-party contact
+  capability-index bounds validation.
   `CapabilityRegistry(T)` can seed sender-hosted descriptor tables for outgoing
   payloads. `Payload.capTable` can be decoded into caller-owned descriptor or
   descriptor-info slices, with absent tables treated as empty; helpers can
@@ -314,14 +319,17 @@ that a complete RPC runtime exists.
   and key-part pointer usage; callers can query/count the tracked key-part usage
   and initialize a tracked Join result Return only when that key part is present.
   Handoff aggregate stats expose predicates for tracked, ready, and blocked
-  work. Provide/Accept/Join/ThirdPartyAnswer info helpers can reconstitute and
-  validate their recorded pointer usage as `AnyPointerUsage` values.
+  work. Provide/Accept/Join/ThirdPartyAnswer info, tracker, and `State` query
+  helpers can reconstitute, match, and validate their recorded pointer usage as
+  `AnyPointerUsage` values.
   Provide/Accept/Join handoff completions can also initialize single or batched
   Return messages with readiness gates preserved, derive single
   Provide/Accept/Join result exports through application handlers, or hand those
   initialized returns directly to an embedding transport/enqueue callback.
   Handoff return values expose their kind plus answer/export IDs, and return
-  plans/stats report whether any returns are pending. Join result
+  plans/stats report whether any returns are pending, whether each handoff
+  return kind is present, and the role-specific output ranges for provide/
+  accept/join returns. Join result
   returns can initialize and decode their result capability payloads. Finish clears recorded Provide/Accept/Join handoff
   bookkeeping for the finished question. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
