@@ -16762,6 +16762,27 @@ pub fn initWireHandoffReturnMessagesToSink(
     return stats;
 }
 
+pub fn initWireHandoffReturnMessagesToTaggedSink(
+    response_messages: anytype,
+    completions: []const HandoffReturn,
+    sink_context: anytype,
+    sink_handler: anytype,
+) !StateHandoffReturnStats {
+    if (response_messages.len < completions.len) return error.InvalidTransition;
+    var stats: StateHandoffReturnStats = .{};
+    for (completions, 0..) |completion, index| {
+        const position: HandoffReturnOutputPosition = switch (completion) {
+            .provide => .{ .role = .provide, .local_index = stats.provides },
+            .accept => .{ .role = .accept, .local_index = stats.accepts },
+            .join => .{ .role = .join, .local_index = stats.joins },
+        };
+        try initWireHandoffReturnMessage(response_messages[index], completion);
+        try sink_handler(sink_context, position, response_messages[index]);
+        stats.record(completion);
+    }
+    return stats;
+}
+
 pub fn initWireHandoffReturnMessagesToQueue(
     allocator: std.mem.Allocator,
     response_messages: anytype,
