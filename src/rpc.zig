@@ -13972,8 +13972,19 @@ pub const State = struct {
         }
     }
 
+    pub fn validateTrackedHandoffReturns(self: *const State, completions: []const HandoffReturn) Error!void {
+        for (completions) |completion| {
+            switch (completion) {
+                .provide => |value| _ = self.provideRecipient(value.question_id) orelse return error.InvalidTransition,
+                .accept => |value| _ = self.readyAcceptProvision(value.question_id) orelse return error.InvalidTransition,
+                .join => |value| _ = self.joinKeyPart(value.question_id) orelse return error.InvalidTransition,
+            }
+        }
+    }
+
     pub fn initTrackedHandoffReturnMessages(self: *const State, response_messages: anytype, completions: []const HandoffReturn) !StateHandoffReturnStats {
         if (response_messages.len < completions.len) return error.InvalidTransition;
+        try self.validateTrackedHandoffReturns(completions);
         var stats: StateHandoffReturnStats = .{};
         for (completions, 0..) |completion, index| {
             try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
@@ -14013,6 +14024,7 @@ pub const State = struct {
         sink_handler: anytype,
     ) !StateHandoffReturnStats {
         if (response_messages.len < completions.len) return error.InvalidTransition;
+        try self.validateTrackedHandoffReturns(completions);
         var stats: StateHandoffReturnStats = .{};
         for (completions, 0..) |completion, index| {
             try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
