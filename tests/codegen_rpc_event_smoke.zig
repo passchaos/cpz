@@ -15992,6 +15992,11 @@ test "rpc tracked handoff batches initialize ready return messages" {
         .{ .accept = .{ .question_id = 91, .export_id = 391 } },
         .{ .join = .{ .question_id = 92, .export_id = 392 } },
     };
+    try std.testing.expect(completions[0].isProvide());
+    try std.testing.expect(completions[1].isAccept());
+    try std.testing.expect(completions[2].isJoin());
+    try std.testing.expectEqual(@as(u32, 90), completions[0].questionId());
+    try std.testing.expectEqual(@as(u32, 392), completions[2].exportId());
     const stats = try state.initTrackedHandoffReturnMessages(responses[0..], completions[0..]);
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, stats);
     try std.testing.expectEqual(@as(usize, 3), stats.total());

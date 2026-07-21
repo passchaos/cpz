@@ -304,6 +304,30 @@ pub const HandoffReturn = union(enum) {
     provide: HandoffReturnCapability,
     accept: HandoffReturnCapability,
     join: HandoffReturnCapability,
+
+    pub fn isProvide(self: @This()) bool {
+        return self == .provide;
+    }
+
+    pub fn isAccept(self: @This()) bool {
+        return self == .accept;
+    }
+
+    pub fn isJoin(self: @This()) bool {
+        return self == .join;
+    }
+
+    pub fn questionId(self: @This()) QuestionId {
+        return switch (self) {
+            .provide, .accept, .join => |value| value.question_id,
+        };
+    }
+
+    pub fn exportId(self: @This()) ExportId {
+        return switch (self) {
+            .provide, .accept, .join => |value| value.export_id,
+        };
+    }
 };
 
 pub const HandoffReturnPlan = struct {
