@@ -23851,6 +23851,98 @@ test "rpc method turn dispatcher fills unified outputs with pending disembargos 
     try std.testing.expectEqual(@as(u32, 158), tagged_queue_apply_context.released_question_sum);
     try std.testing.expectEqual(@as(usize, 1), tagged_queue_accept_context.seen);
     try std.testing.expectEqual(@as(u32, 0), tagged_queue_context.selected);
+
+    var split_queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer split_queue_state.deinit();
+    try split_queue_state.addImport(5);
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 160,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-split-queue-apply-release-160",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try split_queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 161,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-split-queue-apply-pending-161",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try split_queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    var split_queue_request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer split_queue_request_builder.deinit();
+    const split_queue_request_root = try generated.Message.initRootTyped(&split_queue_request_builder);
+    try cpz.rpc.initWireDisembargoMessage(split_queue_request_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "method-split-queue-apply-release-160" },
+    });
+    var split_queue_request_reader = cpz.MessageReader.init(try split_queue_request_builder.segmentsConst(), .{});
+    const split_queue_requests = [_]generated.Message{generated.Message.fromReader(try split_queue_request_reader.getRoot())};
+    var split_queue_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer split_queue_output_builder0.deinit();
+    const split_queue_output0 = try generated.Message.initRootTyped(&split_queue_output_builder0);
+    var split_queue_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer split_queue_output_builder1.deinit();
+    const split_queue_output1 = try generated.Message.initRootTyped(&split_queue_output_builder1);
+    const split_queue_outputs = [_]generated.Message.Builder{ split_queue_output0, split_queue_output1 };
+    var split_queue_context: Context = .{};
+    var split_queue_apply_context: ApplyContext = .{};
+    var split_queue_provide_context: HandoffHandler = .{};
+    var split_queue_accept_context: HandoffHandler = .{};
+    var split_queue_join_context: HandoffHandler = .{};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var disembargo_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer disembargo_queue.deinit(std.testing.allocator);
+    const split_queued = try cpz.rpc.dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosToQueuesFromHandlersWithApplyHandler(
+        &split_queue_state,
+        std.testing.allocator,
+        split_queue_outputs[0..],
+        split_queue_requests[0..],
+        {},
+        BootstrapHandler.handle,
+        &split_queue_context,
+        entries,
+        &split_queue_provide_context,
+        HandoffHandler.handle,
+        &split_queue_accept_context,
+        HandoffHandler.handle,
+        &split_queue_join_context,
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        &response_queue,
+        &forward_queue,
+        &disembargo_queue,
+        &split_queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .state_applied = 1 }, split_queued.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .accepts = 1 }, split_queued.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 160);
+    try std.testing.expectEqual(@as(usize, 0), forward_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), disembargo_queue.items.len);
+    try expectQueuedDisembargoBuilder(disembargo_queue.items[0], .{ .imported_cap = 5 }, "method-split-queue-apply-pending-161");
+    try std.testing.expectEqual(@as(usize, 1), split_queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 160), split_queue_apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(usize, 1), split_queue_accept_context.seen);
+    try std.testing.expectEqual(@as(u32, 0), split_queue_context.selected);
 }
 
 test "rpc method turn dispatcher sends pending accept disembargos with dense outputs" {
