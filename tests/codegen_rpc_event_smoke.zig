@@ -10727,6 +10727,8 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     );
     try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }).matchesDispatchStats(stats));
     try std.testing.expect(!(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1 }).matchesDispatchStats(stats));
+    try (cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }).validateAgainstDispatchStats(stats);
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1 }).validateAgainstDispatchStats(stats));
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, stats.denseResponseRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseRange().len());
@@ -18458,6 +18460,8 @@ test "rpc unified output helper sends role ranges to separate sinks" {
         cpz.rpc.RpcOutputStats.fromTurnPlan(plan),
     );
     try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }).matchesTurnPlan(plan));
+    try (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }).validateAgainstTurnPlan(plan);
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1 }).validateAgainstTurnPlan(plan));
 
     var unified_sink: UnifiedSink = .{};
     try std.testing.expectEqual(
