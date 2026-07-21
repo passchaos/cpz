@@ -4429,6 +4429,9 @@ test "rpc return outcomes without result payloads resolve answers" {
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
         const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
+        try std.testing.expect(outcome.isException());
+        try std.testing.expect(outcome.isNonResult());
+        try std.testing.expect(!outcome.isResults());
         const info = switch (outcome) {
             .exception => |value| value,
             else => return error.TestUnexpectedResult,
@@ -4455,7 +4458,9 @@ test "rpc return outcomes without result payloads resolve answers" {
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
-        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.canceled, try cpz.rpc.returnOutcomeFromWireReturn(try message.return_()));
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.canceled, outcome);
+        try std.testing.expect(outcome.isNonResult());
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
@@ -4473,7 +4478,9 @@ test "rpc return outcomes without result payloads resolve answers" {
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
-        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results_sent_elsewhere, try cpz.rpc.returnOutcomeFromWireReturn(try message.return_()));
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results_sent_elsewhere, outcome);
+        try std.testing.expect(outcome.isNonResult());
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
@@ -6450,7 +6457,10 @@ test "rpc generic call dispatcher builds empty no-finish returns" {
     const return_ = try response.return_();
     try std.testing.expect(return_.releaseParamCaps());
     try std.testing.expect(return_.noFinishNeeded());
-    try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results, try cpz.rpc.returnOutcomeFromWireReturn(return_));
+    const outcome = try cpz.rpc.returnOutcomeFromWireReturn(return_);
+    try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results, outcome);
+    try std.testing.expect(outcome.isResults());
+    try std.testing.expect(!outcome.isNonResult());
     try state.applyWireMessage(std.testing.allocator, response);
     try std.testing.expect(state.questionComplete(18));
     try std.testing.expect(state.canReuseQuestionId(18));

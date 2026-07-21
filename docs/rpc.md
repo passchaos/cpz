@@ -36,8 +36,9 @@ that a complete RPC runtime exists.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
   while still projecting to the simplified answer-resolving event.
   Return outcomes for exception, canceled, results-sent-elsewhere, and
-  take-from-other-question are decoded and can resolve tracked answers without a
-  results payload; these non-result outcomes can also be written.
+  take-from-other-question are decoded, expose result/non-result predicates, and
+  can resolve tracked answers without a results payload; these non-result
+  outcomes can also be written.
   Await-from-third-party returns expose their pointer capability usage and can be
   written for future third-party answer handling with capability-index bounds
   validation.

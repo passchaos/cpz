@@ -56,6 +56,18 @@ pub const ReturnOutcome = union(enum) {
     results_sent_elsewhere,
     take_from_other_question: QuestionId,
     await_from_third_party: AnyPointerUsage,
+
+    pub fn isResults(self: @This()) bool {
+        return self == .results;
+    }
+
+    pub fn isException(self: @This()) bool {
+        return self == .exception;
+    }
+
+    pub fn isNonResult(self: @This()) bool {
+        return !self.isResults();
+    }
 };
 
 pub const DispatchResult = union(enum) {
