@@ -8917,6 +8917,52 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 72), try (try message_direct_output_queue.items[1].get_return_()).get_answerId());
     try std.testing.expectEqual(@as(u32, 73), try (try message_direct_output_queue.items[2].get_call()).get_questionId());
 
+    var message_direct_output_split_queue_state = try Seed.state();
+    defer message_direct_output_split_queue_state.deinit();
+    var message_direct_output_split_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_output_split_queue_builder0.deinit();
+    const message_direct_output_split_queue_output0 = try generated.Message.initRootTyped(&message_direct_output_split_queue_builder0);
+    var message_direct_output_split_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_output_split_queue_builder1.deinit();
+    const message_direct_output_split_queue_output1 = try generated.Message.initRootTyped(&message_direct_output_split_queue_builder1);
+    var message_direct_output_split_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_output_split_queue_builder2.deinit();
+    const message_direct_output_split_queue_output2 = try generated.Message.initRootTyped(&message_direct_output_split_queue_builder2);
+    const message_direct_output_split_queue_outputs = [_]generated.Message.Builder{ message_direct_output_split_queue_output0, message_direct_output_split_queue_output1, message_direct_output_split_queue_output2 };
+    var message_direct_output_split_queue_context: Context = .{};
+    var message_direct_output_response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer message_direct_output_response_queue.deinit(std.testing.allocator);
+    var message_direct_output_forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer message_direct_output_forward_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputsToQueues(
+        &message_direct_output_split_queue_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_output_split_queue_outputs[0..2],
+        &message_direct_output_split_queue_context,
+        entries,
+        &message_direct_output_response_queue,
+        &message_direct_output_forward_queue,
+    ));
+    try std.testing.expectEqual(message_action_stats, try cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputsToQueues(
+        &message_direct_output_split_queue_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_output_split_queue_outputs[0..],
+        &message_direct_output_split_queue_context,
+        entries,
+        &message_direct_output_response_queue,
+        &message_direct_output_forward_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_direct_output_split_queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), message_direct_output_response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), message_direct_output_forward_queue.items.len);
+    try std.testing.expectEqual(@as(u32, 71), try (try message_direct_output_response_queue.items[0].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 72), try (try message_direct_output_response_queue.items[1].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 73), try (try message_direct_output_forward_queue.items[0].get_call()).get_questionId());
+
     var message_role_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
     defer message_role_wrapper_state.deinit();
     try message_role_wrapper_state.addImport(5);
@@ -9164,6 +9210,52 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 71), try (try message_output_queue_wrapper.items[0].get_return_()).get_answerId());
     try std.testing.expectEqual(@as(u32, 72), try (try message_output_queue_wrapper.items[1].get_return_()).get_answerId());
     try std.testing.expectEqual(@as(u32, 73), try (try message_output_queue_wrapper.items[2].get_call()).get_questionId());
+
+    var message_split_output_queue_wrapper_state = try Seed.state();
+    defer message_split_output_queue_wrapper_state.deinit();
+    var message_split_output_queue_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_split_output_queue_wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_output_queue_wrapper_builder0.deinit();
+    const message_split_output_queue_wrapper_output0 = try generated.Message.initRootTyped(&message_split_output_queue_wrapper_builder0);
+    var message_split_output_queue_wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_output_queue_wrapper_builder1.deinit();
+    const message_split_output_queue_wrapper_output1 = try generated.Message.initRootTyped(&message_split_output_queue_wrapper_builder1);
+    var message_split_output_queue_wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_split_output_queue_wrapper_builder2.deinit();
+    const message_split_output_queue_wrapper_output2 = try generated.Message.initRootTyped(&message_split_output_queue_wrapper_builder2);
+    const message_split_output_queue_wrapper_outputs = [_]generated.Message.Builder{ message_split_output_queue_wrapper_output0, message_split_output_queue_wrapper_output1, message_split_output_queue_wrapper_output2 };
+    var message_split_output_queue_wrapper_context: Context = .{};
+    var message_output_wrapper_response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer message_output_wrapper_response_queue.deinit(std.testing.allocator);
+    var message_output_wrapper_forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer message_output_wrapper_forward_queue.deinit(std.testing.allocator);
+    var message_split_output_queue_wrapper_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, message_split_output_queue_wrapper_state.dispatchWireMessageServiceActionsUnifiedToQueues(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_split_output_queue_wrapper_short_plan_buffer[0..],
+        message_split_output_queue_wrapper_outputs[0..],
+        &message_split_output_queue_wrapper_context,
+        &message_output_wrapper_response_queue,
+        &message_output_wrapper_forward_queue,
+    ));
+    try std.testing.expectEqual(message_stats, try message_split_output_queue_wrapper_state.dispatchWireMessageServiceActionsUnifiedToQueues(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_split_output_queue_wrapper_plan_buffer[0..],
+        message_split_output_queue_wrapper_outputs[0..],
+        &message_split_output_queue_wrapper_context,
+        &message_output_wrapper_response_queue,
+        &message_output_wrapper_forward_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_split_output_queue_wrapper_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), message_output_wrapper_response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), message_output_wrapper_forward_queue.items.len);
+    try std.testing.expectEqual(@as(u32, 71), try (try message_output_wrapper_response_queue.items[0].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 72), try (try message_output_wrapper_response_queue.items[1].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 73), try (try message_output_wrapper_forward_queue.items[0].get_call()).get_questionId());
 
     var message_tagged_output_queue_wrapper_state = try Seed.state();
     defer message_tagged_output_queue_wrapper_state.deinit();
