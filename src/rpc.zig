@@ -850,6 +850,13 @@ pub const RpcOutputStats = struct {
     forwards: usize = 0,
     disembargos: usize = 0,
 
+    pub fn fromDispatchStats(dispatch: WireDispatchStats) @This() {
+        return .{
+            .responses = dispatch.response_initialized,
+            .forwards = dispatch.forward_required,
+        };
+    }
+
     pub fn fromTurnPlan(turn_plan: RpcTurnPlan) @This() {
         return .{
             .responses = turn_plan.responseMessages(),

@@ -10718,6 +10718,10 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseSlots());
     try std.testing.expectEqual(@as(usize, 1), stats.denseForwardSlots());
     try std.testing.expectEqual(@as(usize, 3), stats.denseOutputSlots());
+    try std.testing.expectEqual(
+        cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 },
+        cpz.rpc.RpcOutputStats.fromDispatchStats(stats),
+    );
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, stats.denseResponseRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseRange().len());
