@@ -21,7 +21,8 @@ that a complete RPC runtime exists.
   helpers for optional capability/interface fields.
 - `CapabilityRegistry(T)` is an append-only application-owned handle registry
   for assigning outgoing capability indexes before writing capability pointers
-  into builders, with direct index presence and handle lookup helpers.
+  into builders, with direct index presence plus fallible and nullable handle
+  lookup helpers.
 - `cpz.rpc` defines a transport-independent state-machine vocabulary for RPC
   message kinds, transport-independent `Event` values, question/answer
   transitions, import/export lifetimes, and a small `State` that tracks
