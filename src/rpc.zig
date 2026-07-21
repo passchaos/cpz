@@ -434,6 +434,18 @@ pub const StateQuestionStats = struct {
     pub fn active(self: @This()) usize {
         return self.open_questions + self.unresolved_answers;
     }
+
+    pub fn total(self: @This()) usize {
+        return self.questions + self.answers;
+    }
+
+    pub fn hasActive(self: @This()) bool {
+        return self.active() != 0;
+    }
+
+    pub fn hasCompleteQuestions(self: @This()) bool {
+        return self.complete_questions != 0;
+    }
 };
 
 pub const StateCapabilityStats = struct {
@@ -451,12 +463,28 @@ pub const StateCapabilityStats = struct {
         return self.live_exports + self.live_imports;
     }
 
+    pub fn total(self: @This()) usize {
+        return self.exports + self.imports;
+    }
+
+    pub fn hasLive(self: @This()) bool {
+        return self.live() != 0;
+    }
+
     pub fn released(self: @This()) usize {
         return self.released_exports + self.released_imports;
     }
 
+    pub fn hasReleased(self: @This()) bool {
+        return self.released() != 0;
+    }
+
     pub fn resolved(self: @This()) usize {
         return self.resolved_exports + self.resolved_imports;
+    }
+
+    pub fn hasResolved(self: @This()) bool {
+        return self.resolved() != 0;
     }
 };
 
@@ -14154,6 +14182,9 @@ test "rpc state tracks in-flight questions and answers" {
         .unresolved_answers = 1,
     }, state.questionStats());
     try testing.expectEqual(@as(usize, 2), state.questionStats().active());
+    try testing.expectEqual(@as(usize, 2), state.questionStats().total());
+    try testing.expect(state.questionStats().hasActive());
+    try testing.expect(!state.questionStats().hasCompleteQuestions());
 
     try testing.expectError(error.QuestionAlreadyOpen, state.openQuestion(1, .bootstrap));
     try testing.expectError(error.InvalidTransition, state.openQuestion(2, .finish));
@@ -14181,6 +14212,8 @@ test "rpc state tracks in-flight questions and answers" {
         .resolved_answers = 1,
         .complete_questions = 1,
     }, state.questionStats());
+    try testing.expect(!state.questionStats().hasActive());
+    try testing.expect(state.questionStats().hasCompleteQuestions());
     try state.forgetQuestion(1);
     try testing.expect(!state.hasQuestion(1));
     try testing.expect(!state.hasAnswer(1));
@@ -14239,6 +14272,9 @@ test "rpc state tracks import and export lifetimes" {
         .import_references = 1,
     }, state.capabilityStats());
     try testing.expectEqual(@as(usize, 2), state.capabilityStats().live());
+    try testing.expectEqual(@as(usize, 2), state.capabilityStats().total());
+    try testing.expect(state.capabilityStats().hasLive());
+    try testing.expect(!state.capabilityStats().hasReleased());
 
     try testing.expectError(error.InvalidTransition, state.addExport(10));
     try testing.expectError(error.InvalidTransition, state.addImport(20));
@@ -14250,6 +14286,7 @@ test "rpc state tracks import and export lifetimes" {
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.exportState(10));
     try testing.expectEqual(@as(?CapabilityLifetime, .released), state.importState(20));
     try testing.expectEqual(@as(usize, 2), state.capabilityStats().released());
+    try testing.expect(state.capabilityStats().hasReleased());
     try testing.expectError(error.ExportAlreadyReleased, state.releaseExport(10));
     try testing.expectError(error.ImportAlreadyReleased, state.releaseImport(20));
     try state.forgetReleasedExport(10);
@@ -14268,6 +14305,7 @@ test "rpc state tracks import and export lifetimes" {
     try state.resolveExportTo(12, null);
     try state.resolveImportTo(22, null);
     try testing.expectEqual(@as(usize, 2), state.capabilityStats().resolved());
+    try testing.expect(state.capabilityStats().hasResolved());
     const removed = state.forgetReleasedCapabilities();
     try testing.expectEqual(@as(usize, 1), removed.exports);
     try testing.expectEqual(@as(usize, 1), removed.imports);

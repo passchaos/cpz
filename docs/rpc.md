@@ -90,14 +90,15 @@ that a complete RPC runtime exists.
   Completed question IDs can be queried for cleanup readiness, reused, or
   explicitly forgotten individually or in batches once both Finish and
   Return-like answer resolution have been observed. Question/answer stats
-  summarize open, finished, unresolved, resolved, and complete entries, and a
+  summarize open, finished, unresolved, resolved, complete, total, and active
+  entries with convenience predicates, and a
   state cleanup helper can reclaim both completed questions and released
   capability tombstones together.
   Open questions remember the RPC message kind that created them, giving later
   protocol-state code a typed hook for bootstrap/call/handoff-specific rules.
   Resolved answers remember the message kind that resolved them. Capability
-  stats summarize live/released/resolved import/export lifetimes and import
-  reference counts.
+  stats summarize total/live/released/resolved import/export lifetimes and
+  import reference counts with convenience predicates.
   Call `sendResultsTo` caller/yourself/third-party targets can be decoded and
   written, including third-party contact pointer capability usage.
   Generated RPC `Call.target` readers can be decoded into a lightweight
