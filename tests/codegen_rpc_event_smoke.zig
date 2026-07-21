@@ -16223,6 +16223,7 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, plan.stats());
     try plan.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, plan.validateCapacity(2));
+    try state.validateReadyHandoffReturnPlan(plan);
 
     var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder0.deinit();
@@ -16252,6 +16253,11 @@ test "rpc tracked handoff plans initialize ready return messages" {
     }
 
     try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessages(responses[0..2], plan));
+    const invalid_accepts = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 999, .export_id = 599 }};
+    const invalid_plan = cpz.rpc.HandoffReturnPlan{ .accepts = invalid_accepts[0..] };
+    try std.testing.expectError(error.InvalidTransition, state.validateReadyHandoffReturnPlan(invalid_plan));
+    try std.testing.expectError(error.InvalidTransition, state.readyHandoffReturnsAlloc(std.testing.allocator, invalid_plan));
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessages(responses[0..], invalid_plan));
 }
 
 test "rpc ready handoff handlers initialize return messages" {

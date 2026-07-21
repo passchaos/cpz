@@ -13932,22 +13932,32 @@ pub const State = struct {
         return .{ .provides = provides, .accepts = accepts, .joins = joins };
     }
 
+    pub fn validateReadyHandoffReturnPlan(self: *const State, plan: HandoffReturnPlan) Error!void {
+        for (plan.provides) |value| {
+            _ = self.provideRecipient(value.question_id) orelse return error.InvalidTransition;
+        }
+        for (plan.accepts) |value| {
+            _ = self.readyAcceptProvision(value.question_id) orelse return error.InvalidTransition;
+        }
+        for (plan.joins) |value| {
+            _ = self.joinKeyPart(value.question_id) orelse return error.InvalidTransition;
+        }
+    }
+
     pub fn readyHandoffReturnsAlloc(self: *const State, allocator: std.mem.Allocator, plan: HandoffReturnPlan) (Error || std.mem.Allocator.Error)![]HandoffReturn {
+        try self.validateReadyHandoffReturnPlan(plan);
         var completions = try allocator.alloc(HandoffReturn, plan.total());
         errdefer allocator.free(completions);
         var index: usize = 0;
         for (plan.provides) |value| {
-            _ = self.provideRecipient(value.question_id) orelse return error.InvalidTransition;
             completions[index] = .{ .provide = value };
             index += 1;
         }
         for (plan.accepts) |value| {
-            _ = self.readyAcceptProvision(value.question_id) orelse return error.InvalidTransition;
             completions[index] = .{ .accept = value };
             index += 1;
         }
         for (plan.joins) |value| {
-            _ = self.joinKeyPart(value.question_id) orelse return error.InvalidTransition;
             completions[index] = .{ .join = value };
             index += 1;
         }
@@ -13974,6 +13984,7 @@ pub const State = struct {
 
     pub fn initReadyHandoffReturnPlanMessages(self: *const State, response_messages: anytype, plan: HandoffReturnPlan) !StateHandoffReturnStats {
         if (response_messages.len < plan.total()) return error.InvalidTransition;
+        try self.validateReadyHandoffReturnPlan(plan);
         var stats: StateHandoffReturnStats = .{};
         var index: usize = 0;
         for (plan.provides) |value| {
@@ -14019,6 +14030,7 @@ pub const State = struct {
         sink_handler: anytype,
     ) !StateHandoffReturnStats {
         if (response_messages.len < plan.total()) return error.InvalidTransition;
+        try self.validateReadyHandoffReturnPlan(plan);
         var stats: StateHandoffReturnStats = .{};
         var index: usize = 0;
         for (plan.provides) |value| {
