@@ -20717,6 +20717,51 @@ test "rpc tracked handoff plans initialize ready return messages" {
         try expectReturnCapabilityResult(response, 502);
     }
 
+    var role_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_queue_builder0.deinit();
+    const role_queue_response0 = try generated.Message.initRootTyped(&role_queue_builder0);
+    var role_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_queue_builder1.deinit();
+    const role_queue_response1 = try generated.Message.initRootTyped(&role_queue_builder1);
+    var role_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer role_queue_builder2.deinit();
+    const role_queue_response2 = try generated.Message.initRootTyped(&role_queue_builder2);
+    const role_queue_responses = [_]generated.Message.Builder{ role_queue_response0, role_queue_response1, role_queue_response2 };
+    var provide_role_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer provide_role_queue.deinit(std.testing.allocator);
+    var accept_role_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer accept_role_queue.deinit(std.testing.allocator);
+    var join_role_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer join_role_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessagesToQueues(
+        std.testing.allocator,
+        role_queue_responses[0..2],
+        plan,
+        &provide_role_queue,
+        &accept_role_queue,
+        &join_role_queue,
+    ));
+    try std.testing.expectEqual(stats, try state.initReadyHandoffReturnPlanMessagesToQueues(
+        std.testing.allocator,
+        role_queue_responses[0..],
+        plan,
+        &provide_role_queue,
+        &accept_role_queue,
+        &join_role_queue,
+    ));
+    try std.testing.expectEqual(@as(usize, 1), provide_role_queue.items.len);
+    try expectQueuedReturnAnswer(provide_role_queue.items[0], 100);
+    try std.testing.expectEqual(@as(usize, 1), accept_role_queue.items.len);
+    try expectQueuedReturnAnswer(accept_role_queue.items[0], 101);
+    try std.testing.expectEqual(@as(usize, 1), join_role_queue.items.len);
+    try expectQueuedReturnAnswer(join_role_queue.items[0], 102);
+    {
+        var reader = cpz.MessageReader.init(try role_queue_builder2.segmentsConst(), .{});
+        const response = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(try response.return_()));
+        try expectReturnCapabilityResult(response, 502);
+    }
+
     try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessages(responses[0..2], plan));
     try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessagesToQueue(
         std.testing.allocator,

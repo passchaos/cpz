@@ -19135,6 +19135,26 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initReadyHandoffReturnPlanMessagesToQueues(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        response_messages: anytype,
+        plan: HandoffReturnPlan,
+        provide_queue: anytype,
+        accept_queue: anytype,
+        join_queue: anytype,
+    ) !StateHandoffReturnStats {
+        const stats = try self.initReadyHandoffReturnPlanMessages(response_messages, plan);
+        return appendHandoffReturnOutputsToQueues(
+            allocator,
+            stats,
+            response_messages,
+            provide_queue,
+            accept_queue,
+            join_queue,
+        );
+    }
+
     pub fn readyHandoffReturnStats(self: *const State) StateHandoffReturnStats {
         return .{
             .provides = self.provideRecipientCount(),
