@@ -15503,6 +15503,8 @@ test "rpc top-level apply reports disembargo releases" {
     var accept_result = try state.applyWireMessageAlloc(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
     defer accept_result.deinit(std.testing.allocator);
     try std.testing.expectEqual(cpz.rpc.WireMessageApplyResult.state_applied, accept_result);
+    try std.testing.expect(accept_result.isStateApplied());
+    try std.testing.expect(!accept_result.isDisembargo());
 
     try state.addImport(5);
     var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -15515,6 +15517,8 @@ test "rpc top-level apply reports disembargo releases" {
     var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
     var disembargo_result = try state.applyWireMessageAlloc(std.testing.allocator, generated.Message.fromReader(try disembargo_reader.getRoot()));
     defer disembargo_result.deinit(std.testing.allocator);
+    try std.testing.expect(disembargo_result.isDisembargo());
+    try std.testing.expect(disembargo_result.releasedAnyAccept());
     const released = switch (disembargo_result) {
         .disembargo => |info| info,
         else => return error.TestUnexpectedResult,
@@ -15560,6 +15564,7 @@ test "rpc batch apply aggregates detailed disembargo results" {
         .released_accepts = 1,
     }, stats);
     try std.testing.expectEqual(@as(usize, 2), stats.total());
+    try std.testing.expect(stats.appliedAnyState());
     try std.testing.expect(stats.appliedAnyDisembargo());
     try std.testing.expect(stats.releasedAnyAccept());
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(69));

@@ -1151,6 +1151,21 @@ pub const WireMessageApplyResult = union(enum) {
     state_applied,
     disembargo: DisembargoApplyInfo,
 
+    pub fn isStateApplied(self: @This()) bool {
+        return self == .state_applied;
+    }
+
+    pub fn isDisembargo(self: @This()) bool {
+        return self == .disembargo;
+    }
+
+    pub fn releasedAnyAccept(self: @This()) bool {
+        return switch (self) {
+            .disembargo => |info| info.releasedAnyAccept(),
+            .state_applied => false,
+        };
+    }
+
     pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
         switch (self.*) {
             .disembargo => |*info| info.deinit(allocator),
@@ -1177,6 +1192,10 @@ pub const WireMessageApplyStats = struct {
 
     pub fn total(self: @This()) usize {
         return self.state_applied + self.disembargos;
+    }
+
+    pub fn appliedAnyState(self: @This()) bool {
+        return self.state_applied != 0;
     }
 
     pub fn appliedAnyDisembargo(self: @This()) bool {
