@@ -413,6 +413,11 @@ pub fn CapabilityTable(comptime T: type) type {
             return self.entries[usize_index];
         }
 
+        pub fn getOrNull(self: @This(), index: u32) ?T {
+            if (!self.hasIndex(index)) return null;
+            return self.entries[@as(usize, index)];
+        }
+
         pub fn getPointer(self: @This(), pointer: PointerReader) Error!T {
             return self.get(try pointer.getCapabilityIndex());
         }
@@ -542,6 +547,8 @@ test "capability table maps wire indexes to application handles" {
     try testing.expect(table.hasIndex(2));
     try testing.expect(!table.hasIndex(3));
     try testing.expectEqualStrings("logger", try table.get(1));
+    try testing.expectEqualStrings("logger", table.getOrNull(1).?);
+    try testing.expect(table.getOrNull(3) == null);
     try testing.expectError(error.InvalidCapabilityPointer, table.get(3));
 
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 4 });
