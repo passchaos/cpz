@@ -2369,6 +2369,10 @@ pub const WireEvent = union(WireMessageTag) {
         };
     }
 
+    pub fn isUnimplementedOf(self: WireEvent, original_tag: WireMessageTag) bool {
+        return self.unimplementedOriginalTag() == original_tag;
+    }
+
     pub fn abortException(self: WireEvent) ?ExceptionInfo {
         return switch (self) {
             .abort => |exception| exception,
