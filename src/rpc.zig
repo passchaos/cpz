@@ -551,6 +551,18 @@ pub const StateHandoffStats = struct {
         return self.tracked() != 0;
     }
 
+    pub fn hasProvides(self: @This()) bool {
+        return self.provides != 0;
+    }
+
+    pub fn hasAccepts(self: @This()) bool {
+        return self.accepts != 0;
+    }
+
+    pub fn hasJoins(self: @This()) bool {
+        return self.joins != 0;
+    }
+
     pub fn hasProvideRecipients(self: @This()) bool {
         return self.provide_recipients != 0;
     }
