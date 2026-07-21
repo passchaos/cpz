@@ -12765,6 +12765,127 @@ test "rpc single-message dispatcher queues responses while reporting apply detai
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(240));
 }
 
+test "rpc single-message method dispatcher queues responses while reporting apply details" {
+    const BootstrapHandler = struct {
+        fn handle(_: *u32, bootstrap: anytype) !u32 {
+            return bootstrap.questionId() + 4400;
+        }
+    };
+    const Context = struct { selected: u32 = 0 };
+    const Handler = struct {
+        fn handle(context: *Context, call: anytype) !cpz.rpc.DispatchResult {
+            context.selected = call.questionId();
+            return .empty;
+        }
+    };
+    const ApplyContext = struct {
+        calls: usize = 0,
+        released_accepts: usize = 0,
+        released_question_sum: u32 = 0,
+
+        fn handle(context: *@This(), result: cpz.rpc.WireMessageApplyResult) !void {
+            context.calls += 1;
+            switch (result) {
+                .disembargo => |info| {
+                    context.released_accepts += info.released_accepts;
+                    for (info.released_accept_ids) |id| context.released_question_sum += id;
+                },
+                .state_applied => {},
+            }
+        }
+    };
+    const entries = .{
+        .{ .method = cpz.rpc.CallMethod{ .interface_id = 0x4400, .method_id = 4 }, .handler = Handler.handle },
+    };
+
+    var state = cpz.rpc.State.init(std.testing.allocator);
+    defer state.deinit();
+    try state.addImport(5);
+
+    var accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer accept_builder.deinit();
+    const accept_root = try generated.Message.initRootTyped(&accept_builder);
+    try cpz.rpc.initWireAcceptMessage(accept_root, .{
+        .question_id = 260,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "single-method-queue-apply-260",
+    });
+    var accept_reader = cpz.MessageReader.init(try accept_builder.segmentsConst(), .{});
+    try state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+
+    var call_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer call_builder.deinit();
+    const call_root = try generated.Message.initRootTyped(&call_builder);
+    const call = try call_root.init_call();
+    try call.set_questionId(261);
+    try cpz.rpc.writeCallMethodToWire(.{ .interface_id = 0x4400, .method_id = 4 }, call);
+    const target = try call.init_target();
+    try target.set_importedCap(5);
+    _ = try call.init_params();
+    var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
+    const call_message = generated.Message.fromReader(try call_reader.getRoot());
+
+    var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer response_builder.deinit();
+    const response = try generated.Message.initRootTyped(&response_builder);
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    var bootstrap_seen: u32 = 0;
+    var context: Context = .{};
+    var apply_context: ApplyContext = .{};
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, try cpz.rpc.dispatchWireMessageMethodsToQueueOutcomeWithApplyHandler(
+        &state,
+        std.testing.allocator,
+        response,
+        call_message,
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+        &queue,
+        &apply_context,
+        ApplyContext.handle,
+    ));
+    try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 261), context.selected);
+    try std.testing.expectEqual(@as(usize, 0), apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try expectQueuedReturnAnswer(queue.items[0], 261);
+
+    var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer disembargo_builder.deinit();
+    const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(disembargo_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "single-method-queue-apply-260" },
+    });
+    var disembargo_reader = cpz.MessageReader.init(try disembargo_builder.segmentsConst(), .{});
+    const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
+    var unused_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer unused_response_builder.deinit();
+    const unused_response = try generated.Message.initRootTyped(&unused_response_builder);
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.state_applied, try cpz.rpc.dispatchWireMessageMethodsToQueueOutcomeWithApplyHandler(
+        &state,
+        std.testing.allocator,
+        unused_response,
+        disembargo_message,
+        &bootstrap_seen,
+        BootstrapHandler.handle,
+        &context,
+        entries,
+        &queue,
+        &apply_context,
+        ApplyContext.handle,
+    ));
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 260), apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(260));
+}
+
 test "rpc single-message forwarding dispatcher queues forwards while reporting apply details" {
     const BootstrapHandler = struct {
         fn handle(_: *u32, bootstrap: anytype) !u32 {
