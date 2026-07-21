@@ -276,7 +276,7 @@ that a complete RPC runtime exists.
   split send helpers, accumulated from turn-plan or service-action unified
   output indexes, queried directly
   for unified role/local-index positions from the turn plan, checked against
-  dispatch/turn plans, or split by output role into separate sinks, including ordinary, method-table,
+  dispatch/turn plans, tested for empty/non-empty output sets, or split by output role into separate sinks, including ordinary, method-table,
   token-filtered, and apply-detail variants.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
