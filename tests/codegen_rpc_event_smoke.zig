@@ -26669,6 +26669,28 @@ test "rpc tracked handoff return sink preserves readiness gates" {
         try std.testing.expectEqual(@as(usize, 1), sink.sent);
         try std.testing.expectEqual(@as(u32, 97), sink.last_answer);
     }
+    {
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response = try generated.Message.initRootTyped(&response_builder);
+        const responses = [_]generated.Message.Builder{response};
+        const completions = [_]cpz.rpc.HandoffReturn{
+            .{ .provide = .{ .question_id = 97, .export_id = 397 } },
+        };
+        var queue = std.ArrayList(generated.Message.Builder).empty;
+        defer queue.deinit(std.testing.allocator);
+        const stats = try state.initTrackedHandoffReturnMessagesToQueue(
+            std.testing.allocator,
+            responses[0..],
+            completions[0..],
+            &queue,
+        );
+        try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1 }, stats);
+        try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+        try expectQueuedReturnAnswer(queue.items[0], 97);
+        var reader = cpz.MessageReader.init(try response_builder.segmentsConst(), .{});
+        try expectReturnCapabilityResult(generated.Message.fromReader(try reader.getRoot()), 397);
+    }
 
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -26695,6 +26717,16 @@ test "rpc tracked handoff return sink preserves readiness gates" {
         var sink: Sink = .{};
         try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessagesToSink(responses[0..], completions[0..], &sink, Sink.handle));
         try std.testing.expectEqual(@as(usize, 0), sink.sent);
+
+        var queue = std.ArrayList(generated.Message.Builder).empty;
+        defer queue.deinit(std.testing.allocator);
+        try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessagesToQueue(
+            std.testing.allocator,
+            responses[0..],
+            completions[0..],
+            &queue,
+        ));
+        try std.testing.expectEqual(@as(usize, 0), queue.items.len);
     }
 }
 
