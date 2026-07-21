@@ -1213,6 +1213,21 @@ pub const PromisedAnswerTarget = struct {
 pub const PromisedAnswerOp = union(enum) {
     noop,
     get_pointer_field: u16,
+
+    pub fn isNoop(self: @This()) bool {
+        return self == .noop;
+    }
+
+    pub fn isGetPointerField(self: @This()) bool {
+        return self == .get_pointer_field;
+    }
+
+    pub fn pointerFieldIndex(self: @This()) ?u16 {
+        return switch (self) {
+            .get_pointer_field => |index| index,
+            .noop => null,
+        };
+    }
 };
 
 pub const PromisedAnswerTargetOwned = struct {

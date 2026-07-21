@@ -526,6 +526,8 @@ test "rpc allocating call target helpers decode promised-answer transforms" {
     try std.testing.expectEqual(@as(u32, 99), promised_decoded.question_id);
     try std.testing.expectEqual(@as(usize, 2), promised_decoded.transform.len);
     try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp{ .get_pointer_field = 1 }, promised_decoded.transform[0]);
+    try std.testing.expect(promised_decoded.transform[0].isGetPointerField());
+    try std.testing.expectEqual(@as(?u16, 1), promised_decoded.transform[0].pointerFieldIndex());
     try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp{ .get_pointer_field = 2 }, promised_decoded.transform[1]);
 }
 
@@ -594,6 +596,8 @@ test "rpc promised answer helpers decode transform paths" {
         defer std.testing.allocator.free(ops);
         try std.testing.expectEqual(@as(usize, 2), ops.len);
         try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp.noop, ops[0]);
+        try std.testing.expect(ops[0].isNoop());
+        try std.testing.expect(ops[0].pointerFieldIndex() == null);
         try std.testing.expectEqual(cpz.rpc.PromisedAnswerOp{ .get_pointer_field = 3 }, ops[1]);
     }
     {
