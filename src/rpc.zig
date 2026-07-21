@@ -436,6 +436,18 @@ pub const WireDispatchStats = struct {
     pub fn appliedAnyState(self: @This()) bool {
         return self.state_applied != 0;
     }
+
+    pub fn hasDenseResponses(self: @This()) bool {
+        return self.denseResponseSlots() != 0;
+    }
+
+    pub fn hasDenseForwards(self: @This()) bool {
+        return self.denseForwardSlots() != 0;
+    }
+
+    pub fn hasDenseOutputs(self: @This()) bool {
+        return self.denseOutputSlots() != 0;
+    }
 };
 
 pub const StateCleanupStats = struct {
@@ -15116,6 +15128,9 @@ test "rpc message kind predicates describe state-machine roles" {
     try testing.expect(stats.initializedAnyResponse());
     try testing.expect(stats.requiredAnyForward());
     try testing.expect(stats.appliedAnyState());
+    try testing.expect(stats.hasDenseResponses());
+    try testing.expect(stats.hasDenseForwards());
+    try testing.expect(stats.hasDenseOutputs());
 }
 
 test "rpc wire events expose classification and id helpers" {
