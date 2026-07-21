@@ -208,7 +208,7 @@ that a complete RPC runtime exists.
   or source-preserving plans that can materialize or enqueue split/combined/
   unified dispatch responses, forwarded Calls, and unimplemented Return exceptions for
   pre-apply wire calls and tracked calls, including one-call split/unified-output
-  dispatch, direct Call/Message unified-output enqueue, source-preserving unified sinks,
+  dispatch, direct Call/Message unified-output enqueue, direct role-tagged Call enqueue, source-preserving unified sinks,
   and one-call split/unified enqueue,
   select among multiple handlers, and
   can be used by the single-message dispatcher. A

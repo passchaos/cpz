@@ -10746,6 +10746,50 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1), direct_tagged_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), direct_tagged_sink.forward_local_sum);
 
+    var direct_tagged_output_queue_state = try Seed.state();
+    defer direct_tagged_output_queue_state.deinit();
+    var direct_tagged_output_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_tagged_output_queue_builder0.deinit();
+    const direct_tagged_output_queue_output0 = try generated.Message.initRootTyped(&direct_tagged_output_queue_builder0);
+    var direct_tagged_output_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_tagged_output_queue_builder1.deinit();
+    const direct_tagged_output_queue_output1 = try generated.Message.initRootTyped(&direct_tagged_output_queue_builder1);
+    var direct_tagged_output_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_tagged_output_queue_builder2.deinit();
+    const direct_tagged_output_queue_output2 = try generated.Message.initRootTyped(&direct_tagged_output_queue_builder2);
+    const direct_tagged_output_queue_outputs = [_]generated.Message.Builder{ direct_tagged_output_queue_output0, direct_tagged_output_queue_output1, direct_tagged_output_queue_output2 };
+    var direct_tagged_output_queue_context: Context = .{};
+    var direct_tagged_output_queue = std.ArrayList(ServiceTaggedQueueItem).empty;
+    defer direct_tagged_output_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanUnifiedOutputsToTaggedQueue(
+        &direct_tagged_output_queue_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_tagged_output_queue_outputs[0..2],
+        &direct_tagged_output_queue_context,
+        entries,
+        &direct_tagged_output_queue,
+    ));
+    try std.testing.expectEqual(wire_stats, try cpz.rpc.initWireCallServiceActionPlanUnifiedOutputsToTaggedQueue(
+        &direct_tagged_output_queue_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_tagged_output_queue_outputs[0..],
+        &direct_tagged_output_queue_context,
+        entries,
+        &direct_tagged_output_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), direct_tagged_output_queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), direct_tagged_output_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, direct_tagged_output_queue.items[0].position);
+    try std.testing.expectEqual(@as(u32, 71), try (try direct_tagged_output_queue.items[0].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, direct_tagged_output_queue.items[1].position);
+    try std.testing.expectEqual(@as(u32, 72), try (try direct_tagged_output_queue.items[1].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, direct_tagged_output_queue.items[2].position);
+    try std.testing.expectEqual(@as(u32, 73), try (try direct_tagged_output_queue.items[2].message.get_call()).get_questionId());
+
     var output_queue_wrapper_state = try Seed.state();
     defer output_queue_wrapper_state.deinit();
     var output_queue_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
@@ -10786,6 +10830,50 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(u32, 71), try (try output_queue_wrapper.items[0].get_return_()).get_answerId());
     try std.testing.expectEqual(@as(u32, 72), try (try output_queue_wrapper.items[1].get_return_()).get_answerId());
     try std.testing.expectEqual(@as(u32, 73), try (try output_queue_wrapper.items[2].get_call()).get_questionId());
+
+    var tagged_output_queue_wrapper_state = try Seed.state();
+    defer tagged_output_queue_wrapper_state.deinit();
+    var tagged_output_queue_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var tagged_output_queue_wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_output_queue_wrapper_builder0.deinit();
+    const tagged_output_queue_wrapper_output0 = try generated.Message.initRootTyped(&tagged_output_queue_wrapper_builder0);
+    var tagged_output_queue_wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_output_queue_wrapper_builder1.deinit();
+    const tagged_output_queue_wrapper_output1 = try generated.Message.initRootTyped(&tagged_output_queue_wrapper_builder1);
+    var tagged_output_queue_wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_output_queue_wrapper_builder2.deinit();
+    const tagged_output_queue_wrapper_output2 = try generated.Message.initRootTyped(&tagged_output_queue_wrapper_builder2);
+    const tagged_output_queue_wrapper_outputs = [_]generated.Message.Builder{ tagged_output_queue_wrapper_output0, tagged_output_queue_wrapper_output1, tagged_output_queue_wrapper_output2 };
+    var tagged_output_queue_wrapper_context: Context = .{};
+    var tagged_output_queue_wrapper = std.ArrayList(ServiceTaggedQueueItem).empty;
+    defer tagged_output_queue_wrapper.deinit(std.testing.allocator);
+    var tagged_output_queue_wrapper_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, tagged_output_queue_wrapper_state.dispatchWireCallServiceActionsUnifiedToTaggedQueue(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        tagged_output_queue_wrapper_short_plan_buffer[0..],
+        tagged_output_queue_wrapper_outputs[0..],
+        &tagged_output_queue_wrapper_context,
+        &tagged_output_queue_wrapper,
+    ));
+    try std.testing.expectEqual(wire_stats, try tagged_output_queue_wrapper_state.dispatchWireCallServiceActionsUnifiedToTaggedQueue(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        tagged_output_queue_wrapper_plan_buffer[0..],
+        tagged_output_queue_wrapper_outputs[0..],
+        &tagged_output_queue_wrapper_context,
+        &tagged_output_queue_wrapper,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), tagged_output_queue_wrapper_context.selected);
+    try std.testing.expectEqual(@as(usize, 3), tagged_output_queue_wrapper.items.len);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, tagged_output_queue_wrapper.items[0].position);
+    try std.testing.expectEqual(@as(u32, 71), try (try tagged_output_queue_wrapper.items[0].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, tagged_output_queue_wrapper.items[1].position);
+    try std.testing.expectEqual(@as(u32, 72), try (try tagged_output_queue_wrapper.items[1].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, tagged_output_queue_wrapper.items[2].position);
+    try std.testing.expectEqual(@as(u32, 73), try (try tagged_output_queue_wrapper.items[2].message.get_call()).get_questionId());
 
     var tagged_wrapper_state = cpz.rpc.State.init(std.testing.allocator);
     defer tagged_wrapper_state.deinit();
