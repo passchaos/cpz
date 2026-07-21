@@ -2217,7 +2217,7 @@ pub fn wireMessageTag(message: anytype) !WireMessageTag {
 
 pub const WireEvent = union(WireMessageTag) {
     unimplemented: void,
-    abort: void,
+    abort: ExceptionInfo,
     bootstrap: QuestionId,
     call: QuestionId,
     return_: Return,
@@ -12443,7 +12443,7 @@ pub fn validateWirePayload(allocator: std.mem.Allocator, payload: anytype) !void
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
     return switch (try wireMessageTag(message)) {
         .unimplemented => .{ .unimplemented = {} },
-        .abort => .{ .abort = {} },
+        .abort => .{ .abort = try exceptionInfoFromWireException(try message.abort()) },
         .bootstrap => .{ .bootstrap = (try message.bootstrap()).questionId() },
         .call => .{ .call = (try message.call()).questionId() },
         .return_ => blk: {

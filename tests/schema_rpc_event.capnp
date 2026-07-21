@@ -10,7 +10,7 @@ using ThirdPartyCompletion = AnyPointer;
 struct Message {
   union {
     unimplemented @0 :Void;
-    abort @1 :Void;
+    abort @1 :Exception;
 
     bootstrap @8 :Bootstrap;
     call @2 :Call;
