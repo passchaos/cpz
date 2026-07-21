@@ -14604,6 +14604,33 @@ pub fn dispatchWireMessagesMethodsForwardingUnifiedDense(
     );
 }
 
+pub fn dispatchWireMessagesMethodsForwardingUnifiedDenseToQueue(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    queue: anytype,
+) !WireDispatchStats {
+    const stats = try dispatchWireMessagesMethodsForwardingUnifiedDense(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+    );
+    for (output_messages[0..stats.denseOutputSlots()]) |message| {
+        try queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesMethodsForwardingUnifiedDenseToQueues(
     state: *State,
     allocator: std.mem.Allocator,
