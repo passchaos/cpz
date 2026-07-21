@@ -159,13 +159,13 @@ that a complete RPC runtime exists.
   capability bookkeeping to `State`. Top-level Unimplemented, Abort,
   Bootstrap, Finish/Release builders can initialize their tags, nested
   unimplemented-message payloads, exception metadata, question IDs, flags, and
-  reference counts; Unimplemented payload helpers can also recover the nested
-  original message tag/event, and a helper can build a
-  Return containing a single capability result directly from a Bootstrap
-  request reader. A minimal bootstrap dispatcher can apply the request and
-  invoke an application callback that returns the bootstrap export ID. Typed
-  Call dispatchers can also forward already-resolved targets without invoking
-  local handlers. A minimal Call dispatcher can do the
+  reference counts; Unimplemented wire events preserve the nested original tag,
+  payload helpers can recover the nested original message tag/event, and a
+  helper can build a Return containing a single capability result directly from
+  a Bootstrap request reader. A minimal bootstrap dispatcher can apply the
+  request and invoke an application callback that returns the bootstrap export
+  ID. Typed Call dispatchers can also forward already-resolved targets without
+  invoking local handlers. A minimal Call dispatcher can do the
   same for calls that return a single capability, text/data/UInt32-list
   payloads, or caller-filled struct payloads through generic or typed
   convenience dispatchers, with descriptor-info or registry-backed cap tables
