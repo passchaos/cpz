@@ -305,10 +305,11 @@ that a complete RPC runtime exists.
   forwarding/dispatch previews while non-Call messages report no dispatch work.
   A generated Return reader can resolve its answer and apply result
   capability-table bookkeeping. A generated top-level Message reader can route
-  call/return payload-aware application, apply simple message batches, return
-  detailed Disembargo release information when requested with apply-result
-  predicates and released-Accept ID helpers, aggregate or observe that detail
-  across batches, or apply simpler state events; Provide
+  call/return payload-aware application, apply simple message batches with
+  optional per-message observation, return detailed Disembargo release
+  information when requested with apply-result predicates and released-Accept
+  ID helpers, aggregate or observe that detail across batches, or apply simpler
+  state events; Provide
   top-level messages validate targets and record recipient pointer usage, and
   callers can query and count tracked recipient usage and initialize a tracked
   Provide Return only when that recipient is present; aggregate handoff stats
