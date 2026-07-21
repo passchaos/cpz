@@ -875,6 +875,14 @@ pub const RpcTurnPlan = struct {
         return self.totalOutputMessages() != 0;
     }
 
+    pub fn hasWork(self: @This()) bool {
+        return self.hasOutputs() or self.hasStateOnly();
+    }
+
+    pub fn isEmpty(self: @This()) bool {
+        return !self.hasWork();
+    }
+
     pub fn responseMessageRange(self: @This()) OutputRange {
         return .{ .start = 0, .end = self.responseMessages() };
     }

@@ -23563,6 +23563,12 @@ test "rpc unified output helper sends tagged output roles" {
         .dispatch = .{ .response_initialized = 1, .forward_required = 1, .state_applied = 2 },
         .pending_disembargos = 1,
     };
+    try std.testing.expect(plan.hasWork());
+    try std.testing.expect(!plan.isEmpty());
+    try std.testing.expect((cpz.rpc.RpcTurnPlan{ .dispatch = .{ .state_applied = 1 } }).hasWork());
+    try std.testing.expect(!(cpz.rpc.RpcTurnPlan{ .dispatch = .{ .state_applied = 1 } }).hasOutputs());
+    try std.testing.expect((cpz.rpc.RpcTurnPlan{}).isEmpty());
+    try std.testing.expect(!(cpz.rpc.RpcTurnPlan{}).hasWork());
     const response_position = cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 0).?;
     try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, response_position);
     try std.testing.expectEqual(response_position, plan.unifiedOutputPosition(0).?);
