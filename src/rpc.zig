@@ -136,6 +136,14 @@ pub const OutputRange = struct {
         return self.end - self.start;
     }
 
+    pub fn isEmpty(self: @This()) bool {
+        return self.start == self.end;
+    }
+
+    pub fn contains(self: @This(), index: usize) bool {
+        return index >= self.start and index < self.end;
+    }
+
     pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.end) return error.InvalidTransition;
     }

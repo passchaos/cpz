@@ -10553,6 +10553,9 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseRange().len());
     try std.testing.expectEqual(@as(usize, 1), stats.denseForwardRange().len());
+    try std.testing.expect(!stats.denseResponseRange().isEmpty());
+    try std.testing.expect(stats.denseResponseRange().contains(1));
+    try std.testing.expect(!stats.denseResponseRange().contains(2));
     try stats.denseForwardRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, stats.denseForwardRange().validateCapacity(2));
     try stats.validateDenseResponseCapacity(2);
@@ -10594,6 +10597,7 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, turn_plan.responseMessageRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, turn_plan.forwardedMessageRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 3, .end = 3 }, turn_plan.disembargoMessageRange());
+    try std.testing.expect(turn_plan.disembargoMessageRange().isEmpty());
     try turn_plan.validateOutputCapacity(2, 1);
     try turn_plan.validateUnifiedOutputCapacity(3);
     try turn_plan.validateUnifiedOutputBuilders(requests[0..3]);
