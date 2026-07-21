@@ -1265,6 +1265,14 @@ pub const StateQuestionStats = struct {
         return self.questions + self.answers;
     }
 
+    pub fn hasEntries(self: @This()) bool {
+        return self.total() != 0;
+    }
+
+    pub fn isEmpty(self: @This()) bool {
+        return self.total() == 0;
+    }
+
     pub fn hasQuestions(self: @This()) bool {
         return self.questions != 0;
     }
@@ -1315,6 +1323,14 @@ pub const StateCapabilityStats = struct {
 
     pub fn total(self: @This()) usize {
         return self.exports + self.imports;
+    }
+
+    pub fn hasCapabilities(self: @This()) bool {
+        return self.total() != 0;
+    }
+
+    pub fn isEmpty(self: @This()) bool {
+        return self.total() == 0;
     }
 
     pub fn hasExports(self: @This()) bool {
@@ -20240,6 +20256,10 @@ test "rpc state tracks in-flight questions and answers" {
     }, state.questionStats());
     try testing.expectEqual(@as(usize, 2), state.questionStats().active());
     try testing.expectEqual(@as(usize, 2), state.questionStats().total());
+    try testing.expect(state.questionStats().hasEntries());
+    try testing.expect(!state.questionStats().isEmpty());
+    try testing.expect((StateQuestionStats{}).isEmpty());
+    try testing.expect(!(StateQuestionStats{}).hasEntries());
     try testing.expect(state.questionStats().hasQuestions());
     try testing.expect(state.questionStats().hasAnswers());
     try testing.expect(state.questionStats().hasOpenQuestions());
@@ -20336,6 +20356,10 @@ test "rpc state tracks import and export lifetimes" {
     }, state.capabilityStats());
     try testing.expectEqual(@as(usize, 2), state.capabilityStats().live());
     try testing.expectEqual(@as(usize, 2), state.capabilityStats().total());
+    try testing.expect(state.capabilityStats().hasCapabilities());
+    try testing.expect(!state.capabilityStats().isEmpty());
+    try testing.expect((StateCapabilityStats{}).isEmpty());
+    try testing.expect(!(StateCapabilityStats{}).hasCapabilities());
     try testing.expect(state.capabilityStats().hasExports());
     try testing.expect(state.capabilityStats().hasImports());
     try testing.expect(state.capabilityStats().hasLive());
