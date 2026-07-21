@@ -1685,6 +1685,25 @@ pub const PendingAcceptEmbargos = struct {
     pub fn hasItems(self: @This()) bool {
         return self.items.len != 0;
     }
+
+    pub fn containsQuestion(self: @This(), question_id: QuestionId) bool {
+        for (self.items) |item| {
+            if (item.question_id == question_id) return true;
+        }
+        return false;
+    }
+
+    pub fn matchCount(self: @This(), embargo: []const u8) usize {
+        var count: usize = 0;
+        for (self.items) |item| {
+            if (item.matchesEmbargo(embargo)) count += 1;
+        }
+        return count;
+    }
+
+    pub fn containsEmbargo(self: @This(), embargo: []const u8) bool {
+        return self.matchCount(embargo) != 0;
+    }
 };
 
 pub const WireMessageApplyResult = union(enum) {
