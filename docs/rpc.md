@@ -104,7 +104,8 @@ that a complete RPC runtime exists.
   explicitly forgotten individually or in batches once both Finish and
   Return-like answer resolution have been observed. Question/answer states and
   trackers expose direct predicates; stats summarize open, finished, unresolved,
-  resolved, complete, total, and active entries with convenience predicates, and a
+  resolved, complete, total, and active entries with role-specific convenience
+  predicates, and a
   state cleanup helper can reclaim both completed questions and released
   capability tombstones together while reporting whether any work was done.
   Open questions remember the RPC message kind that created them, giving later
