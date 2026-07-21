@@ -12451,6 +12451,40 @@ test "rpc single-message dispatcher routes calls and applies returns" {
         try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(22));
     }
     {
+        var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer request_builder.deinit();
+        const request_root = try generated.Message.initRootTyped(&request_builder);
+        try cpz.rpc.initWireBootstrapMessage(request_root, 23);
+
+        var request_reader = cpz.MessageReader.init(try request_builder.segmentsConst(), .{});
+        const request = generated.Message.fromReader(try request_reader.getRoot());
+        var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer response_builder.deinit();
+        const response_root = try generated.Message.initRootTyped(&response_builder);
+
+        var bootstrap_seen: u32 = 0;
+        var call_seen: u32 = 0;
+        var queue = std.ArrayList(generated.Message.Builder).empty;
+        defer queue.deinit(std.testing.allocator);
+        const outcome = try cpz.rpc.dispatchWireMessageToQueueOutcome(
+            &state,
+            std.testing.allocator,
+            response_root,
+            request,
+            &bootstrap_seen,
+            BootstrapHandler.handle,
+            &call_seen,
+            CallHandler.handle,
+            &queue,
+        );
+        stats.record(outcome);
+        try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, outcome);
+        try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+        try expectQueuedReturnAnswer(queue.items[0], 23);
+        try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
+        try std.testing.expectEqual(@as(u32, 0), call_seen);
+    }
+    {
         var request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer request_builder.deinit();
         const request_root = try generated.Message.initRootTyped(&request_builder);
@@ -12521,10 +12555,10 @@ test "rpc single-message dispatcher routes calls and applies returns" {
         try std.testing.expectEqual(@as(?cpz.rpc.AnswerState, .resolved), state.answerState(21));
         try std.testing.expect(state.questionComplete(21));
     }
-    try std.testing.expectEqual(@as(usize, 2), stats.response_initialized);
+    try std.testing.expectEqual(@as(usize, 3), stats.response_initialized);
     try std.testing.expectEqual(@as(usize, 0), stats.forward_required);
     try std.testing.expectEqual(@as(usize, 1), stats.state_applied);
-    try std.testing.expectEqual(@as(usize, 3), stats.total());
+    try std.testing.expectEqual(@as(usize, 4), stats.total());
 }
 
 test "rpc batch dispatcher routes messages and aggregates outcomes" {

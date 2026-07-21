@@ -7906,6 +7906,33 @@ pub fn dispatchWireMessageToSinkOutcome(
     return outcome;
 }
 
+pub fn dispatchWireMessageToQueueOutcome(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_message: anytype,
+    request_message: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    queue: anytype,
+) !WireDispatchOutcome {
+    const outcome = try dispatchWireMessageOutcome(
+        state,
+        allocator,
+        response_message,
+        request_message,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+    );
+    if (outcome == .response_initialized) {
+        try queue.append(allocator, response_message);
+    }
+    return outcome;
+}
+
 pub fn dispatchWireMessageForwardingOutcome(
     state: *State,
     allocator: std.mem.Allocator,
