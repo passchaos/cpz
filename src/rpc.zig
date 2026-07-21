@@ -777,6 +777,14 @@ pub const HandoffReturnPlan = struct {
         return self.stats().unifiedOutputPosition(output_index);
     }
 
+    pub fn completionAt(self: @This(), output_index: usize) ?HandoffReturn {
+        if (self.provideLocalIndex(output_index)) |local_index| return .{ .provide = self.provides[local_index] };
+        if (self.acceptLocalIndex(output_index)) |local_index| return .{ .accept = self.accepts[local_index] };
+        if (self.joinLocalIndex(output_index)) |local_index| return .{ .join = self.joins[local_index] };
+
+        return null;
+    }
+
     pub fn stats(self: @This()) StateHandoffReturnStats {
         return .{
             .provides = self.provides.len,

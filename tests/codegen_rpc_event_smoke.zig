@@ -20813,6 +20813,10 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, plan.unifiedOutputPosition(1).?);
     try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, plan.unifiedOutputPosition(2).?);
     try std.testing.expect(plan.unifiedOutputPosition(3) == null);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .provide = planned_provides[0] }, plan.completionAt(0).?);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .accept = planned_accepts[0] }, plan.completionAt(1).?);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .join = planned_joins[0] }, plan.completionAt(2).?);
+    try std.testing.expect(plan.completionAt(3) == null);
     try plan.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, plan.joinRange().validateCapacity(2));
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, plan.stats());
