@@ -13227,6 +13227,65 @@ test "rpc batch dispatcher reports detailed state apply results" {
     try std.testing.expectEqual(@as(u32, 44), apply_context.released_question_sum);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(44));
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 1, .capability = 0 }, state.readyAcceptProvision(44).?);
+
+    const OutcomeObserver = struct {
+        calls: usize = 0,
+        index_sum: usize = 0,
+        observed: cpz.rpc.WireDispatchStats = .{},
+
+        fn handle(context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            context.calls += 1;
+            context.index_sum += index;
+            context.observed.record(outcome);
+        }
+    };
+    var observed_state = cpz.rpc.State.init(std.testing.allocator);
+    defer observed_state.deinit();
+    try observed_state.addImport(5);
+    var observed_accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer observed_accept_builder.deinit();
+    const observed_accept_root = try generated.Message.initRootTyped(&observed_accept_builder);
+    try cpz.rpc.initWireAcceptMessage(observed_accept_root, .{
+        .question_id = 44,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "dispatch-44",
+    });
+    var observed_accept_reader = cpz.MessageReader.init(try observed_accept_builder.segmentsConst(), .{});
+    const observed_accept_message = generated.Message.fromReader(try observed_accept_reader.getRoot());
+    var observed_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer observed_response_builder0.deinit();
+    const observed_response0 = try generated.Message.initRootTyped(&observed_response_builder0);
+    var observed_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer observed_response_builder1.deinit();
+    const observed_response1 = try generated.Message.initRootTyped(&observed_response_builder1);
+    const observed_responses = [_]generated.Message.Builder{ observed_response0, observed_response1 };
+    const observed_requests = [_]generated.Message{ observed_accept_message, disembargo_message };
+    var observed_bootstrap_seen: u32 = 0;
+    var observed_call_seen: u32 = 0;
+    var observed_apply_context: ApplyContext = .{};
+    var outcome_observer: OutcomeObserver = .{};
+    const observed_stats = try cpz.rpc.dispatchWireMessagesWithOutcomeHandlerAndApplyHandler(
+        &observed_state,
+        std.testing.allocator,
+        observed_responses[0..],
+        observed_requests[0..],
+        &observed_bootstrap_seen,
+        BootstrapHandler.handle,
+        &observed_call_seen,
+        CallHandler.handle,
+        &outcome_observer,
+        OutcomeObserver.handle,
+        &observed_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(stats, observed_stats);
+    try std.testing.expectEqual(stats, outcome_observer.observed);
+    try std.testing.expectEqual(@as(usize, 2), outcome_observer.calls);
+    try std.testing.expectEqual(@as(usize, 1), outcome_observer.index_sum);
+    try std.testing.expectEqual(@as(usize, 2), observed_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), observed_apply_context.released_accepts);
 }
 
 test "rpc batch dispatcher reports apply results while sending responses to a sink" {

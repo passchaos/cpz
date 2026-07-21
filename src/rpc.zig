@@ -8939,6 +8939,41 @@ pub fn dispatchWireMessagesWithApplyHandler(
     return stats;
 }
 
+pub fn dispatchWireMessagesWithOutcomeHandlerAndApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    outcome_context: anytype,
+    outcome_handler: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    if (response_messages.len < request_messages.len) return error.InvalidTransition;
+    var stats: WireDispatchStats = .{};
+    for (request_messages, 0..) |request_message, index| {
+        const outcome = try dispatchWireMessageOutcomeWithApplyHandler(
+            state,
+            allocator,
+            response_messages[index],
+            request_message,
+            bootstrap_context,
+            bootstrap_handler,
+            call_context,
+            call_handler,
+            apply_context,
+            apply_handler,
+        );
+        try outcome_handler(outcome_context, index, outcome);
+        stats.record(outcome);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesToSinkWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,
