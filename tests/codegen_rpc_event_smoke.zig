@@ -24610,6 +24610,47 @@ test "rpc turn helper sends pending accept disembargos to a sink" {
         ),
     );
 
+    var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder0.deinit();
+    const queue_root0 = try generated.Message.initRootTyped(&queue_builder0);
+    var queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder1.deinit();
+    const queue_root1 = try generated.Message.initRootTyped(&queue_builder1);
+    const queue_messages = [_]generated.Message.Builder{ queue_root0, queue_root1 };
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    try std.testing.expectEqual(
+        @as(usize, 2),
+        try cpz.rpc.dispatchRpcTurnPendingAcceptDisembargosToQueue(
+            &state,
+            std.testing.allocator,
+            queue_messages[0..],
+            .{ .imported_cap = 5 },
+            &queue,
+        ),
+    );
+    try std.testing.expectEqual(@as(usize, 2), queue.items.len);
+    var queued_seen_76 = false;
+    var queued_seen_77 = false;
+    for (queue.items) |queued_message| {
+        const disembargo = try queued_message.get_disembargo();
+        const target = try disembargo.get_target();
+        try std.testing.expectEqual(generated.MessageTarget.Union0.importedCap, (try target.which()).?);
+        try std.testing.expectEqual(@as(u32, 5), try target.get_importedCap());
+        const token = (try disembargo.get_acceptOrNull()) orelse "";
+        if (std.mem.eql(u8, token, "turn-disembargo-76")) queued_seen_76 = true;
+        if (std.mem.eql(u8, token, "turn-disembargo-77")) queued_seen_77 = true;
+    }
+    try std.testing.expect(queued_seen_76);
+    try std.testing.expect(queued_seen_77);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchRpcTurnPendingAcceptDisembargosToQueue(
+        &state,
+        std.testing.allocator,
+        short_messages[0..],
+        .{ .imported_cap = 5 },
+        &queue,
+    ));
+
     var filtered_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer filtered_builder.deinit();
     const filtered_root = try generated.Message.initRootTyped(&filtered_builder);
@@ -24647,6 +24688,37 @@ test "rpc turn helper sends pending accept disembargos to a sink" {
     var filtered_no_sink_reader = cpz.MessageReader.init(try filtered_no_sink_builder.segmentsConst(), .{});
     const filtered_no_sink_info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try filtered_no_sink_reader.getRoot()).disembargo());
     try std.testing.expectEqualStrings("turn-disembargo-77", filtered_no_sink_info.context.accept);
+
+    var filtered_queue_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer filtered_queue_builder.deinit();
+    const filtered_queue_root = try generated.Message.initRootTyped(&filtered_queue_builder);
+    const filtered_queue_messages = [_]generated.Message.Builder{filtered_queue_root};
+    var filtered_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer filtered_queue.deinit(std.testing.allocator);
+    try std.testing.expectEqual(
+        @as(usize, 1),
+        try cpz.rpc.dispatchRpcTurnPendingAcceptDisembargosForEmbargoToQueue(
+            &state,
+            std.testing.allocator,
+            filtered_queue_messages[0..],
+            .{ .imported_cap = 5 },
+            "turn-disembargo-76",
+            &filtered_queue,
+        ),
+    );
+    try std.testing.expectEqual(@as(usize, 1), filtered_queue.items.len);
+    try expectQueuedDisembargoBuilder(filtered_queue.items[0], .{ .imported_cap = 5 }, "turn-disembargo-76");
+    try std.testing.expectEqual(
+        @as(usize, 0),
+        try cpz.rpc.dispatchRpcTurnPendingAcceptDisembargosForEmbargoToQueue(
+            &state,
+            std.testing.allocator,
+            filtered_queue_messages[0..],
+            .{ .imported_cap = 5 },
+            "missing",
+            &filtered_queue,
+        ),
+    );
 
     var missing_sink: Sink = .{};
     try std.testing.expectEqual(

@@ -12037,6 +12037,18 @@ pub fn dispatchRpcTurnPendingAcceptDisembargosToSink(
     return state.initPendingAcceptDisembargoMessagesToSink(message_builders, target, sink_context, sink_handler);
 }
 
+pub fn dispatchRpcTurnPendingAcceptDisembargosToQueue(
+    state: *const State,
+    allocator: std.mem.Allocator,
+    message_builders: anytype,
+    target: CallTarget,
+    queue: anytype,
+) !usize {
+    const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoCount() };
+    try plan.validateDisembargoCapacity(message_builders.len);
+    return state.initPendingAcceptDisembargoMessagesToQueue(allocator, message_builders, target, queue);
+}
+
 pub fn dispatchRpcTurnPendingAcceptDisembargos(
     state: *const State,
     message_builders: anytype,
@@ -12058,6 +12070,19 @@ pub fn dispatchRpcTurnPendingAcceptDisembargosForEmbargoToSink(
     const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoMatchCount(embargo) };
     try plan.validateDisembargoCapacity(message_builders.len);
     return state.initPendingAcceptDisembargoMessagesForEmbargoToSink(message_builders, target, embargo, sink_context, sink_handler);
+}
+
+pub fn dispatchRpcTurnPendingAcceptDisembargosForEmbargoToQueue(
+    state: *const State,
+    allocator: std.mem.Allocator,
+    message_builders: anytype,
+    target: CallTarget,
+    embargo: []const u8,
+    queue: anytype,
+) !usize {
+    const plan: RpcTurnPlan = .{ .pending_disembargos = state.pendingAcceptEmbargoMatchCount(embargo) };
+    try plan.validateDisembargoCapacity(message_builders.len);
+    return state.initPendingAcceptDisembargoMessagesForEmbargoToQueue(allocator, message_builders, target, embargo, queue);
 }
 
 pub fn dispatchRpcTurnPendingAcceptDisembargosForEmbargo(

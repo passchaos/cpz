@@ -239,8 +239,8 @@ that a complete RPC runtime exists.
   ranges internally; ordinary and method-table forwarding unified dense paths
   also have apply-detail variants so embedders do not need to choose between
   compact output queues and observing state-only Disembargo release IDs.
-  Separate builder-set validation is also available; pending Accept Disembargos can be planned or emitted to their
-  own sink, or initialized into caller-owned builders without an immediate sink,
+  Separate builder-set validation is also available; pending Accept Disembargos can be planned, emitted to
+  their own sink or caller-owned queue, or initialized into caller-owned builders without an immediate sink,
   from the same turn plan, either all at once or filtered by embargo token.
   Combined turn helpers, with or without method-table dispatch and
   apply-detail callbacks, can now dispatch dense responses/forwards, append
