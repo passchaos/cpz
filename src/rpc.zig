@@ -675,6 +675,24 @@ pub const TrackedCallServiceAction = union(enum) {
     pub fn isUnimplemented(self: @This()) bool {
         return self == .unimplemented;
     }
+
+    pub fn needsResponse(self: @This()) bool {
+        return switch (self) {
+            .dispatch, .unimplemented => true,
+            .forward => false,
+        };
+    }
+
+    pub fn needsForward(self: @This()) bool {
+        return self == .forward;
+    }
+
+    pub fn outputRole(self: @This()) TrackedCallServiceActionOutputRole {
+        return switch (self) {
+            .dispatch, .unimplemented => .response,
+            .forward => .forward,
+        };
+    }
 };
 
 pub const TrackedCallServiceActionPlan = struct {
