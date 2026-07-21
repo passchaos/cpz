@@ -11822,6 +11822,32 @@ test "rpc single-message dispatcher supports method tables" {
     ));
     try std.testing.expectEqual(@as(u32, 0), bootstrap_seen);
     try std.testing.expectEqual(@as(u32, 32), context.selected);
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.response_initialized, try cpz.rpc.dispatchWireMessageMethodsToQueueOutcome(
+        &queue_state,
+        std.testing.allocator,
+        queue_response,
+        request,
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 0), queue_bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 32), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try expectQueuedReturnAnswer(queue.items[0], 32);
 }
 
 test "rpc single-message dispatcher reports resolved call forwarding" {

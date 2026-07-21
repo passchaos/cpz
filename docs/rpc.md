@@ -217,7 +217,7 @@ that a complete RPC runtime exists.
   select among multiple handlers, and
   can be used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
-  those callbacks, append initialized single-message responses or forwarded Calls to caller-owned queues, report whether a response was initialized, a resolved call
+  those callbacks, including method-table dispatch, append initialized single-message responses or forwarded Calls to caller-owned queues, report whether a response was initialized, a resolved call
   target needs forwarding, or state was applied via outcome predicates, and apply other supported
   top-level wire messages to state; single-message queue outcomes can also
   expose apply details while appending only initialized responses or forwarded Calls; apply-handler variants, including
