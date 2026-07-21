@@ -22,17 +22,41 @@ pub const CapabilityRef = union(enum) {
 pub const CapabilityRelease = struct {
     id: ImportId,
     reference_count: u32,
+
+    pub fn hasReferences(self: @This()) bool {
+        return self.reference_count != 0;
+    }
+
+    pub fn isSingleReference(self: @This()) bool {
+        return self.reference_count == 1;
+    }
 };
 
 pub const Finish = struct {
     question_id: QuestionId,
     release_result_caps: bool,
+
+    pub fn releasesResultCaps(self: @This()) bool {
+        return self.release_result_caps;
+    }
 };
 
 pub const Return = struct {
     answer_id: AnswerId,
     release_param_caps: bool,
     no_finish_needed: bool,
+
+    pub fn releasesParamCaps(self: @This()) bool {
+        return self.release_param_caps;
+    }
+
+    pub fn noFinishNeeded(self: @This()) bool {
+        return self.no_finish_needed;
+    }
+
+    pub fn needsFinish(self: @This()) bool {
+        return !self.no_finish_needed;
+    }
 };
 
 pub const ExceptionInfo = struct {
@@ -14435,6 +14459,8 @@ test "rpc wire events expose classification and id helpers" {
     const return_event = WireEvent{ .return_ = .{ .answer_id = 13, .release_param_caps = true, .no_finish_needed = false } };
     try testing.expect(return_event.isAnswerResolving());
     try testing.expectEqual(@as(?AnswerId, 13), return_event.answerId());
+    try testing.expect(return_event.return_.releasesParamCaps());
+    try testing.expect(return_event.return_.needsFinish());
 
     const third_party_answer = WireEvent{ .third_party_answer = 18 };
     try testing.expect(third_party_answer.isStateApplicable());
@@ -14446,6 +14472,8 @@ test "rpc wire events expose classification and id helpers" {
     try testing.expect(release_event.isCapabilityRelease());
     try testing.expectEqual(@as(?ImportId, 14), release_event.importId());
     try testing.expectEqual(@as(?u32, 3), release_event.releaseReferenceCount());
+    try testing.expect(release_event.release.hasReferences());
+    try testing.expect(!release_event.release.isSingleReference());
     try testing.expectEqual(@as(?ExportId, null), release_event.exportId());
 
     const resolve_event = WireEvent{ .resolve = 15 };
