@@ -28597,6 +28597,85 @@ test "rpc method turn dispatcher filters pending accept disembargos with dense o
     const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
     try std.testing.expectEqualStrings("filter-method-turn-109", info.context.accept);
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 108,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "filter-method-turn-108",
+        });
+        var accept_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 109,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "filter-method-turn-109",
+        });
+        var accept_reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try accept_reader.getRoot()));
+    }
+    const queue_request_messages = try std.testing.allocator.alloc(generated.Message, 0);
+    defer std.testing.allocator.free(queue_request_messages);
+    const queue_response_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(queue_response_messages);
+    const queue_forward_messages = try std.testing.allocator.alloc(generated.Message.Builder, 0);
+    defer std.testing.allocator.free(queue_forward_messages);
+    var queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_disembargo_builder.deinit();
+    const queue_disembargo_root = try generated.Message.initRootTyped(&queue_disembargo_builder);
+    const queue_disembargo_messages = [_]generated.Message.Builder{queue_disembargo_root};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var disembargo_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer disembargo_queue.deinit(std.testing.allocator);
+    var queue_context: Context = .{};
+    const queue_applied = try cpz.rpc.dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosForEmbargoToQueuesFromHandlers(
+        &queue_state,
+        std.testing.allocator,
+        queue_response_messages,
+        queue_forward_messages,
+        queue_disembargo_messages[0..],
+        queue_request_messages,
+        {},
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "filter-method-turn-109",
+        &response_queue,
+        &forward_queue,
+        &disembargo_queue,
+    );
+    try std.testing.expectEqual(applied, queue_applied);
+    try std.testing.expectEqual(@as(usize, 0), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 0), forward_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), disembargo_queue.items.len);
+    try expectQueuedDisembargoBuilder(disembargo_queue.items[0], .{ .imported_cap = 5 }, "filter-method-turn-109");
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), queue_state.pendingAcceptEmbargoCount());
 }
 
 test "rpc method turn dispatcher filters pending accept disembargos without sinks" {
