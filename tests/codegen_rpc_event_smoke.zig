@@ -13782,6 +13782,41 @@ test "rpc dense dispatcher reports detailed state apply results" {
     defer std.testing.allocator.free(descriptors);
     try std.testing.expectEqual(@as(usize, 1), descriptors.len);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 3260 }, descriptors[0]);
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    const queue_responses = [_]generated.Message.Builder{queue_response};
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_call_seen: u32 = 0;
+    var queue_apply_context: ApplyContext = .{};
+    const queue_stats = try cpz.rpc.dispatchWireMessagesDenseToQueueWithApplyHandler(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_call_seen,
+        CallHandler.handle,
+        &queue,
+        &queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 0), queue_call_seen);
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try expectQueuedReturnAnswer(queue.items[0], 60);
+    try std.testing.expectEqual(@as(usize, 2), queue_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.state_applied);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.disembargos);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 59), queue_apply_context.released_question_sum);
 }
 
 test "rpc forwarding dispatcher reports detailed state apply results" {
