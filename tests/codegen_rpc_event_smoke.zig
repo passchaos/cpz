@@ -15193,6 +15193,75 @@ test "rpc method-table forwarding dispatcher reports detailed state apply result
         try std.testing.expectEqual(@as(usize, 1), apply_context.calls);
         try std.testing.expectEqual(@as(usize, 1), apply_context.released_accepts);
         try std.testing.expectEqual(@as(u32, 56), apply_context.released_question_sum);
+
+        var queue_state = cpz.rpc.State.init(std.testing.allocator);
+        defer queue_state.deinit();
+        try queue_state.addImport(5);
+        try queue_state.applyCapDescriptor(.{ .sender_promise = 340 });
+        try queue_state.resolveImportTo(340, .{ .sender_hosted = 341 });
+        try queue_state.applyCapDescriptor(.{ .sender_hosted = 341 });
+        var queue_accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_accept_builder.deinit();
+        const queue_accept_root = try generated.Message.initRootTyped(&queue_accept_builder);
+        try cpz.rpc.initWireAcceptMessage(queue_accept_root, .{
+            .question_id = 560,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-forward-queue-560",
+        });
+        var queue_accept_reader = cpz.MessageReader.init(try queue_accept_builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try queue_accept_reader.getRoot()));
+        var queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_disembargo_builder.deinit();
+        const queue_disembargo_root = try generated.Message.initRootTyped(&queue_disembargo_builder);
+        try cpz.rpc.initWireDisembargoMessage(queue_disembargo_root, .{
+            .target = .{ .imported_cap = 5 },
+            .context = .{ .accept = "method-forward-queue-560" },
+        });
+        var queue_disembargo_reader = cpz.MessageReader.init(try queue_disembargo_builder.segmentsConst(), .{});
+        const queue_disembargo_message = generated.Message.fromReader(try queue_disembargo_reader.getRoot());
+        var queue_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_response_builder0.deinit();
+        const queue_response0 = try generated.Message.initRootTyped(&queue_response_builder0);
+        var queue_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer queue_response_builder1.deinit();
+        const queue_response1 = try generated.Message.initRootTyped(&queue_response_builder1);
+        var queue_forward_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_forward_builder0.deinit();
+        const queue_forward0 = try generated.Message.initRootTyped(&queue_forward_builder0);
+        var queue_forward_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer queue_forward_builder1.deinit();
+        const queue_forward1 = try generated.Message.initRootTyped(&queue_forward_builder1);
+        const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1 };
+        const queue_forwards = [_]generated.Message.Builder{ queue_forward0, queue_forward1 };
+        const queue_requests = [_]generated.Message{ call_message, queue_disembargo_message };
+        var queue_bootstrap_seen: u32 = 0;
+        var queue_context: Context = .{};
+        var queue_apply_context: ApplyContext = .{};
+        var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+        defer forward_queue.deinit(std.testing.allocator);
+        const queue_stats = try cpz.rpc.dispatchWireMessagesMethodsForwardingToQueueWithApplyHandler(
+            &queue_state,
+            std.testing.allocator,
+            queue_responses[0..],
+            queue_forwards[0..],
+            queue_requests[0..],
+            &queue_bootstrap_seen,
+            BootstrapHandler.handle,
+            &queue_context,
+            entries,
+            &forward_queue,
+            &queue_apply_context,
+            ApplyContext.handle,
+        );
+        try std.testing.expectEqual(stats, queue_stats);
+        try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+        try std.testing.expectEqual(@as(usize, 1), queue_apply_context.calls);
+        try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+        try std.testing.expectEqual(@as(u32, 560), queue_apply_context.released_question_sum);
+        try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+        try expectQueuedForwardedCallBuilder(forward_queue.items[0], 340, .{ .imported_cap = 341 });
     }
 
     {
