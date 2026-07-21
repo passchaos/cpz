@@ -9725,6 +9725,37 @@ pub fn dispatchWireMessagesForwardingUnifiedDenseWithApplyHandler(
     );
 }
 
+pub fn dispatchWireMessagesForwardingUnifiedDenseToQueueWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    queue: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    const stats = try dispatchWireMessagesForwardingUnifiedDenseWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        apply_context,
+        apply_handler,
+    );
+    for (output_messages[0..stats.denseOutputSlots()]) |message| {
+        try queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesForwardingUnifiedDenseToQueuesWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,

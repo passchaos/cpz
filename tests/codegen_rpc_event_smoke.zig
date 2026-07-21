@@ -15337,6 +15337,68 @@ test "rpc dense forwarding dispatcher fills unified output slots and reports app
     try std.testing.expectEqual(@as(usize, 1), queue_apply_context.calls);
     try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
     try std.testing.expectEqual(@as(u32, 650), queue_apply_context.released_question_sum);
+
+    var unified_queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer unified_queue_state.deinit();
+    try unified_queue_state.addImport(6);
+    try unified_queue_state.applyCapDescriptor(.{ .sender_promise = 290 });
+    try unified_queue_state.resolveImportTo(290, .{ .sender_hosted = 291 });
+    try unified_queue_state.applyCapDescriptor(.{ .sender_hosted = 291 });
+    var unified_queue_accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unified_queue_accept_builder.deinit();
+    const unified_queue_accept_root = try generated.Message.initRootTyped(&unified_queue_accept_builder);
+    try cpz.rpc.initWireAcceptMessage(unified_queue_accept_root, .{
+        .question_id = 651,
+        .has_provision = true,
+        .provision_max_capability_count = 1,
+        .provision_capability = 0,
+        .embargo = "unified-dense-forward-output-queue-651",
+    });
+    var unified_queue_accept_reader = cpz.MessageReader.init(try unified_queue_accept_builder.segmentsConst(), .{});
+    try unified_queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try unified_queue_accept_reader.getRoot()));
+    var unified_queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unified_queue_disembargo_builder.deinit();
+    const unified_queue_disembargo_root = try generated.Message.initRootTyped(&unified_queue_disembargo_builder);
+    try cpz.rpc.initWireDisembargoMessage(unified_queue_disembargo_root, .{
+        .target = .{ .imported_cap = 6 },
+        .context = .{ .accept = "unified-dense-forward-output-queue-651" },
+    });
+    var unified_queue_disembargo_reader = cpz.MessageReader.init(try unified_queue_disembargo_builder.segmentsConst(), .{});
+    const unified_queue_disembargo_message = generated.Message.fromReader(try unified_queue_disembargo_reader.getRoot());
+    var unified_queue_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer unified_queue_output_builder0.deinit();
+    const unified_queue_output0 = try generated.Message.initRootTyped(&unified_queue_output_builder0);
+    var unified_queue_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer unified_queue_output_builder1.deinit();
+    const unified_queue_output1 = try generated.Message.initRootTyped(&unified_queue_output_builder1);
+    const unified_queue_outputs = [_]generated.Message.Builder{ unified_queue_output0, unified_queue_output1 };
+    const unified_queue_requests = [_]generated.Message{ bootstrap_message, call_message, unified_queue_disembargo_message };
+    var output_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer output_queue.deinit(std.testing.allocator);
+    var unified_queue_bootstrap_seen: u32 = 0;
+    var unified_queue_call_seen: u32 = 0;
+    var unified_queue_apply_context: ApplyContext = .{};
+    const unified_queue_stats = try cpz.rpc.dispatchWireMessagesForwardingUnifiedDenseToQueueWithApplyHandler(
+        &unified_queue_state,
+        std.testing.allocator,
+        unified_queue_outputs[0..],
+        unified_queue_requests[0..],
+        &unified_queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &unified_queue_call_seen,
+        CallHandler.handle,
+        &output_queue,
+        &unified_queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(stats, unified_queue_stats);
+    try std.testing.expectEqual(@as(u32, 0), unified_queue_call_seen);
+    try std.testing.expectEqual(@as(usize, 2), output_queue.items.len);
+    try expectQueuedReturnAnswer(output_queue.items[0], 66);
+    try expectQueuedForwardedCallBuilder(output_queue.items[1], 290, .{ .imported_cap = 291 });
+    try std.testing.expectEqual(@as(usize, 1), unified_queue_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), unified_queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 651), unified_queue_apply_context.released_question_sum);
 }
 
 test "rpc dense forwarding dispatcher reports detailed state apply results" {
