@@ -1897,6 +1897,18 @@ pub const QuestionTracker = struct {
     pub fn canSend(self: QuestionTracker, kind: MessageKind) bool {
         return self.state.canSend(kind);
     }
+
+    pub fn isIdle(self: QuestionTracker) bool {
+        return self.state.isIdle();
+    }
+
+    pub fn isOpen(self: QuestionTracker) bool {
+        return self.state.isOpen();
+    }
+
+    pub fn isFinished(self: QuestionTracker) bool {
+        return self.state.isFinished();
+    }
 };
 
 pub const AnswerTracker = struct {
@@ -1909,6 +1921,14 @@ pub const AnswerTracker = struct {
         if (!self.state.canResolve()) return error.AnswerAlreadyResolved;
         self.state = .resolved;
         self.kind = kind;
+    }
+
+    pub fn isUnresolved(self: AnswerTracker) bool {
+        return self.state.isUnresolved();
+    }
+
+    pub fn isResolved(self: AnswerTracker) bool {
+        return self.state.isResolved();
     }
 };
 
@@ -1945,6 +1965,10 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
 
         pub fn isLive(self: @This()) bool {
             return self.state.isLive();
+        }
+
+        pub fn isReleased(self: @This()) bool {
+            return self.state.isReleased();
         }
     };
 }
@@ -14379,19 +14403,24 @@ test "rpc question and answer trackers reject invalid transitions" {
 
     var question = QuestionTracker{ .id = 7 };
     try testing.expect(question.state.isIdle());
+    try testing.expect(question.isIdle());
     try testing.expect(question.canSend(.call));
     try question.open(.call);
     try testing.expect(question.state.isOpen());
+    try testing.expect(question.isOpen());
     try testing.expect(!question.canSend(.bootstrap));
     try testing.expectError(error.QuestionAlreadyOpen, question.open(.bootstrap));
     try question.finish();
     try testing.expect(question.state.isFinished());
+    try testing.expect(question.isFinished());
     try testing.expectError(error.QuestionNotOpen, question.finish());
 
     var answer = AnswerTracker{ .id = 9 };
     try testing.expect(answer.state.isUnresolved());
+    try testing.expect(answer.isUnresolved());
     try answer.resolve(.return_);
     try testing.expect(answer.state.isResolved());
+    try testing.expect(answer.isResolved());
     try testing.expectError(error.AnswerAlreadyResolved, answer.resolve(.resolve));
     try testing.expectError(error.InvalidTransition, answer.resolve(.call));
 }
@@ -14404,12 +14433,14 @@ test "rpc capability trackers reject double release" {
     try export_tracker.release();
     try testing.expect(!export_tracker.isLive());
     try testing.expect(export_tracker.state.isReleased());
+    try testing.expect(export_tracker.isReleased());
     try testing.expectError(error.ExportAlreadyReleased, export_tracker.release());
 
     var import_tracker = ImportTracker{ .id = 2 };
     try testing.expect(import_tracker.state.isLive());
     try import_tracker.release();
     try testing.expect(import_tracker.state.isReleased());
+    try testing.expect(import_tracker.isReleased());
     try testing.expectError(error.ImportAlreadyReleased, import_tracker.release());
 }
 
