@@ -6019,7 +6019,7 @@ pub fn dispatchCallMethodsForwardingOutcome(
 }
 
 pub fn planWireMessageDispatch(state: *const State, request_message: anytype) !WireDispatchOutcome {
-    switch (try eventFromWireMessage(request_message)) {
+    switch (try wireMessageTag(request_message)) {
         .bootstrap => return .response_initialized,
         .call => {
             return try state.wireCallDispatchOutcome(try request_message.call());
@@ -13408,7 +13408,7 @@ pub const State = struct {
     }
 
     pub fn wireMessageDispatchInfo(self: *const State, message: anytype) !?TrackedCallDispatchInfo {
-        return switch (try eventFromWireMessage(message)) {
+        return switch (try wireMessageTag(message)) {
             .call => try self.wireCallDispatchInfo(try message.call()),
             else => null,
         };

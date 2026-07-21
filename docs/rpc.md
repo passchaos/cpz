@@ -272,7 +272,8 @@ that a complete RPC runtime exists.
   third-party result-target/flag querying for future service dispatch, plus
   params capability-table bookkeeping. Individual service actions and plans
   report whether they need response or forward output slots, and aggregate
-  stats expose predicates for output/gap presence. The same dispatch-info snapshot can be
+  stats expose predicates for output/gap presence. Message dispatch previews use
+  the shared tag decoder before decoding Call-specific details. The same dispatch-info snapshot can be
   built from an unapplied wire Call or top-level Call message for pre-apply
   forwarding/dispatch previews while non-Call messages report no dispatch work.
   A generated Return reader can resolve its answer and apply result
