@@ -159,7 +159,8 @@ that a complete RPC runtime exists.
   capability bookkeeping to `State`. Top-level Unimplemented, Abort,
   Bootstrap, Finish/Release builders can initialize their tags, nested
   unimplemented-message payloads, exception metadata, question IDs, flags, and
-  reference counts, and a helper can build a
+  reference counts; Unimplemented payload helpers can also recover the nested
+  original message tag/event, and a helper can build a
   Return containing a single capability result directly from a Bootstrap
   request reader. A minimal bootstrap dispatcher can apply the request and
   invoke an application callback that returns the bootstrap export ID. Typed
