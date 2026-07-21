@@ -19310,6 +19310,30 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initReadyHandoffReturnMessagesFromHandlersToTaggedSink(
+        self: *const State,
+        response_messages: anytype,
+        provide_context: anytype,
+        provide_handler: anytype,
+        accept_context: anytype,
+        accept_handler: anytype,
+        join_context: anytype,
+        join_handler: anytype,
+        sink_context: anytype,
+        sink_handler: anytype,
+    ) !StateHandoffReturnStats {
+        const stats = try self.initReadyHandoffReturnMessagesFromHandlers(
+            response_messages,
+            provide_context,
+            provide_handler,
+            accept_context,
+            accept_handler,
+            join_context,
+            join_handler,
+        );
+        return sendHandoffReturnOutputsToTaggedSinkStats(stats, response_messages, sink_context, sink_handler);
+    }
+
     pub fn initReadyHandoffReturnMessagesFromHandlersToQueue(
         self: *const State,
         allocator: std.mem.Allocator,

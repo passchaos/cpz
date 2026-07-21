@@ -21273,6 +21273,56 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(usize, 1), sink_accept_context.seen);
     try std.testing.expectEqual(@as(usize, 1), sink_join_context.seen);
 
+    const TaggedHandlerSink = struct {
+        sent: usize = 0,
+        provide_answer_sum: u32 = 0,
+        accept_answer_sum: u32 = 0,
+        join_answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), position: cpz.rpc.HandoffReturnOutputPosition, message: anytype) !void {
+            const answer_id = try (try message.get_return_()).get_answerId();
+            switch (position.role) {
+                .provide => context.provide_answer_sum += answer_id,
+                .accept => context.accept_answer_sum += answer_id,
+                .join => context.join_answer_sum += answer_id,
+            }
+            context.sent += 1;
+        }
+    };
+    var tagged_sink_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_sink_builder0.deinit();
+    const tagged_sink_response0 = try generated.Message.initRootTyped(&tagged_sink_builder0);
+    var tagged_sink_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_sink_builder1.deinit();
+    const tagged_sink_response1 = try generated.Message.initRootTyped(&tagged_sink_builder1);
+    var tagged_sink_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_sink_builder2.deinit();
+    const tagged_sink_response2 = try generated.Message.initRootTyped(&tagged_sink_builder2);
+    const tagged_sink_responses = [_]generated.Message.Builder{ tagged_sink_response0, tagged_sink_response1, tagged_sink_response2 };
+    var tagged_sink_provide_context: Context = .{};
+    var tagged_sink_accept_context: Context = .{};
+    var tagged_sink_join_context: Context = .{};
+    var tagged_handler_sink: TaggedHandlerSink = .{};
+    const tagged_sink_stats = try state.initReadyHandoffReturnMessagesFromHandlersToTaggedSink(
+        tagged_sink_responses[0..],
+        &tagged_sink_provide_context,
+        Context.handle,
+        &tagged_sink_accept_context,
+        Context.handle,
+        &tagged_sink_join_context,
+        Context.handle,
+        &tagged_handler_sink,
+        TaggedHandlerSink.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, tagged_sink_stats);
+    try std.testing.expectEqual(@as(usize, 3), tagged_handler_sink.sent);
+    try std.testing.expectEqual(@as(u32, 103), tagged_handler_sink.provide_answer_sum);
+    try std.testing.expectEqual(@as(u32, 104), tagged_handler_sink.accept_answer_sum);
+    try std.testing.expectEqual(@as(u32, 105), tagged_handler_sink.join_answer_sum);
+    try std.testing.expectEqual(@as(usize, 1), tagged_sink_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), tagged_sink_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 1), tagged_sink_join_context.seen);
+
     var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer queue_builder0.deinit();
     const queue_response0 = try generated.Message.initRootTyped(&queue_builder0);
@@ -21319,6 +21369,17 @@ test "rpc ready handoff handlers initialize return messages" {
         Context.handle,
     ));
     try std.testing.expectEqual(@as(usize, 0), short_context.seen);
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnMessagesFromHandlersToTaggedSink(
+        responses[0..2],
+        &short_context,
+        Context.handle,
+        &short_context,
+        Context.handle,
+        &short_context,
+        Context.handle,
+        &tagged_handler_sink,
+        TaggedHandlerSink.handle,
+    ));
     try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnMessagesFromHandlersToQueue(
         std.testing.allocator,
         responses[0..2],
