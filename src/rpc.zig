@@ -1122,6 +1122,17 @@ pub const DisembargoApplyInfo = struct {
         return self.released_accepts != 0;
     }
 
+    pub fn releasedAcceptCount(self: @This()) usize {
+        return self.released_accepts;
+    }
+
+    pub fn containsReleasedAccept(self: @This(), id: QuestionId) bool {
+        for (self.released_accept_ids) |released_id| {
+            if (released_id == id) return true;
+        }
+        return false;
+    }
+
     pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
         allocator.free(self.released_accept_ids);
         self.* = undefined;

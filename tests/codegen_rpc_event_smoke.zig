@@ -15524,6 +15524,9 @@ test "rpc top-level apply reports disembargo releases" {
         else => return error.TestUnexpectedResult,
     };
     try std.testing.expectEqual(@as(usize, 1), released.released_accepts);
+    try std.testing.expectEqual(@as(usize, 1), released.releasedAcceptCount());
+    try std.testing.expect(released.containsReleasedAccept(68));
+    try std.testing.expect(!released.containsReleasedAccept(69));
     try std.testing.expectEqualSlices(u32, &.{68}, released.released_accept_ids);
     try std.testing.expectEqual(@as(?bool, true), state.acceptEmbargoReleased(68));
 }
