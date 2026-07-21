@@ -248,8 +248,8 @@ that a complete RPC runtime exists.
   output queues can also be validated and sent as their initialized prefix to a
   single embedding transport/enqueue sink, sent to one sink with response/
   forward/Disembargo role tags, counted with lightweight output stats returned
-  by tagged send helpers, or split by output role into separate sinks, including
-  ordinary, method-table, token-filtered, and apply-detail variants.
+  by tagged or split send helpers, or split by output role into separate sinks,
+  including ordinary, method-table, token-filtered, and apply-detail variants.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
   preserving question ID, params, method/routing metadata, and flags, and only
   rewriting the target to an explicit or remembered resolved destination.
