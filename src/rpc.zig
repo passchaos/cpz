@@ -384,6 +384,14 @@ pub const WireDispatchStats = struct {
         return self.response_initialized + self.forward_required + self.state_applied;
     }
 
+    pub fn hasWork(self: @This()) bool {
+        return self.total() != 0;
+    }
+
+    pub fn isEmpty(self: @This()) bool {
+        return self.total() == 0;
+    }
+
     pub fn denseResponseSlots(self: @This()) usize {
         return self.response_initialized;
     }
