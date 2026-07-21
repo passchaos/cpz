@@ -81,10 +81,12 @@ test "rpc wire events decode generated message union tags and ids" {
         try abort.set_trace("abort trace");
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireMessageTag.abort, event.tag());
+        try std.testing.expect(event.isAbort());
         try std.testing.expect(!event.isStateApplicable());
-        try std.testing.expectEqual(cpz.rpc.ExceptionType.failed, event.abort.exceptionType().?);
-        try std.testing.expectEqualStrings("fatal rpc abort", event.abort.reason.?);
-        try std.testing.expectEqualStrings("abort trace", event.abort.trace.?);
+        const exception = event.abortException().?;
+        try std.testing.expectEqual(cpz.rpc.ExceptionType.failed, exception.exceptionType().?);
+        try std.testing.expectEqualStrings("fatal rpc abort", exception.reason.?);
+        try std.testing.expectEqualStrings("abort trace", exception.trace.?);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });

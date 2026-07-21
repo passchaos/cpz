@@ -2272,6 +2272,17 @@ pub const WireEvent = union(WireMessageTag) {
         };
     }
 
+    pub fn isAbort(self: WireEvent) bool {
+        return self == .abort;
+    }
+
+    pub fn abortException(self: WireEvent) ?ExceptionInfo {
+        return switch (self) {
+            .abort => |exception| exception,
+            else => null,
+        };
+    }
+
     pub fn questionId(self: WireEvent) ?QuestionId {
         return switch (self) {
             .bootstrap, .call, .provide, .accept, .join => |id| id,
