@@ -13143,6 +13143,26 @@ pub const State = struct {
         return tracker.info();
     }
 
+    pub fn acceptHasProvisionUsage(self: *const State, id: QuestionId) ?bool {
+        const tracker = self.accepts.get(id) orelse return null;
+        return tracker.hasProvisionUsage();
+    }
+
+    pub fn acceptProvisionMatchesCapability(self: *const State, id: QuestionId, capability_index: u32) ?bool {
+        const tracker = self.accepts.get(id) orelse return null;
+        return tracker.provisionMatchesCapability(capability_index);
+    }
+
+    pub fn acceptHasEmbargo(self: *const State, id: QuestionId) ?bool {
+        const tracker = self.accepts.get(id) orelse return null;
+        return tracker.hasEmbargo();
+    }
+
+    pub fn acceptMatchesEmbargo(self: *const State, id: QuestionId, embargo: []const u8) ?bool {
+        const tracker = self.accepts.get(id) orelse return null;
+        return tracker.matchesEmbargo(embargo);
+    }
+
     pub fn acceptCount(self: *const State) usize {
         return self.accepts.count();
     }
@@ -13614,6 +13634,26 @@ pub const State = struct {
         return tracker.info();
     }
 
+    pub fn joinHasKeyPartUsage(self: *const State, id: QuestionId) ?bool {
+        const tracker = self.joins.get(id) orelse return null;
+        return tracker.hasKeyPartUsage();
+    }
+
+    pub fn joinKeyPartMatchesCapability(self: *const State, id: QuestionId, capability_index: u32) ?bool {
+        const tracker = self.joins.get(id) orelse return null;
+        return tracker.keyPartMatchesCapability(capability_index);
+    }
+
+    pub fn joinTargetsImport(self: *const State, id: QuestionId, import_id: ImportId) ?bool {
+        const tracker = self.joins.get(id) orelse return null;
+        return tracker.targetsImport(import_id);
+    }
+
+    pub fn joinTargetsPromisedQuestion(self: *const State, id: QuestionId, promised_question_id: QuestionId) ?bool {
+        const tracker = self.joins.get(id) orelse return null;
+        return tracker.targetsPromisedQuestion(promised_question_id);
+    }
+
     pub fn joinKeyPart(self: *const State, id: QuestionId) ?AnyPointerUsage {
         const tracker = self.joins.get(id) orelse return null;
         return tracker.key_part;
@@ -13665,6 +13705,26 @@ pub const State = struct {
     pub fn provideInfo(self: *const State, id: QuestionId) ?ProvideInfo {
         const tracker = self.provides.get(id) orelse return null;
         return tracker.info();
+    }
+
+    pub fn provideHasRecipientUsage(self: *const State, id: QuestionId) ?bool {
+        const tracker = self.provides.get(id) orelse return null;
+        return tracker.hasRecipientUsage();
+    }
+
+    pub fn provideRecipientMatchesCapability(self: *const State, id: QuestionId, capability_index: u32) ?bool {
+        const tracker = self.provides.get(id) orelse return null;
+        return tracker.recipientMatchesCapability(capability_index);
+    }
+
+    pub fn provideTargetsImport(self: *const State, id: QuestionId, import_id: ImportId) ?bool {
+        const tracker = self.provides.get(id) orelse return null;
+        return tracker.targetsImport(import_id);
+    }
+
+    pub fn provideTargetsPromisedQuestion(self: *const State, id: QuestionId, promised_question_id: QuestionId) ?bool {
+        const tracker = self.provides.get(id) orelse return null;
+        return tracker.targetsPromisedQuestion(promised_question_id);
     }
 
     pub fn provideRecipient(self: *const State, id: QuestionId) ?AnyPointerUsage {
