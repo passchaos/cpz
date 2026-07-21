@@ -14978,6 +14978,11 @@ test "rpc provide info helpers write targets and recipients" {
     try std.testing.expect(info.has_recipient);
     try std.testing.expectEqual(@as(usize, 3), info.recipient_max_capability_count);
     try std.testing.expectEqual(@as(?u32, 2), info.recipient_capability);
+    try std.testing.expect(info.hasRecipientUsage());
+    try std.testing.expect(info.recipientMatchesCapability(2));
+    try std.testing.expect(!info.recipientMatchesCapability(1));
+    try std.testing.expect(info.targetsImport(70));
+    try std.testing.expect(!info.targetsImport(71));
 }
 
 test "rpc handoff info writers reject inconsistent capability flags" {
@@ -15100,6 +15105,9 @@ test "rpc top-level handoff helpers initialize messages" {
         try std.testing.expectEqual(@as(u32, 90), info.question_id);
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 91 }, info.target);
         try std.testing.expectEqual(@as(?u32, 0), info.recipient_capability);
+        try std.testing.expect(info.hasRecipientUsage());
+        try std.testing.expect(info.recipientMatchesCapability(0));
+        try std.testing.expect(info.targetsImport(91));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -15121,6 +15129,12 @@ test "rpc top-level handoff helpers initialize messages" {
         try std.testing.expectEqual(@as(usize, 2), info.provision_max_capability_count);
         try std.testing.expectEqual(@as(?u32, 1), info.provision_capability);
         try std.testing.expectEqualStrings("accept-92", info.embargo.?);
+        try std.testing.expect(info.hasProvisionUsage());
+        try std.testing.expect(info.provisionMatchesCapability(1));
+        try std.testing.expect(!info.provisionMatchesCapability(0));
+        try std.testing.expect(info.hasEmbargo());
+        try std.testing.expect(info.matchesEmbargo("accept-92"));
+        try std.testing.expect(!info.matchesEmbargo("missing"));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -15140,6 +15154,10 @@ test "rpc top-level handoff helpers initialize messages" {
         try std.testing.expectEqual(@as(u32, 93), info.question_id);
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 94 }, info.target);
         try std.testing.expectEqual(@as(?u32, 1), info.key_part_capability);
+        try std.testing.expect(info.hasKeyPartUsage());
+        try std.testing.expect(info.keyPartMatchesCapability(1));
+        try std.testing.expect(!info.keyPartMatchesCapability(0));
+        try std.testing.expect(info.targetsImport(94));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -15213,6 +15231,9 @@ test "rpc join info helpers write targets and key parts" {
     try std.testing.expect(info.has_key_part);
     try std.testing.expectEqual(@as(usize, 6), info.key_part_max_capability_count);
     try std.testing.expectEqual(@as(?u32, 5), info.key_part_capability);
+    try std.testing.expect(info.hasKeyPartUsage());
+    try std.testing.expect(info.keyPartMatchesCapability(5));
+    try std.testing.expect(info.targetsImport(72));
 }
 
 test "rpc top-level accept messages open questions" {
@@ -23522,6 +23543,9 @@ test "rpc accept info helpers write question ids and embargoes" {
         const info = try cpz.rpc.acceptInfoFromWireAccept(accept_reader);
         try std.testing.expectEqual(@as(u32, 66), info.question_id);
         try std.testing.expectEqualStrings("embargo-66", info.embargo.?);
+        try std.testing.expect(!info.hasProvisionUsage());
+        try std.testing.expect(info.hasEmbargo());
+        try std.testing.expect(info.matchesEmbargo("embargo-66"));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -23534,6 +23558,8 @@ test "rpc accept info helpers write question ids and embargoes" {
         const info = try cpz.rpc.acceptInfoFromWireAccept(accept_reader);
         try std.testing.expectEqual(@as(u32, 67), info.question_id);
         try std.testing.expect(info.embargo == null);
+        try std.testing.expect(!info.hasEmbargo());
+        try std.testing.expect(!info.matchesEmbargo("embargo-67"));
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -23555,6 +23581,8 @@ test "rpc accept info helpers write question ids and embargoes" {
         try std.testing.expectEqual(@as(usize, 4), info.provision_max_capability_count);
         try std.testing.expectEqual(@as(?u32, 3), info.provision_capability);
         try std.testing.expectEqualStrings("embargo-68", info.embargo.?);
+        try std.testing.expect(info.hasProvisionUsage());
+        try std.testing.expect(info.provisionMatchesCapability(3));
     }
 }
 
@@ -23572,6 +23600,8 @@ test "rpc accept info reports provision capability usage" {
     try std.testing.expect(info.has_provision);
     try std.testing.expectEqual(@as(usize, 3), info.provision_max_capability_count);
     try std.testing.expectEqual(@as(?u32, 2), info.provision_capability);
+    try std.testing.expect(info.hasProvisionUsage());
+    try std.testing.expect(info.provisionMatchesCapability(2));
 }
 
 test "rpc provide accept and join wire events open questions" {
@@ -23637,6 +23667,11 @@ test "rpc third-party answer wire events resolve answers" {
     try std.testing.expect(info.has_completion);
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, info.completion.?);
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, info.completionUsage().?);
+    try std.testing.expect(info.matchesAnswer(24));
+    try std.testing.expect(!info.matchesAnswer(25));
+    try std.testing.expect(info.hasCompletionUsage());
+    try std.testing.expect(info.completionMatchesCapability(4));
+    try std.testing.expect(!info.completionMatchesCapability(3));
     try info.validate();
 
     try std.testing.expect(event.toStateEvent() == null);
@@ -23661,6 +23696,8 @@ test "rpc third-party answer info helpers write completions" {
     try std.testing.expect(info.has_completion);
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, info.completion.?);
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, info.completionUsage().?);
+    try std.testing.expect(info.hasCompletionUsage());
+    try std.testing.expect(info.completionMatchesCapability(2));
     try info.validate();
 }
 

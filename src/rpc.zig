@@ -718,6 +718,24 @@ pub const AcceptInfo = struct {
         } else null;
     }
 
+    pub fn hasProvisionUsage(self: @This()) bool {
+        return self.provisionUsage() != null;
+    }
+
+    pub fn provisionMatchesCapability(self: @This(), index: u32) bool {
+        const usage = self.provisionUsage() orelse return false;
+        return usage.matchesCapability(index);
+    }
+
+    pub fn hasEmbargo(self: @This()) bool {
+        return self.embargo != null;
+    }
+
+    pub fn matchesEmbargo(self: @This(), value: []const u8) bool {
+        const embargo = self.embargo orelse return false;
+        return std.mem.eql(u8, embargo, value);
+    }
+
     pub fn validate(self: @This()) Error!void {
         if (!self.has_provision and self.provision_capability != null) return error.InvalidTransition;
         if (self.has_provision and self.provision_capability == null) return error.InvalidTransition;
@@ -737,6 +755,23 @@ pub const ProvideInfo = struct {
             .max_capability_count = self.recipient_max_capability_count,
             .capability = self.recipient_capability,
         } else null;
+    }
+
+    pub fn hasRecipientUsage(self: @This()) bool {
+        return self.recipientUsage() != null;
+    }
+
+    pub fn recipientMatchesCapability(self: @This(), index: u32) bool {
+        const usage = self.recipientUsage() orelse return false;
+        return usage.matchesCapability(index);
+    }
+
+    pub fn targetsImport(self: @This(), id: ImportId) bool {
+        return self.target.matchesImport(id);
+    }
+
+    pub fn targetsPromisedQuestion(self: @This(), id: QuestionId) bool {
+        return self.target.matchesPromisedQuestion(id);
     }
 
     pub fn validate(self: @This()) Error!void {
@@ -760,6 +795,23 @@ pub const JoinInfo = struct {
         } else null;
     }
 
+    pub fn hasKeyPartUsage(self: @This()) bool {
+        return self.keyPartUsage() != null;
+    }
+
+    pub fn keyPartMatchesCapability(self: @This(), index: u32) bool {
+        const usage = self.keyPartUsage() orelse return false;
+        return usage.matchesCapability(index);
+    }
+
+    pub fn targetsImport(self: @This(), id: ImportId) bool {
+        return self.target.matchesImport(id);
+    }
+
+    pub fn targetsPromisedQuestion(self: @This(), id: QuestionId) bool {
+        return self.target.matchesPromisedQuestion(id);
+    }
+
     pub fn validate(self: @This()) Error!void {
         if (!self.has_key_part and self.key_part_capability != null) return error.InvalidTransition;
         if (self.has_key_part and self.key_part_capability == null) return error.InvalidTransition;
@@ -774,6 +826,19 @@ pub const ThirdPartyAnswerInfo = struct {
 
     pub fn completionUsage(self: @This()) ?AnyPointerUsage {
         return if (self.has_completion) self.completion else null;
+    }
+
+    pub fn matchesAnswer(self: @This(), id: AnswerId) bool {
+        return self.answer_id == id;
+    }
+
+    pub fn hasCompletionUsage(self: @This()) bool {
+        return self.completionUsage() != null;
+    }
+
+    pub fn completionMatchesCapability(self: @This(), index: u32) bool {
+        const usage = self.completionUsage() orelse return false;
+        return usage.matchesCapability(index);
     }
 
     pub fn validate(self: @This()) Error!void {
