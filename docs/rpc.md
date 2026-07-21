@@ -356,7 +356,8 @@ that a complete RPC runtime exists.
   `AnyPointerUsage` values.
   Provide/Accept/Join handoff completions can also initialize single or batched
   Return messages with readiness gates preserved, derive single
-  Provide/Accept/Join result exports through application handlers, or hand those
+  Provide/Accept/Join result exports through application handlers, including
+  queue-ready single Accept handler returns, or hand those
   initialized returns directly to an embedding transport/enqueue callback or
   caller-owned queue. Both
   explicit/tracked completion lists, handler-derived ready returns, and structured

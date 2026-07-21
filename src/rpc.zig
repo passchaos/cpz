@@ -15550,6 +15550,19 @@ pub const State = struct {
         try sink_handler(sink_context, message);
     }
 
+    pub fn initReadyAcceptReturnMessageFromHandlerToQueue(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+        queue: anytype,
+    ) !void {
+        try self.initReadyAcceptReturnMessageFromHandler(message, question_id, context, handler);
+        try queue.append(allocator, message);
+    }
+
     pub fn initReleasedAcceptReturnMessages(
         self: *const State,
         response_messages: anytype,

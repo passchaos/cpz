@@ -16980,6 +16980,27 @@ test "rpc top-level accept messages open questions" {
         defer std.testing.allocator.free(descriptors);
         try std.testing.expectEqual(@as(usize, 1), descriptors.len);
         try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 96 }, descriptors[0]);
+
+        var queue_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_builder.deinit();
+        const queue_response = try generated.Message.initRootTyped(&queue_builder);
+        var queue_context: HandlerContext = .{};
+        var queue = std.ArrayList(generated.Message.Builder).empty;
+        defer queue.deinit(std.testing.allocator);
+        try state.initReadyAcceptReturnMessageFromHandlerToQueue(
+            std.testing.allocator,
+            queue_response,
+            64,
+            &queue_context,
+            HandlerContext.handle,
+            &queue,
+        );
+        try std.testing.expectEqual(@as(usize, 1), queue_context.seen);
+        try std.testing.expectEqual(@as(u32, 2), queue_context.capability_sum);
+        try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+        try expectQueuedReturnAnswer(queue.items[0], 64);
+        var queue_reader = cpz.MessageReader.init(try queue_builder.segmentsConst(), .{});
+        try expectReturnCapabilityResult(generated.Message.fromReader(try queue_reader.getRoot()), 96);
     }
     try state.finishQuestion(64);
     try std.testing.expect(state.acceptInfo(64) == null);
