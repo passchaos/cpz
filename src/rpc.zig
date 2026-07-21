@@ -19070,6 +19070,29 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initTrackedHandoffReturnMessagesToTaggedQueue(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        response_messages: anytype,
+        completions: []const HandoffReturn,
+        queue: anytype,
+    ) !StateHandoffReturnStats {
+        if (response_messages.len < completions.len) return error.InvalidTransition;
+        try self.validateTrackedHandoffReturns(completions);
+        var stats: StateHandoffReturnStats = .{};
+        for (completions, 0..) |completion, index| {
+            const position: HandoffReturnOutputPosition = switch (completion) {
+                .provide => .{ .role = .provide, .local_index = stats.provides },
+                .accept => .{ .role = .accept, .local_index = stats.accepts },
+                .join => .{ .role = .join, .local_index = stats.joins },
+            };
+            try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
+            try queue.append(allocator, .{ .position = position, .message = response_messages[index] });
+            stats.record(completion);
+        }
+        return stats;
+    }
+
     pub fn initReadyHandoffReturnPlanMessagesToSink(
         self: *const State,
         response_messages: anytype,

@@ -20570,6 +20570,48 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectEqual(@as(u32, 90), tagged_tracked_sink.answer_ids[2]);
     try std.testing.expectEqual(@as(u32, 91), tagged_tracked_sink.answer_ids[3]);
 
+    var tagged_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder0.deinit();
+    const tagged_queue_response0 = try generated.Message.initRootTyped(&tagged_queue_builder0);
+    var tagged_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder1.deinit();
+    const tagged_queue_response1 = try generated.Message.initRootTyped(&tagged_queue_builder1);
+    var tagged_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder2.deinit();
+    const tagged_queue_response2 = try generated.Message.initRootTyped(&tagged_queue_builder2);
+    var tagged_queue_builder3 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder3.deinit();
+    const tagged_queue_response3 = try generated.Message.initRootTyped(&tagged_queue_builder3);
+    const tagged_queue_responses = [_]generated.Message.Builder{ tagged_queue_response0, tagged_queue_response1, tagged_queue_response2, tagged_queue_response3 };
+    const TaggedTrackedQueueItem = struct {
+        position: cpz.rpc.HandoffReturnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var tagged_tracked_queue = std.ArrayList(TaggedTrackedQueueItem).empty;
+    defer tagged_tracked_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessagesToTaggedQueue(
+        std.testing.allocator,
+        tagged_queue_responses[0..3],
+        mixed_completions[0..],
+        &tagged_tracked_queue,
+    ));
+    const tagged_queue_stats = try state.initTrackedHandoffReturnMessagesToTaggedQueue(
+        std.testing.allocator,
+        tagged_queue_responses[0..],
+        mixed_completions[0..],
+        &tagged_tracked_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 2, .accepts = 1, .joins = 1 }, tagged_queue_stats);
+    try std.testing.expectEqual(@as(usize, 4), tagged_tracked_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 0 }, tagged_tracked_queue.items[0].position);
+    try expectQueuedReturnAnswer(tagged_tracked_queue.items[0].message, 90);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, tagged_tracked_queue.items[1].position);
+    try expectQueuedReturnAnswer(tagged_tracked_queue.items[1].message, 92);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 1 }, tagged_tracked_queue.items[2].position);
+    try expectQueuedReturnAnswer(tagged_tracked_queue.items[2].message, 90);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, tagged_tracked_queue.items[3].position);
+    try expectQueuedReturnAnswer(tagged_tracked_queue.items[3].message, 91);
+
     try std.testing.expectError(error.InvalidTransition, state.initTrackedHandoffReturnMessages(responses[0..2], completions[0..]));
     const invalid_completions = [_]cpz.rpc.HandoffReturn{.{ .join = .{ .question_id = 999, .export_id = 999 } }};
     try std.testing.expectError(error.InvalidTransition, state.validateTrackedHandoffReturn(invalid_completions[0]));
