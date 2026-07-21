@@ -161,7 +161,7 @@ that a complete RPC runtime exists.
   Bootstrap, Finish/Release builders can initialize their tags, nested
   unimplemented-message payloads, exception metadata, question IDs, flags, and
   reference counts; Unimplemented wire events preserve and can match the nested
-  original tag, payload helpers can recover the nested original message
+  original tag, payload helpers can copy or recover the nested original message
   tag/event, and a helper can build a Return containing a single capability
   result directly from a Bootstrap request reader. A minimal bootstrap
   dispatcher can apply the request and invoke an application callback that
