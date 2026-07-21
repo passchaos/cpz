@@ -725,6 +725,8 @@ test "rpc cap descriptor info helpers preserve attached fd indexes" {
         const info = try decodeCapDescriptorInfo(&builder);
         try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .third_party_hosted = 15 }, info.descriptor);
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 6, .capability = 5 }, info.third_party_contact.?);
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 6, .capability = 5 }, info.thirdPartyContactUsage().?);
+        try info.validate();
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -734,6 +736,10 @@ test "rpc cap descriptor info helpers preserve attached fd indexes" {
             .descriptor = .{ .third_party_hosted = 16 },
             .third_party_contact = .{ .max_capability_count = 6, .capability = 6 },
         }, descriptor));
+        try std.testing.expectError(error.InvalidTransition, (cpz.rpc.CapDescriptorInfo{
+            .descriptor = .{ .sender_hosted = 16 },
+            .third_party_contact = .{ .max_capability_count = 6, .capability = 5 },
+        }).validate());
     }
 }
 

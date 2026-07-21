@@ -1475,6 +1475,15 @@ pub const CapDescriptorInfo = struct {
     descriptor: CapDescriptor,
     attached_fd: u8 = 0xff,
     third_party_contact: ?AnyPointerUsage = null,
+
+    pub fn thirdPartyContactUsage(self: @This()) ?AnyPointerUsage {
+        return if (self.descriptor == .third_party_hosted) self.third_party_contact else null;
+    }
+
+    pub fn validate(self: @This()) Error!void {
+        if (self.third_party_contact != null and self.descriptor != .third_party_hosted) return error.InvalidTransition;
+        if (self.thirdPartyContactUsage()) |contact| try contact.validate();
+    }
 };
 
 pub fn callTargetFromForwardableCapDescriptor(descriptor: CapDescriptor) ?CallTarget {
@@ -2251,8 +2260,7 @@ pub fn writeCapDescriptorToWire(descriptor: CapDescriptor, builder: anytype) !vo
 }
 
 pub fn writeCapDescriptorInfoToWire(info: CapDescriptorInfo, builder: anytype) !void {
-    if (info.third_party_contact != null and info.descriptor != .third_party_hosted) return error.InvalidTransition;
-    if (info.third_party_contact) |contact| try validateAnyPointerUsageCapability(contact);
+    try info.validate();
     try writeCapDescriptorToWire(info.descriptor, builder);
     if (info.third_party_contact) |contact| {
         if (contact.capability) |index| {
