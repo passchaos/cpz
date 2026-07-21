@@ -20009,6 +20009,40 @@ test "rpc turn dispatcher filters pending accept disembargos into unified output
     try std.testing.expectEqual(@as(usize, 1), queued.disembargoMessages());
     try std.testing.expectEqual(@as(usize, 1), queue.items.len);
     try expectQueuedDisembargoBuilder(queue.items[0], .{ .imported_cap = 5 }, "filter-unified-156");
+
+    const TaggedQueueItem = struct {
+        position: cpz.rpc.RpcTurnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var tagged_queue_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder.deinit();
+    const tagged_queue_output = try generated.Message.initRootTyped(&tagged_queue_builder);
+    const tagged_queue_outputs = [_]generated.Message.Builder{tagged_queue_output};
+    var tagged_queue = std.ArrayList(TaggedQueueItem).empty;
+    defer tagged_queue.deinit(std.testing.allocator);
+    const tagged_queued = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToTaggedQueueFromHandlers(
+        &state,
+        std.testing.allocator,
+        tagged_queue_outputs[0..],
+        request_messages,
+        {},
+        BootstrapHandler.handle,
+        {},
+        CallHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "filter-unified-157",
+        &tagged_queue,
+    );
+    try std.testing.expectEqual(@as(usize, 1), tagged_queued.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 1), tagged_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, tagged_queue.items[0].position);
+    try expectQueuedDisembargoBuilder(tagged_queue.items[0].message, .{ .imported_cap = 5 }, "filter-unified-157");
 }
 
 test "rpc turn dispatcher sends pending accept disembargos with dense outputs" {
@@ -23587,6 +23621,40 @@ test "rpc method turn dispatcher filters pending accept disembargos into unified
     try std.testing.expectEqual(@as(usize, 1), queued.disembargoMessages());
     try std.testing.expectEqual(@as(usize, 1), queue.items.len);
     try expectQueuedDisembargoBuilder(queue.items[0], .{ .imported_cap = 5 }, "method-filter-unified-158");
+
+    const TaggedQueueItem = struct {
+        position: cpz.rpc.RpcTurnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var tagged_queue_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder.deinit();
+    const tagged_queue_output = try generated.Message.initRootTyped(&tagged_queue_builder);
+    const tagged_queue_outputs = [_]generated.Message.Builder{tagged_queue_output};
+    var tagged_queue = std.ArrayList(TaggedQueueItem).empty;
+    defer tagged_queue.deinit(std.testing.allocator);
+    const tagged_queued = try cpz.rpc.dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToTaggedQueueFromHandlers(
+        &state,
+        std.testing.allocator,
+        tagged_queue_outputs[0..],
+        request_messages,
+        {},
+        BootstrapHandler.handle,
+        &context,
+        entries,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "method-filter-unified-159",
+        &tagged_queue,
+    );
+    try std.testing.expectEqual(@as(usize, 1), tagged_queued.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 1), tagged_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, tagged_queue.items[0].position);
+    try expectQueuedDisembargoBuilder(tagged_queue.items[0].message, .{ .imported_cap = 5 }, "method-filter-unified-159");
 }
 
 test "rpc method turn dispatcher fills unified outputs with pending disembargos and apply details" {

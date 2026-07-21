@@ -241,7 +241,7 @@ that a complete RPC runtime exists.
   compact output queues and observing state-only Disembargo release IDs.
   Separate builder-set validation is also available; pending Accept Disembargos can be planned, emitted to
   their own sink or caller-owned queue, or initialized into caller-owned builders without an immediate sink,
-  from the same turn plan, either all at once or filtered by embargo token, including queue wrappers.
+  from the same turn plan, either all at once or filtered by embargo token, including unified and role-tagged queue wrappers.
   Combined turn helpers, with or without method-table dispatch and
   apply-detail callbacks, can now dispatch dense responses/forwards, append
   ready handoff Returns, and initialize or send all or token-filtered pending Accept
