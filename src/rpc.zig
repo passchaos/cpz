@@ -1024,6 +1024,36 @@ pub const CallTargetOwned = union(enum) {
     imported_cap: ImportId,
     promised_answer: PromisedAnswerTargetOwned,
 
+    pub fn isImportedCap(self: @This()) bool {
+        return self == .imported_cap;
+    }
+
+    pub fn isPromisedAnswer(self: @This()) bool {
+        return self == .promised_answer;
+    }
+
+    pub fn importId(self: @This()) ?ImportId {
+        return switch (self) {
+            .imported_cap => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn matchesImport(self: @This(), id: ImportId) bool {
+        return self.importId() == id;
+    }
+
+    pub fn promisedQuestionId(self: @This()) ?QuestionId {
+        return switch (self) {
+            .promised_answer => |answer| answer.question_id,
+            else => null,
+        };
+    }
+
+    pub fn matchesPromisedQuestion(self: @This(), id: QuestionId) bool {
+        return self.promisedQuestionId() == id;
+    }
+
     pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
         switch (self.*) {
             .promised_answer => |*answer| answer.deinit(allocator),

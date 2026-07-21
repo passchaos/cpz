@@ -500,6 +500,11 @@ test "rpc allocating call target helpers decode promised-answer transforms" {
     const message = generated.Message.fromReader(try reader.getRoot());
     var decoded = try cpz.rpc.callTargetFromWireCallAlloc(std.testing.allocator, try message.call());
     defer decoded.deinit(std.testing.allocator);
+    try std.testing.expect(!decoded.isImportedCap());
+    try std.testing.expect(decoded.isPromisedAnswer());
+    try std.testing.expect(decoded.importId() == null);
+    try std.testing.expectEqual(@as(?u32, 99), decoded.promisedQuestionId());
+    try std.testing.expect(decoded.matchesPromisedQuestion(99));
 
     const promised_decoded = switch (decoded) {
         .promised_answer => |answer| answer,
@@ -521,6 +526,12 @@ test "rpc call target helpers write message targets" {
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const target_reader = generated.MessageTarget.fromReader(try reader.getRoot());
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 44 }, try cpz.rpc.targetFromWireMessageTarget(target_reader));
+        const owned_import = cpz.rpc.CallTargetOwned{ .imported_cap = 44 };
+        try std.testing.expect(owned_import.isImportedCap());
+        try std.testing.expect(!owned_import.isPromisedAnswer());
+        try std.testing.expectEqual(@as(?u32, 44), owned_import.importId());
+        try std.testing.expect(owned_import.matchesImport(44));
+        try std.testing.expect(owned_import.promisedQuestionId() == null);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
@@ -539,6 +550,9 @@ test "rpc call target helpers write message targets" {
         const target_reader = generated.MessageTarget.fromReader(try reader.getRoot());
         var decoded = try cpz.rpc.targetFromWireMessageTargetAlloc(std.testing.allocator, target_reader);
         defer decoded.deinit(std.testing.allocator);
+        try std.testing.expect(decoded.isPromisedAnswer());
+        try std.testing.expect(!decoded.matchesImport(44));
+        try std.testing.expect(decoded.matchesPromisedQuestion(45));
         const promised = switch (decoded) {
             .promised_answer => |answer| answer,
             else => return error.TestUnexpectedResult,
