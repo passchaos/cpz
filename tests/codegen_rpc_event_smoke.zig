@@ -13846,6 +13846,46 @@ test "rpc batch forwarding dispatcher sends forwarded calls to a sink" {
     try std.testing.expectEqual(@as(usize, 1), descriptors.len);
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 222 }, descriptors[0]);
 
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 220 });
+    try queue_state.resolveImportTo(220, .{ .sender_hosted = 221 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 221 });
+    var queue_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder0.deinit();
+    const queue_response0 = try generated.Message.initRootTyped(&queue_response_builder0);
+    var queue_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder1.deinit();
+    const queue_response1 = try generated.Message.initRootTyped(&queue_response_builder1);
+    var queue_forward_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_forward_builder0.deinit();
+    const queue_forward0 = try generated.Message.initRootTyped(&queue_forward_builder0);
+    var queue_forward_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_forward_builder1.deinit();
+    const queue_forward1 = try generated.Message.initRootTyped(&queue_forward_builder1);
+    const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1 };
+    const queue_forwards = [_]generated.Message.Builder{ queue_forward0, queue_forward1 };
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_call_seen: u32 = 0;
+    const queue_stats = try cpz.rpc.dispatchWireMessagesForwardingToQueue(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_forwards[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_call_seen,
+        CallHandler.handle,
+        &forward_queue,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 0), queue_call_seen);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 220, .{ .imported_cap = 221 });
+
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessagesForwardingToSink(
         &state,
         std.testing.allocator,
@@ -13858,6 +13898,18 @@ test "rpc batch forwarding dispatcher sends forwarded calls to a sink" {
         CallHandler.handle,
         &sink,
         Sink.handle,
+    ));
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessagesForwardingToQueue(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_forwards[0..1],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_call_seen,
+        CallHandler.handle,
+        &forward_queue,
     ));
 }
 
