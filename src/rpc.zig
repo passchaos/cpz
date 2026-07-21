@@ -2377,6 +2377,18 @@ pub const WireEvent = union(WireMessageTag) {
         return self == .abort;
     }
 
+    pub fn isObsolete(self: WireEvent) bool {
+        return self == .obsolete_save or self == .obsolete_delete;
+    }
+
+    pub fn isObsoleteSave(self: WireEvent) bool {
+        return self == .obsolete_save;
+    }
+
+    pub fn isObsoleteDelete(self: WireEvent) bool {
+        return self == .obsolete_delete;
+    }
+
     pub fn isUnimplemented(self: WireEvent) bool {
         return self == .unimplemented;
     }

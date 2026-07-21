@@ -126,6 +126,30 @@ test "rpc wire events decode generated message union tags and ids" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
+        try root.set_obsoleteSave();
+        const event = try decode(&builder);
+        try std.testing.expectEqual(cpz.rpc.WireMessageTag.obsolete_save, event.tag());
+        try std.testing.expect(event.isObsolete());
+        try std.testing.expect(event.isObsoleteSave());
+        try std.testing.expect(!event.isObsoleteDelete());
+        try std.testing.expect(!event.isStateApplicable());
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try root.set_obsoleteDelete();
+        const event = try decode(&builder);
+        try std.testing.expectEqual(cpz.rpc.WireMessageTag.obsolete_delete, event.tag());
+        try std.testing.expect(event.isObsolete());
+        try std.testing.expect(event.isObsoleteDelete());
+        try std.testing.expect(!event.isObsoleteSave());
+        try std.testing.expect(!event.isStateApplicable());
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
         const payload = try root.init_bootstrap();
         try payload.set_questionId(11);
         const event = try decode(&builder);
