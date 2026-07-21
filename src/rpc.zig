@@ -809,6 +809,26 @@ pub const HandoffReturnPlan = struct {
         };
     }
 
+    pub fn questionIdAt(self: @This(), output_index: usize) ?QuestionId {
+        const completion = self.completionAt(output_index) orelse return null;
+        return completion.questionId();
+    }
+
+    pub fn exportIdAt(self: @This(), output_index: usize) ?ExportId {
+        const completion = self.completionAt(output_index) orelse return null;
+        return completion.exportId();
+    }
+
+    pub fn questionIdAtPosition(self: @This(), position: HandoffReturnOutputPosition) ?QuestionId {
+        const completion = self.completionAtPosition(position) orelse return null;
+        return completion.questionId();
+    }
+
+    pub fn exportIdAtPosition(self: @This(), position: HandoffReturnOutputPosition) ?ExportId {
+        const completion = self.completionAtPosition(position) orelse return null;
+        return completion.exportId();
+    }
+
     pub fn stats(self: @This()) StateHandoffReturnStats {
         return .{
             .provides = self.provides.len,
