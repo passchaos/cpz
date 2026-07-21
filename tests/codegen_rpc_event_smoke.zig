@@ -26814,6 +26814,35 @@ test "rpc disembargo batches initialize and send messages to sinks" {
     try std.testing.expectEqual(@as(usize, 1), sink.accept_contexts);
 
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireDisembargoMessagesToSink(sink_messages[0..1], infos[0..], &sink, Sink.handle));
+
+    var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder0.deinit();
+    const queue_root0 = try generated.Message.initRootTyped(&queue_builder0);
+    var queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder1.deinit();
+    const queue_root1 = try generated.Message.initRootTyped(&queue_builder1);
+    const queue_messages = [_]generated.Message.Builder{ queue_root0, queue_root1 };
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    try std.testing.expectEqual(
+        @as(usize, 2),
+        try cpz.rpc.initWireDisembargoMessagesToQueue(std.testing.allocator, queue_messages[0..], infos[0..], &queue),
+    );
+    try std.testing.expectEqual(@as(usize, 2), queue.items.len);
+    {
+        const disembargo = try queue.items[0].get_disembargo();
+        const target = try disembargo.get_target();
+        try std.testing.expectEqual(generated.MessageTarget.Union0.importedCap, (try target.which()).?);
+        try std.testing.expectEqual(@as(u32, 82), try target.get_importedCap());
+        try std.testing.expectEqual(@as(u32, 83), try disembargo.get_senderLoopback());
+    }
+    try expectQueuedDisembargoBuilder(queue.items[1], .{ .imported_cap = 84 }, "accept-batch");
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireDisembargoMessagesToQueue(
+        std.testing.allocator,
+        queue_messages[0..1],
+        infos[0..],
+        &queue,
+    ));
 }
 
 test "rpc turn helper sends pending accept disembargos to a sink" {

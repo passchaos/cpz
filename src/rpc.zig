@@ -3324,6 +3324,20 @@ pub fn initWireDisembargoMessagesToSink(
     return infos.len;
 }
 
+pub fn initWireDisembargoMessagesToQueue(
+    allocator: std.mem.Allocator,
+    message_builders: anytype,
+    infos: []const DisembargoInfo,
+    queue: anytype,
+) !usize {
+    if (message_builders.len < infos.len) return error.InvalidTransition;
+    for (infos, 0..) |info, index| {
+        try initWireDisembargoMessage(message_builders[index], info);
+        try queue.append(allocator, message_builders[index]);
+    }
+    return infos.len;
+}
+
 pub fn targetFromWireTargetedMessage(message: anytype) !CallTarget {
     return targetFromWireMessageTarget(try message.target());
 }

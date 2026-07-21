@@ -92,7 +92,8 @@ that a complete RPC runtime exists.
   IDs, and combined helpers can apply the disembargo then initialize or enqueue
   those follow-up Returns. Full embargo queue handling remains future work. Disembargo
   batches can be initialized and handed directly to an embedding transport/enqueue
-  callback, pending Accept embargos can be queried, filtered by embargo token,
+  callback or appended to caller-owned queues,
+  pending Accept embargos can be queried, filtered by embargo token,
   snapshotted with non-empty, question, and token matching helpers, or
   selectively emitted to a sink or appended to caller-owned queues, and their
   targets are validated against tracked imports/answers before a full queue
