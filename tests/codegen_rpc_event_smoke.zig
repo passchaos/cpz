@@ -20396,6 +20396,9 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectEqual(@as(?usize, null), ready_ids.acceptLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, 0), ready_ids.joinLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, null), ready_ids.joinLocalIndex(3));
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_ids.stats());
+    try ready_ids.validateCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, ready_ids.validateCapacity(2));
     try std.testing.expectEqualSlices(u32, &.{90}, ready_ids.provides);
     try std.testing.expectEqualSlices(u32, &.{91}, ready_ids.accepts);
     try std.testing.expectEqualSlices(u32, &.{92}, ready_ids.joins);

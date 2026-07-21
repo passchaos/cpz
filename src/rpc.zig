@@ -576,6 +576,18 @@ pub const StateReadyHandoffIds = struct {
     pub fn joinLocalIndex(self: @This(), output_index: usize) ?usize {
         return self.joinRange().localIndex(output_index);
     }
+
+    pub fn stats(self: @This()) StateHandoffReturnStats {
+        return .{
+            .provides = self.provides.len,
+            .accepts = self.accepts.len,
+            .joins = self.joins.len,
+        };
+    }
+
+    pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
+        try self.stats().validateCapacity(capacity);
+    }
 };
 
 pub const HandoffReturnCapability = struct {
