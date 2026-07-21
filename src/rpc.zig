@@ -2015,6 +2015,58 @@ pub const PendingAcceptEmbargos = struct {
         }
         return initialized;
     }
+
+    pub fn initDisembargoInfos(self: @This(), infos: []DisembargoInfo, target: CallTarget) Error!usize {
+        try self.validateCapacity(infos.len);
+        var index: usize = 0;
+        for (self.items) |item| {
+            infos[index] = .{
+                .target = target,
+                .context = .{ .accept = item.embargo },
+            };
+            index += 1;
+        }
+        return index;
+    }
+
+    pub fn appendDisembargoInfosToQueue(self: @This(), allocator: std.mem.Allocator, target: CallTarget, queue: anytype) !usize {
+        for (self.items) |item| {
+            try queue.append(allocator, DisembargoInfo{
+                .target = target,
+                .context = .{ .accept = item.embargo },
+            });
+        }
+        return self.len();
+    }
+
+    pub fn initDisembargoInfosForEmbargo(self: @This(), infos: []DisembargoInfo, target: CallTarget, embargo: []const u8) Error!usize {
+        try self.validateMatchCapacity(embargo, infos.len);
+        var index: usize = 0;
+        for (self.items) |item| {
+            if (item.matchesEmbargo(embargo)) {
+                infos[index] = .{
+                    .target = target,
+                    .context = .{ .accept = item.embargo },
+                };
+                index += 1;
+            }
+        }
+        return index;
+    }
+
+    pub fn appendDisembargoInfosForEmbargoToQueue(self: @This(), allocator: std.mem.Allocator, target: CallTarget, embargo: []const u8, queue: anytype) !usize {
+        var count: usize = 0;
+        for (self.items) |item| {
+            if (item.matchesEmbargo(embargo)) {
+                try queue.append(allocator, DisembargoInfo{
+                    .target = target,
+                    .context = .{ .accept = item.embargo },
+                });
+                count += 1;
+            }
+        }
+        return count;
+    }
 };
 
 pub const WireMessageApplyResult = union(enum) {

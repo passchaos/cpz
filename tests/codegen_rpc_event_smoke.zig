@@ -18834,6 +18834,41 @@ test "rpc top-level accept messages open questions" {
             defer std.testing.allocator.free(empty_messages);
             try std.testing.expectEqual(@as(usize, 0), try pending.initDisembargoMessagesForEmbargoToSink(empty_messages, .{ .imported_cap = 5 }, "missing", &sink, Sink.handle));
         }
+        {
+            var infos: [1]cpz.rpc.DisembargoInfo = undefined;
+            try std.testing.expectEqual(@as(usize, 1), try pending.initDisembargoInfos(infos[0..], .{ .imported_cap = 5 }));
+            try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, infos[0].target);
+            try std.testing.expectEqualStrings("embargo-64", infos[0].context.accept);
+            const empty_infos = try std.testing.allocator.alloc(cpz.rpc.DisembargoInfo, 0);
+            defer std.testing.allocator.free(empty_infos);
+            try std.testing.expectError(error.InvalidTransition, pending.initDisembargoInfos(empty_infos, .{ .imported_cap = 5 }));
+        }
+        {
+            var info_queue = std.ArrayList(cpz.rpc.DisembargoInfo).empty;
+            defer info_queue.deinit(std.testing.allocator);
+            try std.testing.expectEqual(@as(usize, 1), try pending.appendDisembargoInfosToQueue(std.testing.allocator, .{ .imported_cap = 5 }, &info_queue));
+            try std.testing.expectEqual(@as(usize, 1), info_queue.items.len);
+            try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info_queue.items[0].target);
+            try std.testing.expectEqualStrings("embargo-64", info_queue.items[0].context.accept);
+        }
+        {
+            var infos: [1]cpz.rpc.DisembargoInfo = undefined;
+            try std.testing.expectEqual(@as(usize, 1), try pending.initDisembargoInfosForEmbargo(infos[0..], .{ .imported_cap = 5 }, "embargo-64"));
+            try std.testing.expectEqualStrings("embargo-64", infos[0].context.accept);
+            try std.testing.expectEqual(@as(usize, 0), try pending.initDisembargoInfosForEmbargo(infos[0..0], .{ .imported_cap = 5 }, "missing"));
+            const empty_infos = try std.testing.allocator.alloc(cpz.rpc.DisembargoInfo, 0);
+            defer std.testing.allocator.free(empty_infos);
+            try std.testing.expectError(error.InvalidTransition, pending.initDisembargoInfosForEmbargo(empty_infos, .{ .imported_cap = 5 }, "embargo-64"));
+        }
+        {
+            var info_queue = std.ArrayList(cpz.rpc.DisembargoInfo).empty;
+            defer info_queue.deinit(std.testing.allocator);
+            try std.testing.expectEqual(@as(usize, 1), try pending.appendDisembargoInfosForEmbargoToQueue(std.testing.allocator, .{ .imported_cap = 5 }, "embargo-64", &info_queue));
+            try std.testing.expectEqual(@as(usize, 1), info_queue.items.len);
+            try std.testing.expectEqualStrings("embargo-64", info_queue.items[0].context.accept);
+            try std.testing.expectEqual(@as(usize, 0), try pending.appendDisembargoInfosForEmbargoToQueue(std.testing.allocator, .{ .imported_cap = 5 }, "missing", &info_queue));
+            try std.testing.expectEqual(@as(usize, 1), info_queue.items.len);
+        }
         try std.testing.expectEqual(@as(u32, 64), pending.items[0].question_id);
         try std.testing.expectEqualStrings("embargo-64", pending.items[0].embargo);
         try std.testing.expect(pending.items[0].matchesEmbargo("embargo-64"));
