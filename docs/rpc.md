@@ -237,8 +237,8 @@ that a complete RPC runtime exists.
   or append their initialized prefix to caller-owned queues for callers that
   want to enqueue or inspect initialized messages themselves.
   Non-mutating dispatch planning helpers can preview response, forward, and
-  state-only counts plus dense output slot requirements before builders are
-  allocated, with turn-level plans that expose output-presence predicates,
+  state-only counts plus dense output slot requirements and empty/non-empty
+  predicates before builders are allocated, with turn-level plans that expose output-presence predicates,
   distinguish dispatch-initialized responses from ready handoff Returns, and
   combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
