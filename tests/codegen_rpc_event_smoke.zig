@@ -15155,6 +15155,15 @@ test "rpc top-level handoff helpers initialize messages" {
         const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try message.disembargo());
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 95 }, info.target);
         try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .sender_loopback = 96 }, info.context);
+        try std.testing.expect(info.context.isSenderLoopback());
+        try std.testing.expect(!info.context.isReceiverLoopback());
+        try std.testing.expect(!info.context.isAccept());
+        try std.testing.expectEqual(@as(?u32, 96), info.context.senderLoopbackId());
+        try std.testing.expectEqual(@as(?u32, null), info.context.receiverLoopbackId());
+        try std.testing.expect(info.context.acceptEmbargo() == null);
+        try std.testing.expect(info.targetsImport(95));
+        try std.testing.expect(!info.targetsImport(94));
+        try std.testing.expect(!info.isAcceptEmbargo());
     }
 }
 
@@ -23254,6 +23263,9 @@ test "rpc disembargo helpers write targets and loopback contexts" {
     const info = try cpz.rpc.disembargoInfoFromWireDisembargo(disembargo_reader);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 78 }, info.target);
     try std.testing.expectEqual(cpz.rpc.DisembargoContext{ .receiver_loopback = 79 }, info.context);
+    try std.testing.expect(info.context.isReceiverLoopback());
+    try std.testing.expectEqual(@as(?u32, 79), info.context.receiverLoopbackId());
+    try std.testing.expectEqual(@as(?u32, null), info.context.senderLoopbackId());
 }
 
 test "rpc disembargo helpers write accept contexts" {
@@ -23270,6 +23282,12 @@ test "rpc disembargo helpers write accept contexts" {
     const info = try cpz.rpc.disembargoInfoFromWireDisembargo(disembargo_reader);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 81 }, info.target);
     try std.testing.expectEqualStrings("accept-write", info.context.accept);
+    try std.testing.expect(info.context.isAccept());
+    try std.testing.expect(info.isAcceptEmbargo());
+    try std.testing.expectEqualStrings("accept-write", info.context.acceptEmbargo().?);
+    try std.testing.expect(info.context.matchesAcceptEmbargo("accept-write"));
+    try std.testing.expect(info.matchesAcceptEmbargo("accept-write"));
+    try std.testing.expect(!info.matchesAcceptEmbargo("missing"));
 }
 
 test "rpc disembargo batches initialize and send messages to sinks" {

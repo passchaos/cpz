@@ -1161,11 +1161,65 @@ pub const DisembargoContext = union(enum) {
     sender_loopback: u32,
     receiver_loopback: u32,
     accept: []const u8,
+
+    pub fn isSenderLoopback(self: @This()) bool {
+        return self == .sender_loopback;
+    }
+
+    pub fn isReceiverLoopback(self: @This()) bool {
+        return self == .receiver_loopback;
+    }
+
+    pub fn isAccept(self: @This()) bool {
+        return self == .accept;
+    }
+
+    pub fn senderLoopbackId(self: @This()) ?u32 {
+        return switch (self) {
+            .sender_loopback => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn receiverLoopbackId(self: @This()) ?u32 {
+        return switch (self) {
+            .receiver_loopback => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn acceptEmbargo(self: @This()) ?[]const u8 {
+        return switch (self) {
+            .accept => |embargo| embargo,
+            else => null,
+        };
+    }
+
+    pub fn matchesAcceptEmbargo(self: @This(), value: []const u8) bool {
+        const embargo = self.acceptEmbargo() orelse return false;
+        return std.mem.eql(u8, embargo, value);
+    }
 };
 
 pub const DisembargoInfo = struct {
     target: CallTarget,
     context: DisembargoContext,
+
+    pub fn targetsImport(self: @This(), id: ImportId) bool {
+        return self.target.matchesImport(id);
+    }
+
+    pub fn targetsPromisedQuestion(self: @This(), id: QuestionId) bool {
+        return self.target.matchesPromisedQuestion(id);
+    }
+
+    pub fn isAcceptEmbargo(self: @This()) bool {
+        return self.context.isAccept();
+    }
+
+    pub fn matchesAcceptEmbargo(self: @This(), value: []const u8) bool {
+        return self.context.matchesAcceptEmbargo(value);
+    }
 };
 
 pub const DisembargoApplyInfo = struct {
