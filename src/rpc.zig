@@ -953,6 +953,21 @@ pub fn sendHandoffReturnOutputsToSinksStats(
     return stats;
 }
 
+pub fn appendHandoffReturnOutputsToQueues(
+    allocator: std.mem.Allocator,
+    stats: StateHandoffReturnStats,
+    response_messages: anytype,
+    provide_queue: anytype,
+    accept_queue: anytype,
+    join_queue: anytype,
+) !StateHandoffReturnStats {
+    try stats.validateCapacity(response_messages.len);
+    for (try stats.provideRange().slice(response_messages)) |message| try provide_queue.append(allocator, message);
+    for (try stats.acceptRange().slice(response_messages)) |message| try accept_queue.append(allocator, message);
+    for (try stats.joinRange().slice(response_messages)) |message| try join_queue.append(allocator, message);
+    return stats;
+}
+
 pub const RpcTurnPlan = struct {
     dispatch: WireDispatchStats = .{},
     handoff_returns: StateHandoffReturnStats = .{},
