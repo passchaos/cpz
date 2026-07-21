@@ -500,6 +500,11 @@ pub fn CapabilityRegistry(comptime T: type) type {
             return self.entries.items[@as(usize, index)];
         }
 
+        pub fn getOrNull(self: *const @This(), index: u32) ?T {
+            if (!self.hasIndex(index)) return null;
+            return self.entries.items[@as(usize, index)];
+        }
+
         pub fn register(self: *@This(), allocator: std.mem.Allocator, handle: T) Error!u32 {
             if (self.entries.items.len > std.math.maxInt(u32)) return error.CountOutOfRange;
             const index: u32 = @intCast(self.entries.items.len);
@@ -600,6 +605,8 @@ test "capability registry assigns wire indexes for builders" {
     try testing.expect(registry.hasIndex(2));
     try testing.expect(!registry.hasIndex(3));
     try testing.expectEqualStrings("second", try registry.get(2));
+    try testing.expectEqualStrings("second", registry.getOrNull(2).?);
+    try testing.expect(registry.getOrNull(3) == null);
     try testing.expectError(error.InvalidCapabilityPointer, registry.get(3));
 
     var list_reader_message = MessageReader.init(try list_builder.segmentsConst(), .{});
