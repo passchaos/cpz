@@ -15905,6 +15905,7 @@ test "rpc tracked handoff batches initialize ready return messages" {
     var ready_ids = try state.readyHandoffIdsAlloc(std.testing.allocator);
     defer ready_ids.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 3), ready_ids.total());
+    try std.testing.expect(ready_ids.hasReturns());
     try std.testing.expectEqualSlices(u32, &.{90}, ready_ids.provides);
     try std.testing.expectEqualSlices(u32, &.{91}, ready_ids.accepts);
     try std.testing.expectEqualSlices(u32, &.{92}, ready_ids.joins);
@@ -16034,6 +16035,7 @@ test "rpc tracked handoff plans initialize ready return messages" {
         .accepts = planned_accepts[0..],
         .joins = planned_joins[0..],
     };
+    try std.testing.expect(plan.hasReturns());
 
     var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder0.deinit();
@@ -16213,6 +16215,7 @@ test "rpc ready handoff handlers initialize return messages" {
 
     const ready_return_stats = state.readyHandoffReturnStats();
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_return_stats);
+    try std.testing.expect(ready_return_stats.hasReturns());
     try ready_return_stats.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_return_stats.validateCapacity(2));
 
@@ -22931,6 +22934,7 @@ test "rpc tracked handoff batches preserve readiness gates" {
     var ready_ids = try state.readyHandoffIdsAlloc(std.testing.allocator);
     defer ready_ids.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 0), ready_ids.total());
+    try std.testing.expect(!ready_ids.hasReturns());
     const blocked_accepts = [_]cpz.rpc.HandoffReturnCapability{.{ .question_id = 93, .export_id = 393 }};
     try std.testing.expectError(error.InvalidTransition, state.readyHandoffReturnsAlloc(std.testing.allocator, .{ .accepts = blocked_accepts[0..] }));
 

@@ -246,6 +246,10 @@ pub const StateReadyHandoffIds = struct {
     pub fn total(self: @This()) usize {
         return self.provides.len + self.accepts.len + self.joins.len;
     }
+
+    pub fn hasReturns(self: @This()) bool {
+        return self.total() != 0;
+    }
 };
 
 pub const HandoffReturnCapability = struct {
@@ -267,6 +271,10 @@ pub const HandoffReturnPlan = struct {
     pub fn total(self: @This()) usize {
         return self.provides.len + self.accepts.len + self.joins.len;
     }
+
+    pub fn hasReturns(self: @This()) bool {
+        return self.total() != 0;
+    }
 };
 
 pub const StateHandoffReturnStats = struct {
@@ -284,6 +292,10 @@ pub const StateHandoffReturnStats = struct {
 
     pub fn total(self: @This()) usize {
         return self.provides + self.accepts + self.joins;
+    }
+
+    pub fn hasReturns(self: @This()) bool {
+        return self.total() != 0;
     }
 
     pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
