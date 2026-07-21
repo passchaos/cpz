@@ -906,6 +906,13 @@ pub const RpcOutputStats = struct {
         self.recordRole(position.role);
     }
 
+    pub fn recordServiceActionPosition(self: *@This(), position: TrackedCallServiceActionOutputPosition) void {
+        switch (position.role) {
+            .response => self.responses += 1,
+            .forward => self.forwards += 1,
+        }
+    }
+
     pub fn recordTurnOutputIndex(self: *@This(), turn_plan: RpcTurnPlan, output_index: usize) Error!void {
         const position = rpcTurnUnifiedOutputPosition(turn_plan, output_index) orelse return error.InvalidTransition;
         self.recordPosition(position);
