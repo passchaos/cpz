@@ -16068,6 +16068,19 @@ pub const State = struct {
         try sink_handler(sink_context, message);
     }
 
+    pub fn initTrackedProvideReturnMessageFromHandlerToQueue(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+        queue: anytype,
+    ) !void {
+        try self.initTrackedProvideReturnMessageFromHandler(message, question_id, context, handler);
+        try queue.append(allocator, message);
+    }
+
     pub fn readyProvideIdsAlloc(self: *const State, allocator: std.mem.Allocator) std.mem.Allocator.Error![]QuestionId {
         var ids = std.ArrayList(QuestionId).empty;
         errdefer ids.deinit(allocator);
