@@ -20491,6 +20491,9 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expect(completions[0].isProvide());
     try std.testing.expect(completions[1].isAccept());
     try std.testing.expect(completions[2].isJoin());
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputRole.provide, completions[0].outputRole());
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputRole.accept, completions[1].outputRole());
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputRole.join, completions[2].outputRole());
     try std.testing.expectEqual(@as(u32, 90), completions[0].questionId());
     try std.testing.expectEqual(@as(u32, 392), completions[2].exportId());
     try state.validateTrackedHandoffReturn(completions[0]);

@@ -701,6 +701,14 @@ pub const HandoffReturn = union(enum) {
         return self == .join;
     }
 
+    pub fn outputRole(self: @This()) HandoffReturnOutputRole {
+        return switch (self) {
+            .provide => .provide,
+            .accept => .accept,
+            .join => .join,
+        };
+    }
+
     pub fn questionId(self: @This()) QuestionId {
         return switch (self) {
             .provide, .accept, .join => |value| value.question_id,
