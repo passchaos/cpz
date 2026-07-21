@@ -1141,6 +1141,10 @@ pub const RpcTurnPlan = struct {
         return rpcTurnResponseSourcePosition(self, output_index);
     }
 
+    pub fn responseSourceOutputIndex(self: @This(), position: RpcTurnResponseSourcePosition) ?usize {
+        return rpcTurnResponseSourceOutputIndex(self, position);
+    }
+
     pub fn hasResponses(self: @This()) bool {
         return self.responseMessages() != 0;
     }
@@ -1322,6 +1326,16 @@ pub fn rpcTurnResponseSourcePosition(turn_plan: RpcTurnPlan, output_index: usize
     if (turn_plan.handoffReturnLocalIndex(output_index)) |local_index| return .{ .role = .handoff_return, .local_index = local_index };
 
     return null;
+}
+
+pub fn rpcTurnResponseSourceOutputIndex(turn_plan: RpcTurnPlan, position: RpcTurnResponseSourcePosition) ?usize {
+    return switch (position.role) {
+        .dispatch => if (position.local_index < turn_plan.dispatchResponseMessages()) position.local_index else null,
+        .handoff_return => if (position.local_index < turn_plan.handoffReturnMessages())
+            turn_plan.dispatchResponseMessages() + position.local_index
+        else
+            null,
+    };
 }
 
 pub const RpcTurnOutputRole = enum {

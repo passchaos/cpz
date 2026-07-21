@@ -24311,6 +24311,10 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expect(handoff_source_position.isHandoffReturn());
     try std.testing.expect(!handoff_source_position.isDispatch());
     try std.testing.expect(mixed_response_plan.responseSourcePosition(4) == null);
+    try std.testing.expectEqual(@as(?usize, 1), mixed_response_plan.responseSourceOutputIndex(dispatch_source_position));
+    try std.testing.expectEqual(@as(?usize, 2), cpz.rpc.rpcTurnResponseSourceOutputIndex(mixed_response_plan, handoff_source_position));
+    try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.responseSourceOutputIndex(.{ .role = .dispatch, .local_index = 2 }));
+    try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.responseSourceOutputIndex(.{ .role = .handoff_return, .local_index = 2 }));
     try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2, .handoff_returns = 2 }, cpz.rpc.RpcTurnResponseSourceStats.fromTurnPlan(mixed_response_plan));
     var response_source_stats: cpz.rpc.RpcTurnResponseSourceStats = .{};
     response_source_stats.recordPosition(dispatch_source_position);
