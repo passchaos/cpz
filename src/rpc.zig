@@ -901,6 +901,19 @@ pub fn sendHandoffReturnOutputsToTaggedSinkStats(stats: StateHandoffReturnStats,
     return stats;
 }
 
+pub fn appendHandoffReturnOutputsToTaggedQueue(
+    allocator: std.mem.Allocator,
+    stats: StateHandoffReturnStats,
+    response_messages: anytype,
+    queue: anytype,
+) !StateHandoffReturnStats {
+    try stats.validateCapacity(response_messages.len);
+    for (response_messages[0..stats.total()], 0..) |message, output_index| {
+        try queue.append(allocator, .{ .position = stats.unifiedOutputPosition(output_index).?, .message = message });
+    }
+    return stats;
+}
+
 pub const RpcTurnPlan = struct {
     dispatch: WireDispatchStats = .{},
     handoff_returns: StateHandoffReturnStats = .{},

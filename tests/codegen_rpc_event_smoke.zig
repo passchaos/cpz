@@ -20908,6 +20908,31 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(u32, 103), handoff_tagged_sink.provide_answer_sum);
     try std.testing.expectEqual(@as(u32, 104), handoff_tagged_sink.accept_answer_sum);
     try std.testing.expectEqual(@as(u32, 105), handoff_tagged_sink.join_answer_sum);
+    const TaggedHandoffQueueItem = struct {
+        position: cpz.rpc.HandoffReturnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var handoff_tagged_queue = std.ArrayList(TaggedHandoffQueueItem).empty;
+    defer handoff_tagged_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendHandoffReturnOutputsToTaggedQueue(
+        std.testing.allocator,
+        ready_return_stats,
+        responses[0..2],
+        &handoff_tagged_queue,
+    ));
+    try std.testing.expectEqual(ready_return_stats, try cpz.rpc.appendHandoffReturnOutputsToTaggedQueue(
+        std.testing.allocator,
+        ready_return_stats,
+        responses[0..],
+        &handoff_tagged_queue,
+    ));
+    try std.testing.expectEqual(@as(usize, 3), handoff_tagged_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 0 }, handoff_tagged_queue.items[0].position);
+    try std.testing.expectEqual(@as(u32, 103), try (try handoff_tagged_queue.items[0].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, handoff_tagged_queue.items[1].position);
+    try std.testing.expectEqual(@as(u32, 104), try (try handoff_tagged_queue.items[1].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, handoff_tagged_queue.items[2].position);
+    try std.testing.expectEqual(@as(u32, 105), try (try handoff_tagged_queue.items[2].message.get_return_()).get_answerId());
     try ready_return_stats.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_return_stats.joinRange().validateCapacity(2));
     try ready_return_stats.validateCapacity(3);
