@@ -157,8 +157,9 @@ that a complete RPC runtime exists.
   top-level Message builders, and generic dispatch-result, empty/exception/non-result/capability/capability-info/registry-backed-capability/text/text-info/registry-backed-text/data/data-info/registry-backed-data/UInt32-list/UInt32-list-info/registry-backed-UInt32-list/caller-filled-struct/caller-filled-struct-info/registry-backed-struct Return builders can
   initialize their wire payload while applying the matching answer/result
   capability bookkeeping to `State`. Top-level Unimplemented, Abort,
-  Bootstrap, Finish/Release builders can initialize their tags, exception
-  metadata, question IDs, flags, and reference counts, and a helper can build a
+  Bootstrap, Finish/Release builders can initialize their tags, nested
+  unimplemented-message payloads, exception metadata, question IDs, flags, and
+  reference counts, and a helper can build a
   Return containing a single capability result directly from a Bootstrap
   request reader. A minimal bootstrap dispatcher can apply the request and
   invoke an application callback that returns the bootstrap export ID. Typed
