@@ -13078,10 +13078,10 @@ test "rpc batch dispatcher routes messages and aggregates outcomes" {
         index_sum: usize = 0,
         observed: cpz.rpc.WireDispatchStats = .{},
 
-        fn handle(context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
-            context.calls += 1;
-            context.index_sum += index;
-            context.observed.record(outcome);
+        fn handle(observer_context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            observer_context.calls += 1;
+            observer_context.index_sum += index;
+            observer_context.observed.record(outcome);
         }
     };
     var outcome_state = cpz.rpc.State.init(std.testing.allocator);
@@ -13233,10 +13233,10 @@ test "rpc batch dispatcher reports detailed state apply results" {
         index_sum: usize = 0,
         observed: cpz.rpc.WireDispatchStats = .{},
 
-        fn handle(context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
-            context.calls += 1;
-            context.index_sum += index;
-            context.observed.record(outcome);
+        fn handle(observer_context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            observer_context.calls += 1;
+            observer_context.index_sum += index;
+            observer_context.observed.record(outcome);
         }
     };
     var observed_state = cpz.rpc.State.init(std.testing.allocator);
@@ -14227,10 +14227,10 @@ test "rpc forwarding dispatcher reports apply results while sending forwarded ca
         index_sum: usize = 0,
         observed: cpz.rpc.WireDispatchStats = .{},
 
-        fn handle(context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
-            context.calls += 1;
-            context.index_sum += index;
-            context.observed.record(outcome);
+        fn handle(observer_context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            observer_context.calls += 1;
+            observer_context.index_sum += index;
+            observer_context.observed.record(outcome);
         }
     };
     var observed_state = cpz.rpc.State.init(std.testing.allocator);
@@ -14611,10 +14611,10 @@ test "rpc batch forwarding dispatcher aggregates forwarded calls" {
         index_sum: usize = 0,
         observed: cpz.rpc.WireDispatchStats = .{},
 
-        fn handle(context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
-            context.calls += 1;
-            context.index_sum += index;
-            context.observed.record(outcome);
+        fn handle(observer_context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            observer_context.calls += 1;
+            observer_context.index_sum += index;
+            observer_context.observed.record(outcome);
         }
     };
     var observed_state = cpz.rpc.State.init(std.testing.allocator);
@@ -17564,6 +17564,48 @@ test "rpc batch dispatcher supports method tables" {
     try std.testing.expectEqual(@as(usize, 0), stats.forward_required);
     try std.testing.expectEqual(@as(usize, 1), stats.state_applied);
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(33));
+
+    const OutcomeObserver = struct {
+        calls: usize = 0,
+        index_sum: usize = 0,
+        observed: cpz.rpc.WireDispatchStats = .{},
+
+        fn handle(observer_context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            observer_context.calls += 1;
+            observer_context.index_sum += index;
+            observer_context.observed.record(outcome);
+        }
+    };
+    var observed_state = cpz.rpc.State.init(std.testing.allocator);
+    defer observed_state.deinit();
+    try observed_state.addImport(5);
+    var observed_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer observed_response_builder0.deinit();
+    const observed_response0 = try generated.Message.initRootTyped(&observed_response_builder0);
+    var observed_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer observed_response_builder1.deinit();
+    const observed_response1 = try generated.Message.initRootTyped(&observed_response_builder1);
+    const observed_responses = [_]generated.Message.Builder{ observed_response0, observed_response1 };
+    var observed_bootstrap_seen: u32 = 0;
+    var observed_context: Context = .{};
+    var observer: OutcomeObserver = .{};
+    const observed_stats = try cpz.rpc.dispatchWireMessagesMethodsWithOutcomeHandler(
+        &observed_state,
+        std.testing.allocator,
+        observed_responses[0..],
+        requests[0..],
+        &observed_bootstrap_seen,
+        BootstrapHandler.handle,
+        &observed_context,
+        entries,
+        &observer,
+        OutcomeObserver.handle,
+    );
+    try std.testing.expectEqual(stats, observed_stats);
+    try std.testing.expectEqual(stats, observer.observed);
+    try std.testing.expectEqual(@as(usize, 2), observer.calls);
+    try std.testing.expectEqual(@as(usize, 1), observer.index_sum);
+    try std.testing.expectEqual(@as(u32, 33), observed_context.selected);
 }
 
 test "rpc method-table dispatcher reports detailed state apply results" {
