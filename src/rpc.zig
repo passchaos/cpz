@@ -785,6 +785,14 @@ pub const HandoffReturnPlan = struct {
         return null;
     }
 
+    pub fn completionAtPosition(self: @This(), position: HandoffReturnOutputPosition) ?HandoffReturn {
+        return switch (position.role) {
+            .provide => if (position.local_index < self.provides.len) .{ .provide = self.provides[position.local_index] } else null,
+            .accept => if (position.local_index < self.accepts.len) .{ .accept = self.accepts[position.local_index] } else null,
+            .join => if (position.local_index < self.joins.len) .{ .join = self.joins[position.local_index] } else null,
+        };
+    }
+
     pub fn stats(self: @This()) StateHandoffReturnStats {
         return .{
             .provides = self.provides.len,
