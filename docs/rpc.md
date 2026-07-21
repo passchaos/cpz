@@ -327,9 +327,9 @@ that a complete RPC runtime exists.
   Provide/Accept/Join result exports through application handlers, or hand those
   initialized returns directly to an embedding transport/enqueue callback.
   Handoff return values expose their kind plus answer/export IDs, and return
-  plans/stats report whether any returns are pending, whether each handoff
-  return kind is present, and the role-specific output ranges for provide/
-  accept/join returns. Join result
+  plans/stats and ready-ID snapshots report whether any returns are pending,
+  whether each handoff return kind is present, and the role-specific output
+  ranges for provide/accept/join returns. Join result
   returns can initialize and decode their result capability payloads. Finish clears recorded Provide/Accept/Join handoff
   bookkeeping for the finished question. Top-level
   Provide/Accept/Join/Disembargo builders can initialize their
