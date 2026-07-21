@@ -1286,6 +1286,13 @@ pub const RpcTurnResponseSourceStats = struct {
         self.recordRole(position.role);
     }
 
+    pub fn nextPosition(self: @This(), role: RpcTurnResponseSourceRole) RpcTurnResponseSourcePosition {
+        return switch (role) {
+            .dispatch => .{ .role = .dispatch, .local_index = self.dispatch },
+            .handoff_return => .{ .role = .handoff_return, .local_index = self.handoff_returns },
+        };
+    }
+
     pub fn recordOutputIndex(self: *@This(), turn_plan: RpcTurnPlan, output_index: usize) Error!void {
         const position = turn_plan.responseSourcePosition(output_index) orelse return error.InvalidTransition;
         self.recordPosition(position);
