@@ -13354,6 +13354,38 @@ pub fn dispatchWireMessagesMethodsToSink(
     return stats;
 }
 
+pub fn dispatchWireMessagesMethodsToQueue(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    queue: anytype,
+) !WireDispatchStats {
+    if (response_messages.len < request_messages.len) return error.InvalidTransition;
+    var stats: WireDispatchStats = .{};
+    for (request_messages, 0..) |request_message, index| {
+        const outcome = try dispatchWireMessageMethodsOutcome(
+            state,
+            allocator,
+            response_messages[index],
+            request_message,
+            bootstrap_context,
+            bootstrap_handler,
+            call_context,
+            call_entries,
+        );
+        if (outcome == .response_initialized) {
+            try queue.append(allocator, response_messages[index]);
+        }
+        stats.record(outcome);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesMethodsWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,

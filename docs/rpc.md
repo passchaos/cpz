@@ -224,7 +224,8 @@ that a complete RPC runtime exists.
   forwarding equivalents, expose detailed state-only results such as released Accept IDs from
   Disembargo before deinitializing temporary result allocations, and a batch
   helper can aggregate those outcomes over caller-provided message readers,
-  including method-table call dispatch.
+  including method-table call dispatch, and method-table batch dispatch can
+  append initialized responses to caller-owned queues.
   Response-sink and caller-owned queue variants, including apply-detail batch
   dispatch, can hand initialized Bootstrap/Call responses directly to an embedding transport/enqueue path while ignoring state-only events,
   including dense response queues (with or without method tables) that skip

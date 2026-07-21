@@ -15947,6 +15947,37 @@ test "rpc batch method-table dispatcher sends initialized responses to a sink" {
     try std.testing.expectEqual(@as(u32, 38), sink.last_answer);
     try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), state.questionState(38));
 
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    var queue_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder0.deinit();
+    const queue_response0 = try generated.Message.initRootTyped(&queue_response_builder0);
+    var queue_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+    defer queue_response_builder1.deinit();
+    const queue_response1 = try generated.Message.initRootTyped(&queue_response_builder1);
+    const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1 };
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    const queue_stats = try cpz.rpc.dispatchWireMessagesMethodsToQueue(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &response_queue,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 38), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 38);
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .finished), queue_state.questionState(38));
+
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessagesMethodsToSink(
         &state,
         std.testing.allocator,
@@ -15958,6 +15989,17 @@ test "rpc batch method-table dispatcher sends initialized responses to a sink" {
         entries,
         &sink,
         Sink.handle,
+    ));
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessagesMethodsToQueue(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..1],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &response_queue,
     ));
 }
 
