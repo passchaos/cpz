@@ -20447,6 +20447,14 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, ready_ids.unifiedOutputPosition(1).?);
     try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, ready_ids.unifiedOutputPosition(2).?);
     try std.testing.expect(ready_ids.unifiedOutputPosition(3) == null);
+    try std.testing.expectEqual(@as(?u32, 90), ready_ids.questionIdAt(0));
+    try std.testing.expectEqual(@as(?u32, 91), ready_ids.questionIdAt(1));
+    try std.testing.expectEqual(@as(?u32, 92), ready_ids.questionIdAt(2));
+    try std.testing.expectEqual(@as(?u32, null), ready_ids.questionIdAt(3));
+    try std.testing.expectEqual(@as(?u32, 90), ready_ids.questionIdAtPosition(.{ .role = .provide, .local_index = 0 }));
+    try std.testing.expectEqual(@as(?u32, 91), ready_ids.questionIdAtPosition(.{ .role = .accept, .local_index = 0 }));
+    try std.testing.expectEqual(@as(?u32, 92), ready_ids.questionIdAtPosition(.{ .role = .join, .local_index = 0 }));
+    try std.testing.expectEqual(@as(?u32, null), ready_ids.questionIdAtPosition(.{ .role = .provide, .local_index = 1 }));
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_ids.stats());
     try std.testing.expect(ready_ids.stats().matchesReadyIds(ready_ids));
     try ready_ids.stats().validateAgainstReadyIds(ready_ids);

@@ -666,6 +666,22 @@ pub const StateReadyHandoffIds = struct {
         return self.stats().unifiedOutputPosition(output_index);
     }
 
+    pub fn questionIdAt(self: @This(), output_index: usize) ?QuestionId {
+        if (self.provideLocalIndex(output_index)) |local_index| return self.provides[local_index];
+        if (self.acceptLocalIndex(output_index)) |local_index| return self.accepts[local_index];
+        if (self.joinLocalIndex(output_index)) |local_index| return self.joins[local_index];
+
+        return null;
+    }
+
+    pub fn questionIdAtPosition(self: @This(), position: HandoffReturnOutputPosition) ?QuestionId {
+        return switch (position.role) {
+            .provide => if (position.local_index < self.provides.len) self.provides[position.local_index] else null,
+            .accept => if (position.local_index < self.accepts.len) self.accepts[position.local_index] else null,
+            .join => if (position.local_index < self.joins.len) self.joins[position.local_index] else null,
+        };
+    }
+
     pub fn stats(self: @This()) StateHandoffReturnStats {
         return .{
             .provides = self.provides.len,
