@@ -31714,6 +31714,48 @@ test "rpc handoff return batches send initialized messages to sinks" {
     try std.testing.expectEqual(@as(u32, 94), tagged_wire_sink.answer_ids[2]);
     try std.testing.expectEqual(@as(u32, 95), tagged_wire_sink.answer_ids[3]);
 
+    var tagged_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder0.deinit();
+    const tagged_queue_response0 = try generated.Message.initRootTyped(&tagged_queue_builder0);
+    var tagged_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder1.deinit();
+    const tagged_queue_response1 = try generated.Message.initRootTyped(&tagged_queue_builder1);
+    var tagged_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder2.deinit();
+    const tagged_queue_response2 = try generated.Message.initRootTyped(&tagged_queue_builder2);
+    var tagged_queue_builder3 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder3.deinit();
+    const tagged_queue_response3 = try generated.Message.initRootTyped(&tagged_queue_builder3);
+    const tagged_queue_responses = [_]generated.Message.Builder{ tagged_queue_response0, tagged_queue_response1, tagged_queue_response2, tagged_queue_response3 };
+    const TaggedWireQueueItem = struct {
+        position: cpz.rpc.HandoffReturnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var tagged_wire_queue = std.ArrayList(TaggedWireQueueItem).empty;
+    defer tagged_wire_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireHandoffReturnMessagesToTaggedQueue(
+        std.testing.allocator,
+        tagged_queue_responses[0..3],
+        mixed_completions[0..],
+        &tagged_wire_queue,
+    ));
+    const tagged_queue_stats = try cpz.rpc.initWireHandoffReturnMessagesToTaggedQueue(
+        std.testing.allocator,
+        tagged_queue_responses[0..],
+        mixed_completions[0..],
+        &tagged_wire_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 2, .accepts = 1, .joins = 1 }, tagged_queue_stats);
+    try std.testing.expectEqual(@as(usize, 4), tagged_wire_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 0 }, tagged_wire_queue.items[0].position);
+    try expectQueuedReturnAnswer(tagged_wire_queue.items[0].message, 94);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, tagged_wire_queue.items[1].position);
+    try expectQueuedReturnAnswer(tagged_wire_queue.items[1].message, 96);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 1 }, tagged_wire_queue.items[2].position);
+    try expectQueuedReturnAnswer(tagged_wire_queue.items[2].message, 94);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, tagged_wire_queue.items[3].position);
+    try expectQueuedReturnAnswer(tagged_wire_queue.items[3].message, 95);
+
     var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer queue_builder0.deinit();
     const queue_response0 = try generated.Message.initRootTyped(&queue_builder0);
