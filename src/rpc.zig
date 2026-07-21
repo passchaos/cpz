@@ -928,6 +928,30 @@ pub const StateQuestionStats = struct {
         return self.questions + self.answers;
     }
 
+    pub fn hasQuestions(self: @This()) bool {
+        return self.questions != 0;
+    }
+
+    pub fn hasAnswers(self: @This()) bool {
+        return self.answers != 0;
+    }
+
+    pub fn hasOpenQuestions(self: @This()) bool {
+        return self.open_questions != 0;
+    }
+
+    pub fn hasFinishedQuestions(self: @This()) bool {
+        return self.finished_questions != 0;
+    }
+
+    pub fn hasUnresolvedAnswers(self: @This()) bool {
+        return self.unresolved_answers != 0;
+    }
+
+    pub fn hasResolvedAnswers(self: @This()) bool {
+        return self.resolved_answers != 0;
+    }
+
     pub fn hasActive(self: @This()) bool {
         return self.active() != 0;
     }
@@ -15459,6 +15483,10 @@ test "rpc state tracks in-flight questions and answers" {
     }, state.questionStats());
     try testing.expectEqual(@as(usize, 2), state.questionStats().active());
     try testing.expectEqual(@as(usize, 2), state.questionStats().total());
+    try testing.expect(state.questionStats().hasQuestions());
+    try testing.expect(state.questionStats().hasAnswers());
+    try testing.expect(state.questionStats().hasOpenQuestions());
+    try testing.expect(state.questionStats().hasUnresolvedAnswers());
     try testing.expect(state.questionStats().hasActive());
     try testing.expect(!state.questionStats().hasCompleteQuestions());
 
@@ -15489,6 +15517,8 @@ test "rpc state tracks in-flight questions and answers" {
         .complete_questions = 1,
     }, state.questionStats());
     try testing.expect(!state.questionStats().hasActive());
+    try testing.expect(state.questionStats().hasFinishedQuestions());
+    try testing.expect(state.questionStats().hasResolvedAnswers());
     try testing.expect(state.questionStats().hasCompleteQuestions());
     try state.forgetQuestion(1);
     try testing.expect(!state.hasQuestion(1));
