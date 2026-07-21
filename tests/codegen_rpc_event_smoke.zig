@@ -18280,9 +18280,19 @@ test "rpc unified output helper sends tagged output roles" {
         .dispatch = .{ .response_initialized = 1, .forward_required = 1, .state_applied = 2 },
         .pending_disembargos = 1,
     };
-    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 0).?);
-    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 1).?);
-    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 2).?);
+    const response_position = cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 0).?;
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, response_position);
+    try std.testing.expect(response_position.isResponse());
+    try std.testing.expect(!response_position.isForward());
+    try std.testing.expect(!response_position.isDisembargo());
+    const forward_position = cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 1).?;
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, forward_position);
+    try std.testing.expect(forward_position.isForward());
+    try std.testing.expect(!forward_position.isResponse());
+    const disembargo_position = cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 2).?;
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, disembargo_position);
+    try std.testing.expect(disembargo_position.isDisembargo());
+    try std.testing.expect(!disembargo_position.isResponse());
     try std.testing.expect(cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 3) == null);
 
     var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });

@@ -644,6 +644,18 @@ pub const RpcTurnOutputPosition = struct {
     /// `0` for `.forward` means the first forwarded Call, even if it appears
     /// after several response messages in the unified queue.
     local_index: usize,
+
+    pub fn isResponse(self: @This()) bool {
+        return self.role == .response;
+    }
+
+    pub fn isForward(self: @This()) bool {
+        return self.role == .forward;
+    }
+
+    pub fn isDisembargo(self: @This()) bool {
+        return self.role == .disembargo;
+    }
 };
 
 pub fn rpcTurnUnifiedOutputPosition(turn_plan: RpcTurnPlan, output_index: usize) ?RpcTurnOutputPosition {
