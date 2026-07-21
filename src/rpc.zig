@@ -13920,6 +13920,59 @@ pub fn dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosFromHandl
     return turn_plan;
 }
 
+pub fn dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosToQueuesFromHandlers(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    disembargo_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    disembargo_target: CallTarget,
+    response_queue: anytype,
+    forward_queue: anytype,
+    disembargo_queue: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosFromHandlers(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        disembargo_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        disembargo_target,
+    );
+    for (response_messages[0..turn_plan.responseMessages()]) |message| {
+        try response_queue.append(allocator, message);
+    }
+    for (forward_messages[0..turn_plan.forwardedMessages()]) |message| {
+        try forward_queue.append(allocator, message);
+    }
+    for (disembargo_messages[0..turn_plan.disembargoMessages()]) |message| {
+        try disembargo_queue.append(allocator, message);
+    }
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosForEmbargoFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,

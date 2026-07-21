@@ -27406,6 +27406,102 @@ test "rpc method turn dispatcher fills pending disembargos without sinks" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
         try std.testing.expectEqualStrings("method-no-sink-disembargo-144", info.context.accept);
     }
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 710 });
+    try queue_state.resolveImportTo(710, .{ .sender_hosted = 711 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 711 });
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireProvideMessage(root, .{
+            .question_id = 143,
+            .target = .{ .imported_cap = 5 },
+            .has_recipient = true,
+            .recipient_max_capability_count = 1,
+            .recipient_capability = 0,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 144,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-no-sink-disembargo-144",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    var queue_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder0.deinit();
+    const queue_response0 = try generated.Message.initRootTyped(&queue_response_builder0);
+    var queue_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder1.deinit();
+    const queue_response1 = try generated.Message.initRootTyped(&queue_response_builder1);
+    var queue_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_forward_builder.deinit();
+    const queue_forward = try generated.Message.initRootTyped(&queue_forward_builder);
+    var queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_disembargo_builder.deinit();
+    const queue_disembargo = try generated.Message.initRootTyped(&queue_disembargo_builder);
+    const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1 };
+    const queue_forwards = [_]generated.Message.Builder{queue_forward};
+    const queue_disembargos = [_]generated.Message.Builder{queue_disembargo};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var disembargo_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer disembargo_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    var queue_provide_context: HandoffHandler = .{};
+    var queue_accept_context: HandoffHandler = .{};
+    var queue_join_context: HandoffHandler = .{};
+    const queue_applied = try cpz.rpc.dispatchRpcTurnMethodsForwardingDenseAndPendingAcceptDisembargosToQueuesFromHandlers(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_forwards[0..],
+        queue_disembargos[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &queue_provide_context,
+        HandoffHandler.handle,
+        &queue_accept_context,
+        HandoffHandler.handle,
+        &queue_join_context,
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        &response_queue,
+        &forward_queue,
+        &disembargo_queue,
+    );
+    try std.testing.expectEqual(applied, queue_applied);
+    try std.testing.expectEqual(@as(u32, 142), queue_bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 2), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), disembargo_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 142);
+    try expectQueuedReturnAnswer(response_queue.items[1], 143);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 710, .{ .imported_cap = 711 });
+    try expectQueuedDisembargoBuilder(disembargo_queue.items[0], .{ .imported_cap = 5 }, "method-no-sink-disembargo-144");
+    try std.testing.expectEqual(@as(usize, 1), queue_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 0), queue_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 0), queue_join_context.seen);
 }
 
 test "rpc method turn dispatcher fills unified outputs with pending disembargos" {
