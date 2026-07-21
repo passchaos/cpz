@@ -956,6 +956,14 @@ pub const StateCapabilityStats = struct {
         return self.exports + self.imports;
     }
 
+    pub fn hasExports(self: @This()) bool {
+        return self.exports != 0;
+    }
+
+    pub fn hasImports(self: @This()) bool {
+        return self.imports != 0;
+    }
+
     pub fn hasLive(self: @This()) bool {
         return self.live() != 0;
     }
@@ -974,6 +982,10 @@ pub const StateCapabilityStats = struct {
 
     pub fn hasResolved(self: @This()) bool {
         return self.resolved() != 0;
+    }
+
+    pub fn hasImportReferences(self: @This()) bool {
+        return self.import_references != 0;
     }
 };
 
@@ -15537,7 +15549,10 @@ test "rpc state tracks import and export lifetimes" {
     }, state.capabilityStats());
     try testing.expectEqual(@as(usize, 2), state.capabilityStats().live());
     try testing.expectEqual(@as(usize, 2), state.capabilityStats().total());
+    try testing.expect(state.capabilityStats().hasExports());
+    try testing.expect(state.capabilityStats().hasImports());
     try testing.expect(state.capabilityStats().hasLive());
+    try testing.expect(state.capabilityStats().hasImportReferences());
     try testing.expect(!state.capabilityStats().hasReleased());
 
     try testing.expectError(error.InvalidTransition, state.addExport(10));
