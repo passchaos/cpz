@@ -17885,6 +17885,39 @@ test "rpc dense method-table dispatcher reports detailed state apply results" {
     const return_ = try response_message.return_();
     try std.testing.expectEqual(@as(u32, 62), return_.answerId());
     try std.testing.expectEqualStrings("dense method apply", try (try (try return_.results()).content()).getText());
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    const queue_responses = [_]generated.Message.Builder{queue_response};
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    var queue_apply_context: ApplyContext = .{};
+    const queue_stats = try cpz.rpc.dispatchWireMessagesMethodsDenseToQueueWithApplyHandler(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &queue,
+        &queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 62), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try expectQueuedReturnAnswer(queue.items[0], 62);
+    try std.testing.expectEqual(@as(usize, 2), queue_apply_context.calls);
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 61), queue_apply_context.released_question_sum);
 }
 
 test "rpc top-level provide and join messages validate targets" {

@@ -14259,6 +14259,37 @@ pub fn dispatchWireMessagesMethodsDenseWithApplyHandler(
     );
 }
 
+pub fn dispatchWireMessagesMethodsDenseToQueueWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    queue: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    const stats = try dispatchWireMessagesMethodsDenseWithApplyHandler(
+        state,
+        allocator,
+        response_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        apply_context,
+        apply_handler,
+    );
+    for (response_messages[0..stats.response_initialized]) |message| {
+        try queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesMethodsForwardingToSinks(
     state: *State,
     allocator: std.mem.Allocator,
