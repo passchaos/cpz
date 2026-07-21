@@ -309,6 +309,18 @@ pub const StateCleanupStats = struct {
         return self.total() != 0;
     }
 
+    pub fn hasQuestionWork(self: @This()) bool {
+        return self.questions != 0;
+    }
+
+    pub fn hasExportWork(self: @This()) bool {
+        return self.exports != 0;
+    }
+
+    pub fn hasImportWork(self: @This()) bool {
+        return self.imports != 0;
+    }
+
     pub fn hasCapabilityWork(self: @This()) bool {
         return self.exports != 0 or self.imports != 0;
     }
@@ -15209,6 +15221,9 @@ test "rpc state cleanup forgets completed and released entries" {
     try testing.expectEqual(@as(usize, 1), cleaned.imports);
     try testing.expectEqual(@as(usize, 3), cleaned.total());
     try testing.expect(cleaned.hasWork());
+    try testing.expect(cleaned.hasQuestionWork());
+    try testing.expect(cleaned.hasExportWork());
+    try testing.expect(cleaned.hasImportWork());
     try testing.expect(cleaned.hasCapabilityWork());
     try testing.expect(!state.hasQuestion(100));
     try testing.expect(state.hasQuestion(101));
@@ -15217,6 +15232,9 @@ test "rpc state cleanup forgets completed and released entries" {
     const clean_again = state.cleanup();
     try testing.expectEqual(@as(usize, 0), clean_again.total());
     try testing.expect(!clean_again.hasWork());
+    try testing.expect(!clean_again.hasQuestionWork());
+    try testing.expect(!clean_again.hasExportWork());
+    try testing.expect(!clean_again.hasImportWork());
     try testing.expect(!clean_again.hasCapabilityWork());
 }
 
