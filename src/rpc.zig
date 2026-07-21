@@ -12107,6 +12107,51 @@ pub fn dispatchRpcTurnMethodsForwardingDenseFromHandlers(
     return appliedRpcTurnPlan(state, dispatch_stats, handoff_stats);
 }
 
+pub fn dispatchRpcTurnMethodsForwardingDenseToQueuesFromHandlers(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    comptime call_entries: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    response_queue: anytype,
+    forward_queue: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnMethodsForwardingDenseFromHandlers(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_entries,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+    );
+    for (response_messages[0..turn_plan.responseMessages()]) |message| {
+        try response_queue.append(allocator, message);
+    }
+    for (forward_messages[0..turn_plan.forwardedMessages()]) |message| {
+        try forward_queue.append(allocator, message);
+    }
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnMethodsForwardingUnifiedDenseFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
