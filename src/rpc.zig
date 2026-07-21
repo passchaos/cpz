@@ -1295,6 +1295,18 @@ pub const RpcTurnResponseSourceStats = struct {
         return self.total() != 0;
     }
 
+    pub fn isEmpty(self: @This()) bool {
+        return self.total() == 0;
+    }
+
+    pub fn hasDispatchResponses(self: @This()) bool {
+        return self.dispatch != 0;
+    }
+
+    pub fn hasHandoffReturns(self: @This()) bool {
+        return self.handoff_returns != 0;
+    }
+
     pub fn matchesTurnPlan(self: @This(), turn_plan: RpcTurnPlan) bool {
         const expected = @This().fromTurnPlan(turn_plan);
         return self.dispatch == expected.dispatch and self.handoff_returns == expected.handoff_returns;
