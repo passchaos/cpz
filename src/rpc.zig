@@ -908,10 +908,15 @@ pub fn rpcTurnUnifiedOutputPosition(turn_plan: RpcTurnPlan, output_index: usize)
 /// helper validates capacity up front and only exposes the initialized prefix to
 /// the sink so transports do not accidentally serialize unused builder slots.
 pub fn sendRpcTurnUnifiedOutputsToSink(turn_plan: RpcTurnPlan, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    _ = try sendRpcTurnUnifiedOutputsToSinkStats(turn_plan, output_messages, sink_context, sink_handler);
+}
+
+pub fn sendRpcTurnUnifiedOutputsToSinkStats(turn_plan: RpcTurnPlan, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !RpcOutputStats {
     try turn_plan.validateUnifiedOutputBuilders(output_messages);
     for (output_messages[0..turn_plan.totalOutputMessages()]) |output_message| {
         try sink_handler(sink_context, output_message);
     }
+    return RpcOutputStats.fromTurnPlan(turn_plan);
 }
 
 /// Send initialized unified turn outputs to a single callback while tagging
