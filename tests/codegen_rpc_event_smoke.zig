@@ -8649,6 +8649,21 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0), message_tagged_sink.forward_local_sum);
     try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, message_tagged_sink.stats);
 
+    const MessageBasicUnifiedSink = struct {
+        sent: usize = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            _ = try message.which();
+            context.sent += 1;
+        }
+    };
+    var message_basic_unified_sink: MessageBasicUnifiedSink = .{};
+    try std.testing.expectEqual(
+        cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 },
+        try cpz.rpc.sendRpcServiceActionUnifiedOutputsToSinkStats(message_stats, message_outputs[0..], &message_basic_unified_sink, MessageBasicUnifiedSink.handle),
+    );
+    try std.testing.expectEqual(@as(usize, 3), message_basic_unified_sink.sent);
+
     var service_output_queue = std.ArrayList(generated.Message.Builder).empty;
     defer service_output_queue.deinit(std.testing.allocator);
     try std.testing.expectEqual(
