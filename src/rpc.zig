@@ -1153,6 +1153,10 @@ pub const RpcTurnPlan = struct {
         return self.responseSourceOutputIndex(.{ .role = .handoff_return, .local_index = local_index });
     }
 
+    pub fn responseSourceStats(self: @This()) RpcTurnResponseSourceStats {
+        return RpcTurnResponseSourceStats.fromTurnPlan(self);
+    }
+
     pub fn hasResponses(self: @This()) bool {
         return self.responseMessages() != 0;
     }
