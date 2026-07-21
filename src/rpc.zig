@@ -12550,6 +12550,14 @@ pub fn initWireUnimplementedMessage(message: anytype) !void {
     _ = try message.init_unimplemented();
 }
 
+pub fn initWireUnimplementedMessageFrom(message: anytype, original: anytype) !void {
+    try message.set_unimplemented_from(original);
+}
+
+pub fn initWireUnimplementedMessageFromBuilder(message: anytype, original: anytype) !void {
+    try message.set_unimplemented_fromBuilder(original);
+}
+
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
     return switch (return_.which() orelse return error.InvalidTransition) {
         .results => .results,
