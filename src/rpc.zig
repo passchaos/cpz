@@ -865,6 +865,13 @@ pub const RpcOutputStats = struct {
         };
     }
 
+    pub fn fromServiceActionStats(stats: TrackedCallServiceActionStats) @This() {
+        return .{
+            .responses = stats.responseMessages(),
+            .forwards = stats.forward,
+        };
+    }
+
     pub fn matchesDispatchStats(self: @This(), dispatch: WireDispatchStats) bool {
         const expected = @This().fromDispatchStats(dispatch);
         return self.responses == expected.responses and
@@ -3738,15 +3745,25 @@ pub fn initWireCallServiceActionPlanUnifiedOutputs(
 }
 
 pub fn sendRpcServiceActionUnifiedOutputsToSink(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    _ = try sendRpcServiceActionUnifiedOutputsToSinkStats(stats, output_messages, sink_context, sink_handler);
+}
+
+pub fn sendRpcServiceActionUnifiedOutputsToSinkStats(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !RpcOutputStats {
     try stats.validateActionCapacity(output_messages.len);
     for (output_messages[0..stats.actions()]) |message| try sink_handler(sink_context, message);
+    return RpcOutputStats.fromServiceActionStats(stats);
 }
 
 pub fn sendRpcServiceActionUnifiedOutputsToTaggedSink(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    _ = try sendRpcServiceActionUnifiedOutputsToTaggedSinkStats(stats, output_messages, sink_context, sink_handler);
+}
+
+pub fn sendRpcServiceActionUnifiedOutputsToTaggedSinkStats(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !RpcOutputStats {
     try stats.validateActionCapacity(output_messages.len);
     for (output_messages[0..stats.actions()], 0..) |message, output_index| {
         try sink_handler(sink_context, trackedCallServiceActionUnifiedOutputPosition(stats, output_index).?, message);
     }
+    return RpcOutputStats.fromServiceActionStats(stats);
 }
 
 pub fn sendRpcServiceActionUnifiedOutputsToSinks(
@@ -3757,9 +3774,21 @@ pub fn sendRpcServiceActionUnifiedOutputsToSinks(
     forward_context: anytype,
     forward_handler: anytype,
 ) !void {
+    _ = try sendRpcServiceActionUnifiedOutputsToSinksStats(stats, output_messages, response_context, response_handler, forward_context, forward_handler);
+}
+
+pub fn sendRpcServiceActionUnifiedOutputsToSinksStats(
+    stats: TrackedCallServiceActionStats,
+    output_messages: anytype,
+    response_context: anytype,
+    response_handler: anytype,
+    forward_context: anytype,
+    forward_handler: anytype,
+) !RpcOutputStats {
     try stats.validateActionCapacity(output_messages.len);
     for (try stats.outputResponseRange().slice(output_messages)) |message| try response_handler(response_context, message);
     for (try stats.outputForwardRange().slice(output_messages)) |message| try forward_handler(forward_context, message);
+    return RpcOutputStats.fromServiceActionStats(stats);
 }
 
 pub fn sendRpcServiceActionUnifiedOutputPlansToSink(

@@ -8639,7 +8639,9 @@ test "rpc service action stats aggregate wire and tracked calls" {
         }
     };
     var message_tagged_sink: MessageTaggedSink = .{};
-    try cpz.rpc.sendRpcServiceActionUnifiedOutputsToTaggedSink(message_stats, message_outputs[0..], &message_tagged_sink, MessageTaggedSink.handle);
+    const message_tagged_stats = try cpz.rpc.sendRpcServiceActionUnifiedOutputsToTaggedSinkStats(message_stats, message_outputs[0..], &message_tagged_sink, MessageTaggedSink.handle);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, message_tagged_stats);
+    try std.testing.expectEqual(message_tagged_stats, cpz.rpc.RpcOutputStats.fromServiceActionStats(message_stats));
     try std.testing.expectEqual(@as(usize, 3), message_tagged_sink.sent);
     try std.testing.expectEqual(@as(usize, 0 + 1), message_tagged_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), message_tagged_sink.forward_local_sum);
@@ -8672,7 +8674,7 @@ test "rpc service action stats aggregate wire and tracked calls" {
         &message_role_forward_sink,
         MessageRoleForwardSink.handle,
     ));
-    try cpz.rpc.sendRpcServiceActionUnifiedOutputsToSinks(
+    const message_split_stats = try cpz.rpc.sendRpcServiceActionUnifiedOutputsToSinksStats(
         message_stats,
         message_outputs[0..],
         &message_role_response_sink,
@@ -8680,6 +8682,7 @@ test "rpc service action stats aggregate wire and tracked calls" {
         &message_role_forward_sink,
         MessageRoleForwardSink.handle,
     );
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, message_split_stats);
     try std.testing.expectEqual(@as(usize, 2), message_role_response_sink.sent);
     try std.testing.expectEqual(@as(u32, 71 + 72), message_role_response_sink.answer_sum);
     try std.testing.expectEqual(@as(usize, 1), message_role_forward_sink.sent);
