@@ -8680,6 +8680,12 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(?usize, null), message_stats.responseLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, 0), message_stats.forwardLocalIndex(2));
     try std.testing.expectEqual(@as(?usize, null), message_stats.forwardLocalIndex(3));
+    const message_response_position = message_stats.unifiedOutputPosition(0).?;
+    try std.testing.expect(message_response_position.isResponse());
+    try std.testing.expect(!message_response_position.isForward());
+    const message_forward_position = message_stats.unifiedOutputPosition(2).?;
+    try std.testing.expect(message_forward_position.isForward());
+    try std.testing.expect(!message_forward_position.isResponse());
     const MessageTaggedSink = struct {
         sent: usize = 0,
         response_local_sum: usize = 0,

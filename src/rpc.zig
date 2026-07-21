@@ -1790,6 +1790,14 @@ pub const TrackedCallServiceActionOutputRole = enum {
 pub const TrackedCallServiceActionOutputPosition = struct {
     role: TrackedCallServiceActionOutputRole,
     local_index: usize,
+
+    pub fn isResponse(self: @This()) bool {
+        return self.role == .response;
+    }
+
+    pub fn isForward(self: @This()) bool {
+        return self.role == .forward;
+    }
 };
 
 pub fn trackedCallServiceActionUnifiedOutputPosition(stats: TrackedCallServiceActionStats, output_index: usize) ?TrackedCallServiceActionOutputPosition {
