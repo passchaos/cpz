@@ -81,6 +81,25 @@ pub const DispatchResult = union(enum) {
     results_sent_elsewhere,
     take_from_other_question: QuestionId,
     await_from_third_party: u32,
+
+    pub fn isEmpty(self: @This()) bool {
+        return self == .empty;
+    }
+
+    pub fn isCapability(self: @This()) bool {
+        return self == .capability;
+    }
+
+    pub fn isException(self: @This()) bool {
+        return self == .exception;
+    }
+
+    pub fn isNonResult(self: @This()) bool {
+        return switch (self) {
+            .exception, .canceled, .results_sent_elsewhere, .take_from_other_question, .await_from_third_party => true,
+            .empty, .capability, .text, .data, .uint32_list => false,
+        };
+    }
 };
 
 pub const WireDispatchOutcome = enum {

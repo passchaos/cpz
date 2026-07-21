@@ -158,7 +158,8 @@ that a complete RPC runtime exists.
   for those payload shapes, an empty no-finish result,
   exceptions, cancellation, results-sent-elsewhere,
   or take-from-other-question outcomes, including await-from-third-party
-  tail-call handoffs. A
+  tail-call handoffs. Generic dispatch results expose shape predicates before
+  they are materialized into Returns. A
   method-aware call dispatcher can filter on interface/method IDs, build
   capability, empty, text/data/UInt32-list payload returns and caller-filled struct payload returns with descriptor,
   descriptor-info, or registry-backed cap tables, and emit an unimplemented exception for

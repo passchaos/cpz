@@ -10788,11 +10788,16 @@ test "rpc forward helpers reject unresolved calls" {
 }
 
 test "rpc generic dispatch return helper builds non-capability payloads" {
+    try std.testing.expect((@as(cpz.rpc.DispatchResult, .empty)).isEmpty());
+    try std.testing.expect((cpz.rpc.DispatchResult{ .capability = 10 }).isCapability());
+    try std.testing.expect((cpz.rpc.DispatchResult{ .exception = .{ .reason = "x", .type_raw = 1 } }).isException());
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try cpz.rpc.initDispatchReturnMessage(root, 36, .{ .text = "text result" });
+        const dispatch_result = cpz.rpc.DispatchResult{ .text = "text result" };
+        try std.testing.expect(!dispatch_result.isNonResult());
+        try cpz.rpc.initDispatchReturnMessage(root, 36, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
@@ -10828,7 +10833,9 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try cpz.rpc.initDispatchReturnMessage(root, 22, .canceled);
+        const dispatch_result = @as(cpz.rpc.DispatchResult, .canceled);
+        try std.testing.expect(dispatch_result.isNonResult());
+        try cpz.rpc.initDispatchReturnMessage(root, 22, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
@@ -10852,7 +10859,9 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try cpz.rpc.initDispatchReturnMessage(root, 24, .{ .take_from_other_question = 25 });
+        const dispatch_result = cpz.rpc.DispatchResult{ .take_from_other_question = 25 };
+        try std.testing.expect(dispatch_result.isNonResult());
+        try cpz.rpc.initDispatchReturnMessage(root, 24, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
