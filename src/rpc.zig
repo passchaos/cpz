@@ -1154,6 +1154,24 @@ pub const CallOptions = struct {
         return options;
     }
 
+    pub fn withAllowThirdPartyTailCall(self: @This(), enabled: bool) @This() {
+        var options = self;
+        options.flags.allow_third_party_tail_call = enabled;
+        return options;
+    }
+
+    pub fn withNoPromisePipelining(self: @This(), enabled: bool) @This() {
+        var options = self;
+        options.flags.no_promise_pipelining = enabled;
+        return options;
+    }
+
+    pub fn withOnlyPromisePipeline(self: @This(), enabled: bool) @This() {
+        var options = self;
+        options.flags.only_promise_pipeline = enabled;
+        return options;
+    }
+
     pub fn validate(self: @This()) Error!void {
         if (self.send_results_to_third_party != null and self.send_results_to != .third_party) return error.InvalidTransition;
         if (self.send_results_to_third_party) |usage| try validateAnyPointerUsageCapability(usage);

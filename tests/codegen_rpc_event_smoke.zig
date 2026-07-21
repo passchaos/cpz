@@ -2600,6 +2600,14 @@ test "rpc top-level call payload helpers support routing options" {
     try std.testing.expect(fluent_options.forbidsPromisePipelining());
     try std.testing.expect(fluent_options.thirdPartyResultsUsage() == null);
     try std.testing.expect(!fluent_options.hasThirdPartyResultsUsage());
+    const fluent_flag_options = (cpz.rpc.CallOptions{})
+        .withAllowThirdPartyTailCall(true)
+        .withNoPromisePipelining(true)
+        .withOnlyPromisePipeline(true);
+    try std.testing.expect(fluent_flag_options.allowsThirdPartyTailCall());
+    try std.testing.expect(fluent_flag_options.forbidsPromisePipelining());
+    try std.testing.expect(fluent_flag_options.onlyAllowsPromisePipeline());
+    try std.testing.expect(!fluent_flag_options.withNoPromisePipelining(false).forbidsPromisePipelining());
     const fluent_call_info = fluent_options.callInfo(900, .{ .imported_cap = 7 });
     try std.testing.expectEqual(@as(cpz.rpc.QuestionId, 900), fluent_call_info.question_id);
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 7 }, fluent_call_info.target);
