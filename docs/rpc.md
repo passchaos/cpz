@@ -57,7 +57,8 @@ that a complete RPC runtime exists.
   target/effective-target mapping helpers, can decode/write/apply
   replacement cap descriptors or broken-promise exceptions, can initialize
   top-level Resolve messages, and do not conflate the official `ExportId` with
-  answer IDs.
+  answer IDs. Resolve metadata exposes predicates and validation for the
+  mutually-exclusive cap/exception payload.
   Finish wire events preserve the official `releaseResultCaps` flag while still
   projecting to the simplified question-closing event.
   Provide/Accept/Join wire events open questions using their official

@@ -1105,6 +1105,18 @@ pub const ResolveInfo = struct {
     promise_id: ExportId,
     cap: ?CapDescriptor = null,
     exception: ?ExceptionInfo = null,
+
+    pub fn hasCap(self: @This()) bool {
+        return self.cap != null;
+    }
+
+    pub fn hasException(self: @This()) bool {
+        return self.exception != null;
+    }
+
+    pub fn validate(self: @This()) Error!void {
+        if (self.hasCap() == self.hasException()) return error.InvalidTransition;
+    }
 };
 
 pub const PromisedAnswerTarget = struct {
@@ -2205,10 +2217,7 @@ pub fn resolveInfoFromWireResolve(resolve: anytype) !ResolveInfo {
 }
 
 pub fn writeResolveInfoToWire(info: ResolveInfo, resolve: anytype) !void {
-    const has_cap = info.cap != null;
-    const has_exception = info.exception != null;
-    if (has_cap == has_exception) return error.InvalidTransition;
-
+    try info.validate();
     try resolve.set_promiseId(info.promise_id);
     if (info.cap) |descriptor| {
         try writeCapDescriptorToWire(descriptor, try resolve.init_cap());
