@@ -31,6 +31,8 @@ that a complete RPC runtime exists.
   union shape from generated readers into lightweight `WireEvent` values,
   shares a `wireMessageTag()` helper with method/options metadata decoders, and
   projects only the semantically-aligned subset into `State.apply()` events.
+  Abort wire events preserve their exception metadata while remaining
+  state-inapplicable.
   RPC exception helpers preserve reason, raw type, and optional trace text, with
   typed `ExceptionType` conversion plus predicates for non-empty reason, trace,
   and standard exception-type matches.
