@@ -989,6 +989,14 @@ pub const CallTarget = union(enum) {
     imported_cap: ImportId,
     promised_answer: PromisedAnswerTarget,
 
+    pub fn isImportedCap(self: CallTarget) bool {
+        return self == .imported_cap;
+    }
+
+    pub fn isPromisedAnswer(self: CallTarget) bool {
+        return self == .promised_answer;
+    }
+
     pub fn importId(self: CallTarget) ?ImportId {
         return switch (self) {
             .imported_cap => |id| id,
@@ -996,11 +1004,19 @@ pub const CallTarget = union(enum) {
         };
     }
 
+    pub fn matchesImport(self: CallTarget, id: ImportId) bool {
+        return self.importId() == id;
+    }
+
     pub fn promisedQuestionId(self: CallTarget) ?QuestionId {
         return switch (self) {
             .promised_answer => |answer| answer.question_id,
             else => null,
         };
+    }
+
+    pub fn matchesPromisedQuestion(self: CallTarget, id: QuestionId) bool {
+        return self.promisedQuestionId() == id;
     }
 };
 

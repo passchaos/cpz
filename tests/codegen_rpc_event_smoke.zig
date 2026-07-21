@@ -256,8 +256,13 @@ test "rpc call target helpers decode imported caps and promised answers" {
         const message = generated.Message.fromReader(try reader.getRoot());
         const decoded = try cpz.rpc.callTargetFromWireCall(try message.call());
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 7 }, decoded);
+        try std.testing.expect(decoded.isImportedCap());
+        try std.testing.expect(!decoded.isPromisedAnswer());
         try std.testing.expectEqual(@as(?u32, 7), decoded.importId());
+        try std.testing.expect(decoded.matchesImport(7));
+        try std.testing.expect(!decoded.matchesImport(8));
         try std.testing.expectEqual(@as(?u32, null), decoded.promisedQuestionId());
+        try std.testing.expect(!decoded.matchesPromisedQuestion(99));
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
@@ -279,8 +284,13 @@ test "rpc call target helpers decode imported caps and promised answers" {
         const message = generated.Message.fromReader(try reader.getRoot());
         const decoded = try cpz.rpc.callTargetFromWireCall(try message.call());
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 99 } }, decoded);
+        try std.testing.expect(!decoded.isImportedCap());
+        try std.testing.expect(decoded.isPromisedAnswer());
         try std.testing.expectEqual(@as(?u32, null), decoded.importId());
+        try std.testing.expect(!decoded.matchesImport(7));
         try std.testing.expectEqual(@as(?u32, 99), decoded.promisedQuestionId());
+        try std.testing.expect(decoded.matchesPromisedQuestion(99));
+        try std.testing.expect(!decoded.matchesPromisedQuestion(100));
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();

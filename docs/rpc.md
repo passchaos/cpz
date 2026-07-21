@@ -235,6 +235,8 @@ that a complete RPC runtime exists.
   method/routing options for descriptor-backed or registry-backed capability
   payloads, blobs, primitive lists,
   caller-filled structs, and descriptor-info metadata.
+  Call targets expose predicates and ID matchers for imported capabilities and
+  promised answers.
   Method IDs, result routing, and call flags can also be decoded from or written
   to generated Call readers/builders as a single `CallOptions` value, so
   dispatch and initialization paths share the same validation rules. Fluent
