@@ -363,8 +363,8 @@ that a complete RPC runtime exists.
   handler-derived ready handoff Returns directly into tagged sinks, tagged
   queues, role-specific sinks, or role-specific queues, and optionally enqueue
   those returns. Arbitrary tracked handoff Return completion sequences can also
-  be initialized to tagged sinks in input order without assuming the grouped
-  ready-return layout.
+  be initialized to tagged sinks or queues in input order without assuming the
+  grouped ready-return layout.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
   for future provision handling; callers can query/count when an accepted
