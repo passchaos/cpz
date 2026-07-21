@@ -1976,6 +1976,14 @@ pub const PendingAcceptEmbargos = struct {
         }
         return initialized;
     }
+
+    pub fn initDisembargoMessagesToSink(self: @This(), message_builders: anytype, target: CallTarget, sink_context: anytype, sink_handler: anytype) !usize {
+        const initialized = try self.initDisembargoMessages(message_builders, target);
+        for (message_builders[0..initialized]) |message| {
+            try sink_handler(sink_context, message);
+        }
+        return initialized;
+    }
 };
 
 pub const WireMessageApplyResult = union(enum) {

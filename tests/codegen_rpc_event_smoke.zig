@@ -18774,6 +18774,22 @@ test "rpc top-level accept messages open questions" {
             try std.testing.expectEqual(@as(usize, 1), queue.items.len);
             try expectQueuedDisembargoBuilder(queue.items[0], .{ .imported_cap = 5 }, "embargo-64");
         }
+        {
+            const Sink = struct {
+                sent: usize = 0,
+                fn handle(context: *@This(), queued_message: anytype) !void {
+                    _ = try queued_message.get_disembargo();
+                    context.sent += 1;
+                }
+            };
+            var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer disembargo_builder.deinit();
+            const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
+            const messages = [_]generated.Message.Builder{disembargo_root};
+            var sink: Sink = .{};
+            try std.testing.expectEqual(@as(usize, 1), try pending.initDisembargoMessagesToSink(messages[0..], .{ .imported_cap = 5 }, &sink, Sink.handle));
+            try std.testing.expectEqual(@as(usize, 1), sink.sent);
+        }
         try std.testing.expectEqual(@as(u32, 64), pending.items[0].question_id);
         try std.testing.expectEqualStrings("embargo-64", pending.items[0].embargo);
         try std.testing.expect(pending.items[0].matchesEmbargo("embargo-64"));
