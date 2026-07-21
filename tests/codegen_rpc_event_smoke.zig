@@ -18547,6 +18547,12 @@ test "rpc unified output helper sends tagged output roles" {
     try std.testing.expect(disembargo_position.isDisembargo());
     try std.testing.expect(!disembargo_position.isResponse());
     try std.testing.expect(cpz.rpc.rpcTurnUnifiedOutputPosition(plan, 3) == null);
+    var indexed_stats: cpz.rpc.RpcOutputStats = .{};
+    try indexed_stats.recordTurnOutputIndex(plan, 0);
+    try indexed_stats.recordTurnOutputIndex(plan, 1);
+    try indexed_stats.recordTurnOutputIndex(plan, 2);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }, indexed_stats);
+    try std.testing.expectError(error.InvalidTransition, indexed_stats.recordTurnOutputIndex(plan, 3));
 
     var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder.deinit();
