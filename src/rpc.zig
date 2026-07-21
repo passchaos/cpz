@@ -1285,12 +1285,30 @@ pub const ResolveInfo = struct {
     cap: ?CapDescriptor = null,
     exception: ?ExceptionInfo = null,
 
+    pub fn matchesPromise(self: @This(), id: ExportId) bool {
+        return self.promise_id == id;
+    }
+
     pub fn hasCap(self: @This()) bool {
         return self.cap != null;
     }
 
     pub fn hasException(self: @This()) bool {
         return self.exception != null;
+    }
+
+    pub fn isBroken(self: @This()) bool {
+        return self.hasException();
+    }
+
+    pub fn isForwardableToCallTarget(self: @This()) bool {
+        const descriptor = self.cap orelse return false;
+        return descriptor.isForwardableToCallTarget();
+    }
+
+    pub fn forwardableCallTarget(self: @This()) ?CallTarget {
+        const descriptor = self.cap orelse return null;
+        return descriptor.forwardableCallTarget();
     }
 
     pub fn validate(self: @This()) Error!void {

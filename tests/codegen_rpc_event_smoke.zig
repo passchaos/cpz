@@ -23850,8 +23850,13 @@ test "rpc resolve info helpers write cap descriptors" {
     const resolve_reader = generated.Resolve.fromReader(try reader.getRoot());
     const info = try cpz.rpc.resolveInfoFromWireResolve(resolve_reader);
     try std.testing.expectEqual(@as(u32, 92), info.promise_id);
+    try std.testing.expect(info.matchesPromise(92));
+    try std.testing.expect(!info.matchesPromise(91));
     try std.testing.expect(info.hasCap());
     try std.testing.expect(!info.hasException());
+    try std.testing.expect(!info.isBroken());
+    try std.testing.expect(info.isForwardableToCallTarget());
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 93 }, info.forwardableCallTarget().?);
     try info.validate();
     try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_promise = 93 }, info.cap.?);
 }
@@ -23872,6 +23877,9 @@ test "rpc resolve info helpers write exceptions" {
     try std.testing.expect(info.cap == null);
     try std.testing.expect(!info.hasCap());
     try std.testing.expect(info.hasException());
+    try std.testing.expect(info.isBroken());
+    try std.testing.expect(!info.isForwardableToCallTarget());
+    try std.testing.expect(info.forwardableCallTarget() == null);
     try info.validate();
     const exception = info.exception orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("resolve failed", exception.reason.?);
