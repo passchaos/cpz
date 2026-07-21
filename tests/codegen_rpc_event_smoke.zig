@@ -20731,6 +20731,42 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try std.testing.expectEqual(@as(u32, 101), tagged_plan_sink.accept_answer_sum);
     try std.testing.expectEqual(@as(u32, 102), tagged_plan_sink.join_answer_sum);
 
+    const TaggedPlanQueueItem = struct {
+        position: cpz.rpc.HandoffReturnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var tagged_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder0.deinit();
+    const tagged_queue_response0 = try generated.Message.initRootTyped(&tagged_queue_builder0);
+    var tagged_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder1.deinit();
+    const tagged_queue_response1 = try generated.Message.initRootTyped(&tagged_queue_builder1);
+    var tagged_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_builder2.deinit();
+    const tagged_queue_response2 = try generated.Message.initRootTyped(&tagged_queue_builder2);
+    const tagged_queue_responses = [_]generated.Message.Builder{ tagged_queue_response0, tagged_queue_response1, tagged_queue_response2 };
+    var tagged_plan_queue = std.ArrayList(TaggedPlanQueueItem).empty;
+    defer tagged_plan_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, state.initReadyHandoffReturnPlanMessagesToTaggedQueue(
+        std.testing.allocator,
+        tagged_queue_responses[0..2],
+        plan,
+        &tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(stats, try state.initReadyHandoffReturnPlanMessagesToTaggedQueue(
+        std.testing.allocator,
+        tagged_queue_responses[0..],
+        plan,
+        &tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(@as(usize, 3), tagged_plan_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .provide, .local_index = 0 }, tagged_plan_queue.items[0].position);
+    try expectQueuedReturnAnswer(tagged_plan_queue.items[0].message, 100);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .accept, .local_index = 0 }, tagged_plan_queue.items[1].position);
+    try expectQueuedReturnAnswer(tagged_plan_queue.items[1].message, 101);
+    try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, tagged_plan_queue.items[2].position);
+    try expectQueuedReturnAnswer(tagged_plan_queue.items[2].message, 102);
+
     var queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer queue_builder0.deinit();
     const queue_response0 = try generated.Message.initRootTyped(&queue_builder0);
