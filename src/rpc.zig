@@ -1037,6 +1037,13 @@ pub const RpcOutputStats = struct {
         }
     }
 
+    pub fn recordWireDispatchPosition(self: *@This(), position: WireDispatchOutputPosition) void {
+        switch (position.role) {
+            .response => self.responses += 1,
+            .forward => self.forwards += 1,
+        }
+    }
+
     pub fn recordTurnOutputIndex(self: *@This(), turn_plan: RpcTurnPlan, output_index: usize) Error!void {
         const position = rpcTurnUnifiedOutputPosition(turn_plan, output_index) orelse return error.InvalidTransition;
         self.recordPosition(position);
@@ -1045,6 +1052,11 @@ pub const RpcOutputStats = struct {
     pub fn recordServiceActionOutputIndex(self: *@This(), stats: TrackedCallServiceActionStats, output_index: usize) Error!void {
         const position = stats.unifiedOutputPosition(output_index) orelse return error.InvalidTransition;
         self.recordServiceActionPosition(position);
+    }
+
+    pub fn recordWireDispatchOutputIndex(self: *@This(), stats: WireDispatchStats, output_index: usize) Error!void {
+        const position = stats.unifiedDenseOutputPosition(output_index) orelse return error.InvalidTransition;
+        self.recordWireDispatchPosition(position);
     }
 
     pub fn total(self: @This()) usize {
