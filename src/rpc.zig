@@ -13998,6 +13998,22 @@ pub fn initWireHandoffReturnMessagesToSink(
     return stats;
 }
 
+pub fn initWireHandoffReturnMessagesToQueue(
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    completions: []const HandoffReturn,
+    queue: anytype,
+) !StateHandoffReturnStats {
+    if (response_messages.len < completions.len) return error.InvalidTransition;
+    var stats: StateHandoffReturnStats = .{};
+    for (completions, 0..) |completion, index| {
+        try initWireHandoffReturnMessage(response_messages[index], completion);
+        try queue.append(allocator, response_messages[index]);
+        stats.record(completion);
+    }
+    return stats;
+}
+
 pub fn initWireFinish(finish: anytype, value: Finish) !void {
     try finish.set_questionId(value.question_id);
     try finish.set_releaseResultCaps(value.release_result_caps);
