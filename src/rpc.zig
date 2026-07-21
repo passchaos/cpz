@@ -1032,6 +1032,24 @@ pub const CallFlags = struct {
         return !self.allow_third_party_tail_call and !self.no_promise_pipelining and !self.only_promise_pipeline;
     }
 
+    pub fn withAllowThirdPartyTailCall(self: @This(), enabled: bool) @This() {
+        var flags = self;
+        flags.allow_third_party_tail_call = enabled;
+        return flags;
+    }
+
+    pub fn withNoPromisePipelining(self: @This(), enabled: bool) @This() {
+        var flags = self;
+        flags.no_promise_pipelining = enabled;
+        return flags;
+    }
+
+    pub fn withOnlyPromisePipeline(self: @This(), enabled: bool) @This() {
+        var flags = self;
+        flags.only_promise_pipeline = enabled;
+        return flags;
+    }
+
     pub fn allowsThirdPartyTailCall(self: @This()) bool {
         return self.allow_third_party_tail_call;
     }
@@ -1156,19 +1174,19 @@ pub const CallOptions = struct {
 
     pub fn withAllowThirdPartyTailCall(self: @This(), enabled: bool) @This() {
         var options = self;
-        options.flags.allow_third_party_tail_call = enabled;
+        options.flags = options.flags.withAllowThirdPartyTailCall(enabled);
         return options;
     }
 
     pub fn withNoPromisePipelining(self: @This(), enabled: bool) @This() {
         var options = self;
-        options.flags.no_promise_pipelining = enabled;
+        options.flags = options.flags.withNoPromisePipelining(enabled);
         return options;
     }
 
     pub fn withOnlyPromisePipeline(self: @This(), enabled: bool) @This() {
         var options = self;
-        options.flags.only_promise_pipeline = enabled;
+        options.flags = options.flags.withOnlyPromisePipeline(enabled);
         return options;
     }
 

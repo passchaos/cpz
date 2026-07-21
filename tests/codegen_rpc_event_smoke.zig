@@ -370,6 +370,14 @@ test "rpc call helpers decode and write boolean flags" {
     try std.testing.expect(flags.forbidsPromisePipelining());
     try std.testing.expect(flags.onlyAllowsPromisePipeline());
     try std.testing.expect((cpz.rpc.CallFlags{}).isDefault());
+    const fluent_flags = (cpz.rpc.CallFlags{})
+        .withAllowThirdPartyTailCall(true)
+        .withNoPromisePipelining(true)
+        .withOnlyPromisePipeline(true);
+    try std.testing.expect(fluent_flags.allowsThirdPartyTailCall());
+    try std.testing.expect(fluent_flags.forbidsPromisePipelining());
+    try std.testing.expect(fluent_flags.onlyAllowsPromisePipeline());
+    try std.testing.expect(!fluent_flags.withOnlyPromisePipeline(false).onlyAllowsPromisePipeline());
 }
 
 test "rpc call helpers round-trip call options" {

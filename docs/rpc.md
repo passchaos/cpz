@@ -238,8 +238,8 @@ that a complete RPC runtime exists.
   Method IDs, result routing, and call flags can also be decoded from or written
   to generated Call readers/builders as a single `CallOptions` value, so
   dispatch and initialization paths share the same validation rules. Fluent
-  `CallOptions` builders can toggle individual routing flags without replacing
-  the whole `CallFlags` value.
+  `CallFlags` and `CallOptions` builders can toggle individual routing flags
+  without replacing the whole `CallFlags` value.
   `CallOptions` exposes predicates for default state, explicit method IDs, and
   third-party result-target capability usage, and tracked `CallInfo`/`State`
   queries expose matching predicates.
