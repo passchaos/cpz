@@ -259,7 +259,8 @@ that a complete RPC runtime exists.
   slices, and append ready handoff Returns to the same response queue or sink
   for embedding transports; dense turn helpers can also append compact responses
   (including ready handoff Returns) and forwarded Calls to role-specific caller
-  queues, while ordinary and method-table no-sink turn helpers can
+  queues, with pending Disembargos routed to their own caller queue when present,
+  while ordinary and method-table no-sink turn helpers can
   populate a unified response/forward output queue with dispatch and ready
   handoff Returns before forwarded Calls, append pending Accept Disembargos into
   the same unified queue, including token-filtered Disembargo emission, and both
