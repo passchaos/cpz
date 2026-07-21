@@ -12427,6 +12427,38 @@ test "rpc single-message forwarding dispatcher initializes forwarded calls" {
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 191 }, try cpz.rpc.callTargetFromWireCall(forwarded));
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x999, .method_id = 9 }, cpz.rpc.callMethodFromWireCall(forwarded));
     try expectPayloadUInt32List(try forwarded.params(), &.{ 9, 19 });
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 190 });
+    try queue_state.resolveImportTo(190, .{ .sender_hosted = 191 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 191 });
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    var queue_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_forward_builder.deinit();
+    const queue_forward = try generated.Message.initRootTyped(&queue_forward_builder);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.forward_required, try cpz.rpc.dispatchWireMessageMethodsForwardingToQueueOutcome(
+        &queue_state,
+        std.testing.allocator,
+        queue_response,
+        queue_forward,
+        request,
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &forward_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 0), queue_bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 190, .{ .imported_cap = 191 });
 }
 
 test "rpc single-message dispatcher routes calls and applies returns" {
