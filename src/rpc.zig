@@ -100,6 +100,10 @@ pub const DispatchResult = union(enum) {
             .empty, .capability, .text, .data, .uint32_list => false,
         };
     }
+
+    pub fn isResult(self: @This()) bool {
+        return !self.isNonResult();
+    }
 };
 
 pub const WireDispatchOutcome = enum {

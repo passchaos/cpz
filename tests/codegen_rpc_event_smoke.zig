@@ -10797,6 +10797,7 @@ test "rpc generic dispatch return helper builds non-capability payloads" {
         const root = try generated.Message.initRootTyped(&builder);
         const dispatch_result = cpz.rpc.DispatchResult{ .text = "text result" };
         try std.testing.expect(!dispatch_result.isNonResult());
+        try std.testing.expect(dispatch_result.isResult());
         try cpz.rpc.initDispatchReturnMessage(root, 36, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
@@ -10835,6 +10836,7 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         const root = try generated.Message.initRootTyped(&builder);
         const dispatch_result = @as(cpz.rpc.DispatchResult, .canceled);
         try std.testing.expect(dispatch_result.isNonResult());
+        try std.testing.expect(!dispatch_result.isResult());
         try cpz.rpc.initDispatchReturnMessage(root, 22, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
