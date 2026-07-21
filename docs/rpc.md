@@ -359,7 +359,7 @@ that a complete RPC runtime exists.
   ready-ID snapshots, plans, and stats, send grouped ready handoff Return
   outputs to tagged sinks, role-specific sinks, caller-owned tagged queues, or
   role-specific queues, initialize ready handoff plans directly into
-  role-specific sinks, and optionally enqueue those returns.
+  role-specific sinks or queues, and optionally enqueue those returns.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
   for future provision handling; callers can query/count when an accepted
