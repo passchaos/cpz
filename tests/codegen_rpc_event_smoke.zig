@@ -18436,6 +18436,10 @@ test "rpc unified output helper sends role ranges to separate sinks" {
         .dispatch = .{ .response_initialized = 1, .forward_required = 1 },
         .pending_disembargos = 1,
     };
+    try std.testing.expectEqual(
+        cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 },
+        cpz.rpc.RpcOutputStats.fromTurnPlan(plan),
+    );
 
     var response_sink: ResponseSink = .{};
     var forward_sink: ForwardSink = .{};

@@ -850,6 +850,14 @@ pub const RpcOutputStats = struct {
     forwards: usize = 0,
     disembargos: usize = 0,
 
+    pub fn fromTurnPlan(turn_plan: RpcTurnPlan) @This() {
+        return .{
+            .responses = turn_plan.responseMessages(),
+            .forwards = turn_plan.forwardedMessages(),
+            .disembargos = turn_plan.disembargoMessages(),
+        };
+    }
+
     pub fn recordRole(self: *@This(), role: RpcTurnOutputRole) void {
         switch (role) {
             .response => self.responses += 1,
@@ -977,11 +985,7 @@ pub fn sendRpcTurnUnifiedOutputsToSinksStats(
     for (try turn_plan.disembargoMessageRange().slice(output_messages)) |output_message| {
         try disembargo_handler(disembargo_context, output_message);
     }
-    return .{
-        .responses = turn_plan.responseMessages(),
-        .forwards = turn_plan.forwardedMessages(),
-        .disembargos = turn_plan.disembargoMessages(),
-    };
+    return RpcOutputStats.fromTurnPlan(turn_plan);
 }
 
 pub const StateQuestionStats = struct {
