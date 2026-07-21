@@ -15576,6 +15576,24 @@ test "rpc top-level accept messages open questions" {
         try std.testing.expectEqualStrings("embargo-64", pending_info.context.accept);
     }
     {
+        var pending_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer pending_builder.deinit();
+        const pending_root = try generated.Message.initRootTyped(&pending_builder);
+        const messages = [_]generated.Message.Builder{pending_root};
+        var queue = std.ArrayList(generated.Message.Builder).empty;
+        defer queue.deinit(std.testing.allocator);
+        try std.testing.expectEqual(
+            @as(usize, 1),
+            try state.initPendingAcceptDisembargoMessagesToQueue(std.testing.allocator, messages[0..], .{ .imported_cap = 5 }, &queue),
+        );
+        try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+
+        var pending_reader = cpz.MessageReader.init(try pending_builder.segmentsConst(), .{});
+        const pending_info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try pending_reader.getRoot()).disembargo());
+        try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, pending_info.target);
+        try std.testing.expectEqualStrings("embargo-64", pending_info.context.accept);
+    }
+    {
         const Sink = struct {
             sent: usize = 0,
 
@@ -15604,6 +15622,24 @@ test "rpc top-level accept messages open questions" {
             @as(usize, 0),
             try state.initPendingAcceptDisembargoMessagesForEmbargoToSink(messages[0..], .{ .imported_cap = 5 }, "missing", &sink, Sink.handle),
         );
+    }
+    {
+        var pending_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer pending_builder.deinit();
+        const pending_root = try generated.Message.initRootTyped(&pending_builder);
+        const messages = [_]generated.Message.Builder{pending_root};
+        var queue = std.ArrayList(generated.Message.Builder).empty;
+        defer queue.deinit(std.testing.allocator);
+        try std.testing.expectEqual(
+            @as(usize, 1),
+            try state.initPendingAcceptDisembargoMessagesForEmbargoToQueue(std.testing.allocator, messages[0..], .{ .imported_cap = 5 }, "embargo-64", &queue),
+        );
+        try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+        try std.testing.expectEqual(
+            @as(usize, 0),
+            try state.initPendingAcceptDisembargoMessagesForEmbargoToQueue(std.testing.allocator, messages[0..], .{ .imported_cap = 5 }, "missing", &queue),
+        );
+        try std.testing.expectEqual(@as(usize, 1), queue.items.len);
     }
 
     var disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });

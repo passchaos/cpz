@@ -13926,6 +13926,14 @@ pub const State = struct {
         return index;
     }
 
+    pub fn initPendingAcceptDisembargoMessagesToQueue(self: *const State, allocator: std.mem.Allocator, message_builders: anytype, target: CallTarget, queue: anytype) !usize {
+        const initialized = try self.initPendingAcceptDisembargoMessages(message_builders, target);
+        for (message_builders[0..initialized]) |message| {
+            try queue.append(allocator, message);
+        }
+        return initialized;
+    }
+
     pub fn initPendingAcceptDisembargoMessagesForEmbargo(self: *const State, message_builders: anytype, target: CallTarget, embargo: []const u8) !usize {
         const needed = self.pendingAcceptEmbargoMatchCount(embargo);
         if (message_builders.len < needed) return error.InvalidTransition;
@@ -13972,6 +13980,14 @@ pub const State = struct {
             }
         }
         return index;
+    }
+
+    pub fn initPendingAcceptDisembargoMessagesForEmbargoToQueue(self: *const State, allocator: std.mem.Allocator, message_builders: anytype, target: CallTarget, embargo: []const u8, queue: anytype) !usize {
+        const initialized = try self.initPendingAcceptDisembargoMessagesForEmbargo(message_builders, target, embargo);
+        for (message_builders[0..initialized]) |message| {
+            try queue.append(allocator, message);
+        }
+        return initialized;
     }
 
     pub fn readyAcceptProvision(self: *const State, id: QuestionId) ?AnyPointerUsage {
