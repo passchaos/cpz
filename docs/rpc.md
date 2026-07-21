@@ -269,7 +269,8 @@ that a complete RPC runtime exists.
   that contain Calls, plus wire Call/Message method-entry index helpers; tracked calls can be compared directly with generated
   Call or Message readers. Top-level Message readers can
   also be queried for Call method/options when their active union member is
-  `Call`, otherwise they report no Call metadata. Call readers and top-level
+  `Call`, otherwise they report no Call metadata. Transport-independent state
+  events expose the same role predicates as message kinds. Call readers and top-level
   Call messages can expose call targets and can be decoded into the same
   `CallInfo` shape used for tracked call dispatch snapshots.
   A generated Call reader can also be applied as a unit:

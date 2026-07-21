@@ -1781,6 +1781,22 @@ pub const Event = union(MessageKind) {
         return std.meta.activeTag(self);
     }
 
+    pub fn isQuestionOpening(self: Event) bool {
+        return self.kind().isQuestionOpening();
+    }
+
+    pub fn isQuestionClosing(self: Event) bool {
+        return self.kind().isQuestionClosing();
+    }
+
+    pub fn isAnswerResolving(self: Event) bool {
+        return self.kind().isAnswerResolving();
+    }
+
+    pub fn isCapabilityTableMutation(self: Event) bool {
+        return self.kind().isCapabilityTableMutation();
+    }
+
     pub fn questionId(self: Event) ?QuestionId {
         return switch (self) {
             .bootstrap, .call, .finish => |id| id,
@@ -14253,13 +14269,18 @@ test "rpc message kind predicates describe state-machine roles" {
     try testing.expectEqual(MessageKind.call, call_event.kind());
     try testing.expectEqual(@as(?QuestionId, 12), call_event.questionId());
     try testing.expectEqual(@as(?AnswerId, null), call_event.answerId());
+    try testing.expect(call_event.isQuestionOpening());
+    try testing.expect(!call_event.isAnswerResolving());
     const return_event = Event{ .return_ = 12 };
     try testing.expectEqual(MessageKind.return_, return_event.kind());
     try testing.expectEqual(@as(?AnswerId, 12), return_event.answerId());
+    try testing.expect(return_event.isAnswerResolving());
+    try testing.expect(!return_event.isQuestionClosing());
 
     const provide_event = Event{ .provide = 5 };
     try testing.expectEqual(MessageKind.provide, provide_event.kind());
     try testing.expectEqual(CapabilityRef{ .export_id = 5 }, provide_event.capabilityRef().?);
+    try testing.expect(provide_event.isCapabilityTableMutation());
     const accept_event = Event{ .accept = 6 };
     try testing.expectEqual(CapabilityRef{ .import_id = 6 }, accept_event.capabilityRef().?);
 
