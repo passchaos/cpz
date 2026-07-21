@@ -18662,6 +18662,10 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expect(state.handoffStats().hasTracked());
         try std.testing.expect(state.handoffStats().hasReady());
         try std.testing.expect(!state.handoffStats().hasBlocked());
+        try std.testing.expect(state.handoffStats().hasWork());
+        try std.testing.expect(!state.handoffStats().isEmpty());
+        try std.testing.expect((cpz.rpc.StateHandoffStats{}).isEmpty());
+        try std.testing.expect(!(cpz.rpc.StateHandoffStats{}).hasWork());
         try std.testing.expect(state.handoffStats().hasProvides());
         try std.testing.expect(!state.handoffStats().hasAccepts());
         try std.testing.expect(!state.handoffStats().hasJoins());

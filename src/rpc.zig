@@ -594,6 +594,14 @@ pub const StateHandoffStats = struct {
     pub fn hasBlocked(self: @This()) bool {
         return self.blocked() != 0;
     }
+
+    pub fn hasWork(self: @This()) bool {
+        return self.hasTracked() or self.hasReady() or self.hasBlocked();
+    }
+
+    pub fn isEmpty(self: @This()) bool {
+        return !self.hasWork();
+    }
 };
 
 pub const StateReadyHandoffIds = struct {
