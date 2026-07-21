@@ -414,8 +414,9 @@ pub fn CapabilityTable(comptime T: type) type {
         }
 
         pub fn getOrNull(self: @This(), index: u32) ?T {
-            if (!self.hasIndex(index)) return null;
-            return self.entries[@as(usize, index)];
+            const usize_index = std.math.cast(usize, index) orelse return null;
+            if (usize_index >= self.entries.len) return null;
+            return self.entries[usize_index];
         }
 
         pub fn getPointer(self: @This(), pointer: PointerReader) Error!T {
@@ -497,17 +498,20 @@ pub fn CapabilityRegistry(comptime T: type) type {
         }
 
         pub fn hasIndex(self: *const @This(), index: u32) bool {
-            return @as(usize, index) < self.entries.items.len;
+            const usize_index = std.math.cast(usize, index) orelse return false;
+            return usize_index < self.entries.items.len;
         }
 
         pub fn get(self: *const @This(), index: u32) Error!T {
-            if (!self.hasIndex(index)) return error.InvalidCapabilityPointer;
-            return self.entries.items[@as(usize, index)];
+            const usize_index = std.math.cast(usize, index) orelse return error.InvalidCapabilityPointer;
+            if (usize_index >= self.entries.items.len) return error.InvalidCapabilityPointer;
+            return self.entries.items[usize_index];
         }
 
         pub fn getOrNull(self: *const @This(), index: u32) ?T {
-            if (!self.hasIndex(index)) return null;
-            return self.entries.items[@as(usize, index)];
+            const usize_index = std.math.cast(usize, index) orelse return null;
+            if (usize_index >= self.entries.items.len) return null;
+            return self.entries.items[usize_index];
         }
 
         pub fn register(self: *@This(), allocator: std.mem.Allocator, handle: T) Error!u32 {
