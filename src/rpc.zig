@@ -12545,6 +12545,16 @@ pub fn validateWirePayload(allocator: std.mem.Allocator, payload: anytype) !void
     try validateWirePayloadContent(payload, descriptors.len);
 }
 
+pub fn unimplementedMessageTag(message: anytype) !?WireMessageTag {
+    if ((try wireMessageTag(message)) != .unimplemented) return null;
+    return try wireMessageTag(try message.unimplemented());
+}
+
+pub fn eventFromWireUnimplementedMessage(message: anytype) !?WireEvent {
+    if ((try wireMessageTag(message)) != .unimplemented) return null;
+    return try eventFromWireMessage(try message.unimplemented());
+}
+
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
     return switch (try wireMessageTag(message)) {
         .unimplemented => .{ .unimplemented = {} },

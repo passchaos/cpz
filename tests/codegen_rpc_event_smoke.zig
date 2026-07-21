@@ -79,7 +79,22 @@ test "rpc wire events decode generated message union tags and ids" {
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireMessageTag.unimplemented, event.tag());
         try std.testing.expect(!event.isStateApplicable());
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        const original = try root.init_unimplemented();
+        const bootstrap = try original.init_bootstrap();
+        try bootstrap.set_questionId(10);
+        const event = try decode(&builder);
+        try std.testing.expectEqual(cpz.rpc.WireMessageTag.unimplemented, event.tag());
+        try std.testing.expect(!event.isStateApplicable());
         try std.testing.expect(event.toStateEvent() == null);
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        const message = generated.Message.fromReader(try reader.getRoot());
+        try std.testing.expectEqual(cpz.rpc.WireMessageTag.bootstrap, (try cpz.rpc.unimplementedMessageTag(message)).?);
+        try std.testing.expectEqual(cpz.rpc.WireEvent{ .bootstrap = 10 }, (try cpz.rpc.eventFromWireUnimplementedMessage(message)).?);
     }
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
