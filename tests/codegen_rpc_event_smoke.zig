@@ -16071,6 +16071,12 @@ test "rpc tracked handoff batches initialize ready return messages" {
     defer ready_ids.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 3), ready_ids.total());
     try std.testing.expect(ready_ids.hasReturns());
+    try std.testing.expect(ready_ids.hasProvides());
+    try std.testing.expect(ready_ids.hasAccepts());
+    try std.testing.expect(ready_ids.hasJoins());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 1 }, ready_ids.provideRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 1, .end = 2 }, ready_ids.acceptRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, ready_ids.joinRange());
     try std.testing.expectEqualSlices(u32, &.{90}, ready_ids.provides);
     try std.testing.expectEqualSlices(u32, &.{91}, ready_ids.accepts);
     try std.testing.expectEqualSlices(u32, &.{92}, ready_ids.joins);
