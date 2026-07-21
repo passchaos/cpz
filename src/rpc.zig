@@ -576,6 +576,12 @@ pub const AcceptInfo = struct {
             .capability = self.provision_capability,
         } else null;
     }
+
+    pub fn validate(self: @This()) Error!void {
+        if (!self.has_provision and self.provision_capability != null) return error.InvalidTransition;
+        if (self.has_provision and self.provision_capability == null) return error.InvalidTransition;
+        if (self.provisionUsage()) |usage| try usage.validate();
+    }
 };
 
 pub const ProvideInfo = struct {
@@ -590,6 +596,12 @@ pub const ProvideInfo = struct {
             .max_capability_count = self.recipient_max_capability_count,
             .capability = self.recipient_capability,
         } else null;
+    }
+
+    pub fn validate(self: @This()) Error!void {
+        if (!self.has_recipient and self.recipient_capability != null) return error.InvalidTransition;
+        if (self.has_recipient and self.recipient_capability == null) return error.InvalidTransition;
+        if (self.recipientUsage()) |usage| try usage.validate();
     }
 };
 
@@ -606,6 +618,12 @@ pub const JoinInfo = struct {
             .capability = self.key_part_capability,
         } else null;
     }
+
+    pub fn validate(self: @This()) Error!void {
+        if (!self.has_key_part and self.key_part_capability != null) return error.InvalidTransition;
+        if (self.has_key_part and self.key_part_capability == null) return error.InvalidTransition;
+        if (self.keyPartUsage()) |usage| try usage.validate();
+    }
 };
 
 pub const ThirdPartyAnswerInfo = struct {
@@ -615,6 +633,12 @@ pub const ThirdPartyAnswerInfo = struct {
 
     pub fn completionUsage(self: @This()) ?AnyPointerUsage {
         return if (self.has_completion) self.completion else null;
+    }
+
+    pub fn validate(self: @This()) Error!void {
+        if (!self.has_completion and self.completion != null) return error.InvalidTransition;
+        if (self.has_completion and (self.completion == null or self.completion.?.capability == null)) return error.InvalidTransition;
+        if (self.completionUsage()) |usage| try usage.validate();
     }
 };
 
@@ -1983,12 +2007,7 @@ pub fn acceptInfoFromWireAccept(accept: anytype) !AcceptInfo {
 }
 
 pub fn writeAcceptInfoToWire(info: AcceptInfo, accept: anytype) !void {
-    if (!info.has_provision and info.provision_capability != null) return error.InvalidTransition;
-    if (info.has_provision and info.provision_capability == null) return error.InvalidTransition;
-    if (info.has_provision) try validateAnyPointerUsageCapability(.{
-        .max_capability_count = info.provision_max_capability_count,
-        .capability = info.provision_capability,
-    });
+    try info.validate();
     try accept.set_questionId(info.question_id);
     if (info.provision_capability) |index| {
         (try accept.get_provisionAsPointer()).setCapability(index);
@@ -2019,12 +2038,7 @@ pub fn provideInfoFromWireProvide(provide: anytype) !ProvideInfo {
 }
 
 pub fn writeProvideInfoToWire(info: ProvideInfo, provide: anytype) !void {
-    if (!info.has_recipient and info.recipient_capability != null) return error.InvalidTransition;
-    if (info.has_recipient and info.recipient_capability == null) return error.InvalidTransition;
-    if (info.has_recipient) try validateAnyPointerUsageCapability(.{
-        .max_capability_count = info.recipient_max_capability_count,
-        .capability = info.recipient_capability,
-    });
+    try info.validate();
     try provide.set_questionId(info.question_id);
     try writeCallTargetToWire(info.target, try provide.init_target());
     if (info.recipient_capability) |index| {
@@ -2055,12 +2069,7 @@ pub fn joinInfoFromWireJoin(join: anytype) !JoinInfo {
 }
 
 pub fn writeJoinInfoToWire(info: JoinInfo, join: anytype) !void {
-    if (!info.has_key_part and info.key_part_capability != null) return error.InvalidTransition;
-    if (info.has_key_part and info.key_part_capability == null) return error.InvalidTransition;
-    if (info.has_key_part) try validateAnyPointerUsageCapability(.{
-        .max_capability_count = info.key_part_max_capability_count,
-        .capability = info.key_part_capability,
-    });
+    try info.validate();
     try join.set_questionId(info.question_id);
     try writeCallTargetToWire(info.target, try join.init_target());
     if (info.key_part_capability) |index| {
@@ -2082,9 +2091,7 @@ pub fn thirdPartyAnswerInfoFromWireThirdPartyAnswer(third_party_answer: anytype)
 }
 
 pub fn writeThirdPartyAnswerInfoToWire(info: ThirdPartyAnswerInfo, third_party_answer: anytype) !void {
-    if (!info.has_completion and info.completion != null) return error.InvalidTransition;
-    if (info.has_completion and (info.completion == null or info.completion.?.capability == null)) return error.InvalidTransition;
-    if (info.completion) |completion| try validateAnyPointerUsageCapability(completion);
+    try info.validate();
     try third_party_answer.set_answerId(info.answer_id);
     if (info.completion) |completion| {
         if (completion.capability) |index| {
