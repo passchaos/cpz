@@ -20781,6 +20781,71 @@ test "rpc turn dispatcher fills unified dense outputs without sinks" {
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 671 }, try cpz.rpc.callTargetFromWireCall(forwarded));
         try std.testing.expectEqualStrings("unified turn forward", try (try (try forwarded.params()).content()).getText());
     }
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 670 });
+    try queue_state.resolveImportTo(670, .{ .sender_hosted = 671 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 671 });
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireProvideMessage(root, .{
+            .question_id = 123,
+            .target = .{ .imported_cap = 5 },
+            .has_recipient = true,
+            .recipient_max_capability_count = 1,
+            .recipient_capability = 0,
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    var queue_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_output_builder0.deinit();
+    const queue_output0 = try generated.Message.initRootTyped(&queue_output_builder0);
+    var queue_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_output_builder1.deinit();
+    const queue_output1 = try generated.Message.initRootTyped(&queue_output_builder1);
+    var queue_output_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_output_builder2.deinit();
+    const queue_output2 = try generated.Message.initRootTyped(&queue_output_builder2);
+    const queue_outputs = [_]generated.Message.Builder{ queue_output0, queue_output1, queue_output2 };
+    var output_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer output_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_call_seen: u32 = 0;
+    var queue_provide_context: HandoffHandler = .{};
+    var queue_accept_context: HandoffHandler = .{};
+    var queue_join_context: HandoffHandler = .{};
+    const queue_applied = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseToQueueFromHandlers(
+        &queue_state,
+        std.testing.allocator,
+        queue_outputs[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_call_seen,
+        CallHandler.handle,
+        &queue_provide_context,
+        HandoffHandler.handle,
+        &queue_accept_context,
+        HandoffHandler.handle,
+        &queue_join_context,
+        HandoffHandler.handle,
+        &output_queue,
+    );
+    try std.testing.expectEqual(applied, queue_applied);
+    try std.testing.expectEqual(@as(u32, 122), queue_bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 0), queue_call_seen);
+    try std.testing.expectEqual(@as(usize, 3), output_queue.items.len);
+    try expectQueuedReturnAnswer(output_queue.items[0], 122);
+    try expectQueuedReturnAnswer(output_queue.items[1], 123);
+    try expectQueuedForwardedCallBuilder(output_queue.items[2], 670, .{ .imported_cap = 671 });
+    try std.testing.expectEqual(@as(usize, 1), queue_provide_context.seen);
+    try std.testing.expectEqual(@as(usize, 0), queue_accept_context.seen);
+    try std.testing.expectEqual(@as(usize, 0), queue_join_context.seen);
 }
 
 test "rpc turn dispatcher fills pending disembargos without sinks" {
