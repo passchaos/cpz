@@ -16220,6 +16220,9 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, plan.joinRange());
     try plan.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, plan.joinRange().validateCapacity(2));
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, plan.stats());
+    try plan.validateCapacity(3);
+    try std.testing.expectError(error.InvalidTransition, plan.validateCapacity(2));
 
     var response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
     defer response_builder0.deinit();

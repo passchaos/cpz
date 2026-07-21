@@ -480,6 +480,18 @@ pub const HandoffReturnPlan = struct {
         const start = self.provides.len + self.accepts.len;
         return .{ .start = start, .end = start + self.joins.len };
     }
+
+    pub fn stats(self: @This()) StateHandoffReturnStats {
+        return .{
+            .provides = self.provides.len,
+            .accepts = self.accepts.len,
+            .joins = self.joins.len,
+        };
+    }
+
+    pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
+        try self.stats().validateCapacity(capacity);
+    }
 };
 
 pub const StateHandoffReturnStats = struct {
