@@ -416,6 +416,32 @@ pub const HandoffReturnPlan = struct {
     pub fn hasReturns(self: @This()) bool {
         return self.total() != 0;
     }
+
+    pub fn hasProvides(self: @This()) bool {
+        return self.provides.len != 0;
+    }
+
+    pub fn hasAccepts(self: @This()) bool {
+        return self.accepts.len != 0;
+    }
+
+    pub fn hasJoins(self: @This()) bool {
+        return self.joins.len != 0;
+    }
+
+    pub fn provideRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.provides.len };
+    }
+
+    pub fn acceptRange(self: @This()) OutputRange {
+        const start = self.provides.len;
+        return .{ .start = start, .end = start + self.accepts.len };
+    }
+
+    pub fn joinRange(self: @This()) OutputRange {
+        const start = self.provides.len + self.accepts.len;
+        return .{ .start = start, .end = start + self.joins.len };
+    }
 };
 
 pub const StateHandoffReturnStats = struct {
