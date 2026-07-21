@@ -18464,8 +18464,10 @@ test "rpc unified output helper sends tagged output roles" {
         response_local: usize = 999,
         forward_local: usize = 999,
         disembargo_local: usize = 999,
+        stats: cpz.rpc.RpcOutputStats = .{},
 
         fn handle(context: *@This(), position: cpz.rpc.RpcTurnOutputPosition, message: anytype) !void {
+            context.stats.recordPosition(position);
             switch (context.sent) {
                 0 => {
                     try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, position);
@@ -18537,6 +18539,12 @@ test "rpc unified output helper sends tagged output roles" {
     try std.testing.expectEqual(@as(usize, 0), sink.response_local);
     try std.testing.expectEqual(@as(usize, 0), sink.forward_local);
     try std.testing.expectEqual(@as(usize, 0), sink.disembargo_local);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }, sink.stats);
+    try std.testing.expectEqual(@as(usize, 3), sink.stats.total());
+    try std.testing.expect(sink.stats.hasOutputs());
+    try std.testing.expect(sink.stats.hasResponses());
+    try std.testing.expect(sink.stats.hasForwards());
+    try std.testing.expect(sink.stats.hasDisembargos());
 }
 
 test "rpc turn dispatcher filters pending accept disembargos into unified outputs" {

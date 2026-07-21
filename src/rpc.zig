@@ -845,6 +845,44 @@ pub const RpcTurnOutputPosition = struct {
     }
 };
 
+pub const RpcOutputStats = struct {
+    responses: usize = 0,
+    forwards: usize = 0,
+    disembargos: usize = 0,
+
+    pub fn recordRole(self: *@This(), role: RpcTurnOutputRole) void {
+        switch (role) {
+            .response => self.responses += 1,
+            .forward => self.forwards += 1,
+            .disembargo => self.disembargos += 1,
+        }
+    }
+
+    pub fn recordPosition(self: *@This(), position: RpcTurnOutputPosition) void {
+        self.recordRole(position.role);
+    }
+
+    pub fn total(self: @This()) usize {
+        return self.responses + self.forwards + self.disembargos;
+    }
+
+    pub fn hasOutputs(self: @This()) bool {
+        return self.total() != 0;
+    }
+
+    pub fn hasResponses(self: @This()) bool {
+        return self.responses != 0;
+    }
+
+    pub fn hasForwards(self: @This()) bool {
+        return self.forwards != 0;
+    }
+
+    pub fn hasDisembargos(self: @This()) bool {
+        return self.disembargos != 0;
+    }
+};
+
 pub fn rpcTurnUnifiedOutputPosition(turn_plan: RpcTurnPlan, output_index: usize) ?RpcTurnOutputPosition {
     if (turn_plan.responseLocalIndex(output_index)) |local_index| return .{ .role = .response, .local_index = local_index };
     if (turn_plan.forwardLocalIndex(output_index)) |local_index| return .{ .role = .forward, .local_index = local_index };
