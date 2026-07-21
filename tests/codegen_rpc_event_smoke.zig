@@ -24351,6 +24351,54 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try response_source_stats.validateAgainstTurnPlan(mixed_response_plan);
     try std.testing.expectError(error.InvalidTransition, response_source_stats.recordOutputIndex(mixed_response_plan, 4));
     try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }).validateAgainstTurnPlan(mixed_response_plan));
+    var source_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer source_response_builder0.deinit();
+    const source_response0 = try generated.Message.initRootTyped(&source_response_builder0);
+    try cpz.rpc.initEmptyReturnMessage(source_response0, 501, true, true);
+    var source_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer source_response_builder1.deinit();
+    const source_response1 = try generated.Message.initRootTyped(&source_response_builder1);
+    try cpz.rpc.initEmptyReturnMessage(source_response1, 502, true, true);
+    var source_response_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer source_response_builder2.deinit();
+    const source_response2 = try generated.Message.initRootTyped(&source_response_builder2);
+    try cpz.rpc.initEmptyReturnMessage(source_response2, 503, true, true);
+    var source_response_builder3 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer source_response_builder3.deinit();
+    const source_response3 = try generated.Message.initRootTyped(&source_response_builder3);
+    try cpz.rpc.initEmptyReturnMessage(source_response3, 504, true, true);
+    const source_responses = [_]generated.Message.Builder{ source_response0, source_response1, source_response2, source_response3 };
+    const ResponseSourceSink = struct {
+        sent: usize = 0,
+        dispatch_answer_sum: u32 = 0,
+        handoff_answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), position: cpz.rpc.RpcTurnResponseSourcePosition, message: anytype) !void {
+            const answer_id = try (try message.get_return_()).get_answerId();
+            switch (position.role) {
+                .dispatch => context.dispatch_answer_sum += answer_id,
+                .handoff_return => context.handoff_answer_sum += answer_id,
+            }
+            context.sent += 1;
+        }
+    };
+    var response_source_sink: ResponseSourceSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcTurnResponsesToSourceTaggedSink(
+        mixed_response_plan,
+        source_responses[0..3],
+        &response_source_sink,
+        ResponseSourceSink.handle,
+    ));
+    const sent_response_source_stats = try cpz.rpc.sendRpcTurnResponsesToSourceTaggedSinkStats(
+        mixed_response_plan,
+        source_responses[0..],
+        &response_source_sink,
+        ResponseSourceSink.handle,
+    );
+    try std.testing.expectEqual(mixed_response_plan.responseSourceStats(), sent_response_source_stats);
+    try std.testing.expectEqual(@as(usize, 4), response_source_sink.sent);
+    try std.testing.expectEqual(@as(u32, 501 + 502), response_source_sink.dispatch_answer_sum);
+    try std.testing.expectEqual(@as(u32, 503 + 504), response_source_sink.handoff_answer_sum);
 
     var unified_sink: UnifiedSink = .{};
     try std.testing.expectEqual(

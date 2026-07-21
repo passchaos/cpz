@@ -1537,6 +1537,21 @@ pub fn rpcTurnUnifiedOutputPosition(turn_plan: RpcTurnPlan, output_index: usize)
     return null;
 }
 
+pub fn sendRpcTurnResponsesToSourceTaggedSink(turn_plan: RpcTurnPlan, response_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    _ = try sendRpcTurnResponsesToSourceTaggedSinkStats(turn_plan, response_messages, sink_context, sink_handler);
+}
+
+pub fn sendRpcTurnResponsesToSourceTaggedSinkStats(turn_plan: RpcTurnPlan, response_messages: anytype, sink_context: anytype, sink_handler: anytype) !RpcTurnResponseSourceStats {
+    try turn_plan.responseMessageRange().validateCapacity(response_messages.len);
+    var stats: RpcTurnResponseSourceStats = .{};
+    for (response_messages[0..turn_plan.responseMessages()], 0..) |message, output_index| {
+        const position = turn_plan.responseSourcePosition(output_index).?;
+        try sink_handler(sink_context, position, message);
+        stats.recordPosition(position);
+    }
+    return stats;
+}
+
 /// Send exactly the initialized prefix of a unified RPC turn output queue to an
 /// embedding transport/enqueue callback.
 ///
