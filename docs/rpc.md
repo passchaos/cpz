@@ -193,8 +193,9 @@ that a complete RPC runtime exists.
   produce compact action queues for Call batches or top-level Message batches,
   top-level-message previews/outputs that skip non-Call messages and can fill
   split response/forward queues, send compact unified output prefixes with
-  optional response/forward role tags, return lightweight output stats, or split
-  them back to role-specific sinks,
+  optional response/forward role tags, return lightweight output stats, record
+  stats from service-action output positions, or split them back to
+  role-specific sinks,
   and reuse existing plans when sending source-preserving plan/message pairs
   directly to caller sinks, optionally with response/forward role tags, grouped action queues,
   or source-preserving plans that can materialize or enqueue split/combined/
