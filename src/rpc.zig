@@ -312,20 +312,40 @@ pub const RpcTurnPlan = struct {
         return self.dispatch.response_initialized + self.handoff_returns.total();
     }
 
+    pub fn hasResponses(self: @This()) bool {
+        return self.responseMessages() != 0;
+    }
+
     pub fn forwardedMessages(self: @This()) usize {
         return self.dispatch.forward_required;
+    }
+
+    pub fn hasForwards(self: @This()) bool {
+        return self.forwardedMessages() != 0;
     }
 
     pub fn stateOnlyMessages(self: @This()) usize {
         return self.dispatch.state_applied;
     }
 
+    pub fn hasStateOnly(self: @This()) bool {
+        return self.stateOnlyMessages() != 0;
+    }
+
     pub fn disembargoMessages(self: @This()) usize {
         return self.pending_disembargos;
     }
 
+    pub fn hasDisembargos(self: @This()) bool {
+        return self.disembargoMessages() != 0;
+    }
+
     pub fn totalOutputMessages(self: @This()) usize {
         return self.responseMessages() + self.forwardedMessages() + self.disembargoMessages();
+    }
+
+    pub fn hasOutputs(self: @This()) bool {
+        return self.totalOutputMessages() != 0;
     }
 
     pub fn responseMessageRange(self: @This()) OutputRange {

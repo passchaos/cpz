@@ -10553,6 +10553,11 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(@as(usize, 1), turn_plan.stateOnlyMessages());
     try std.testing.expectEqual(@as(usize, 3), turn_plan.totalOutputMessages());
     try std.testing.expectEqual(@as(usize, 0), turn_plan.disembargoMessages());
+    try std.testing.expect(turn_plan.hasResponses());
+    try std.testing.expect(turn_plan.hasForwards());
+    try std.testing.expect(turn_plan.hasStateOnly());
+    try std.testing.expect(turn_plan.hasOutputs());
+    try std.testing.expect(!turn_plan.hasDisembargos());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, turn_plan.responseMessageRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, turn_plan.forwardedMessageRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 3, .end = 3 }, turn_plan.disembargoMessageRange());
@@ -16227,6 +16232,9 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(@as(usize, 0), handoff_turn_plan.forwardedMessages());
     try std.testing.expectEqual(@as(usize, 3), handoff_turn_plan.totalOutputMessages());
     try std.testing.expectEqual(@as(usize, 0), handoff_turn_plan.disembargoMessages());
+    try std.testing.expect(handoff_turn_plan.hasResponses());
+    try std.testing.expect(!handoff_turn_plan.hasForwards());
+    try std.testing.expect(handoff_turn_plan.hasOutputs());
     try handoff_turn_plan.validateOutputCapacity(3, 0);
     try handoff_turn_plan.validateDisembargoCapacity(0);
     try handoff_turn_plan.validateUnifiedOutputCapacity(3);
