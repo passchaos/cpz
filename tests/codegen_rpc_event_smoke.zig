@@ -78,6 +78,8 @@ test "rpc wire events decode generated message union tags and ids" {
         try cpz.rpc.initWireUnimplementedMessage(root);
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireMessageTag.unimplemented, event.tag());
+        try std.testing.expect(event.isUnimplemented());
+        try std.testing.expectEqual(cpz.rpc.WireMessageTag.unimplemented, event.unimplementedOriginalTag().?);
         try std.testing.expect(!event.isStateApplicable());
     }
     {
@@ -89,6 +91,8 @@ test "rpc wire events decode generated message union tags and ids" {
         try bootstrap.set_questionId(10);
         const event = try decode(&builder);
         try std.testing.expectEqual(cpz.rpc.WireMessageTag.unimplemented, event.tag());
+        try std.testing.expect(event.isUnimplemented());
+        try std.testing.expectEqual(cpz.rpc.WireMessageTag.bootstrap, event.unimplementedOriginalTag().?);
         try std.testing.expect(!event.isStateApplicable());
         try std.testing.expect(event.toStateEvent() == null);
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});

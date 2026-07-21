@@ -2298,7 +2298,7 @@ pub fn wireMessageTag(message: anytype) !WireMessageTag {
 }
 
 pub const WireEvent = union(WireMessageTag) {
-    unimplemented: void,
+    unimplemented: WireMessageTag,
     abort: ExceptionInfo,
     bootstrap: QuestionId,
     call: QuestionId,
@@ -2356,6 +2356,17 @@ pub const WireEvent = union(WireMessageTag) {
 
     pub fn isAbort(self: WireEvent) bool {
         return self == .abort;
+    }
+
+    pub fn isUnimplemented(self: WireEvent) bool {
+        return self == .unimplemented;
+    }
+
+    pub fn unimplementedOriginalTag(self: WireEvent) ?WireMessageTag {
+        return switch (self) {
+            .unimplemented => |original_tag| original_tag,
+            else => null,
+        };
     }
 
     pub fn abortException(self: WireEvent) ?ExceptionInfo {
@@ -12557,7 +12568,7 @@ pub fn eventFromWireUnimplementedMessage(message: anytype) !?WireEvent {
 
 pub fn eventFromWireMessage(message: anytype) !WireEvent {
     return switch (try wireMessageTag(message)) {
-        .unimplemented => .{ .unimplemented = {} },
+        .unimplemented => .{ .unimplemented = try wireMessageTag(try message.unimplemented()) },
         .abort => .{ .abort = try exceptionInfoFromWireException(try message.abort()) },
         .bootstrap => .{ .bootstrap = (try message.bootstrap()).questionId() },
         .call => .{ .call = (try message.call()).questionId() },
