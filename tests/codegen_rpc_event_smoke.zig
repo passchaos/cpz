@@ -15807,6 +15807,14 @@ test "rpc batch apply aggregates detailed disembargo results" {
     const disembargo_message = generated.Message.fromReader(try disembargo_reader.getRoot());
 
     const messages = [_]generated.Message{ accept_message, disembargo_message };
+    {
+        var simple_state = cpz.rpc.State.init(std.testing.allocator);
+        defer simple_state.deinit();
+        try simple_state.addImport(5);
+        try std.testing.expectEqual(@as(usize, 2), try simple_state.applyWireMessages(std.testing.allocator, messages[0..]));
+        try std.testing.expectEqual(@as(?bool, true), simple_state.acceptEmbargoReleased(69));
+    }
+
     const stats = try state.applyWireMessagesAlloc(std.testing.allocator, messages[0..]);
     try std.testing.expectEqual(cpz.rpc.WireMessageApplyStats{
         .state_applied = 1,
