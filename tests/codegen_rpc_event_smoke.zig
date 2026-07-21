@@ -15022,6 +15022,43 @@ test "rpc dense forwarding dispatcher fills unified output slots" {
     const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 281 }, try cpz.rpc.callTargetFromWireCall(forwarded));
     try std.testing.expectEqualStrings("unified dense forward", try (try (try forwarded.params()).content()).getText());
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 280 });
+    try queue_state.resolveImportTo(280, .{ .sender_hosted = 281 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 281 });
+    var queue_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_output_builder0.deinit();
+    const queue_output0 = try generated.Message.initRootTyped(&queue_output_builder0);
+    var queue_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_output_builder1.deinit();
+    const queue_output1 = try generated.Message.initRootTyped(&queue_output_builder1);
+    const queue_outputs = [_]generated.Message.Builder{ queue_output0, queue_output1 };
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_call_seen: u32 = 0;
+    const queue_stats = try cpz.rpc.dispatchWireMessagesForwardingUnifiedDenseToQueues(
+        &queue_state,
+        std.testing.allocator,
+        queue_outputs[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_call_seen,
+        CallHandler.handle,
+        &response_queue,
+        &forward_queue,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 0), queue_call_seen);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 45);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 280, .{ .imported_cap = 281 });
 }
 
 test "rpc dense forwarding dispatcher fills unified output slots and reports apply details" {

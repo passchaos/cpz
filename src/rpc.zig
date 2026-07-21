@@ -9575,6 +9575,42 @@ pub fn dispatchWireMessagesForwardingUnifiedDense(
     );
 }
 
+pub fn dispatchWireMessagesForwardingUnifiedDenseToQueues(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    response_queue: anytype,
+    forward_queue: anytype,
+) !WireDispatchStats {
+    const planned = try planWireMessagesDispatch(state, request_messages);
+    try planned.validateUnifiedDenseOutputBuilders(output_messages);
+    const response_messages = try planned.denseResponseRange().slice(output_messages);
+    const forward_messages = try planned.denseForwardRange().slice(output_messages);
+    const stats = try dispatchWireMessagesForwardingDense(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+    );
+    for (response_messages[0..stats.response_initialized]) |message| {
+        try response_queue.append(allocator, message);
+    }
+    for (forward_messages[0..stats.forward_required]) |message| {
+        try forward_queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesForwardingUnifiedDenseWithApplyHandler(
     state: *State,
     allocator: std.mem.Allocator,
