@@ -502,6 +502,22 @@ pub const StateHandoffStats = struct {
         return self.tracked() != 0;
     }
 
+    pub fn hasProvideRecipients(self: @This()) bool {
+        return self.provide_recipients != 0;
+    }
+
+    pub fn hasPendingAcceptEmbargos(self: @This()) bool {
+        return self.pending_accept_embargos != 0;
+    }
+
+    pub fn hasReadyAcceptProvisions(self: @This()) bool {
+        return self.ready_accept_provisions != 0;
+    }
+
+    pub fn hasJoinKeyParts(self: @This()) bool {
+        return self.join_key_parts != 0;
+    }
+
     pub fn ready(self: @This()) usize {
         return self.provide_recipients + self.ready_accept_provisions + self.join_key_parts;
     }

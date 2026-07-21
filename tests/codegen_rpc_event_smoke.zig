@@ -18641,6 +18641,10 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expect(state.handoffStats().hasTracked());
         try std.testing.expect(state.handoffStats().hasReady());
         try std.testing.expect(!state.handoffStats().hasBlocked());
+        try std.testing.expect(state.handoffStats().hasProvideRecipients());
+        try std.testing.expect(!state.handoffStats().hasPendingAcceptEmbargos());
+        try std.testing.expect(!state.handoffStats().hasReadyAcceptProvisions());
+        try std.testing.expect(!state.handoffStats().hasJoinKeyParts());
         {
             var response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
             defer response_builder.deinit();
@@ -19205,6 +19209,10 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expect(blocked_stats.hasTracked());
     try std.testing.expect(!blocked_stats.hasReady());
     try std.testing.expect(blocked_stats.hasBlocked());
+    try std.testing.expect(!blocked_stats.hasProvideRecipients());
+    try std.testing.expect(blocked_stats.hasPendingAcceptEmbargos());
+    try std.testing.expect(!blocked_stats.hasReadyAcceptProvisions());
+    try std.testing.expect(!blocked_stats.hasJoinKeyParts());
     {
         const pending_ids = try state.pendingAcceptEmbargoIdsAlloc(std.testing.allocator);
         defer std.testing.allocator.free(pending_ids);
@@ -20380,6 +20388,11 @@ test "rpc tracked handoff batches initialize ready return messages" {
         .joins = 1,
         .join_key_parts = 1,
     }, state.handoffStats());
+    const ready_stats = state.handoffStats();
+    try std.testing.expect(ready_stats.hasProvideRecipients());
+    try std.testing.expect(!ready_stats.hasPendingAcceptEmbargos());
+    try std.testing.expect(ready_stats.hasReadyAcceptProvisions());
+    try std.testing.expect(ready_stats.hasJoinKeyParts());
     var ready_ids = try state.readyHandoffIdsAlloc(std.testing.allocator);
     defer ready_ids.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 3), ready_ids.total());
