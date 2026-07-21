@@ -85,7 +85,7 @@ that a complete RPC runtime exists.
   those follow-up Returns. Full embargo queue handling remains future work. Disembargo
   batches can be initialized and handed directly to an embedding transport/enqueue
   callback, pending Accept embargos can be queried, filtered by embargo token,
-  snapshotted, or selectively emitted to a sink for queueing, and their targets are
+  snapshotted with non-empty/matching helpers, or selectively emitted to a sink for queueing, and their targets are
   validated against tracked imports/answers before a full queue exists.
   ThirdPartyAnswer wire readers/builders expose completion pointer capability
   usage, can reconstitute that usage as `AnyPointerUsage`, and resolve existing

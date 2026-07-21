@@ -1142,6 +1142,10 @@ pub const DisembargoApplyInfo = struct {
 pub const PendingAcceptEmbargo = struct {
     question_id: QuestionId,
     embargo: []const u8,
+
+    pub fn matchesEmbargo(self: @This(), value: []const u8) bool {
+        return std.mem.eql(u8, self.embargo, value);
+    }
 };
 
 pub const PendingAcceptEmbargos = struct {
@@ -1155,6 +1159,10 @@ pub const PendingAcceptEmbargos = struct {
 
     pub fn len(self: @This()) usize {
         return self.items.len;
+    }
+
+    pub fn hasItems(self: @This()) bool {
+        return self.items.len != 0;
     }
 };
 
