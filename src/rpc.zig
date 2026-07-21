@@ -1287,6 +1287,10 @@ pub const RpcTurnResponseSourceStats = struct {
         };
     }
 
+    pub fn fromDispatchStats(dispatch: WireDispatchStats) @This() {
+        return .{ .dispatch = dispatch.response_initialized };
+    }
+
     pub fn recordRole(self: *@This(), role: RpcTurnResponseSourceRole) void {
         switch (role) {
             .dispatch => self.dispatch += 1,
@@ -1336,6 +1340,14 @@ pub const RpcTurnResponseSourceStats = struct {
 
     pub fn validateAgainstStats(self: @This(), expected: RpcTurnResponseSourceStats) Error!void {
         if (!self.matchesStats(expected)) return error.InvalidTransition;
+    }
+
+    pub fn matchesDispatchStats(self: @This(), dispatch: WireDispatchStats) bool {
+        return self.matchesStats(@This().fromDispatchStats(dispatch));
+    }
+
+    pub fn validateAgainstDispatchStats(self: @This(), dispatch: WireDispatchStats) Error!void {
+        try self.validateAgainstStats(@This().fromDispatchStats(dispatch));
     }
 
     pub fn matchesTurnPlan(self: @This(), turn_plan: RpcTurnPlan) bool {
