@@ -3959,6 +3959,50 @@ pub fn appendRpcServiceActionUnifiedOutputPlansToQueues(
     return RpcOutputStats.fromServiceActionStats(stats);
 }
 
+pub fn appendRpcServiceActionUnifiedOutputPlansToTaggedQueue(
+    allocator: std.mem.Allocator,
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    queue: anytype,
+) !RpcOutputStats {
+    if (plans.len != stats.actions()) return error.InvalidTransition;
+    try stats.validateActionCapacity(output_messages.len);
+
+    var response_index = stats.outputResponseRange().start;
+    var forward_index = stats.outputForwardRange().start;
+    var response_local_index: usize = 0;
+    var forward_local_index: usize = 0;
+    for (plans) |plan| switch (plan.action) {
+        .dispatch => {
+            const position: TrackedCallServiceActionOutputPosition = .{ .role = .response, .local_index = response_local_index };
+            try queue.append(allocator, .{ .plan = plan, .position = position, .message = output_messages[response_index] });
+            response_index += 1;
+            response_local_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .unimplemented => {
+            const position: TrackedCallServiceActionOutputPosition = .{ .role = .response, .local_index = response_local_index };
+            try queue.append(allocator, .{ .plan = plan, .position = position, .message = output_messages[response_index] });
+            response_index += 1;
+            response_local_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .forward => {
+            const position: TrackedCallServiceActionOutputPosition = .{ .role = .forward, .local_index = forward_local_index };
+            try queue.append(allocator, .{ .plan = plan, .position = position, .message = output_messages[forward_index] });
+            forward_index += 1;
+            forward_local_index += 1;
+        },
+        else => {},
+    };
+    return RpcOutputStats.fromServiceActionStats(stats);
+}
+
 pub fn sendRpcServiceActionUnifiedOutputsToTaggedSink(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
     _ = try sendRpcServiceActionUnifiedOutputsToTaggedSinkStats(stats, output_messages, sink_context, sink_handler);
 }

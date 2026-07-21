@@ -8452,6 +8452,11 @@ test "rpc service action stats aggregate wire and tracked calls" {
         plan: cpz.rpc.TrackedCallServiceActionPlan,
         message: generated.Message.Builder,
     };
+    const PlanTaggedQueueItem = struct {
+        plan: cpz.rpc.TrackedCallServiceActionPlan,
+        position: cpz.rpc.TrackedCallServiceActionOutputPosition,
+        message: generated.Message.Builder,
+    };
     const Seed = struct {
         fn state() !cpz.rpc.State {
             var seeded = cpz.rpc.State.init(std.testing.allocator);
@@ -8489,6 +8494,22 @@ test "rpc service action stats aggregate wire and tracked calls" {
             try std.testing.expect(forward_queue[0].plan.action.isForward());
             try std.testing.expectEqual(expected_forward_source, forward_queue[0].plan.source_index);
             try std.testing.expectEqual(@as(u32, 73), try (try forward_queue[0].message.get_call()).get_questionId());
+        }
+
+        fn expectTaggedPlanQueue(queue: []const PlanTaggedQueueItem, expected_sources: [3]usize) !void {
+            try std.testing.expectEqual(@as(usize, 3), queue.len);
+            try std.testing.expect(queue[0].plan.action.isDispatch());
+            try std.testing.expectEqual(expected_sources[0], queue[0].plan.source_index);
+            try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, queue[0].position);
+            try std.testing.expectEqual(@as(u32, 71), try (try queue[0].message.get_return_()).get_answerId());
+            try std.testing.expect(queue[1].plan.action.isUnimplemented());
+            try std.testing.expectEqual(expected_sources[1], queue[1].plan.source_index);
+            try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, queue[1].position);
+            try std.testing.expectEqual(@as(u32, 72), try (try queue[1].message.get_return_()).get_answerId());
+            try std.testing.expect(queue[2].plan.action.isForward());
+            try std.testing.expectEqual(expected_sources[2], queue[2].plan.source_index);
+            try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, queue[2].position);
+            try std.testing.expectEqual(@as(u32, 73), try (try queue[2].message.get_call()).get_questionId());
         }
     };
 
@@ -10122,6 +10143,12 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1 + 2), tagged_plan_sink.source_sum);
     try std.testing.expectEqual(@as(usize, 0 + 1), tagged_plan_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), tagged_plan_sink.forward_local_sum);
+    var tagged_plan_queue = std.ArrayList(PlanTaggedQueueItem).empty;
+    defer tagged_plan_queue.deinit(std.testing.allocator);
+    const tagged_plan_queue_stats = try cpz.rpc.appendRpcServiceActionUnifiedOutputPlansToTaggedQueue(std.testing.allocator, wire_stats, wire_plans[0..], unified_outputs[0..], &tagged_plan_queue);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, tagged_plan_queue_stats);
+    try tagged_plan_queue_stats.validateAgainstServiceActionStats(wire_stats);
+    try QueueChecks.expectTaggedPlanQueue(tagged_plan_queue.items, .{ 0, 1, 2 });
     var tagged_plan_stats_sink: TaggedPlanSink = .{};
     const tagged_plan_output_stats = try cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSinkStats(wire_stats, wire_plans[0..], unified_outputs[0..], &tagged_plan_stats_sink, TaggedPlanSink.handle);
     try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, tagged_plan_output_stats);
@@ -10129,6 +10156,7 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 3), tagged_plan_stats_sink.sent);
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSink(wire_stats, wire_plans[0..2], unified_outputs[0..], &tagged_plan_sink, TaggedPlanSink.handle));
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcServiceActionUnifiedOutputPlansToTaggedSink(wire_stats, overlong_wire_plans[0..], unified_outputs[0..], &tagged_plan_sink, TaggedPlanSink.handle));
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcServiceActionUnifiedOutputPlansToTaggedQueue(std.testing.allocator, wire_stats, wire_plans[0..2], unified_outputs[0..], &tagged_plan_queue));
 
     var direct_tagged_plan_sink_state = cpz.rpc.State.init(std.testing.allocator);
     defer direct_tagged_plan_sink_state.deinit();

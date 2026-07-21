@@ -203,7 +203,7 @@ that a complete RPC runtime exists.
   return and validate output stats from plain or plan-preserving
   service-action output sends against the selected service-action aggregate,
   and reuse existing plans when appending or sending source-preserving
-  plan/message pairs to unified or role-specific caller queues or sinks, including one-step
+  plan/message pairs to unified, role-tagged, or role-specific caller queues or sinks, including one-step
   init/dispatch wrappers and optional response/forward role tags, grouped action queues,
   or source-preserving plans that can materialize or enqueue split/combined/
   unified dispatch responses, forwarded Calls, and unimplemented Return exceptions for
