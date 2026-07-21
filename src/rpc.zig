@@ -1764,6 +1764,22 @@ pub const TrackedCallServiceActionStats = struct {
     pub fn validateActionCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.actions()) return error.InvalidTransition;
     }
+
+    pub fn unifiedOutputPosition(self: @This(), output_index: usize) ?TrackedCallServiceActionOutputPosition {
+        return trackedCallServiceActionUnifiedOutputPosition(self, output_index);
+    }
+
+    pub fn responseLocalIndex(self: @This(), output_index: usize) ?usize {
+        const position = self.unifiedOutputPosition(output_index) orelse return null;
+        if (position.role != .response) return null;
+        return position.local_index;
+    }
+
+    pub fn forwardLocalIndex(self: @This(), output_index: usize) ?usize {
+        const position = self.unifiedOutputPosition(output_index) orelse return null;
+        if (position.role != .forward) return null;
+        return position.local_index;
+    }
 };
 
 pub const TrackedCallServiceActionOutputRole = enum {

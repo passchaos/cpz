@@ -8675,6 +8675,11 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 1 }, cpz.rpc.trackedCallServiceActionUnifiedOutputPosition(message_stats, 1).?);
     try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .forward, .local_index = 0 }, cpz.rpc.trackedCallServiceActionUnifiedOutputPosition(message_stats, 2).?);
     try std.testing.expect(cpz.rpc.trackedCallServiceActionUnifiedOutputPosition(message_stats, 3) == null);
+    try std.testing.expectEqual(cpz.rpc.TrackedCallServiceActionOutputPosition{ .role = .response, .local_index = 0 }, message_stats.unifiedOutputPosition(0).?);
+    try std.testing.expectEqual(@as(?usize, 1), message_stats.responseLocalIndex(1));
+    try std.testing.expectEqual(@as(?usize, null), message_stats.responseLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, 0), message_stats.forwardLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, null), message_stats.forwardLocalIndex(3));
     const MessageTaggedSink = struct {
         sent: usize = 0,
         response_local_sum: usize = 0,
