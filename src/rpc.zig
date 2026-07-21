@@ -3782,6 +3782,12 @@ pub fn sendRpcServiceActionUnifiedOutputsToSinkStats(stats: TrackedCallServiceAc
     return RpcOutputStats.fromServiceActionStats(stats);
 }
 
+pub fn appendRpcServiceActionUnifiedOutputsToQueue(allocator: std.mem.Allocator, stats: TrackedCallServiceActionStats, output_messages: anytype, queue: anytype) !RpcOutputStats {
+    try stats.validateActionCapacity(output_messages.len);
+    for (output_messages[0..stats.actions()]) |message| try queue.append(allocator, message);
+    return RpcOutputStats.fromServiceActionStats(stats);
+}
+
 pub fn sendRpcServiceActionUnifiedOutputsToTaggedSink(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
     _ = try sendRpcServiceActionUnifiedOutputsToTaggedSinkStats(stats, output_messages, sink_context, sink_handler);
 }
