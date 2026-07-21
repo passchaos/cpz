@@ -23518,6 +23518,7 @@ test "rpc third-party answer wire events resolve answers" {
     try std.testing.expectEqual(@as(u32, 24), info.answer_id);
     try std.testing.expect(info.has_completion);
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, info.completion.?);
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, info.completionUsage().?);
 
     try std.testing.expect(event.toStateEvent() == null);
     try state.applyWireEvent(event);
@@ -23540,6 +23541,7 @@ test "rpc third-party answer info helpers write completions" {
     try std.testing.expectEqual(@as(u32, 26), info.answer_id);
     try std.testing.expect(info.has_completion);
     try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, info.completion.?);
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, info.completionUsage().?);
 }
 
 test "rpc resolve wire events mark exports without projecting to Event.resolve" {

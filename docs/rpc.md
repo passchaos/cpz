@@ -85,8 +85,9 @@ that a complete RPC runtime exists.
   snapshotted, or selectively emitted to a sink for queueing, and their targets are
   validated against tracked imports/answers before a full queue exists.
   ThirdPartyAnswer wire readers/builders expose completion pointer capability
-  usage and resolve existing answers by official `AnswerId` while remaining
-  distinct from ordinary Return events.
+  usage, can reconstitute that usage as `AnyPointerUsage`, and resolve existing
+  answers by official `AnswerId` while remaining distinct from ordinary Return
+  events.
   Completed question IDs can be queried for cleanup readiness, reused, or
   explicitly forgotten individually or in batches once both Finish and
   Return-like answer resolution have been observed. Question/answer stats

@@ -612,6 +612,10 @@ pub const ThirdPartyAnswerInfo = struct {
     answer_id: AnswerId,
     has_completion: bool,
     completion: ?AnyPointerUsage = null,
+
+    pub fn completionUsage(self: @This()) ?AnyPointerUsage {
+        return if (self.has_completion) self.completion else null;
+    }
 };
 
 pub const AcceptTracker = struct {
