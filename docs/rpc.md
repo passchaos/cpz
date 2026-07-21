@@ -241,7 +241,8 @@ that a complete RPC runtime exists.
   state-only counts plus dense output slot requirements, empty/non-empty
   predicates, dense response/forward output role-local indexes, and output
   stats accumulated from those dense indexes before builders are allocated, with turn-level plans that expose work/output-presence predicates,
-  distinguish dispatch-initialized responses from ready handoff Returns, and
+  distinguish dispatch-initialized responses from ready handoff Returns with
+  response-source ranges and local indexes, and
   combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
   or unified output queues, including helpers for validating builders and
