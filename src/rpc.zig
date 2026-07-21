@@ -833,10 +833,45 @@ pub const StateHandoffReturnStats = struct {
         return self.joinRange().localIndex(output_index);
     }
 
+    pub fn unifiedOutputPosition(self: @This(), output_index: usize) ?HandoffReturnOutputPosition {
+        return handoffReturnUnifiedOutputPosition(self, output_index);
+    }
+
     pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.total()) return error.InvalidTransition;
     }
 };
+
+pub const HandoffReturnOutputRole = enum {
+    provide,
+    accept,
+    join,
+};
+
+pub const HandoffReturnOutputPosition = struct {
+    role: HandoffReturnOutputRole,
+    local_index: usize,
+
+    pub fn isProvide(self: @This()) bool {
+        return self.role == .provide;
+    }
+
+    pub fn isAccept(self: @This()) bool {
+        return self.role == .accept;
+    }
+
+    pub fn isJoin(self: @This()) bool {
+        return self.role == .join;
+    }
+};
+
+pub fn handoffReturnUnifiedOutputPosition(stats: StateHandoffReturnStats, output_index: usize) ?HandoffReturnOutputPosition {
+    if (stats.provideLocalIndex(output_index)) |local_index| return .{ .role = .provide, .local_index = local_index };
+    if (stats.acceptLocalIndex(output_index)) |local_index| return .{ .role = .accept, .local_index = local_index };
+    if (stats.joinLocalIndex(output_index)) |local_index| return .{ .role = .join, .local_index = local_index };
+
+    return null;
+}
 
 pub const RpcTurnPlan = struct {
     dispatch: WireDispatchStats = .{},
