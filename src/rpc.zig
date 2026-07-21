@@ -150,8 +150,43 @@ pub const ReturnOutcome = union(enum) {
         return self == .exception;
     }
 
+    pub fn isCanceled(self: @This()) bool {
+        return self == .canceled;
+    }
+
+    pub fn isResultsSentElsewhere(self: @This()) bool {
+        return self == .results_sent_elsewhere;
+    }
+
+    pub fn isTakeFromOtherQuestion(self: @This()) bool {
+        return self == .take_from_other_question;
+    }
+
+    pub fn isAwaitFromThirdParty(self: @This()) bool {
+        return self == .await_from_third_party;
+    }
+
     pub fn isNonResult(self: @This()) bool {
         return !self.isResults();
+    }
+
+    pub fn takeFromOtherQuestionId(self: @This()) ?QuestionId {
+        return switch (self) {
+            .take_from_other_question => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn awaitFromThirdPartyUsage(self: @This()) ?AnyPointerUsage {
+        return switch (self) {
+            .await_from_third_party => |usage| usage,
+            else => null,
+        };
+    }
+
+    pub fn awaitsThirdPartyCapability(self: @This(), capability_index: u32) bool {
+        const usage = self.awaitFromThirdPartyUsage() orelse return false;
+        return usage.matchesCapability(capability_index);
     }
 };
 

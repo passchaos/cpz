@@ -4496,6 +4496,7 @@ test "rpc return outcomes without result payloads resolve answers" {
         const message = generated.Message.fromReader(try reader.getRoot());
         const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
         try std.testing.expectEqual(cpz.rpc.ReturnOutcome.canceled, outcome);
+        try std.testing.expect(outcome.isCanceled());
         try std.testing.expect(outcome.isNonResult());
 
         var state = cpz.rpc.State.init(std.testing.allocator);
@@ -4516,6 +4517,8 @@ test "rpc return outcomes without result payloads resolve answers" {
         const message = generated.Message.fromReader(try reader.getRoot());
         const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
         try std.testing.expectEqual(cpz.rpc.ReturnOutcome.results_sent_elsewhere, outcome);
+        try std.testing.expect(outcome.isResultsSentElsewhere());
+        try std.testing.expect(outcome.takeFromOtherQuestionId() == null);
         try std.testing.expect(outcome.isNonResult());
 
         var state = cpz.rpc.State.init(std.testing.allocator);
@@ -4534,10 +4537,11 @@ test "rpc return outcomes without result payloads resolve answers" {
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
-        try std.testing.expectEqual(
-            cpz.rpc.ReturnOutcome{ .take_from_other_question = 83 },
-            try cpz.rpc.returnOutcomeFromWireReturn(try message.return_()),
-        );
+        const outcome = try cpz.rpc.returnOutcomeFromWireReturn(try message.return_());
+        try std.testing.expectEqual(cpz.rpc.ReturnOutcome{ .take_from_other_question = 83 }, outcome);
+        try std.testing.expect(outcome.isTakeFromOtherQuestion());
+        try std.testing.expectEqual(@as(?u32, 83), outcome.takeFromOtherQuestionId());
+        try std.testing.expect(!outcome.isAwaitFromThirdParty());
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
@@ -4564,6 +4568,10 @@ test "rpc return outcomes without result payloads resolve answers" {
         };
         try std.testing.expectEqual(@as(?u32, 4), usage.capability);
         try std.testing.expectEqual(@as(usize, 5), usage.max_capability_count);
+        try std.testing.expect(outcome.isAwaitFromThirdParty());
+        try std.testing.expectEqual(usage, outcome.awaitFromThirdPartyUsage().?);
+        try std.testing.expect(outcome.awaitsThirdPartyCapability(4));
+        try std.testing.expect(!outcome.awaitsThirdPartyCapability(3));
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
