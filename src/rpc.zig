@@ -1330,13 +1330,21 @@ pub const RpcTurnResponseSourceStats = struct {
         return self.handoff_returns != 0;
     }
 
-    pub fn matchesTurnPlan(self: @This(), turn_plan: RpcTurnPlan) bool {
-        const expected = @This().fromTurnPlan(turn_plan);
+    pub fn matchesStats(self: @This(), expected: RpcTurnResponseSourceStats) bool {
         return self.dispatch == expected.dispatch and self.handoff_returns == expected.handoff_returns;
     }
 
+    pub fn validateAgainstStats(self: @This(), expected: RpcTurnResponseSourceStats) Error!void {
+        if (!self.matchesStats(expected)) return error.InvalidTransition;
+    }
+
+    pub fn matchesTurnPlan(self: @This(), turn_plan: RpcTurnPlan) bool {
+        const expected = @This().fromTurnPlan(turn_plan);
+        return self.matchesStats(expected);
+    }
+
     pub fn validateAgainstTurnPlan(self: @This(), turn_plan: RpcTurnPlan) Error!void {
-        if (!self.matchesTurnPlan(turn_plan)) return error.InvalidTransition;
+        try self.validateAgainstStats(@This().fromTurnPlan(turn_plan));
     }
 };
 

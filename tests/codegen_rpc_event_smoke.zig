@@ -24337,6 +24337,9 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expect(response_source_stats.hasHandoffReturns());
     try std.testing.expect((cpz.rpc.RpcTurnResponseSourceStats{}).isEmpty());
     try std.testing.expect(!(cpz.rpc.RpcTurnResponseSourceStats{}).hasResponses());
+    try std.testing.expect(response_source_stats.matchesStats(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2, .handoff_returns = 2 }));
+    try response_source_stats.validateAgainstStats(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2, .handoff_returns = 2 });
+    try std.testing.expectError(error.InvalidTransition, response_source_stats.validateAgainstStats(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }));
     try std.testing.expect(response_source_stats.matchesTurnPlan(mixed_response_plan));
     try response_source_stats.validateAgainstTurnPlan(mixed_response_plan);
     try std.testing.expectError(error.InvalidTransition, response_source_stats.recordOutputIndex(mixed_response_plan, 4));
