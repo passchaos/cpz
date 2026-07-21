@@ -19980,6 +19980,35 @@ test "rpc turn dispatcher filters pending accept disembargos into unified output
     const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
     try std.testing.expectEqualStrings("filter-unified-157", info.context.accept);
+
+    var queue_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder.deinit();
+    const queue_output = try generated.Message.initRootTyped(&queue_builder);
+    const queue_outputs = [_]generated.Message.Builder{queue_output};
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    const queued = try cpz.rpc.dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToQueueFromHandlers(
+        &state,
+        std.testing.allocator,
+        queue_outputs[0..],
+        request_messages,
+        {},
+        BootstrapHandler.handle,
+        {},
+        CallHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "filter-unified-156",
+        &queue,
+    );
+    try std.testing.expectEqual(@as(usize, 1), queued.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try expectQueuedDisembargoBuilder(queue.items[0], .{ .imported_cap = 5 }, "filter-unified-156");
 }
 
 test "rpc turn dispatcher sends pending accept disembargos with dense outputs" {
@@ -23529,6 +23558,35 @@ test "rpc method turn dispatcher filters pending accept disembargos into unified
     const info = try cpz.rpc.disembargoInfoFromWireDisembargo(try generated.Message.fromReader(try reader.getRoot()).disembargo());
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
     try std.testing.expectEqualStrings("method-filter-unified-159", info.context.accept);
+
+    var queue_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_builder.deinit();
+    const queue_output = try generated.Message.initRootTyped(&queue_builder);
+    const queue_outputs = [_]generated.Message.Builder{queue_output};
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    const queued = try cpz.rpc.dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosForEmbargoToQueueFromHandlers(
+        &state,
+        std.testing.allocator,
+        queue_outputs[0..],
+        request_messages,
+        {},
+        BootstrapHandler.handle,
+        &context,
+        entries,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        {},
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        "method-filter-unified-158",
+        &queue,
+    );
+    try std.testing.expectEqual(@as(usize, 1), queued.disembargoMessages());
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try expectQueuedDisembargoBuilder(queue.items[0], .{ .imported_cap = 5 }, "method-filter-unified-158");
 }
 
 test "rpc method turn dispatcher fills unified outputs with pending disembargos and apply details" {
