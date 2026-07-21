@@ -217,7 +217,7 @@ that a complete RPC runtime exists.
   select among multiple handlers, and
   can be used by the single-message dispatcher. A
   single-message dispatcher can route generated Bootstrap/Call readers through
-  those callbacks, append initialized single-message responses to caller-owned queues, report whether a response was initialized, a resolved call
+  those callbacks, append initialized single-message responses or forwarded Calls to caller-owned queues, report whether a response was initialized, a resolved call
   target needs forwarding, or state was applied via outcome predicates, and apply other supported
   top-level wire messages to state; single-message queue outcomes can also
   expose apply details while appending only initialized responses; apply-handler variants, including
@@ -274,7 +274,7 @@ that a complete RPC runtime exists.
   rewriting the target to an explicit or remembered resolved destination.
   Dispatch variants that accept caller-provided forward-message builders,
   including batch dispatch helpers, can initialize outgoing Calls when they
-  return `forward_required`; companion sink/queue dispatch variants, including
+  return `forward_required`; companion single-message and batch sink/queue dispatch variants, including
   apply-detail and method-table forwarding batches, can immediately hand or append initialized forwarded Calls, or both ordinary responses and forwarded
   Calls, to embedding transport/enqueue callbacks. Dense batch variants can
   consume compact response/forward output queues instead of one output slot per

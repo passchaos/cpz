@@ -11879,6 +11879,41 @@ test "rpc single-message dispatcher reports resolved call forwarding" {
         cpz.rpc.CallTarget{ .imported_cap = 161 },
         (try state.wireCallTargetTransitiveForwardTarget(try request.call())).?,
     );
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 160 });
+    try queue_state.resolveImportTo(160, .{ .sender_hosted = 161 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 161 });
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    var queue_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_forward_builder.deinit();
+    const queue_forward = try generated.Message.initRootTyped(&queue_forward_builder);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_call_seen: u32 = 0;
+    const queue_outcome = try cpz.rpc.dispatchWireMessageForwardingToQueueOutcome(
+        &queue_state,
+        std.testing.allocator,
+        queue_response,
+        queue_forward,
+        request,
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_call_seen,
+        CallHandler.handle,
+        &forward_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutcome.forward_required, queue_outcome);
+    try std.testing.expectEqual(@as(u32, 0), queue_bootstrap_seen);
+    try std.testing.expectEqual(@as(u32, 0), queue_call_seen);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 160, .{ .imported_cap = 161 });
+    try std.testing.expectEqual(@as(?cpz.rpc.QuestionState, .open), queue_state.questionState(160));
+    try std.testing.expectEqual(@as(usize, 1), queue_state.callInfoCount());
 }
 
 test "rpc dispatch planner previews dense output slots without mutating state" {
