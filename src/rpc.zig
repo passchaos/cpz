@@ -3799,6 +3799,50 @@ pub fn appendRpcServiceActionUnifiedOutputsToQueue(allocator: std.mem.Allocator,
     return RpcOutputStats.fromServiceActionStats(stats);
 }
 
+/// Append source-preserving service-action outputs to an embedder-owned queue.
+///
+/// The compact unified output buffer is ordered as responses first, then
+/// forwarded Calls.  The original service-action plans can be in source order,
+/// so this helper walks the plans by action kind and pairs each output builder
+/// with the plan that produced it.  Queue element types should provide
+/// `plan` and `message` fields, for example:
+/// `struct { plan: TrackedCallServiceActionPlan, message: Message.Builder }`.
+pub fn appendRpcServiceActionUnifiedOutputPlansToQueue(
+    allocator: std.mem.Allocator,
+    stats: TrackedCallServiceActionStats,
+    plans: []const TrackedCallServiceActionPlan,
+    output_messages: anytype,
+    queue: anytype,
+) !RpcOutputStats {
+    if (plans.len != stats.actions()) return error.InvalidTransition;
+    try stats.validateActionCapacity(output_messages.len);
+
+    var response_index = stats.outputResponseRange().start;
+    var forward_index = stats.outputForwardRange().start;
+    for (plans) |plan| switch (plan.action) {
+        .dispatch => {
+            try queue.append(allocator, .{ .plan = plan, .message = output_messages[response_index] });
+            response_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .unimplemented => {
+            try queue.append(allocator, .{ .plan = plan, .message = output_messages[response_index] });
+            response_index += 1;
+        },
+        else => {},
+    };
+    for (plans) |plan| switch (plan.action) {
+        .forward => {
+            try queue.append(allocator, .{ .plan = plan, .message = output_messages[forward_index] });
+            forward_index += 1;
+        },
+        else => {},
+    };
+    return RpcOutputStats.fromServiceActionStats(stats);
+}
+
 pub fn sendRpcServiceActionUnifiedOutputsToTaggedSink(stats: TrackedCallServiceActionStats, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
     _ = try sendRpcServiceActionUnifiedOutputsToTaggedSinkStats(stats, output_messages, sink_context, sink_handler);
 }
