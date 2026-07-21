@@ -21229,6 +21229,17 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expect(join_return_position.isJoin());
     try std.testing.expect(!join_return_position.isProvide());
     try std.testing.expect(ready_return_stats.unifiedOutputPosition(3) == null);
+    var handoff_position_stats: cpz.rpc.StateHandoffReturnStats = .{};
+    handoff_position_stats.recordPosition(provide_return_position);
+    handoff_position_stats.recordPosition(accept_return_position);
+    handoff_position_stats.recordPosition(join_return_position);
+    try std.testing.expectEqual(ready_return_stats, handoff_position_stats);
+    var handoff_index_stats: cpz.rpc.StateHandoffReturnStats = .{};
+    try handoff_index_stats.recordOutputIndex(ready_return_stats, 0);
+    try handoff_index_stats.recordOutputIndex(ready_return_stats, 1);
+    try handoff_index_stats.recordOutputIndex(ready_return_stats, 2);
+    try std.testing.expectEqual(ready_return_stats, handoff_index_stats);
+    try std.testing.expectError(error.InvalidTransition, handoff_index_stats.recordOutputIndex(ready_return_stats, 3));
     const TaggedHandoffSink = struct {
         sent: usize = 0,
         provide_answer_sum: u32 = 0,

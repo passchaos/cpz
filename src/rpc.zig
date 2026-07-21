@@ -795,6 +795,19 @@ pub const StateHandoffReturnStats = struct {
         }
     }
 
+    pub fn recordPosition(self: *@This(), position: HandoffReturnOutputPosition) void {
+        switch (position.role) {
+            .provide => self.provides += 1,
+            .accept => self.accepts += 1,
+            .join => self.joins += 1,
+        }
+    }
+
+    pub fn recordOutputIndex(self: *@This(), source_stats: StateHandoffReturnStats, output_index: usize) Error!void {
+        const position = source_stats.unifiedOutputPosition(output_index) orelse return error.InvalidTransition;
+        self.recordPosition(position);
+    }
+
     pub fn total(self: @This()) usize {
         return self.provides + self.accepts + self.joins;
     }
