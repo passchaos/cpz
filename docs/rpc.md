@@ -303,7 +303,8 @@ that a complete RPC runtime exists.
   and key-part pointer usage; callers can query/count the tracked key-part usage
   and initialize a tracked Join result Return only when that key part is present.
   Handoff aggregate stats expose predicates for tracked, ready, and blocked
-  work.
+  work. Provide/Accept/Join info helpers can reconstitute their recorded pointer
+  usage as `AnyPointerUsage` values.
   Provide/Accept/Join handoff completions can also initialize single or batched
   Return messages with readiness gates preserved, derive single
   Provide/Accept/Join result exports through application handlers, or hand those

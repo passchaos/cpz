@@ -569,6 +569,13 @@ pub const AcceptInfo = struct {
     provision_max_capability_count: usize,
     provision_capability: ?u32 = null,
     embargo: ?[]const u8,
+
+    pub fn provisionUsage(self: @This()) ?AnyPointerUsage {
+        return if (self.has_provision) .{
+            .max_capability_count = self.provision_max_capability_count,
+            .capability = self.provision_capability,
+        } else null;
+    }
 };
 
 pub const ProvideInfo = struct {
@@ -577,6 +584,13 @@ pub const ProvideInfo = struct {
     has_recipient: bool,
     recipient_max_capability_count: usize,
     recipient_capability: ?u32 = null,
+
+    pub fn recipientUsage(self: @This()) ?AnyPointerUsage {
+        return if (self.has_recipient) .{
+            .max_capability_count = self.recipient_max_capability_count,
+            .capability = self.recipient_capability,
+        } else null;
+    }
 };
 
 pub const JoinInfo = struct {
@@ -585,6 +599,13 @@ pub const JoinInfo = struct {
     has_key_part: bool,
     key_part_max_capability_count: usize,
     key_part_capability: ?u32 = null,
+
+    pub fn keyPartUsage(self: @This()) ?AnyPointerUsage {
+        return if (self.has_key_part) .{
+            .max_capability_count = self.key_part_max_capability_count,
+            .capability = self.key_part_capability,
+        } else null;
+    }
 };
 
 pub const ThirdPartyAnswerInfo = struct {

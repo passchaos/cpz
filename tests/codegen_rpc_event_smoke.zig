@@ -14679,6 +14679,7 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expect(info.has_recipient);
         try std.testing.expectEqual(@as(usize, 3), info.recipient_max_capability_count);
         try std.testing.expectEqual(@as(?u32, 2), info.recipient_capability);
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, info.recipientUsage().?);
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
         try std.testing.expectError(error.InvalidTransition, state.applyWireMessage(std.testing.allocator, message));
@@ -14774,6 +14775,7 @@ test "rpc top-level provide and join messages validate targets" {
         try std.testing.expect(info.has_key_part);
         try std.testing.expectEqual(@as(usize, 5), info.key_part_max_capability_count);
         try std.testing.expectEqual(@as(?u32, 4), info.key_part_capability);
+        try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, info.keyPartUsage().?);
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
         try std.testing.expectError(error.QuestionNotOpen, state.applyWireMessage(std.testing.allocator, message));
@@ -15138,6 +15140,7 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expect(info.has_provision);
     try std.testing.expectEqual(@as(usize, 3), info.provision_max_capability_count);
     try std.testing.expectEqual(@as(?u32, 2), info.provision_capability);
+    try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, info.provisionUsage().?);
     try std.testing.expectEqualStrings("embargo-64", info.embargo.?);
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();
