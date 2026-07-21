@@ -114,6 +114,18 @@ pub const WireDispatchOutcome = enum {
     /// transport/runtime layer should forward the original call instead.
     forward_required,
     state_applied,
+
+    pub fn isResponseInitialized(self: @This()) bool {
+        return self == .response_initialized;
+    }
+
+    pub fn isForwardRequired(self: @This()) bool {
+        return self == .forward_required;
+    }
+
+    pub fn isStateApplied(self: @This()) bool {
+        return self == .state_applied;
+    }
 };
 
 pub const OutputRange = struct {

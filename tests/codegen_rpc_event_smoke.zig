@@ -10571,6 +10571,9 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expect(stats.initializedAnyResponse());
     try std.testing.expect(stats.requiredAnyForward());
     try std.testing.expect(stats.appliedAnyState());
+    try std.testing.expect(cpz.rpc.WireDispatchOutcome.response_initialized.isResponseInitialized());
+    try std.testing.expect(cpz.rpc.WireDispatchOutcome.forward_required.isForwardRequired());
+    try std.testing.expect(cpz.rpc.WireDispatchOutcome.state_applied.isStateApplied());
 
     const method_stats = try cpz.rpc.planWireMessagesMethodsDispatch(&state, requests[0..], entries);
     try std.testing.expectEqual(stats, method_stats);
