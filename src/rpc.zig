@@ -1260,6 +1260,51 @@ pub const RpcTurnResponseSourcePosition = struct {
     }
 };
 
+pub const RpcTurnResponseSourceStats = struct {
+    dispatch: usize = 0,
+    handoff_returns: usize = 0,
+
+    pub fn fromTurnPlan(turn_plan: RpcTurnPlan) @This() {
+        return .{
+            .dispatch = turn_plan.dispatchResponseMessages(),
+            .handoff_returns = turn_plan.handoffReturnMessages(),
+        };
+    }
+
+    pub fn recordRole(self: *@This(), role: RpcTurnResponseSourceRole) void {
+        switch (role) {
+            .dispatch => self.dispatch += 1,
+            .handoff_return => self.handoff_returns += 1,
+        }
+    }
+
+    pub fn recordPosition(self: *@This(), position: RpcTurnResponseSourcePosition) void {
+        self.recordRole(position.role);
+    }
+
+    pub fn recordOutputIndex(self: *@This(), turn_plan: RpcTurnPlan, output_index: usize) Error!void {
+        const position = turn_plan.responseSourcePosition(output_index) orelse return error.InvalidTransition;
+        self.recordPosition(position);
+    }
+
+    pub fn total(self: @This()) usize {
+        return self.dispatch + self.handoff_returns;
+    }
+
+    pub fn hasResponses(self: @This()) bool {
+        return self.total() != 0;
+    }
+
+    pub fn matchesTurnPlan(self: @This(), turn_plan: RpcTurnPlan) bool {
+        const expected = @This().fromTurnPlan(turn_plan);
+        return self.dispatch == expected.dispatch and self.handoff_returns == expected.handoff_returns;
+    }
+
+    pub fn validateAgainstTurnPlan(self: @This(), turn_plan: RpcTurnPlan) Error!void {
+        if (!self.matchesTurnPlan(turn_plan)) return error.InvalidTransition;
+    }
+};
+
 pub fn rpcTurnResponseSourcePosition(turn_plan: RpcTurnPlan, output_index: usize) ?RpcTurnResponseSourcePosition {
     if (turn_plan.dispatchResponseLocalIndex(output_index)) |local_index| return .{ .role = .dispatch, .local_index = local_index };
     if (turn_plan.handoffReturnLocalIndex(output_index)) |local_index| return .{ .role = .handoff_return, .local_index = local_index };

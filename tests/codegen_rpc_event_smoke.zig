@@ -24311,6 +24311,18 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expect(handoff_source_position.isHandoffReturn());
     try std.testing.expect(!handoff_source_position.isDispatch());
     try std.testing.expect(mixed_response_plan.responseSourcePosition(4) == null);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2, .handoff_returns = 2 }, cpz.rpc.RpcTurnResponseSourceStats.fromTurnPlan(mixed_response_plan));
+    var response_source_stats: cpz.rpc.RpcTurnResponseSourceStats = .{};
+    response_source_stats.recordPosition(dispatch_source_position);
+    try response_source_stats.recordOutputIndex(mixed_response_plan, 0);
+    response_source_stats.recordPosition(handoff_source_position);
+    try response_source_stats.recordOutputIndex(mixed_response_plan, 3);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2, .handoff_returns = 2 }, response_source_stats);
+    try std.testing.expect(response_source_stats.hasResponses());
+    try std.testing.expect(response_source_stats.matchesTurnPlan(mixed_response_plan));
+    try response_source_stats.validateAgainstTurnPlan(mixed_response_plan);
+    try std.testing.expectError(error.InvalidTransition, response_source_stats.recordOutputIndex(mixed_response_plan, 4));
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }).validateAgainstTurnPlan(mixed_response_plan));
 
     var unified_sink: UnifiedSink = .{};
     try std.testing.expectEqual(
