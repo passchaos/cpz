@@ -17737,6 +17737,34 @@ test "rpc dense method-table dispatcher initializes compact output slots" {
     try std.testing.expectEqual(@as(u32, 42), response_return.answerId());
     try std.testing.expectEqualStrings("method dense", try (try (try response_return.results()).content()).getText());
 
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    try queue_state.openQuestion(43, .call);
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    const queue_responses = [_]generated.Message.Builder{queue_response};
+    var queue = std.ArrayList(generated.Message.Builder).empty;
+    defer queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    const queue_stats = try cpz.rpc.dispatchWireMessagesMethodsDenseToQueue(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &queue,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 42), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+    try expectQueuedReturnAnswer(queue.items[0], 42);
+
     try std.testing.expectError(error.InvalidTransition, cpz.rpc.dispatchWireMessagesMethodsDense(
         &state,
         std.testing.allocator,
