@@ -9636,6 +9636,43 @@ pub fn dispatchWireMessagesForwardingDenseWithApplyHandler(
     );
 }
 
+pub fn dispatchWireMessagesForwardingDenseToQueuesWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    response_messages: anytype,
+    forward_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    response_queue: anytype,
+    forward_queue: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !WireDispatchStats {
+    const stats = try dispatchWireMessagesForwardingDenseWithApplyHandler(
+        state,
+        allocator,
+        response_messages,
+        forward_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        apply_context,
+        apply_handler,
+    );
+    for (response_messages[0..stats.response_initialized]) |message| {
+        try response_queue.append(allocator, message);
+    }
+    for (forward_messages[0..stats.forward_required]) |message| {
+        try forward_queue.append(allocator, message);
+    }
+    return stats;
+}
+
 fn appliedRpcTurnPlan(state: *const State, dispatch: WireDispatchStats, handoff_returns: StateHandoffReturnStats) RpcTurnPlan {
     return .{
         .dispatch = dispatch,
