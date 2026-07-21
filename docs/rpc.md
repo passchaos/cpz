@@ -274,7 +274,7 @@ that a complete RPC runtime exists.
   Dispatch variants that accept caller-provided forward-message builders,
   including batch dispatch helpers, can initialize outgoing Calls when they
   return `forward_required`; companion sink/queue dispatch variants, including
-  apply-detail forwarding batches, can immediately hand or append initialized forwarded Calls, or both ordinary responses and forwarded
+  apply-detail and method-table forwarding batches, can immediately hand or append initialized forwarded Calls, or both ordinary responses and forwarded
   Calls, to embedding transport/enqueue callbacks. Dense batch variants can
   consume compact response/forward output queues instead of one output slot per
   input message, with or without immediate sink callbacks.
