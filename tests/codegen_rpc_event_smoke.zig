@@ -20776,6 +20776,12 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 1 }, ready_return_stats.provideRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 1, .end = 2 }, ready_return_stats.acceptRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, ready_return_stats.joinRange());
+    try std.testing.expectEqual(@as(?usize, 0), ready_return_stats.provideLocalIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), ready_return_stats.provideLocalIndex(1));
+    try std.testing.expectEqual(@as(?usize, 0), ready_return_stats.acceptLocalIndex(1));
+    try std.testing.expectEqual(@as(?usize, null), ready_return_stats.acceptLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, 0), ready_return_stats.joinLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, null), ready_return_stats.joinLocalIndex(3));
     try ready_return_stats.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_return_stats.joinRange().validateCapacity(2));
     try ready_return_stats.validateCapacity(3);

@@ -700,6 +700,18 @@ pub const StateHandoffReturnStats = struct {
         return .{ .start = start, .end = start + self.joins };
     }
 
+    pub fn provideLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.provideRange().localIndex(output_index);
+    }
+
+    pub fn acceptLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.acceptRange().localIndex(output_index);
+    }
+
+    pub fn joinLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.joinRange().localIndex(output_index);
+    }
+
     pub fn validateCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.total()) return error.InvalidTransition;
     }
