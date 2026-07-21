@@ -869,6 +869,26 @@ pub const AcceptTracker = struct {
             .embargo = self.embargo,
         };
     }
+
+    pub fn hasProvisionUsage(self: @This()) bool {
+        return self.info().hasProvisionUsage();
+    }
+
+    pub fn provisionMatchesCapability(self: @This(), index: u32) bool {
+        return self.info().provisionMatchesCapability(index);
+    }
+
+    pub fn hasEmbargo(self: @This()) bool {
+        return self.info().hasEmbargo();
+    }
+
+    pub fn matchesEmbargo(self: @This(), value: []const u8) bool {
+        return self.info().matchesEmbargo(value);
+    }
+
+    pub fn ready(self: @This()) bool {
+        return self.hasProvisionUsage() and (self.embargo == null or self.embargo_released);
+    }
 };
 
 pub const JoinTracker = struct {
@@ -886,6 +906,22 @@ pub const JoinTracker = struct {
             .key_part_capability = if (self.key_part) |key_part| key_part.capability else null,
         };
     }
+
+    pub fn hasKeyPartUsage(self: @This()) bool {
+        return self.info().hasKeyPartUsage();
+    }
+
+    pub fn keyPartMatchesCapability(self: @This(), index: u32) bool {
+        return self.info().keyPartMatchesCapability(index);
+    }
+
+    pub fn targetsImport(self: @This(), id: ImportId) bool {
+        return self.info().targetsImport(id);
+    }
+
+    pub fn targetsPromisedQuestion(self: @This(), id: QuestionId) bool {
+        return self.info().targetsPromisedQuestion(id);
+    }
 };
 
 pub const ProvideTracker = struct {
@@ -902,6 +938,22 @@ pub const ProvideTracker = struct {
             .recipient_max_capability_count = if (self.recipient) |recipient| recipient.max_capability_count else 0,
             .recipient_capability = if (self.recipient) |recipient| recipient.capability else null,
         };
+    }
+
+    pub fn hasRecipientUsage(self: @This()) bool {
+        return self.info().hasRecipientUsage();
+    }
+
+    pub fn recipientMatchesCapability(self: @This(), index: u32) bool {
+        return self.info().recipientMatchesCapability(index);
+    }
+
+    pub fn targetsImport(self: @This(), id: ImportId) bool {
+        return self.info().targetsImport(id);
+    }
+
+    pub fn targetsPromisedQuestion(self: @This(), id: QuestionId) bool {
+        return self.info().targetsPromisedQuestion(id);
     }
 };
 
@@ -14781,6 +14833,43 @@ test "rpc question and answer trackers reject invalid transitions" {
     try testing.expect(answer.isResolved());
     try testing.expectError(error.AnswerAlreadyResolved, answer.resolve(.resolve));
     try testing.expectError(error.InvalidTransition, answer.resolve(.call));
+
+    var accept = AcceptTracker{
+        .question_id = 10,
+        .has_provision = true,
+        .provision = .{ .max_capability_count = 3, .capability = 2 },
+        .embargo = "embargo-10",
+    };
+    try testing.expect(accept.hasProvisionUsage());
+    try testing.expect(accept.provisionMatchesCapability(2));
+    try testing.expect(!accept.provisionMatchesCapability(1));
+    try testing.expect(accept.hasEmbargo());
+    try testing.expect(accept.matchesEmbargo("embargo-10"));
+    try testing.expect(!accept.ready());
+    accept.embargo_released = true;
+    try testing.expect(accept.ready());
+
+    const provide = ProvideTracker{
+        .question_id = 11,
+        .target = .{ .imported_cap = 12 },
+        .has_recipient = true,
+        .recipient = .{ .max_capability_count = 2, .capability = 1 },
+    };
+    try testing.expect(provide.hasRecipientUsage());
+    try testing.expect(provide.recipientMatchesCapability(1));
+    try testing.expect(!provide.recipientMatchesCapability(0));
+    try testing.expect(provide.targetsImport(12));
+
+    const join = JoinTracker{
+        .question_id = 13,
+        .target = .{ .promised_answer = .{ .question_id = 14 } },
+        .has_key_part = true,
+        .key_part = .{ .max_capability_count = 5, .capability = 4 },
+    };
+    try testing.expect(join.hasKeyPartUsage());
+    try testing.expect(join.keyPartMatchesCapability(4));
+    try testing.expect(!join.keyPartMatchesCapability(3));
+    try testing.expect(join.targetsPromisedQuestion(14));
 }
 
 test "rpc capability trackers reject double release" {

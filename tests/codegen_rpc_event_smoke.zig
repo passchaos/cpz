@@ -14770,6 +14770,10 @@ test "rpc top-level provide and join messages validate targets" {
         const tracked = state.provideInfo(61).?;
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 70 }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 2), tracked.recipient_capability);
+        try std.testing.expect(tracked.hasRecipientUsage());
+        try std.testing.expect(tracked.recipientMatchesCapability(2));
+        try std.testing.expect(!tracked.recipientMatchesCapability(1));
+        try std.testing.expect(tracked.targetsImport(70));
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 3, .capability = 2 }, state.provideRecipient(61).?);
         try std.testing.expectEqual(@as(usize, 1), state.provideRecipientCount());
         try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .provides = 1, .provide_recipients = 1 }, state.handoffStats());
@@ -14867,6 +14871,10 @@ test "rpc top-level provide and join messages validate targets" {
         const tracked = state.joinInfo(62).?;
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .promised_answer = .{ .question_id = 63 } }, tracked.target);
         try std.testing.expectEqual(@as(?u32, 4), tracked.key_part_capability);
+        try std.testing.expect(tracked.hasKeyPartUsage());
+        try std.testing.expect(tracked.keyPartMatchesCapability(4));
+        try std.testing.expect(!tracked.keyPartMatchesCapability(3));
+        try std.testing.expect(tracked.targetsPromisedQuestion(63));
         try std.testing.expectEqual(cpz.rpc.AnyPointerUsage{ .max_capability_count = 5, .capability = 4 }, state.joinKeyPart(62).?);
         try std.testing.expectEqual(@as(usize, 1), state.joinKeyPartCount());
         try std.testing.expectEqual(cpz.rpc.StateHandoffStats{ .joins = 1, .join_key_parts = 1 }, state.handoffStats());
@@ -15263,6 +15271,11 @@ test "rpc top-level accept messages open questions" {
     try std.testing.expect(tracked.has_provision);
     try std.testing.expectEqual(@as(?u32, 2), tracked.provision_capability);
     try std.testing.expectEqualStrings("embargo-64", tracked.embargo.?);
+    try std.testing.expect(tracked.hasProvisionUsage());
+    try std.testing.expect(tracked.provisionMatchesCapability(2));
+    try std.testing.expect(!tracked.provisionMatchesCapability(1));
+    try std.testing.expect(tracked.hasEmbargo());
+    try std.testing.expect(tracked.matchesEmbargo("embargo-64"));
     try std.testing.expectEqual(@as(?bool, false), state.acceptEmbargoReleased(64));
     try std.testing.expectEqual(@as(?bool, false), state.acceptReady(64));
     try std.testing.expectEqualStrings("embargo-64", state.acceptPendingEmbargo(64).?);
