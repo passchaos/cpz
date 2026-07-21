@@ -816,6 +816,14 @@ pub const StateHandoffReturnStats = struct {
         self.recordPosition(position);
     }
 
+    pub fn nextPosition(self: @This(), completion: HandoffReturn) HandoffReturnOutputPosition {
+        return switch (completion.outputRole()) {
+            .provide => .{ .role = .provide, .local_index = self.provides },
+            .accept => .{ .role = .accept, .local_index = self.accepts },
+            .join => .{ .role = .join, .local_index = self.joins },
+        };
+    }
+
     pub fn matchesStats(self: @This(), expected: StateHandoffReturnStats) bool {
         return self.provides == expected.provides and
             self.accepts == expected.accepts and
@@ -16818,11 +16826,7 @@ pub fn initWireHandoffReturnMessagesToTaggedSink(
     if (response_messages.len < completions.len) return error.InvalidTransition;
     var stats: StateHandoffReturnStats = .{};
     for (completions, 0..) |completion, index| {
-        const position: HandoffReturnOutputPosition = switch (completion) {
-            .provide => .{ .role = .provide, .local_index = stats.provides },
-            .accept => .{ .role = .accept, .local_index = stats.accepts },
-            .join => .{ .role = .join, .local_index = stats.joins },
-        };
+        const position = stats.nextPosition(completion);
         try initWireHandoffReturnMessage(response_messages[index], completion);
         try sink_handler(sink_context, position, response_messages[index]);
         stats.record(completion);
@@ -16855,11 +16859,7 @@ pub fn initWireHandoffReturnMessagesToTaggedQueue(
     if (response_messages.len < completions.len) return error.InvalidTransition;
     var stats: StateHandoffReturnStats = .{};
     for (completions, 0..) |completion, index| {
-        const position: HandoffReturnOutputPosition = switch (completion) {
-            .provide => .{ .role = .provide, .local_index = stats.provides },
-            .accept => .{ .role = .accept, .local_index = stats.accepts },
-            .join => .{ .role = .join, .local_index = stats.joins },
-        };
+        const position = stats.nextPosition(completion);
         try initWireHandoffReturnMessage(response_messages[index], completion);
         try queue.append(allocator, .{ .position = position, .message = response_messages[index] });
         stats.record(completion);
@@ -19175,11 +19175,7 @@ pub const State = struct {
         try self.validateTrackedHandoffReturns(completions);
         var stats: StateHandoffReturnStats = .{};
         for (completions, 0..) |completion, index| {
-            const position: HandoffReturnOutputPosition = switch (completion) {
-                .provide => .{ .role = .provide, .local_index = stats.provides },
-                .accept => .{ .role = .accept, .local_index = stats.accepts },
-                .join => .{ .role = .join, .local_index = stats.joins },
-            };
+            const position = stats.nextPosition(completion);
             try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
             try sink_handler(sink_context, position, response_messages[index]);
             stats.record(completion);
@@ -19216,11 +19212,7 @@ pub const State = struct {
         try self.validateTrackedHandoffReturns(completions);
         var stats: StateHandoffReturnStats = .{};
         for (completions, 0..) |completion, index| {
-            const position: HandoffReturnOutputPosition = switch (completion) {
-                .provide => .{ .role = .provide, .local_index = stats.provides },
-                .accept => .{ .role = .accept, .local_index = stats.accepts },
-                .join => .{ .role = .join, .local_index = stats.joins },
-            };
+            const position = stats.nextPosition(completion);
             try self.initTrackedHandoffReturnMessage(response_messages[index], completion);
             try queue.append(allocator, .{ .position = position, .message = response_messages[index] });
             stats.record(completion);
