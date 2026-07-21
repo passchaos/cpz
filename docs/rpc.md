@@ -366,7 +366,8 @@ that a complete RPC runtime exists.
   be initialized to tagged sinks, tagged queues, role-specific sinks, or
   role-specific queues in input order without assuming the grouped ready-return
   layout, and low-level wire handoff Return completions can likewise be
-  initialized to tagged sinks or queues in input order.
+  initialized to tagged sinks, tagged queues, or role-specific sinks in input
+  order.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
   for future provision handling; callers can query/count when an accepted
