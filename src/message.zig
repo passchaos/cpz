@@ -514,6 +514,18 @@ pub fn CapabilityRegistry(comptime T: type) type {
             return self.entries.items[usize_index];
         }
 
+        pub fn maxCount(self: *const @This()) usize {
+            return self.entries.items.len;
+        }
+
+        pub fn satisfiesStats(self: *const @This(), stats: MessageStats) bool {
+            return stats.maxCapabilityCount() <= self.entries.items.len;
+        }
+
+        pub fn validateStats(self: *const @This(), stats: MessageStats) Error!void {
+            if (!self.satisfiesStats(stats)) return error.InvalidCapabilityPointer;
+        }
+
         pub fn register(self: *@This(), allocator: std.mem.Allocator, handle: T) Error!u32 {
             if (self.entries.items.len > std.math.maxInt(u32)) return error.CountOutOfRange;
             const index: u32 = @intCast(self.entries.items.len);
@@ -625,7 +637,11 @@ test "capability registry assigns wire indexes for builders" {
     const table = registry.asTable();
     try testing.expectEqualStrings("first", try table.getListElement(read_list, 0));
     try testing.expectEqualStrings("second", try table.getListElement(read_list, 1));
-    try testing.expect(table.satisfiesStats(try list_reader_message.validate()));
+    const list_stats = try list_reader_message.validate();
+    try testing.expect(table.satisfiesStats(list_stats));
+    try testing.expectEqual(@as(usize, 3), registry.maxCount());
+    try testing.expect(registry.satisfiesStats(list_stats));
+    try registry.validateStats(list_stats);
 }
 
 pub const OwnedMessageReader = struct {
