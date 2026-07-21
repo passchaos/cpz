@@ -808,6 +808,32 @@ pub const StateHandoffReturnStats = struct {
         self.recordPosition(position);
     }
 
+    pub fn matchesStats(self: @This(), expected: StateHandoffReturnStats) bool {
+        return self.provides == expected.provides and
+            self.accepts == expected.accepts and
+            self.joins == expected.joins;
+    }
+
+    pub fn matchesReadyIds(self: @This(), ready_ids: StateReadyHandoffIds) bool {
+        return self.matchesStats(ready_ids.stats());
+    }
+
+    pub fn matchesPlan(self: @This(), plan: HandoffReturnPlan) bool {
+        return self.matchesStats(plan.stats());
+    }
+
+    pub fn validateAgainstStats(self: @This(), expected: StateHandoffReturnStats) Error!void {
+        if (!self.matchesStats(expected)) return error.InvalidTransition;
+    }
+
+    pub fn validateAgainstReadyIds(self: @This(), ready_ids: StateReadyHandoffIds) Error!void {
+        try self.validateAgainstStats(ready_ids.stats());
+    }
+
+    pub fn validateAgainstPlan(self: @This(), plan: HandoffReturnPlan) Error!void {
+        try self.validateAgainstStats(plan.stats());
+    }
+
     pub fn total(self: @This()) usize {
         return self.provides + self.accepts + self.joins;
     }

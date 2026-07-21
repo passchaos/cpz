@@ -20448,6 +20448,10 @@ test "rpc tracked handoff batches initialize ready return messages" {
     try std.testing.expectEqual(cpz.rpc.HandoffReturnOutputPosition{ .role = .join, .local_index = 0 }, ready_ids.unifiedOutputPosition(2).?);
     try std.testing.expect(ready_ids.unifiedOutputPosition(3) == null);
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, ready_ids.stats());
+    try std.testing.expect(ready_ids.stats().matchesReadyIds(ready_ids));
+    try ready_ids.stats().validateAgainstReadyIds(ready_ids);
+    try std.testing.expect(!(cpz.rpc.StateHandoffReturnStats{ .provides = 1 }).matchesReadyIds(ready_ids));
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.StateHandoffReturnStats{ .provides = 1 }).validateAgainstReadyIds(ready_ids));
     try ready_ids.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_ids.validateCapacity(2));
     try std.testing.expectEqualSlices(u32, &.{90}, ready_ids.provides);
@@ -20803,6 +20807,10 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try plan.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, plan.joinRange().validateCapacity(2));
     try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }, plan.stats());
+    try std.testing.expect(plan.stats().matchesPlan(plan));
+    try plan.stats().validateAgainstPlan(plan);
+    try std.testing.expect(plan.stats().matchesStats(cpz.rpc.StateHandoffReturnStats{ .provides = 1, .accepts = 1, .joins = 1 }));
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.StateHandoffReturnStats{ .provides = 1 }).validateAgainstPlan(plan));
     try plan.validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, plan.validateCapacity(2));
     try state.validateReadyHandoffReturnPlan(plan);
