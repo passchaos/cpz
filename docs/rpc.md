@@ -90,7 +90,7 @@ that a complete RPC runtime exists.
   immediate follow-up Return initialization/enqueueing, including handler-based
   export selection from the released provision usage or caller-provided export
   IDs, with handler-derived or explicit released-Accept Return batches appendable to caller-owned queues,
-  and combined helpers can apply the disembargo then initialize or enqueue
+  and combined helpers can apply the disembargo then initialize, queue, or enqueue
   those follow-up Returns. Full embargo queue handling remains future work. Disembargo
   batches can be initialized and handed directly to an embedding transport/enqueue
   callback or appended to caller-owned queues,

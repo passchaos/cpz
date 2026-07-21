@@ -17410,6 +17410,57 @@ test "rpc disembargo helper initializes released accept returns from explicit ex
         export_ids[0..],
         &queue,
     ));
+
+    {
+        var queue_state = cpz.rpc.State.init(std.testing.allocator);
+        defer queue_state.deinit();
+        try queue_state.addImport(5);
+
+        var queue_accept_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_accept_builder.deinit();
+        const queue_accept_root = try generated.Message.initRootTyped(&queue_accept_builder);
+        try cpz.rpc.initWireAcceptMessage(queue_accept_root, .{
+            .question_id = 670,
+            .has_provision = true,
+            .provision_max_capability_count = 2,
+            .provision_capability = 1,
+            .embargo = "explicit-queue-670",
+        });
+        var queue_accept_reader = cpz.MessageReader.init(try queue_accept_builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try queue_accept_reader.getRoot()));
+
+        var queue_disembargo_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_disembargo_builder.deinit();
+        const queue_disembargo_root = try generated.Message.initRootTyped(&queue_disembargo_builder);
+        try cpz.rpc.initWireDisembargoMessage(queue_disembargo_root, .{
+            .target = .{ .imported_cap = 5 },
+            .context = .{ .accept = "explicit-queue-670" },
+        });
+        var queue_disembargo_reader = cpz.MessageReader.init(try queue_disembargo_builder.segmentsConst(), .{});
+        const queue_disembargo_message = generated.Message.fromReader(try queue_disembargo_reader.getRoot());
+
+        var queue_apply_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer queue_apply_builder.deinit();
+        const queue_apply_response = try generated.Message.initRootTyped(&queue_apply_builder);
+        const queue_apply_responses = [_]generated.Message.Builder{queue_apply_response};
+        const queue_export_ids = [_]cpz.rpc.ExportId{778};
+        var apply_queue = std.ArrayList(generated.Message.Builder).empty;
+        defer apply_queue.deinit(std.testing.allocator);
+        const queue_released = try queue_state.applyWireDisembargoAndInitAcceptReturnsToQueue(
+            std.testing.allocator,
+            try queue_disembargo_message.disembargo(),
+            queue_apply_responses[0..],
+            queue_export_ids[0..],
+            &apply_queue,
+        );
+        defer std.testing.allocator.free(queue_released.released_accept_ids);
+        try std.testing.expectEqual(@as(usize, 1), queue_released.released_accepts);
+        try std.testing.expectEqualSlices(u32, &.{670}, queue_released.released_accept_ids);
+        try std.testing.expectEqual(@as(usize, 1), apply_queue.items.len);
+        try expectQueuedReturnAnswer(apply_queue.items[0], 670);
+        var queue_apply_reader = cpz.MessageReader.init(try queue_apply_builder.segmentsConst(), .{});
+        try expectReturnCapabilityResult(generated.Message.fromReader(try queue_apply_reader.getRoot()), 778);
+    }
 }
 
 test "rpc disembargo helper initializes released accept returns without sinks" {
