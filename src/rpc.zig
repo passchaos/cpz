@@ -881,6 +881,26 @@ pub fn handoffReturnUnifiedOutputPosition(stats: StateHandoffReturnStats, output
     return null;
 }
 
+/// Send grouped handoff Return outputs to a sink with their role/local-index.
+///
+/// The `StateHandoffReturnStats` ranges describe the grouped layout used by
+/// ready handoff plans and handler-based ready return initialization: all
+/// Provide Returns first, then Accept Returns, then Join Returns.  Callers that
+/// initialize handoff returns from an arbitrary `[]HandoffReturn` sequence
+/// should not use this helper unless they have already materialized that same
+/// grouped layout.
+pub fn sendHandoffReturnOutputsToTaggedSink(stats: StateHandoffReturnStats, response_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    _ = try sendHandoffReturnOutputsToTaggedSinkStats(stats, response_messages, sink_context, sink_handler);
+}
+
+pub fn sendHandoffReturnOutputsToTaggedSinkStats(stats: StateHandoffReturnStats, response_messages: anytype, sink_context: anytype, sink_handler: anytype) !StateHandoffReturnStats {
+    try stats.validateCapacity(response_messages.len);
+    for (response_messages[0..stats.total()], 0..) |message, output_index| {
+        try sink_handler(sink_context, stats.unifiedOutputPosition(output_index).?, message);
+    }
+    return stats;
+}
+
 pub const RpcTurnPlan = struct {
     dispatch: WireDispatchStats = .{},
     handoff_returns: StateHandoffReturnStats = .{},

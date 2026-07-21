@@ -20865,6 +20865,49 @@ test "rpc ready handoff handlers initialize return messages" {
     try std.testing.expect(join_return_position.isJoin());
     try std.testing.expect(!join_return_position.isProvide());
     try std.testing.expect(ready_return_stats.unifiedOutputPosition(3) == null);
+    const TaggedHandoffSink = struct {
+        sent: usize = 0,
+        provide_answer_sum: u32 = 0,
+        accept_answer_sum: u32 = 0,
+        join_answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), position: cpz.rpc.HandoffReturnOutputPosition, message: anytype) !void {
+            const answer_id = try (try message.get_return_()).get_answerId();
+            switch (position.role) {
+                .provide => {
+                    try std.testing.expectEqual(@as(usize, 0), position.local_index);
+                    context.provide_answer_sum += answer_id;
+                },
+                .accept => {
+                    try std.testing.expectEqual(@as(usize, 0), position.local_index);
+                    context.accept_answer_sum += answer_id;
+                },
+                .join => {
+                    try std.testing.expectEqual(@as(usize, 0), position.local_index);
+                    context.join_answer_sum += answer_id;
+                },
+            }
+            context.sent += 1;
+        }
+    };
+    var handoff_tagged_sink: TaggedHandoffSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendHandoffReturnOutputsToTaggedSink(
+        ready_return_stats,
+        responses[0..2],
+        &handoff_tagged_sink,
+        TaggedHandoffSink.handle,
+    ));
+    const handoff_tagged_stats = try cpz.rpc.sendHandoffReturnOutputsToTaggedSinkStats(
+        ready_return_stats,
+        responses[0..],
+        &handoff_tagged_sink,
+        TaggedHandoffSink.handle,
+    );
+    try std.testing.expectEqual(ready_return_stats, handoff_tagged_stats);
+    try std.testing.expectEqual(@as(usize, 3), handoff_tagged_sink.sent);
+    try std.testing.expectEqual(@as(u32, 103), handoff_tagged_sink.provide_answer_sum);
+    try std.testing.expectEqual(@as(u32, 104), handoff_tagged_sink.accept_answer_sum);
+    try std.testing.expectEqual(@as(u32, 105), handoff_tagged_sink.join_answer_sum);
     try ready_return_stats.joinRange().validateCapacity(3);
     try std.testing.expectError(error.InvalidTransition, ready_return_stats.joinRange().validateCapacity(2));
     try ready_return_stats.validateCapacity(3);
