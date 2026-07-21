@@ -16384,6 +16384,46 @@ test "rpc dense method-table forwarding dispatcher initializes compact output sl
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 281 }, try cpz.rpc.callTargetFromWireCall(forwarded));
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x9999, .method_id = 9 }, cpz.rpc.callMethodFromWireCall(forwarded));
     try expectPayloadUInt32List(try forwarded.params(), &.{ 9, 18 });
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.openQuestion(45, .call);
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 280 });
+    try queue_state.resolveImportTo(280, .{ .sender_hosted = 281 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 281 });
+    var queue_response_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder.deinit();
+    const queue_response = try generated.Message.initRootTyped(&queue_response_builder);
+    var queue_forward_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_forward_builder.deinit();
+    const queue_forward = try generated.Message.initRootTyped(&queue_forward_builder);
+    const queue_responses = [_]generated.Message.Builder{queue_response};
+    const queue_forwards = [_]generated.Message.Builder{queue_forward};
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    const queue_stats = try cpz.rpc.dispatchWireMessagesMethodsForwardingDenseToQueues(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_forwards[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &response_queue,
+        &forward_queue,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 46);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 280, .{ .imported_cap = 281 });
 }
 
 test "rpc dense method-table forwarding dispatcher fills unified output slots" {
