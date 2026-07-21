@@ -444,6 +444,10 @@ test "rpc message helpers expose call method options only for calls" {
     var call_reader = cpz.MessageReader.init(try call_builder.segmentsConst(), .{});
     const call_message = generated.Message.fromReader(try call_reader.getRoot());
     try std.testing.expectEqual(cpz.rpc.WireMessageTag.call, try cpz.rpc.wireMessageTag(call_message));
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, (try cpz.rpc.callTargetFromWireMessage(call_message)).?);
+    var owned_target = (try cpz.rpc.callTargetFromWireMessageAlloc(std.testing.allocator, call_message)).?;
+    defer owned_target.deinit(std.testing.allocator);
+    try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, owned_target.asCallTarget());
     try std.testing.expectEqual(options.method, (try cpz.rpc.callMethodFromWireMessage(call_message)).?);
     try std.testing.expectEqual(options, (try cpz.rpc.callOptionsFromWireMessage(call_message)).?);
     try std.testing.expect(try options.method.matchesWireMessage(call_message));
@@ -462,6 +466,8 @@ test "rpc message helpers expose call method options only for calls" {
     var bootstrap_reader = cpz.MessageReader.init(try bootstrap_builder.segmentsConst(), .{});
     const bootstrap_message = generated.Message.fromReader(try bootstrap_reader.getRoot());
     try std.testing.expectEqual(cpz.rpc.WireMessageTag.bootstrap, try cpz.rpc.wireMessageTag(bootstrap_message));
+    try std.testing.expect((try cpz.rpc.callTargetFromWireMessage(bootstrap_message)) == null);
+    try std.testing.expect((try cpz.rpc.callTargetFromWireMessageAlloc(std.testing.allocator, bootstrap_message)) == null);
     try std.testing.expect((try cpz.rpc.callMethodFromWireMessage(bootstrap_message)) == null);
     try std.testing.expect((try cpz.rpc.callOptionsFromWireMessage(bootstrap_message)) == null);
     try std.testing.expect((try cpz.rpc.callInfoFromWireMessage(bootstrap_message)) == null);

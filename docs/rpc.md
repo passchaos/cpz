@@ -261,8 +261,8 @@ that a complete RPC runtime exists.
   Call or Message readers. Top-level Message readers can
   also be queried for Call method/options when their active union member is
   `Call`, otherwise they report no Call metadata. Call readers and top-level
-  Call messages can be decoded into the same `CallInfo` shape used for tracked
-  call dispatch snapshots.
+  Call messages can expose call targets and can be decoded into the same
+  `CallInfo` shape used for tracked call dispatch snapshots.
   A generated Call reader can also be applied as a unit:
   target validation, question opening, method/routing metadata recording,
   tracked/effective target querying, dispatch-info snapshots that can directly

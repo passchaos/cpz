@@ -1746,6 +1746,20 @@ pub fn callTargetFromWireCallAlloc(allocator: std.mem.Allocator, call: anytype) 
     return targetFromWireMessageTargetAlloc(allocator, try call.target());
 }
 
+pub fn callTargetFromWireMessage(message: anytype) !?CallTarget {
+    return switch (try wireMessageTag(message)) {
+        .call => try callTargetFromWireCall(try message.call()),
+        else => null,
+    };
+}
+
+pub fn callTargetFromWireMessageAlloc(allocator: std.mem.Allocator, message: anytype) !?CallTargetOwned {
+    return switch (try wireMessageTag(message)) {
+        .call => try callTargetFromWireCallAlloc(allocator, try message.call()),
+        else => null,
+    };
+}
+
 pub fn callMethodFromWireCall(call: anytype) CallMethod {
     return .{
         .interface_id = call.interfaceId(),
