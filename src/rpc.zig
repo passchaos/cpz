@@ -848,7 +848,11 @@ pub const StateHandoffReturnStats = struct {
     joins: usize = 0,
 
     pub fn record(self: *@This(), completion: HandoffReturn) void {
-        switch (completion) {
+        self.recordRole(completion.outputRole());
+    }
+
+    pub fn recordRole(self: *@This(), role: HandoffReturnOutputRole) void {
+        switch (role) {
             .provide => self.provides += 1,
             .accept => self.accepts += 1,
             .join => self.joins += 1,
@@ -856,11 +860,7 @@ pub const StateHandoffReturnStats = struct {
     }
 
     pub fn recordPosition(self: *@This(), position: HandoffReturnOutputPosition) void {
-        switch (position.role) {
-            .provide => self.provides += 1,
-            .accept => self.accepts += 1,
-            .join => self.joins += 1,
-        }
+        self.recordRole(position.role);
     }
 
     pub fn recordOutputIndex(self: *@This(), source_stats: StateHandoffReturnStats, output_index: usize) Error!void {
@@ -868,12 +868,16 @@ pub const StateHandoffReturnStats = struct {
         self.recordPosition(position);
     }
 
-    pub fn nextPosition(self: @This(), completion: HandoffReturn) HandoffReturnOutputPosition {
-        return switch (completion.outputRole()) {
+    pub fn nextRolePosition(self: @This(), role: HandoffReturnOutputRole) HandoffReturnOutputPosition {
+        return switch (role) {
             .provide => .{ .role = .provide, .local_index = self.provides },
             .accept => .{ .role = .accept, .local_index = self.accepts },
             .join => .{ .role = .join, .local_index = self.joins },
         };
+    }
+
+    pub fn nextPosition(self: @This(), completion: HandoffReturn) HandoffReturnOutputPosition {
+        return self.nextRolePosition(completion.outputRole());
     }
 
     pub fn matchesStats(self: @This(), expected: StateHandoffReturnStats) bool {
