@@ -18534,11 +18534,12 @@ test "rpc unified output helper sends tagged output roles" {
 
     const outputs = [_]generated.Message.Builder{ response, forward, disembargo };
     var sink: TaggedSink = .{};
-    try cpz.rpc.sendRpcTurnUnifiedOutputsToTaggedSink(plan, outputs[0..], &sink, TaggedSink.handle);
+    const sent_stats = try cpz.rpc.sendRpcTurnUnifiedOutputsToTaggedSinkStats(plan, outputs[0..], &sink, TaggedSink.handle);
     try std.testing.expectEqual(@as(usize, 3), sink.sent);
     try std.testing.expectEqual(@as(usize, 0), sink.response_local);
     try std.testing.expectEqual(@as(usize, 0), sink.forward_local);
     try std.testing.expectEqual(@as(usize, 0), sink.disembargo_local);
+    try std.testing.expectEqual(sent_stats, sink.stats);
     try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }, sink.stats);
     try std.testing.expectEqual(@as(usize, 3), sink.stats.total());
     try std.testing.expect(sink.stats.hasOutputs());

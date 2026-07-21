@@ -913,10 +913,18 @@ pub fn sendRpcTurnUnifiedOutputsToSink(turn_plan: RpcTurnPlan, output_messages: 
 /// need to distinguish locally-produced Returns from forwarded Calls and
 /// Disembargo traffic without decoding the message union after it is built.
 pub fn sendRpcTurnUnifiedOutputsToTaggedSink(turn_plan: RpcTurnPlan, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !void {
+    _ = try sendRpcTurnUnifiedOutputsToTaggedSinkStats(turn_plan, output_messages, sink_context, sink_handler);
+}
+
+pub fn sendRpcTurnUnifiedOutputsToTaggedSinkStats(turn_plan: RpcTurnPlan, output_messages: anytype, sink_context: anytype, sink_handler: anytype) !RpcOutputStats {
     try turn_plan.validateUnifiedOutputBuilders(output_messages);
+    var stats: RpcOutputStats = .{};
     for (output_messages[0..turn_plan.totalOutputMessages()], 0..) |output_message, output_index| {
-        try sink_handler(sink_context, rpcTurnUnifiedOutputPosition(turn_plan, output_index).?, output_message);
+        const position = rpcTurnUnifiedOutputPosition(turn_plan, output_index).?;
+        try sink_handler(sink_context, position, output_message);
+        stats.recordPosition(position);
     }
+    return stats;
 }
 
 /// Send initialized unified turn outputs to role-specific enqueue callbacks.
