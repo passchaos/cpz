@@ -9402,6 +9402,44 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1), message_tagged_plan_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), message_tagged_plan_sink.forward_local_sum);
 
+    var message_tagged_plan_queue_state = try Seed.state();
+    defer message_tagged_plan_queue_state.deinit();
+    var message_tagged_plan_queue_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var message_tagged_plan_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_tagged_plan_queue_builder0.deinit();
+    const message_tagged_plan_queue_output0 = try generated.Message.initRootTyped(&message_tagged_plan_queue_builder0);
+    var message_tagged_plan_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_tagged_plan_queue_builder1.deinit();
+    const message_tagged_plan_queue_output1 = try generated.Message.initRootTyped(&message_tagged_plan_queue_builder1);
+    var message_tagged_plan_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_tagged_plan_queue_builder2.deinit();
+    const message_tagged_plan_queue_output2 = try generated.Message.initRootTyped(&message_tagged_plan_queue_builder2);
+    const message_tagged_plan_queue_outputs = [_]generated.Message.Builder{ message_tagged_plan_queue_output0, message_tagged_plan_queue_output1, message_tagged_plan_queue_output2 };
+    var message_tagged_plan_queue_context: Context = .{};
+    var message_tagged_plan_queue = std.ArrayList(PlanTaggedQueueItem).empty;
+    defer message_tagged_plan_queue.deinit(std.testing.allocator);
+    var message_tagged_plan_queue_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, message_tagged_plan_queue_state.dispatchWireMessageServiceActionsUnifiedOutputPlansToTaggedQueue(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_tagged_plan_queue_short_plan_buffer[0..],
+        message_tagged_plan_queue_outputs[0..],
+        &message_tagged_plan_queue_context,
+        &message_tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(message_stats, try message_tagged_plan_queue_state.dispatchWireMessageServiceActionsUnifiedOutputPlansToTaggedQueue(
+        std.testing.allocator,
+        messages[0..],
+        entries,
+        message_tagged_plan_queue_plan_buffer[0..],
+        message_tagged_plan_queue_outputs[0..],
+        &message_tagged_plan_queue_context,
+        &message_tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_tagged_plan_queue_context.selected);
+    try QueueChecks.expectTaggedPlanQueue(message_tagged_plan_queue.items, .{ 0, 2, 3 });
+
     var message_direct_sink_state = cpz.rpc.State.init(std.testing.allocator);
     defer message_direct_sink_state.deinit();
     try message_direct_sink_state.addImport(5);
@@ -9619,6 +9657,44 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 2 + 3), message_direct_tagged_plan_sink.source_sum);
     try std.testing.expectEqual(@as(usize, 0 + 1), message_direct_tagged_plan_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), message_direct_tagged_plan_sink.forward_local_sum);
+
+    var message_direct_tagged_plan_queue_state = try Seed.state();
+    defer message_direct_tagged_plan_queue_state.deinit();
+    var message_direct_tagged_plan_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_tagged_plan_queue_builder0.deinit();
+    const message_direct_tagged_plan_queue_output0 = try generated.Message.initRootTyped(&message_direct_tagged_plan_queue_builder0);
+    var message_direct_tagged_plan_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_tagged_plan_queue_builder1.deinit();
+    const message_direct_tagged_plan_queue_output1 = try generated.Message.initRootTyped(&message_direct_tagged_plan_queue_builder1);
+    var message_direct_tagged_plan_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer message_direct_tagged_plan_queue_builder2.deinit();
+    const message_direct_tagged_plan_queue_output2 = try generated.Message.initRootTyped(&message_direct_tagged_plan_queue_builder2);
+    const message_direct_tagged_plan_queue_outputs = [_]generated.Message.Builder{ message_direct_tagged_plan_queue_output0, message_direct_tagged_plan_queue_output1, message_direct_tagged_plan_queue_output2 };
+    var message_direct_tagged_plan_queue_context: Context = .{};
+    var message_direct_tagged_plan_queue = std.ArrayList(PlanTaggedQueueItem).empty;
+    defer message_direct_tagged_plan_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputPlansToTaggedQueue(
+        &message_direct_tagged_plan_queue_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_tagged_plan_queue_outputs[0..2],
+        &message_direct_tagged_plan_queue_context,
+        entries,
+        &message_direct_tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(message_action_stats, try cpz.rpc.initWireMessageServiceActionPlanUnifiedOutputPlansToTaggedQueue(
+        &message_direct_tagged_plan_queue_state,
+        std.testing.allocator,
+        messages[0..],
+        message_plans[0..],
+        message_direct_tagged_plan_queue_outputs[0..],
+        &message_direct_tagged_plan_queue_context,
+        entries,
+        &message_direct_tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), message_direct_tagged_plan_queue_context.selected);
+    try QueueChecks.expectTaggedPlanQueue(message_direct_tagged_plan_queue.items, .{ 0, 2, 3 });
 
     var message_split_state = cpz.rpc.State.init(std.testing.allocator);
     defer message_split_state.deinit();
@@ -10288,6 +10364,44 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1), direct_tagged_plan_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), direct_tagged_plan_sink.forward_local_sum);
 
+    var direct_tagged_plan_queue_state = try Seed.state();
+    defer direct_tagged_plan_queue_state.deinit();
+    var direct_tagged_plan_queue_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_tagged_plan_queue_builder0.deinit();
+    const direct_tagged_plan_queue_output0 = try generated.Message.initRootTyped(&direct_tagged_plan_queue_builder0);
+    var direct_tagged_plan_queue_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_tagged_plan_queue_builder1.deinit();
+    const direct_tagged_plan_queue_output1 = try generated.Message.initRootTyped(&direct_tagged_plan_queue_builder1);
+    var direct_tagged_plan_queue_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer direct_tagged_plan_queue_builder2.deinit();
+    const direct_tagged_plan_queue_output2 = try generated.Message.initRootTyped(&direct_tagged_plan_queue_builder2);
+    const direct_tagged_plan_queue_outputs = [_]generated.Message.Builder{ direct_tagged_plan_queue_output0, direct_tagged_plan_queue_output1, direct_tagged_plan_queue_output2 };
+    var direct_tagged_plan_queue_context: Context = .{};
+    var direct_tagged_plan_queue = std.ArrayList(PlanTaggedQueueItem).empty;
+    defer direct_tagged_plan_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.initWireCallServiceActionPlanUnifiedOutputPlansToTaggedQueue(
+        &direct_tagged_plan_queue_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_tagged_plan_queue_outputs[0..2],
+        &direct_tagged_plan_queue_context,
+        entries,
+        &direct_tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(wire_stats, try cpz.rpc.initWireCallServiceActionPlanUnifiedOutputPlansToTaggedQueue(
+        &direct_tagged_plan_queue_state,
+        std.testing.allocator,
+        calls[0..],
+        wire_plans[0..],
+        direct_tagged_plan_queue_outputs[0..],
+        &direct_tagged_plan_queue_context,
+        entries,
+        &direct_tagged_plan_queue,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), direct_tagged_plan_queue_context.selected);
+    try QueueChecks.expectTaggedPlanQueue(direct_tagged_plan_queue.items, .{ 0, 1, 2 });
+
     var direct_plan_sink_state = cpz.rpc.State.init(std.testing.allocator);
     defer direct_plan_sink_state.deinit();
     try direct_plan_sink_state.addImport(5);
@@ -10775,6 +10889,44 @@ test "rpc service action stats aggregate wire and tracked calls" {
     try std.testing.expectEqual(@as(usize, 0 + 1 + 2), tagged_plan_wrapper_sink.source_sum);
     try std.testing.expectEqual(@as(usize, 0 + 1), tagged_plan_wrapper_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), tagged_plan_wrapper_sink.forward_local_sum);
+
+    var tagged_plan_queue_wrapper_state = try Seed.state();
+    defer tagged_plan_queue_wrapper_state.deinit();
+    var tagged_plan_queue_wrapper_plan_buffer: [3]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    var tagged_plan_queue_wrapper_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_plan_queue_wrapper_builder0.deinit();
+    const tagged_plan_queue_wrapper_output0 = try generated.Message.initRootTyped(&tagged_plan_queue_wrapper_builder0);
+    var tagged_plan_queue_wrapper_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_plan_queue_wrapper_builder1.deinit();
+    const tagged_plan_queue_wrapper_output1 = try generated.Message.initRootTyped(&tagged_plan_queue_wrapper_builder1);
+    var tagged_plan_queue_wrapper_builder2 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_plan_queue_wrapper_builder2.deinit();
+    const tagged_plan_queue_wrapper_output2 = try generated.Message.initRootTyped(&tagged_plan_queue_wrapper_builder2);
+    const tagged_plan_queue_wrapper_outputs = [_]generated.Message.Builder{ tagged_plan_queue_wrapper_output0, tagged_plan_queue_wrapper_output1, tagged_plan_queue_wrapper_output2 };
+    var tagged_plan_queue_wrapper_context: Context = .{};
+    var tagged_plan_queue_wrapper = std.ArrayList(PlanTaggedQueueItem).empty;
+    defer tagged_plan_queue_wrapper.deinit(std.testing.allocator);
+    var tagged_plan_queue_wrapper_short_plan_buffer: [2]cpz.rpc.TrackedCallServiceActionPlan = undefined;
+    try std.testing.expectError(error.InvalidTransition, tagged_plan_queue_wrapper_state.dispatchWireCallServiceActionsUnifiedOutputPlansToTaggedQueue(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        tagged_plan_queue_wrapper_short_plan_buffer[0..],
+        tagged_plan_queue_wrapper_outputs[0..],
+        &tagged_plan_queue_wrapper_context,
+        &tagged_plan_queue_wrapper,
+    ));
+    try std.testing.expectEqual(wire_stats, try tagged_plan_queue_wrapper_state.dispatchWireCallServiceActionsUnifiedOutputPlansToTaggedQueue(
+        std.testing.allocator,
+        calls[0..],
+        entries,
+        tagged_plan_queue_wrapper_plan_buffer[0..],
+        tagged_plan_queue_wrapper_outputs[0..],
+        &tagged_plan_queue_wrapper_context,
+        &tagged_plan_queue_wrapper,
+    ));
+    try std.testing.expectEqual(@as(u32, 71), tagged_plan_queue_wrapper_context.selected);
+    try QueueChecks.expectTaggedPlanQueue(tagged_plan_queue_wrapper.items, .{ 0, 1, 2 });
 
     const UnifiedSink = struct {
         sent: usize = 0,
