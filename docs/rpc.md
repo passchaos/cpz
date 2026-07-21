@@ -257,8 +257,10 @@ that a complete RPC runtime exists.
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
   slices, and append ready handoff Returns to the same response queue or sink
-  for embedding transports; ordinary and method-table no-sink turn helpers can
-  also populate a unified response/forward output queue with dispatch and ready
+  for embedding transports; dense turn helpers can also append compact responses
+  (including ready handoff Returns) and forwarded Calls to role-specific caller
+  queues, while ordinary and method-table no-sink turn helpers can
+  populate a unified response/forward output queue with dispatch and ready
   handoff Returns before forwarded Calls, append pending Accept Disembargos into
   the same unified queue, including token-filtered Disembargo emission, and both
   unified forms can expose state-only apply details while doing so. Unified
