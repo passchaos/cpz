@@ -1970,6 +1970,14 @@ pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Err
         pub fn isReleased(self: @This()) bool {
             return self.state.isReleased();
         }
+
+        pub fn isResolved(self: @This()) bool {
+            return self.resolved;
+        }
+
+        pub fn hasResolution(self: @This()) bool {
+            return self.resolution != null;
+        }
     };
 }
 
@@ -14430,6 +14438,10 @@ test "rpc capability trackers reject double release" {
 
     var export_tracker = ExportTracker{ .id = 1 };
     try testing.expect(export_tracker.isLive());
+    try testing.expect(!export_tracker.isResolved());
+    try export_tracker.resolveTo(.{ .sender_hosted = 99 });
+    try testing.expect(export_tracker.isResolved());
+    try testing.expect(export_tracker.hasResolution());
     try export_tracker.release();
     try testing.expect(!export_tracker.isLive());
     try testing.expect(export_tracker.state.isReleased());
