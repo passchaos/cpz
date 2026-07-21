@@ -15995,6 +15995,19 @@ pub const State = struct {
         try sink_handler(sink_context, message);
     }
 
+    pub fn initTrackedJoinResultReturnMessageFromHandlerToQueue(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        message: anytype,
+        question_id: QuestionId,
+        context: anytype,
+        handler: anytype,
+        queue: anytype,
+    ) !void {
+        try self.initTrackedJoinResultReturnMessageFromHandler(message, question_id, context, handler);
+        try queue.append(allocator, message);
+    }
+
     pub fn provideInfo(self: *const State, id: QuestionId) ?ProvideInfo {
         const tracker = self.provides.get(id) orelse return null;
         return tracker.info();

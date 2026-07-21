@@ -16362,6 +16362,29 @@ test "rpc top-level provide and join messages validate targets" {
             defer std.testing.allocator.free(descriptors);
             try std.testing.expectEqual(@as(usize, 1), descriptors.len);
             try std.testing.expectEqual(cpz.rpc.CapDescriptor{ .sender_hosted = 112 }, descriptors[0]);
+
+            var queue_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+            defer queue_builder.deinit();
+            const queue_response = try generated.Message.initRootTyped(&queue_builder);
+            var queue_context: Context = .{};
+            var queue = std.ArrayList(generated.Message.Builder).empty;
+            defer queue.deinit(std.testing.allocator);
+            try state.initTrackedJoinResultReturnMessageFromHandlerToQueue(
+                std.testing.allocator,
+                queue_response,
+                62,
+                &queue_context,
+                Context.handle,
+                &queue,
+            );
+            try std.testing.expectEqual(@as(usize, 1), queue_context.seen);
+            try std.testing.expectEqual(@as(u32, 4), queue_context.capability_sum);
+            try std.testing.expectEqual(@as(usize, 1), queue.items.len);
+            try expectQueuedReturnAnswer(queue.items[0], 62);
+            var queue_reader = cpz.MessageReader.init(try queue_builder.segmentsConst(), .{});
+            const queued_response = generated.Message.fromReader(try queue_reader.getRoot());
+            try std.testing.expectEqual(@as(?u32, 0), try cpz.rpc.joinResultCapabilityFromWireReturn(try queued_response.return_()));
+            try expectReturnCapabilityResult(queued_response, 112);
         }
         try state.finishQuestion(62);
         try std.testing.expect(state.joinInfo(62) == null);
