@@ -23677,6 +23677,90 @@ test "rpc method turn dispatcher fills unified outputs with pending disembargos 
         try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 5 }, info.target);
         try std.testing.expectEqualStrings("method-unified-apply-pending-155", info.context.accept);
     }
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.addImport(5);
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 156,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-unified-queue-apply-release-156",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 157,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-unified-queue-apply-pending-157",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    var queue_request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_request_builder.deinit();
+    const queue_request_root = try generated.Message.initRootTyped(&queue_request_builder);
+    try cpz.rpc.initWireDisembargoMessage(queue_request_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "method-unified-queue-apply-release-156" },
+    });
+    var queue_request_reader = cpz.MessageReader.init(try queue_request_builder.segmentsConst(), .{});
+    const queue_requests = [_]generated.Message{generated.Message.fromReader(try queue_request_reader.getRoot())};
+    var queue_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_output_builder0.deinit();
+    const queue_output0 = try generated.Message.initRootTyped(&queue_output_builder0);
+    var queue_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_output_builder1.deinit();
+    const queue_output1 = try generated.Message.initRootTyped(&queue_output_builder1);
+    const queue_outputs = [_]generated.Message.Builder{ queue_output0, queue_output1 };
+    var queue_context: Context = .{};
+    var queue_apply_context: ApplyContext = .{};
+    var queue_provide_context: HandoffHandler = .{};
+    var queue_accept_context: HandoffHandler = .{};
+    var queue_join_context: HandoffHandler = .{};
+    var output_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer output_queue.deinit(std.testing.allocator);
+    const queued = try cpz.rpc.dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosToQueueFromHandlersWithApplyHandler(
+        &queue_state,
+        std.testing.allocator,
+        queue_outputs[0..],
+        queue_requests[0..],
+        {},
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &queue_provide_context,
+        HandoffHandler.handle,
+        &queue_accept_context,
+        HandoffHandler.handle,
+        &queue_join_context,
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        &output_queue,
+        &queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .state_applied = 1 }, queued.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .accepts = 1 }, queued.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 2), output_queue.items.len);
+    try expectQueuedReturnAnswer(output_queue.items[0], 156);
+    try expectQueuedDisembargoBuilder(output_queue.items[1], .{ .imported_cap = 5 }, "method-unified-queue-apply-pending-157");
+    try std.testing.expectEqual(@as(usize, 1), queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 156), queue_apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(usize, 1), queue_accept_context.seen);
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
 }
 
 test "rpc method turn dispatcher sends pending accept disembargos with dense outputs" {
