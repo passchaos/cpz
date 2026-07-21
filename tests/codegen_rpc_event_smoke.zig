@@ -14527,6 +14527,57 @@ test "rpc batch forwarding dispatcher aggregates forwarded calls" {
     try std.testing.expectEqual(@as(usize, 0), stats.state_applied);
     try std.testing.expectEqual(@as(u32, 0), call_seen);
 
+    const OutcomeObserver = struct {
+        calls: usize = 0,
+        index_sum: usize = 0,
+        observed: cpz.rpc.WireDispatchStats = .{},
+
+        fn handle(context: *@This(), index: usize, outcome: cpz.rpc.WireDispatchOutcome) !void {
+            context.calls += 1;
+            context.index_sum += index;
+            context.observed.record(outcome);
+        }
+    };
+    var observed_state = cpz.rpc.State.init(std.testing.allocator);
+    defer observed_state.deinit();
+    try observed_state.applyCapDescriptor(.{ .sender_promise = 200 });
+    try observed_state.resolveImportTo(200, .{ .sender_hosted = 201 });
+    try observed_state.applyCapDescriptor(.{ .sender_hosted = 201 });
+    var observed_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer observed_response_builder0.deinit();
+    const observed_response0 = try generated.Message.initRootTyped(&observed_response_builder0);
+    var observed_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer observed_response_builder1.deinit();
+    const observed_response1 = try generated.Message.initRootTyped(&observed_response_builder1);
+    var observed_forward_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer observed_forward_builder0.deinit();
+    const observed_forward0 = try generated.Message.initRootTyped(&observed_forward_builder0);
+    var observed_forward_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer observed_forward_builder1.deinit();
+    const observed_forward1 = try generated.Message.initRootTyped(&observed_forward_builder1);
+    const observed_responses = [_]generated.Message.Builder{ observed_response0, observed_response1 };
+    const observed_forwards = [_]generated.Message.Builder{ observed_forward0, observed_forward1 };
+    var observed_bootstrap_seen: u32 = 0;
+    var observed_call_seen: u32 = 0;
+    var observer: OutcomeObserver = .{};
+    const observed_stats = try cpz.rpc.dispatchWireMessagesForwardingWithOutcomeHandler(
+        &observed_state,
+        std.testing.allocator,
+        observed_responses[0..],
+        observed_forwards[0..],
+        requests[0..],
+        &observed_bootstrap_seen,
+        BootstrapHandler.handle,
+        &observed_call_seen,
+        CallHandler.handle,
+        &observer,
+        OutcomeObserver.handle,
+    );
+    try std.testing.expectEqual(stats, observed_stats);
+    try std.testing.expectEqual(stats, observer.observed);
+    try std.testing.expectEqual(@as(usize, 2), observer.calls);
+    try std.testing.expectEqual(@as(usize, 1), observer.index_sum);
+
     var forward_reader = cpz.MessageReader.init(try forward_builder1.segmentsConst(), .{});
     const forwarded = try generated.Message.fromReader(try forward_reader.getRoot()).call();
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 201 }, try cpz.rpc.callTargetFromWireCall(forwarded));
