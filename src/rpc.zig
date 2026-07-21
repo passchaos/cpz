@@ -986,6 +986,24 @@ pub fn appendRpcTurnUnifiedOutputsToQueue(allocator: std.mem.Allocator, turn_pla
     return RpcOutputStats.fromTurnPlan(turn_plan);
 }
 
+/// Append initialized unified turn outputs together with their role metadata.
+///
+/// Plain queue append is useful for transports with a single outbound lane, but
+/// many embedders still need the precomputed role/local-index information that
+/// tagged sinks receive.  Queue element types should provide `position` and
+/// `message` fields, e.g. `struct { position: RpcTurnOutputPosition,
+/// message: Message.Builder }`.
+pub fn appendRpcTurnUnifiedOutputsToTaggedQueue(allocator: std.mem.Allocator, turn_plan: RpcTurnPlan, output_messages: anytype, queue: anytype) !RpcOutputStats {
+    try turn_plan.validateUnifiedOutputBuilders(output_messages);
+    var stats: RpcOutputStats = .{};
+    for (output_messages[0..turn_plan.totalOutputMessages()], 0..) |output_message, output_index| {
+        const position = rpcTurnUnifiedOutputPosition(turn_plan, output_index).?;
+        try queue.append(allocator, .{ .position = position, .message = output_message });
+        stats.recordPosition(position);
+    }
+    return stats;
+}
+
 /// Send initialized unified turn outputs to a single callback while tagging
 /// each message with its role and role-local index.
 ///

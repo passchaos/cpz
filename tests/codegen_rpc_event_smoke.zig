@@ -18904,6 +18904,24 @@ test "rpc unified output helper sends tagged output roles" {
     try std.testing.expect(sink.stats.hasResponses());
     try std.testing.expect(sink.stats.hasForwards());
     try std.testing.expect(sink.stats.hasDisembargos());
+
+    const TaggedQueueItem = struct {
+        position: cpz.rpc.RpcTurnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var tagged_queue = std.ArrayList(TaggedQueueItem).empty;
+    defer tagged_queue.deinit(std.testing.allocator);
+    const queued_stats = try cpz.rpc.appendRpcTurnUnifiedOutputsToTaggedQueue(std.testing.allocator, plan, outputs[0..], &tagged_queue);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }, queued_stats);
+    try queued_stats.validateAgainstTurnPlan(plan);
+    try std.testing.expectEqual(@as(usize, 3), tagged_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, tagged_queue.items[0].position);
+    try expectQueuedReturnAnswer(tagged_queue.items[0].message, 401);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, tagged_queue.items[1].position);
+    try expectQueuedForwardedCallBuilder(tagged_queue.items[1].message, 402, .{ .imported_cap = 6 });
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, tagged_queue.items[2].position);
+    try expectQueuedDisembargoBuilder(tagged_queue.items[2].message, .{ .imported_cap = 7 }, "tagged-disembargo");
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcTurnUnifiedOutputsToTaggedQueue(std.testing.allocator, plan, outputs[0..2], &tagged_queue));
 }
 
 test "rpc turn dispatcher filters pending accept disembargos into unified outputs" {
