@@ -699,6 +699,22 @@ pub const TrackedCallServiceActionPlan = struct {
     source_index: usize,
     question_id: QuestionId,
     action: TrackedCallServiceAction,
+
+    pub fn matchesSource(self: @This(), source_index: usize, question_id: QuestionId) bool {
+        return self.source_index == source_index and self.question_id == question_id;
+    }
+
+    pub fn needsResponse(self: @This()) bool {
+        return self.action.needsResponse();
+    }
+
+    pub fn needsForward(self: @This()) bool {
+        return self.action.needsForward();
+    }
+
+    pub fn outputRole(self: @This()) TrackedCallServiceActionOutputRole {
+        return self.action.outputRole();
+    }
 };
 
 pub const TrackedCallServiceActionStats = struct {

@@ -264,8 +264,8 @@ that a complete RPC runtime exists.
   call/message dispatch-outcome previews, service-action previews,
   `CallOptions` restoration, and direct `CallMethod`/send-results/
   third-party result-target/flag querying for future service dispatch, plus
-  params capability-table bookkeeping. Individual service actions report whether
-  they need response or forward output slots. The same dispatch-info snapshot can be
+  params capability-table bookkeeping. Individual service actions and plans
+  report whether they need response or forward output slots. The same dispatch-info snapshot can be
   built from an unapplied wire Call or top-level Call message for pre-apply
   forwarding/dispatch previews while non-Call messages report no dispatch work.
   A generated Return reader can resolve its answer and apply result
