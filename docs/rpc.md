@@ -112,7 +112,7 @@ that a complete RPC runtime exists.
   Return-like answer resolution have been observed. Question/answer states and
   trackers expose direct predicates; stats summarize open, finished, unresolved,
   resolved, complete, total, and active entries with role-specific convenience
-  predicates, and a
+  predicates plus empty/non-empty entry checks, and a
   state cleanup helper can reclaim both completed questions and released
   capability tombstones together while reporting whether any work was done.
   Open questions remember the RPC message kind that created them, giving later
@@ -121,7 +121,7 @@ that a complete RPC runtime exists.
   states and trackers expose direct predicates, including resolved/replacement
   presence; stats summarize total/live/released/resolved import/export lifetimes
   and import reference counts with import/export/reference convenience
-  predicates.
+  predicates plus empty/non-empty capability checks.
   Call `sendResultsTo` caller/yourself/third-party targets can be decoded,
   matched with role predicates, and written, including third-party contact
   pointer capability usage.
