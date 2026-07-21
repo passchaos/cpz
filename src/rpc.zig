@@ -214,6 +214,22 @@ pub const DispatchResult = union(enum) {
         return self == .exception;
     }
 
+    pub fn isCanceled(self: @This()) bool {
+        return self == .canceled;
+    }
+
+    pub fn isResultsSentElsewhere(self: @This()) bool {
+        return self == .results_sent_elsewhere;
+    }
+
+    pub fn isTakeFromOtherQuestion(self: @This()) bool {
+        return self == .take_from_other_question;
+    }
+
+    pub fn isAwaitFromThirdParty(self: @This()) bool {
+        return self == .await_from_third_party;
+    }
+
     pub fn isNonResult(self: @This()) bool {
         return switch (self) {
             .exception, .canceled, .results_sent_elsewhere, .take_from_other_question, .await_from_third_party => true,
@@ -223,6 +239,24 @@ pub const DispatchResult = union(enum) {
 
     pub fn isResult(self: @This()) bool {
         return !self.isNonResult();
+    }
+
+    pub fn takeFromOtherQuestionId(self: @This()) ?QuestionId {
+        return switch (self) {
+            .take_from_other_question => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn awaitFromThirdPartyCapability(self: @This()) ?u32 {
+        return switch (self) {
+            .await_from_third_party => |capability_index| capability_index,
+            else => null,
+        };
+    }
+
+    pub fn awaitsThirdPartyCapability(self: @This(), capability_index: u32) bool {
+        return self.awaitFromThirdPartyCapability() == capability_index;
     }
 };
 

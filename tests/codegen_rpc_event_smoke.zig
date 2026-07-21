@@ -10886,6 +10886,7 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
         const dispatch_result = @as(cpz.rpc.DispatchResult, .canceled);
+        try std.testing.expect(dispatch_result.isCanceled());
         try std.testing.expect(dispatch_result.isNonResult());
         try std.testing.expect(!dispatch_result.isResult());
         try cpz.rpc.initDispatchReturnMessage(root, 22, dispatch_result);
@@ -10900,7 +10901,10 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try cpz.rpc.initDispatchReturnMessage(root, 23, .results_sent_elsewhere);
+        const dispatch_result = @as(cpz.rpc.DispatchResult, .results_sent_elsewhere);
+        try std.testing.expect(dispatch_result.isResultsSentElsewhere());
+        try std.testing.expect(dispatch_result.takeFromOtherQuestionId() == null);
+        try cpz.rpc.initDispatchReturnMessage(root, 23, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
@@ -10914,6 +10918,9 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         const root = try generated.Message.initRootTyped(&builder);
         const dispatch_result = cpz.rpc.DispatchResult{ .take_from_other_question = 25 };
         try std.testing.expect(dispatch_result.isNonResult());
+        try std.testing.expect(dispatch_result.isTakeFromOtherQuestion());
+        try std.testing.expectEqual(@as(?u32, 25), dispatch_result.takeFromOtherQuestionId());
+        try std.testing.expect(!dispatch_result.isAwaitFromThirdParty());
         try cpz.rpc.initDispatchReturnMessage(root, 24, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
@@ -10926,7 +10933,12 @@ test "rpc generic dispatch return helper builds non-result outcomes" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try cpz.rpc.initDispatchReturnMessage(root, 26, .{ .await_from_third_party = 4 });
+        const dispatch_result = cpz.rpc.DispatchResult{ .await_from_third_party = 4 };
+        try std.testing.expect(dispatch_result.isAwaitFromThirdParty());
+        try std.testing.expectEqual(@as(?u32, 4), dispatch_result.awaitFromThirdPartyCapability());
+        try std.testing.expect(dispatch_result.awaitsThirdPartyCapability(4));
+        try std.testing.expect(!dispatch_result.awaitsThirdPartyCapability(3));
+        try cpz.rpc.initDispatchReturnMessage(root, 26, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const message = generated.Message.fromReader(try reader.getRoot());
