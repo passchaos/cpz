@@ -245,7 +245,7 @@ that a complete RPC runtime exists.
   Combined turn helpers, with or without method-table dispatch and
   apply-detail callbacks, can now dispatch dense responses/forwards, append
   ready handoff Returns, and initialize or send all or token-filtered pending Accept
-  Disembargo messages in one validated call, including direct unified queue append. A minimal
+  Disembargo messages in one validated call, including direct unified or role-tagged queue append. A minimal
   turn helper, with or without method-table dispatch, can dispatch dense
   responses/forwards, expose state-only apply details, validate output builder
   slices, and append ready handoff Returns to the same response queue or sink
