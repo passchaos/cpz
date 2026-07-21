@@ -23761,6 +23761,96 @@ test "rpc method turn dispatcher fills unified outputs with pending disembargos 
     try std.testing.expectEqual(@as(u32, 156), queue_apply_context.released_question_sum);
     try std.testing.expectEqual(@as(usize, 1), queue_accept_context.seen);
     try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+
+    const TaggedQueueItem = struct {
+        position: cpz.rpc.RpcTurnOutputPosition,
+        message: generated.Message.Builder,
+    };
+    var tagged_queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer tagged_queue_state.deinit();
+    try tagged_queue_state.addImport(5);
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 158,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-tagged-queue-apply-release-158",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try tagged_queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    {
+        var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+        defer builder.deinit();
+        const root = try generated.Message.initRootTyped(&builder);
+        try cpz.rpc.initWireAcceptMessage(root, .{
+            .question_id = 159,
+            .has_provision = true,
+            .provision_max_capability_count = 1,
+            .provision_capability = 0,
+            .embargo = "method-tagged-queue-apply-pending-159",
+        });
+        var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
+        try tagged_queue_state.applyWireMessage(std.testing.allocator, generated.Message.fromReader(try reader.getRoot()));
+    }
+    var tagged_queue_request_builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_request_builder.deinit();
+    const tagged_queue_request_root = try generated.Message.initRootTyped(&tagged_queue_request_builder);
+    try cpz.rpc.initWireDisembargoMessage(tagged_queue_request_root, .{
+        .target = .{ .imported_cap = 5 },
+        .context = .{ .accept = "method-tagged-queue-apply-release-158" },
+    });
+    var tagged_queue_request_reader = cpz.MessageReader.init(try tagged_queue_request_builder.segmentsConst(), .{});
+    const tagged_queue_requests = [_]generated.Message{generated.Message.fromReader(try tagged_queue_request_reader.getRoot())};
+    var tagged_queue_output_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_output_builder0.deinit();
+    const tagged_queue_output0 = try generated.Message.initRootTyped(&tagged_queue_output_builder0);
+    var tagged_queue_output_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer tagged_queue_output_builder1.deinit();
+    const tagged_queue_output1 = try generated.Message.initRootTyped(&tagged_queue_output_builder1);
+    const tagged_queue_outputs = [_]generated.Message.Builder{ tagged_queue_output0, tagged_queue_output1 };
+    var tagged_queue_context: Context = .{};
+    var tagged_queue_apply_context: ApplyContext = .{};
+    var tagged_queue_provide_context: HandoffHandler = .{};
+    var tagged_queue_accept_context: HandoffHandler = .{};
+    var tagged_queue_join_context: HandoffHandler = .{};
+    var tagged_output_queue = std.ArrayList(TaggedQueueItem).empty;
+    defer tagged_output_queue.deinit(std.testing.allocator);
+    const tagged_queued = try cpz.rpc.dispatchRpcTurnMethodsForwardingUnifiedDenseAndPendingAcceptDisembargosToTaggedQueueFromHandlersWithApplyHandler(
+        &tagged_queue_state,
+        std.testing.allocator,
+        tagged_queue_outputs[0..],
+        tagged_queue_requests[0..],
+        {},
+        BootstrapHandler.handle,
+        &tagged_queue_context,
+        entries,
+        &tagged_queue_provide_context,
+        HandoffHandler.handle,
+        &tagged_queue_accept_context,
+        HandoffHandler.handle,
+        &tagged_queue_join_context,
+        HandoffHandler.handle,
+        .{ .imported_cap = 5 },
+        &tagged_output_queue,
+        &tagged_queue_apply_context,
+        ApplyContext.handle,
+    );
+    try std.testing.expectEqual(cpz.rpc.WireDispatchStats{ .state_applied = 1 }, tagged_queued.dispatch);
+    try std.testing.expectEqual(cpz.rpc.StateHandoffReturnStats{ .accepts = 1 }, tagged_queued.handoff_returns);
+    try std.testing.expectEqual(@as(usize, 2), tagged_output_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, tagged_output_queue.items[0].position);
+    try expectQueuedReturnAnswer(tagged_output_queue.items[0].message, 158);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, tagged_output_queue.items[1].position);
+    try expectQueuedDisembargoBuilder(tagged_output_queue.items[1].message, .{ .imported_cap = 5 }, "method-tagged-queue-apply-pending-159");
+    try std.testing.expectEqual(@as(usize, 1), tagged_queue_apply_context.released_accepts);
+    try std.testing.expectEqual(@as(u32, 158), tagged_queue_apply_context.released_question_sum);
+    try std.testing.expectEqual(@as(usize, 1), tagged_queue_accept_context.seen);
+    try std.testing.expectEqual(@as(u32, 0), tagged_queue_context.selected);
 }
 
 test "rpc method turn dispatcher sends pending accept disembargos with dense outputs" {
