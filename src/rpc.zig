@@ -12501,7 +12501,7 @@ pub fn initWireAbortMessage(message: anytype, info: ExceptionInfo) !void {
 }
 
 pub fn initWireUnimplementedMessage(message: anytype) !void {
-    try message.set_unimplemented();
+    _ = try message.init_unimplemented();
 }
 
 pub fn returnOutcomeFromWireReturn(return_: anytype) !ReturnOutcome {
