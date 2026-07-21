@@ -10223,6 +10223,49 @@ pub fn dispatchRpcTurnForwardingUnifiedDenseFromHandlersWithApplyHandler(
     );
 }
 
+pub fn dispatchRpcTurnForwardingUnifiedDenseToQueueFromHandlersWithApplyHandler(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    provide_context: anytype,
+    provide_handler: anytype,
+    accept_context: anytype,
+    accept_handler: anytype,
+    join_context: anytype,
+    join_handler: anytype,
+    queue: anytype,
+    apply_context: anytype,
+    apply_handler: anytype,
+) !RpcTurnPlan {
+    const turn_plan = try dispatchRpcTurnForwardingUnifiedDenseFromHandlersWithApplyHandler(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+        provide_context,
+        provide_handler,
+        accept_context,
+        accept_handler,
+        join_context,
+        join_handler,
+        apply_context,
+        apply_handler,
+    );
+    for (output_messages[0..turn_plan.totalOutputMessages()]) |message| {
+        try queue.append(allocator, message);
+    }
+    return turn_plan;
+}
+
 pub fn dispatchRpcTurnForwardingUnifiedDenseAndPendingAcceptDisembargosFromHandlers(
     state: *State,
     allocator: std.mem.Allocator,
