@@ -325,7 +325,10 @@ that a complete RPC runtime exists.
   Provide/Accept/Join handoff completions can also initialize single or batched
   Return messages with readiness gates preserved, derive single
   Provide/Accept/Join result exports through application handlers, or hand those
-  initialized returns directly to an embedding transport/enqueue callback.
+  initialized returns directly to an embedding transport/enqueue callback. Both
+  explicit completion lists and structured handoff return plans can be
+  pre-validated against tracked readiness before callers allocate or fill
+  response builders.
   Handoff return values expose their kind plus answer/export IDs, and return
   plans/stats and ready-ID snapshots report whether any returns are pending,
   whether each handoff return kind is present, and the role-specific output
