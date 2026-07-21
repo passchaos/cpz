@@ -17,8 +17,9 @@ that a complete RPC runtime exists.
   capability indexes outside the caller-provided table size.
 - `CapabilityTable(T)` is a lightweight, non-owning view over application-owned
   handles. It maps capability indexes from pointer readers/builders, list
-  elements, and orphans into the caller's handle type, with nullable lookup
-  helpers for optional capability/interface fields.
+  elements, and orphans into the caller's handle type, with fallible and
+  nullable lookup helpers for direct indexes and optional capability/interface
+  fields.
 - `CapabilityRegistry(T)` is an append-only application-owned handle registry
   for assigning outgoing capability indexes before writing capability pointers
   into builders, with direct index presence plus fallible and nullable handle
