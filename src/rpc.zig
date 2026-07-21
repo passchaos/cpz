@@ -13322,6 +13322,16 @@ pub const State = struct {
         return applied;
     }
 
+    pub fn applyWireMessagesWithHandler(self: *State, allocator: std.mem.Allocator, messages: anytype, context: anytype, handler: anytype) !usize {
+        var applied: usize = 0;
+        for (messages) |message| {
+            try self.applyWireMessage(allocator, message);
+            try handler(context, message);
+            applied += 1;
+        }
+        return applied;
+    }
+
     pub fn applyWireMessagesAlloc(self: *State, allocator: std.mem.Allocator, messages: anytype) !WireMessageApplyStats {
         var stats: WireMessageApplyStats = .{};
         for (messages) |message| {

@@ -15814,6 +15814,24 @@ test "rpc batch apply aggregates detailed disembargo results" {
         try std.testing.expectEqual(@as(usize, 2), try simple_state.applyWireMessages(std.testing.allocator, messages[0..]));
         try std.testing.expectEqual(@as(?bool, true), simple_state.acceptEmbargoReleased(69));
     }
+    {
+        const Context = struct {
+            seen: usize = 0,
+            disembargos: usize = 0,
+
+            fn handle(context: *@This(), message: generated.Message) !void {
+                context.seen += 1;
+                if ((try cpz.rpc.wireMessageTag(message)) == .disembargo) context.disembargos += 1;
+            }
+        };
+        var simple_state = cpz.rpc.State.init(std.testing.allocator);
+        defer simple_state.deinit();
+        try simple_state.addImport(5);
+        var context: Context = .{};
+        try std.testing.expectEqual(@as(usize, 2), try simple_state.applyWireMessagesWithHandler(std.testing.allocator, messages[0..], &context, Context.handle));
+        try std.testing.expectEqual(@as(usize, 2), context.seen);
+        try std.testing.expectEqual(@as(usize, 1), context.disembargos);
+    }
 
     const stats = try state.applyWireMessagesAlloc(std.testing.allocator, messages[0..]);
     try std.testing.expectEqual(cpz.rpc.WireMessageApplyStats{
