@@ -18473,6 +18473,17 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     );
     try std.testing.expectEqual(@as(usize, 3), unified_sink.sent);
 
+    var output_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer output_queue.deinit(std.testing.allocator);
+    try std.testing.expectEqual(
+        cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 },
+        try cpz.rpc.appendRpcTurnUnifiedOutputsToQueue(std.testing.allocator, plan, outputs[0..], &output_queue),
+    );
+    try std.testing.expectEqual(@as(usize, 3), output_queue.items.len);
+    try expectQueuedReturnAnswer(output_queue.items[0], 301);
+    try expectQueuedForwardedCallBuilder(output_queue.items[1], 302, .{ .imported_cap = 3 });
+    try expectQueuedDisembargoBuilder(output_queue.items[2], .{ .imported_cap = 4 }, "role-disembargo");
+
     var response_sink: ResponseSink = .{};
     var forward_sink: ForwardSink = .{};
     var disembargo_sink: DisembargoSink = .{};

@@ -967,6 +967,14 @@ pub fn sendRpcTurnUnifiedOutputsToSinkStats(turn_plan: RpcTurnPlan, output_messa
     return RpcOutputStats.fromTurnPlan(turn_plan);
 }
 
+pub fn appendRpcTurnUnifiedOutputsToQueue(allocator: std.mem.Allocator, turn_plan: RpcTurnPlan, output_messages: anytype, queue: anytype) !RpcOutputStats {
+    try turn_plan.validateUnifiedOutputBuilders(output_messages);
+    for (output_messages[0..turn_plan.totalOutputMessages()]) |output_message| {
+        try queue.append(allocator, output_message);
+    }
+    return RpcOutputStats.fromTurnPlan(turn_plan);
+}
+
 /// Send initialized unified turn outputs to a single callback while tagging
 /// each message with its role and role-local index.
 ///
