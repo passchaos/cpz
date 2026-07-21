@@ -9633,6 +9633,33 @@ pub fn dispatchWireMessagesForwardingUnifiedDense(
     );
 }
 
+pub fn dispatchWireMessagesForwardingUnifiedDenseToQueue(
+    state: *State,
+    allocator: std.mem.Allocator,
+    output_messages: anytype,
+    request_messages: anytype,
+    bootstrap_context: anytype,
+    bootstrap_handler: anytype,
+    call_context: anytype,
+    call_handler: anytype,
+    queue: anytype,
+) !WireDispatchStats {
+    const stats = try dispatchWireMessagesForwardingUnifiedDense(
+        state,
+        allocator,
+        output_messages,
+        request_messages,
+        bootstrap_context,
+        bootstrap_handler,
+        call_context,
+        call_handler,
+    );
+    for (output_messages[0..stats.denseOutputSlots()]) |message| {
+        try queue.append(allocator, message);
+    }
+    return stats;
+}
+
 pub fn dispatchWireMessagesForwardingUnifiedDenseToQueues(
     state: *State,
     allocator: std.mem.Allocator,
