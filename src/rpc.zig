@@ -809,6 +809,20 @@ pub const HandoffReturnPlan = struct {
         };
     }
 
+    pub fn capabilityAt(self: @This(), output_index: usize) ?HandoffReturnCapability {
+        const completion = self.completionAt(output_index) orelse return null;
+        return switch (completion) {
+            .provide, .accept, .join => |value| value,
+        };
+    }
+
+    pub fn capabilityAtPosition(self: @This(), position: HandoffReturnOutputPosition) ?HandoffReturnCapability {
+        const completion = self.completionAtPosition(position) orelse return null;
+        return switch (completion) {
+            .provide, .accept, .join => |value| value,
+        };
+    }
+
     pub fn questionIdAt(self: @This(), output_index: usize) ?QuestionId {
         const completion = self.completionAt(output_index) orelse return null;
         return completion.questionId();

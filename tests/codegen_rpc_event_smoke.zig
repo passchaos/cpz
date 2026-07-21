@@ -20828,6 +20828,10 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .accept = planned_accepts[0] }, plan.completionAt(1).?);
     try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .join = planned_joins[0] }, plan.completionAt(2).?);
     try std.testing.expect(plan.completionAt(3) == null);
+    try std.testing.expectEqual(planned_provides[0], plan.capabilityAt(0).?);
+    try std.testing.expectEqual(planned_accepts[0], plan.capabilityAt(1).?);
+    try std.testing.expectEqual(planned_joins[0], plan.capabilityAt(2).?);
+    try std.testing.expect(plan.capabilityAt(3) == null);
     try std.testing.expectEqual(@as(?u32, 100), plan.questionIdAt(0));
     try std.testing.expectEqual(@as(?u32, 101), plan.questionIdAt(1));
     try std.testing.expectEqual(@as(?u32, 102), plan.questionIdAt(2));
@@ -20840,6 +20844,10 @@ test "rpc tracked handoff plans initialize ready return messages" {
     try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .accept = planned_accepts[0] }, plan.completionAtPosition(.{ .role = .accept, .local_index = 0 }).?);
     try std.testing.expectEqual(cpz.rpc.HandoffReturn{ .join = planned_joins[0] }, plan.completionAtPosition(.{ .role = .join, .local_index = 0 }).?);
     try std.testing.expect(plan.completionAtPosition(.{ .role = .provide, .local_index = 1 }) == null);
+    try std.testing.expectEqual(planned_provides[0], plan.capabilityAtPosition(.{ .role = .provide, .local_index = 0 }).?);
+    try std.testing.expectEqual(planned_accepts[0], plan.capabilityAtPosition(.{ .role = .accept, .local_index = 0 }).?);
+    try std.testing.expectEqual(planned_joins[0], plan.capabilityAtPosition(.{ .role = .join, .local_index = 0 }).?);
+    try std.testing.expect(plan.capabilityAtPosition(.{ .role = .provide, .local_index = 1 }) == null);
     try std.testing.expectEqual(@as(?u32, 100), plan.questionIdAtPosition(.{ .role = .provide, .local_index = 0 }));
     try std.testing.expectEqual(@as(?u32, 501), plan.exportIdAtPosition(.{ .role = .accept, .local_index = 0 }));
     try std.testing.expectEqual(@as(?u32, null), plan.questionIdAtPosition(.{ .role = .join, .local_index = 1 }));
