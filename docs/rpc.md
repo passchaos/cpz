@@ -360,7 +360,7 @@ that a complete RPC runtime exists.
   outputs to tagged sinks, role-specific sinks, caller-owned tagged queues, or
   role-specific queues, initialize ready handoff plans directly into tagged
   sinks, tagged queues, role-specific sinks, or role-specific queues, and
-  handler-derived ready handoff Returns directly into tagged sinks, and
+  handler-derived ready handoff Returns directly into tagged sinks or queues, and
   optionally enqueue those returns.
   Accept top-level messages record provision pointer usage and owned embargo
   bytes, and matching Disembargo.accept contexts mark those embargos released
