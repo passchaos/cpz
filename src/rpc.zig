@@ -1984,6 +1984,37 @@ pub const PendingAcceptEmbargos = struct {
         }
         return initialized;
     }
+
+    pub fn initDisembargoMessagesForEmbargo(self: @This(), message_builders: anytype, target: CallTarget, embargo: []const u8) !usize {
+        try self.validateMatchCapacity(embargo, message_builders.len);
+        var index: usize = 0;
+        for (self.items) |item| {
+            if (item.matchesEmbargo(embargo)) {
+                try initWireDisembargoMessage(message_builders[index], .{
+                    .target = target,
+                    .context = .{ .accept = item.embargo },
+                });
+                index += 1;
+            }
+        }
+        return index;
+    }
+
+    pub fn initDisembargoMessagesForEmbargoToQueue(self: @This(), allocator: std.mem.Allocator, message_builders: anytype, target: CallTarget, embargo: []const u8, queue: anytype) !usize {
+        const initialized = try self.initDisembargoMessagesForEmbargo(message_builders, target, embargo);
+        for (message_builders[0..initialized]) |message| {
+            try queue.append(allocator, message);
+        }
+        return initialized;
+    }
+
+    pub fn initDisembargoMessagesForEmbargoToSink(self: @This(), message_builders: anytype, target: CallTarget, embargo: []const u8, sink_context: anytype, sink_handler: anytype) !usize {
+        const initialized = try self.initDisembargoMessagesForEmbargo(message_builders, target, embargo);
+        for (message_builders[0..initialized]) |message| {
+            try sink_handler(sink_context, message);
+        }
+        return initialized;
+    }
 };
 
 pub const WireMessageApplyResult = union(enum) {
