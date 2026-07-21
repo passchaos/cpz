@@ -156,13 +156,14 @@ that a complete RPC runtime exists.
   payloads together, either at the Call/Return member level or through
   top-level Message builders, and generic dispatch-result, empty/exception/non-result/capability/capability-info/registry-backed-capability/text/text-info/registry-backed-text/data/data-info/registry-backed-data/UInt32-list/UInt32-list-info/registry-backed-UInt32-list/caller-filled-struct/caller-filled-struct-info/registry-backed-struct Return builders can
   initialize their wire payload while applying the matching answer/result
-  capability bookkeeping to `State`. Top-level Bootstrap,
-  Finish/Release builders can initialize their question IDs, flags, and
-  reference counts, and a helper can build a Return containing a single
-  capability result directly from a Bootstrap request reader. A minimal
-  bootstrap dispatcher can apply the request and invoke an application callback
-  that returns the bootstrap export ID. Typed Call dispatchers can also forward
-  already-resolved targets without invoking local handlers. A minimal Call dispatcher can do the
+  capability bookkeeping to `State`. Top-level Unimplemented, Abort,
+  Bootstrap, Finish/Release builders can initialize their tags, exception
+  metadata, question IDs, flags, and reference counts, and a helper can build a
+  Return containing a single capability result directly from a Bootstrap
+  request reader. A minimal bootstrap dispatcher can apply the request and
+  invoke an application callback that returns the bootstrap export ID. Typed
+  Call dispatchers can also forward already-resolved targets without invoking
+  local handlers. A minimal Call dispatcher can do the
   same for calls that return a single capability, text/data/UInt32-list
   payloads, or caller-filled struct payloads through generic or typed
   convenience dispatchers, with descriptor-info or registry-backed cap tables
