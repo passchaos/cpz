@@ -89,6 +89,13 @@ pub const Return = struct {
     }
 };
 
+pub const ExceptionType = enum(u16) {
+    failed = 0,
+    overloaded = 1,
+    disconnected = 2,
+    unimplemented = 3,
+};
+
 pub const ExceptionInfo = struct {
     reason: ?[]const u8,
     type_raw: u16,
@@ -100,6 +107,30 @@ pub const ExceptionInfo = struct {
 
     pub fn hasTrace(self: @This()) bool {
         return self.trace != null and self.trace.?.len != 0;
+    }
+
+    pub fn exceptionType(self: @This()) ?ExceptionType {
+        return std.enums.fromInt(ExceptionType, self.type_raw);
+    }
+
+    pub fn matchesType(self: @This(), exception_type: ExceptionType) bool {
+        return self.type_raw == @intFromEnum(exception_type);
+    }
+
+    pub fn isFailed(self: @This()) bool {
+        return self.matchesType(.failed);
+    }
+
+    pub fn isOverloaded(self: @This()) bool {
+        return self.matchesType(.overloaded);
+    }
+
+    pub fn isDisconnected(self: @This()) bool {
+        return self.matchesType(.disconnected);
+    }
+
+    pub fn isUnimplemented(self: @This()) bool {
+        return self.matchesType(.unimplemented);
     }
 };
 
@@ -14964,6 +14995,13 @@ test "rpc wire events expose classification and id helpers" {
     try testing.expectEqual(@as(?AnswerId, 13), return_event.answerId());
     try testing.expect(return_event.return_.releasesParamCaps());
     try testing.expect(return_event.return_.needsFinish());
+
+    const exception = ExceptionInfo{ .reason = "failed", .type_raw = @intFromEnum(ExceptionType.failed), .trace = "" };
+    try testing.expectEqual(ExceptionType.failed, exception.exceptionType().?);
+    try testing.expect(exception.isFailed());
+    try testing.expect(exception.matchesType(.failed));
+    try testing.expect(!exception.isOverloaded());
+    try testing.expect((ExceptionInfo{ .reason = null, .type_raw = 999 }).exceptionType() == null);
 
     const third_party_answer = WireEvent{ .third_party_answer = 18 };
     try testing.expect(third_party_answer.isStateApplicable());

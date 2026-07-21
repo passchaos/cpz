@@ -4470,6 +4470,10 @@ test "rpc return outcomes without result payloads resolve answers" {
         };
         try std.testing.expectEqualStrings("network down", info.reason.?);
         try std.testing.expectEqual(@as(u16, 2), info.type_raw);
+        try std.testing.expectEqual(cpz.rpc.ExceptionType.disconnected, info.exceptionType().?);
+        try std.testing.expect(info.matchesType(.disconnected));
+        try std.testing.expect(info.isDisconnected());
+        try std.testing.expect(!info.isFailed());
         try std.testing.expectEqualStrings("stack line 1\nstack line 2", info.trace.?);
         try std.testing.expect(info.hasReason());
         try std.testing.expect(info.hasTrace());
@@ -23962,6 +23966,8 @@ test "rpc resolve exceptions mark promise exports resolved" {
     const decoded_exception = info.exception orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("promise broken", decoded_exception.reason.?);
     try std.testing.expectEqual(@as(u16, 2), decoded_exception.type_raw);
+    try std.testing.expectEqual(cpz.rpc.ExceptionType.disconnected, decoded_exception.exceptionType().?);
+    try std.testing.expect(decoded_exception.isDisconnected());
     try std.testing.expectEqualStrings("promise trace", decoded_exception.trace.?);
 
     var state = cpz.rpc.State.init(std.testing.allocator);
@@ -24019,6 +24025,9 @@ test "rpc resolve info helpers write exceptions" {
     const exception = info.exception orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("resolve failed", exception.reason.?);
     try std.testing.expectEqual(@as(u16, 3), exception.type_raw);
+    try std.testing.expectEqual(cpz.rpc.ExceptionType.unimplemented, exception.exceptionType().?);
+    try std.testing.expect(exception.isUnimplemented());
+    try std.testing.expect(!exception.isOverloaded());
     try std.testing.expectEqualStrings("resolve trace", exception.trace.?);
     try std.testing.expect(exception.hasReason());
     try std.testing.expect(exception.hasTrace());
@@ -24064,6 +24073,9 @@ test "rpc top-level resolve helpers initialize exceptions" {
     const exception = info.exception orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("", exception.reason.?);
     try std.testing.expectEqual(@as(u16, 1), exception.type_raw);
+    try std.testing.expectEqual(cpz.rpc.ExceptionType.overloaded, exception.exceptionType().?);
+    try std.testing.expect(exception.isOverloaded());
+    try std.testing.expect(!exception.isUnimplemented());
     try std.testing.expect(!exception.hasReason());
     try std.testing.expect(!exception.hasTrace());
 
