@@ -112,7 +112,8 @@ that a complete RPC runtime exists.
   Resolved answers remember the message kind that resolved them. Capability
   states and trackers expose direct predicates, including resolved/replacement
   presence; stats summarize total/live/released/resolved import/export lifetimes
-  and import reference counts with convenience predicates.
+  and import reference counts with import/export/reference convenience
+  predicates.
   Call `sendResultsTo` caller/yourself/third-party targets can be decoded,
   matched with role predicates, and written, including third-party contact
   pointer capability usage.
