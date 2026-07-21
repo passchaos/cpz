@@ -946,6 +946,10 @@ pub const RpcOutputStats = struct {
         return self.total() != 0;
     }
 
+    pub fn isEmpty(self: @This()) bool {
+        return self.total() == 0;
+    }
+
     pub fn hasResponses(self: @This()) bool {
         return self.responses != 0;
     }

@@ -12027,6 +12027,10 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
         cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 },
         cpz.rpc.RpcOutputStats.fromDispatchStats(stats),
     );
+    try std.testing.expect((cpz.rpc.RpcOutputStats{}).isEmpty());
+    try std.testing.expect(!(cpz.rpc.RpcOutputStats{}).hasOutputs());
+    try std.testing.expect(!(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }).isEmpty());
+    try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }).hasOutputs());
     try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }).matchesDispatchStats(stats));
     try std.testing.expect(!(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1 }).matchesDispatchStats(stats));
     try (cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }).validateAgainstDispatchStats(stats);
