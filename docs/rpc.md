@@ -111,7 +111,7 @@ that a complete RPC runtime exists.
   generated target builders, and validated against tracked imports/answers. An
   owning target decoder can include promised-answer transform paths, which can
   also be decoded and written for noop and get-pointer-field operations with
-  promised-question and transform operation predicates/accessors.
+  promised-question, transform presence, and transform operation predicates/accessors.
   Remembered Resolve targets can be queried as one-hop or transitive forwarding
   targets with cycle detection, giving dispatch loops a safe way to route calls
   that arrive for already-resolved imported promises.

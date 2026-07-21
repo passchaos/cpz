@@ -1242,6 +1242,14 @@ pub const PromisedAnswerTargetOwned = struct {
         return self.question_id == id;
     }
 
+    pub fn transformLen(self: @This()) usize {
+        return self.transform.len;
+    }
+
+    pub fn hasTransform(self: @This()) bool {
+        return self.transform.len != 0;
+    }
+
     pub fn deinit(self: *@This(), allocator: std.mem.Allocator) void {
         allocator.free(self.transform);
         self.* = undefined;
