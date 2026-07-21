@@ -17,6 +17,36 @@ pub const Error = error{
 pub const CapabilityRef = union(enum) {
     export_id: ExportId,
     import_id: ImportId,
+
+    pub fn isExport(self: @This()) bool {
+        return self == .export_id;
+    }
+
+    pub fn isImport(self: @This()) bool {
+        return self == .import_id;
+    }
+
+    pub fn exportId(self: @This()) ?ExportId {
+        return switch (self) {
+            .export_id => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn importId(self: @This()) ?ImportId {
+        return switch (self) {
+            .import_id => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn matchesExport(self: @This(), id: ExportId) bool {
+        return self.exportId() == id;
+    }
+
+    pub fn matchesImport(self: @This(), id: ImportId) bool {
+        return self.importId() == id;
+    }
 };
 
 pub const CapabilityRelease = struct {
@@ -14428,10 +14458,24 @@ test "rpc message kind predicates describe state-machine roles" {
 
     const provide_event = Event{ .provide = 5 };
     try testing.expectEqual(MessageKind.provide, provide_event.kind());
-    try testing.expectEqual(CapabilityRef{ .export_id = 5 }, provide_event.capabilityRef().?);
+    const provide_ref = provide_event.capabilityRef().?;
+    try testing.expectEqual(CapabilityRef{ .export_id = 5 }, provide_ref);
+    try testing.expect(provide_ref.isExport());
+    try testing.expect(!provide_ref.isImport());
+    try testing.expectEqual(@as(?ExportId, 5), provide_ref.exportId());
+    try testing.expectEqual(@as(?ImportId, null), provide_ref.importId());
+    try testing.expect(provide_ref.matchesExport(5));
+    try testing.expect(!provide_ref.matchesImport(5));
     try testing.expect(provide_event.isCapabilityTableMutation());
     const accept_event = Event{ .accept = 6 };
-    try testing.expectEqual(CapabilityRef{ .import_id = 6 }, accept_event.capabilityRef().?);
+    const accept_ref = accept_event.capabilityRef().?;
+    try testing.expectEqual(CapabilityRef{ .import_id = 6 }, accept_ref);
+    try testing.expect(accept_ref.isImport());
+    try testing.expect(!accept_ref.isExport());
+    try testing.expectEqual(@as(?ImportId, 6), accept_ref.importId());
+    try testing.expectEqual(@as(?ExportId, null), accept_ref.exportId());
+    try testing.expect(accept_ref.matchesImport(6));
+    try testing.expect(!accept_ref.matchesExport(6));
 
     var stats: WireDispatchStats = .{};
     stats.recordResponseInitialized();
