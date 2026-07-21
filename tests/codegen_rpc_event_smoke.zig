@@ -15571,6 +15571,51 @@ test "rpc batch method-table forwarding dispatcher sends responses and forwarded
     try std.testing.expectEqual(cpz.rpc.CallTarget{ .imported_cap = 251 }, try cpz.rpc.callTargetFromWireCall(forwarded));
     try std.testing.expectEqual(cpz.rpc.CallMethod{ .interface_id = 0x8888, .method_id = 8 }, cpz.rpc.callMethodFromWireCall(forwarded));
     try expectPayloadUInt32List(try forwarded.params(), &.{ 8, 16 });
+
+    var queue_state = cpz.rpc.State.init(std.testing.allocator);
+    defer queue_state.deinit();
+    try queue_state.applyCapDescriptor(.{ .sender_promise = 250 });
+    try queue_state.resolveImportTo(250, .{ .sender_hosted = 251 });
+    try queue_state.applyCapDescriptor(.{ .sender_hosted = 251 });
+    var queue_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder0.deinit();
+    const queue_response0 = try generated.Message.initRootTyped(&queue_response_builder0);
+    var queue_response_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_response_builder1.deinit();
+    const queue_response1 = try generated.Message.initRootTyped(&queue_response_builder1);
+    var queue_forward_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
+    defer queue_forward_builder0.deinit();
+    const queue_forward0 = try generated.Message.initRootTyped(&queue_forward_builder0);
+    var queue_forward_builder1 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 32 });
+    defer queue_forward_builder1.deinit();
+    const queue_forward1 = try generated.Message.initRootTyped(&queue_forward_builder1);
+    const queue_responses = [_]generated.Message.Builder{ queue_response0, queue_response1 };
+    const queue_forwards = [_]generated.Message.Builder{ queue_forward0, queue_forward1 };
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var queue_bootstrap_seen: u32 = 0;
+    var queue_context: Context = .{};
+    const queue_stats = try cpz.rpc.dispatchWireMessagesMethodsForwardingToQueues(
+        &queue_state,
+        std.testing.allocator,
+        queue_responses[0..],
+        queue_forwards[0..],
+        requests[0..],
+        &queue_bootstrap_seen,
+        BootstrapHandler.handle,
+        &queue_context,
+        entries,
+        &response_queue,
+        &forward_queue,
+    );
+    try std.testing.expectEqual(stats, queue_stats);
+    try std.testing.expectEqual(@as(u32, 0), queue_context.selected);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 40);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 250, .{ .imported_cap = 251 });
 }
 
 test "rpc method-table forwarding dispatcher reports detailed state apply results" {
