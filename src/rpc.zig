@@ -1004,6 +1004,34 @@ pub fn appendRpcTurnUnifiedOutputsToTaggedQueue(allocator: std.mem.Allocator, tu
     return stats;
 }
 
+/// Append initialized unified turn outputs to role-specific queues.
+///
+/// This is the queue-oriented counterpart to `sendRpcTurnUnifiedOutputsToSinks`.
+/// It preserves the compact response/forward/Disembargo layout while letting a
+/// polling or event-loop embedder keep distinct outbound queues for local
+/// responses, forwarded Calls, and Disembargo traffic.
+pub fn appendRpcTurnUnifiedOutputsToQueues(
+    allocator: std.mem.Allocator,
+    turn_plan: RpcTurnPlan,
+    output_messages: anytype,
+    response_queue: anytype,
+    forward_queue: anytype,
+    disembargo_queue: anytype,
+) !RpcOutputStats {
+    try turn_plan.validateUnifiedOutputBuilders(output_messages);
+
+    for (try turn_plan.responseMessageRange().slice(output_messages)) |output_message| {
+        try response_queue.append(allocator, output_message);
+    }
+    for (try turn_plan.forwardedMessageRange().slice(output_messages)) |output_message| {
+        try forward_queue.append(allocator, output_message);
+    }
+    for (try turn_plan.disembargoMessageRange().slice(output_messages)) |output_message| {
+        try disembargo_queue.append(allocator, output_message);
+    }
+    return RpcOutputStats.fromTurnPlan(turn_plan);
+}
+
 /// Send initialized unified turn outputs to a single callback while tagging
 /// each message with its role and role-local index.
 ///

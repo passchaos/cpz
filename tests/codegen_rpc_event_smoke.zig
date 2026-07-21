@@ -18788,6 +18788,37 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try expectQueuedForwardedCallBuilder(output_queue.items[1], 302, .{ .imported_cap = 3 });
     try expectQueuedDisembargoBuilder(output_queue.items[2], .{ .imported_cap = 4 }, "role-disembargo");
 
+    var response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer response_queue.deinit(std.testing.allocator);
+    var forward_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer forward_queue.deinit(std.testing.allocator);
+    var disembargo_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer disembargo_queue.deinit(std.testing.allocator);
+    const queued_split_stats = try cpz.rpc.appendRpcTurnUnifiedOutputsToQueues(
+        std.testing.allocator,
+        plan,
+        outputs[0..],
+        &response_queue,
+        &forward_queue,
+        &disembargo_queue,
+    );
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }, queued_split_stats);
+    try queued_split_stats.validateAgainstTurnPlan(plan);
+    try std.testing.expectEqual(@as(usize, 1), response_queue.items.len);
+    try expectQueuedReturnAnswer(response_queue.items[0], 301);
+    try std.testing.expectEqual(@as(usize, 1), forward_queue.items.len);
+    try expectQueuedForwardedCallBuilder(forward_queue.items[0], 302, .{ .imported_cap = 3 });
+    try std.testing.expectEqual(@as(usize, 1), disembargo_queue.items.len);
+    try expectQueuedDisembargoBuilder(disembargo_queue.items[0], .{ .imported_cap = 4 }, "role-disembargo");
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcTurnUnifiedOutputsToQueues(
+        std.testing.allocator,
+        plan,
+        outputs[0..2],
+        &response_queue,
+        &forward_queue,
+        &disembargo_queue,
+    ));
+
     var response_sink: ResponseSink = .{};
     var forward_sink: ForwardSink = .{};
     var disembargo_sink: DisembargoSink = .{};
