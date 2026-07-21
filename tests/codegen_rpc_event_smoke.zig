@@ -4496,6 +4496,7 @@ test "rpc return outcomes without result payloads resolve answers" {
             .exception => |value| value,
             else => return error.TestUnexpectedResult,
         };
+        try std.testing.expectEqual(info, outcome.exceptionInfo().?);
         try std.testing.expectEqualStrings("network down", info.reason.?);
         try std.testing.expectEqual(@as(u16, 2), info.type_raw);
         try std.testing.expectEqual(cpz.rpc.ExceptionType.disconnected, info.exceptionType().?);
@@ -10868,13 +10869,18 @@ test "rpc forward helpers reject unresolved calls" {
 
 test "rpc generic dispatch return helper builds non-capability payloads" {
     try std.testing.expect((@as(cpz.rpc.DispatchResult, .empty)).isEmpty());
-    try std.testing.expect((cpz.rpc.DispatchResult{ .capability = 10 }).isCapability());
-    try std.testing.expect((cpz.rpc.DispatchResult{ .exception = .{ .reason = "x", .type_raw = 1 } }).isException());
+    const capability_result = cpz.rpc.DispatchResult{ .capability = 10 };
+    try std.testing.expect(capability_result.isCapability());
+    try std.testing.expectEqual(@as(?u32, 10), capability_result.capabilityId());
+    const exception_result = cpz.rpc.DispatchResult{ .exception = .{ .reason = "x", .type_raw = 1 } };
+    try std.testing.expect(exception_result.isException());
+    try std.testing.expectEqualStrings("x", exception_result.exceptionInfo().?.reason.?);
     {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
         const dispatch_result = cpz.rpc.DispatchResult{ .text = "text result" };
+        try std.testing.expectEqualStrings("text result", dispatch_result.textBytes().?);
         try std.testing.expect(!dispatch_result.isNonResult());
         try std.testing.expect(dispatch_result.isResult());
         try cpz.rpc.initDispatchReturnMessage(root, 36, dispatch_result);
@@ -10889,7 +10895,9 @@ test "rpc generic dispatch return helper builds non-capability payloads" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try cpz.rpc.initDispatchReturnMessage(root, 37, .{ .data = "data result" });
+        const dispatch_result = cpz.rpc.DispatchResult{ .data = "data result" };
+        try std.testing.expectEqualSlices(u8, "data result", dispatch_result.dataBytes().?);
+        try cpz.rpc.initDispatchReturnMessage(root, 37, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const return_ = try generated.Message.fromReader(try reader.getRoot()).return_();
@@ -10900,7 +10908,9 @@ test "rpc generic dispatch return helper builds non-capability payloads" {
         var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
         defer builder.deinit();
         const root = try generated.Message.initRootTyped(&builder);
-        try cpz.rpc.initDispatchReturnMessage(root, 38, .{ .uint32_list = &.{ 4, 5, 6 } });
+        const dispatch_result = cpz.rpc.DispatchResult{ .uint32_list = &.{ 4, 5, 6 } };
+        try std.testing.expectEqualSlices(u32, &.{ 4, 5, 6 }, dispatch_result.uint32Values().?);
+        try cpz.rpc.initDispatchReturnMessage(root, 38, dispatch_result);
 
         var reader = cpz.MessageReader.init(try builder.segmentsConst(), .{});
         const results = try (try generated.Message.fromReader(try reader.getRoot()).return_()).results();

@@ -150,6 +150,13 @@ pub const ReturnOutcome = union(enum) {
         return self == .exception;
     }
 
+    pub fn exceptionInfo(self: @This()) ?ExceptionInfo {
+        return switch (self) {
+            .exception => |exception| exception,
+            else => null,
+        };
+    }
+
     pub fn isCanceled(self: @This()) bool {
         return self == .canceled;
     }
@@ -210,8 +217,43 @@ pub const DispatchResult = union(enum) {
         return self == .capability;
     }
 
+    pub fn capabilityId(self: @This()) ?ExportId {
+        return switch (self) {
+            .capability => |id| id,
+            else => null,
+        };
+    }
+
+    pub fn textBytes(self: @This()) ?[]const u8 {
+        return switch (self) {
+            .text => |value| value,
+            else => null,
+        };
+    }
+
+    pub fn dataBytes(self: @This()) ?[]const u8 {
+        return switch (self) {
+            .data => |value| value,
+            else => null,
+        };
+    }
+
+    pub fn uint32Values(self: @This()) ?[]const u32 {
+        return switch (self) {
+            .uint32_list => |value| value,
+            else => null,
+        };
+    }
+
     pub fn isException(self: @This()) bool {
         return self == .exception;
+    }
+
+    pub fn exceptionInfo(self: @This()) ?ExceptionInfo {
+        return switch (self) {
+            .exception => |exception| exception,
+            else => null,
+        };
     }
 
     pub fn isCanceled(self: @This()) bool {
