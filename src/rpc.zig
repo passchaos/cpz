@@ -16131,6 +16131,38 @@ pub const State = struct {
         return stats;
     }
 
+    pub fn initReadyHandoffReturnPlanMessagesToQueue(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        response_messages: anytype,
+        plan: HandoffReturnPlan,
+        queue: anytype,
+    ) !StateHandoffReturnStats {
+        if (response_messages.len < plan.total()) return error.InvalidTransition;
+        try self.validateReadyHandoffReturnPlan(plan);
+        var stats: StateHandoffReturnStats = .{};
+        var index: usize = 0;
+        for (plan.provides) |value| {
+            try self.initTrackedProvideReturnMessage(response_messages[index], value.question_id, value.export_id);
+            try queue.append(allocator, response_messages[index]);
+            stats.provides += 1;
+            index += 1;
+        }
+        for (plan.accepts) |value| {
+            try self.initReadyAcceptReturnMessage(response_messages[index], value.question_id, value.export_id);
+            try queue.append(allocator, response_messages[index]);
+            stats.accepts += 1;
+            index += 1;
+        }
+        for (plan.joins) |value| {
+            try self.initTrackedJoinResultReturnMessage(response_messages[index], value.question_id, value.export_id);
+            try queue.append(allocator, response_messages[index]);
+            stats.joins += 1;
+            index += 1;
+        }
+        return stats;
+    }
+
     pub fn readyHandoffReturnStats(self: *const State) StateHandoffReturnStats {
         return .{
             .provides = self.provideRecipientCount(),

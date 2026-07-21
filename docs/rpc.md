@@ -359,6 +359,7 @@ that a complete RPC runtime exists.
   initialized returns directly to an embedding transport/enqueue callback or
   caller-owned queue. Both
   explicit/tracked completion lists and structured handoff return plans can be
+  initialized into queues, and all of those handoff inputs can be
   pre-validated against tracked readiness before callers allocate or fill
   response builders.
   Handoff return values expose their kind plus answer/export IDs, and return
