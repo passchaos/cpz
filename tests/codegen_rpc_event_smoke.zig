@@ -24292,6 +24292,16 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }).matchesTurnPlan(plan));
     try (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }).validateAgainstTurnPlan(plan);
     try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1 }).validateAgainstTurnPlan(plan));
+    const mixed_response_plan: cpz.rpc.RpcTurnPlan = .{
+        .dispatch = .{ .response_initialized = 2 },
+        .handoff_returns = .{ .provides = 1, .accepts = 1 },
+    };
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, mixed_response_plan.dispatchResponseRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 4 }, mixed_response_plan.handoffReturnRange());
+    try std.testing.expectEqual(@as(?usize, 1), mixed_response_plan.dispatchResponseLocalIndex(1));
+    try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.dispatchResponseLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, 0), mixed_response_plan.handoffReturnLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, null), mixed_response_plan.handoffReturnLocalIndex(4));
 
     var unified_sink: UnifiedSink = .{};
     try std.testing.expectEqual(

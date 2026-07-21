@@ -1120,6 +1120,23 @@ pub const RpcTurnPlan = struct {
         return self.dispatchResponseMessages() + self.handoffReturnMessages();
     }
 
+    pub fn dispatchResponseRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.dispatchResponseMessages() };
+    }
+
+    pub fn handoffReturnRange(self: @This()) OutputRange {
+        const start = self.dispatchResponseMessages();
+        return .{ .start = start, .end = start + self.handoffReturnMessages() };
+    }
+
+    pub fn dispatchResponseLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.dispatchResponseRange().localIndex(output_index);
+    }
+
+    pub fn handoffReturnLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.handoffReturnRange().localIndex(output_index);
+    }
+
     pub fn hasResponses(self: @This()) bool {
         return self.responseMessages() != 0;
     }
