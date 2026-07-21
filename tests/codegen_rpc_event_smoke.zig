@@ -8644,6 +8644,9 @@ test "rpc service action stats aggregate wire and tracked calls" {
     const message_tagged_stats = try cpz.rpc.sendRpcServiceActionUnifiedOutputsToTaggedSinkStats(message_stats, message_outputs[0..], &message_tagged_sink, MessageTaggedSink.handle);
     try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 2, .forwards = 1 }, message_tagged_stats);
     try std.testing.expectEqual(message_tagged_stats, cpz.rpc.RpcOutputStats.fromServiceActionStats(message_stats));
+    try std.testing.expect(message_tagged_stats.matchesServiceActionStats(message_stats));
+    try message_tagged_stats.validateAgainstServiceActionStats(message_stats);
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1 }).validateAgainstServiceActionStats(message_stats));
     try std.testing.expectEqual(@as(usize, 3), message_tagged_sink.sent);
     try std.testing.expectEqual(@as(usize, 0 + 1), message_tagged_sink.response_local_sum);
     try std.testing.expectEqual(@as(usize, 0), message_tagged_sink.forward_local_sum);

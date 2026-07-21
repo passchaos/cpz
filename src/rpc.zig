@@ -886,12 +886,23 @@ pub const RpcOutputStats = struct {
             self.disembargos == expected.disembargos;
     }
 
+    pub fn matchesServiceActionStats(self: @This(), stats: TrackedCallServiceActionStats) bool {
+        const expected = @This().fromServiceActionStats(stats);
+        return self.responses == expected.responses and
+            self.forwards == expected.forwards and
+            self.disembargos == expected.disembargos;
+    }
+
     pub fn validateAgainstDispatchStats(self: @This(), dispatch: WireDispatchStats) Error!void {
         if (!self.matchesDispatchStats(dispatch)) return error.InvalidTransition;
     }
 
     pub fn validateAgainstTurnPlan(self: @This(), turn_plan: RpcTurnPlan) Error!void {
         if (!self.matchesTurnPlan(turn_plan)) return error.InvalidTransition;
+    }
+
+    pub fn validateAgainstServiceActionStats(self: @This(), stats: TrackedCallServiceActionStats) Error!void {
+        if (!self.matchesServiceActionStats(stats)) return error.InvalidTransition;
     }
 
     pub fn recordRole(self: *@This(), role: RpcTurnOutputRole) void {
