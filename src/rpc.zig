@@ -15630,6 +15630,25 @@ pub const State = struct {
         return released_accept_ids.len;
     }
 
+    pub fn initReleasedAcceptReturnMessagesFromHandlerToQueue(
+        self: *const State,
+        allocator: std.mem.Allocator,
+        response_messages: anytype,
+        released_accept_ids: []const QuestionId,
+        context: anytype,
+        handler: anytype,
+        queue: anytype,
+    ) !usize {
+        if (response_messages.len < released_accept_ids.len) return error.InvalidTransition;
+        for (released_accept_ids, 0..) |question_id, index| {
+            const provision = self.readyAcceptProvision(question_id) orelse return error.InvalidTransition;
+            const export_id = try handler(context, question_id, provision);
+            try self.initReadyAcceptReturnMessage(response_messages[index], question_id, export_id);
+            try queue.append(allocator, response_messages[index]);
+        }
+        return released_accept_ids.len;
+    }
+
     pub fn applyDisembargoAndInitAcceptReturnsFromHandlerToSink(
         self: *State,
         allocator: std.mem.Allocator,
