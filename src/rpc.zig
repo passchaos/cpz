@@ -15677,6 +15677,33 @@ pub const State = struct {
         return released;
     }
 
+    pub fn applyDisembargoAndInitAcceptReturnsFromHandlerToQueue(
+        self: *State,
+        allocator: std.mem.Allocator,
+        info: DisembargoInfo,
+        response_messages: anytype,
+        context: anytype,
+        handler: anytype,
+        queue: anytype,
+    ) !DisembargoApplyInfo {
+        const expected_accepts = switch (info.context) {
+            .accept => |embargo| self.pendingAcceptEmbargoMatchCount(embargo),
+            else => 0,
+        };
+        if (response_messages.len < expected_accepts) return error.InvalidTransition;
+        const released = try self.applyDisembargoAlloc(allocator, info);
+        errdefer allocator.free(released.released_accept_ids);
+        _ = try self.initReleasedAcceptReturnMessagesFromHandlerToQueue(
+            allocator,
+            response_messages,
+            released.released_accept_ids,
+            context,
+            handler,
+            queue,
+        );
+        return released;
+    }
+
     pub fn applyDisembargoAndInitAcceptReturnsFromHandler(
         self: *State,
         allocator: std.mem.Allocator,
@@ -15715,6 +15742,25 @@ pub const State = struct {
             response_messages,
             context,
             handler,
+        );
+    }
+
+    pub fn applyWireDisembargoAndInitAcceptReturnsFromHandlerToQueue(
+        self: *State,
+        allocator: std.mem.Allocator,
+        disembargo: anytype,
+        response_messages: anytype,
+        context: anytype,
+        handler: anytype,
+        queue: anytype,
+    ) !DisembargoApplyInfo {
+        return self.applyDisembargoAndInitAcceptReturnsFromHandlerToQueue(
+            allocator,
+            try disembargoInfoFromWireDisembargo(disembargo),
+            response_messages,
+            context,
+            handler,
+            queue,
         );
     }
 
