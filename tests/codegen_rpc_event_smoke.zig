@@ -4436,6 +4436,8 @@ test "rpc return outcomes without result payloads resolve answers" {
         try std.testing.expectEqualStrings("network down", info.reason.?);
         try std.testing.expectEqual(@as(u16, 2), info.type_raw);
         try std.testing.expectEqualStrings("stack line 1\nstack line 2", info.trace.?);
+        try std.testing.expect(info.hasReason());
+        try std.testing.expect(info.hasTrace());
 
         var state = cpz.rpc.State.init(std.testing.allocator);
         defer state.deinit();
@@ -23798,6 +23800,8 @@ test "rpc resolve info helpers write exceptions" {
     try std.testing.expectEqualStrings("resolve failed", exception.reason.?);
     try std.testing.expectEqual(@as(u16, 3), exception.type_raw);
     try std.testing.expectEqualStrings("resolve trace", exception.trace.?);
+    try std.testing.expect(exception.hasReason());
+    try std.testing.expect(exception.hasTrace());
 }
 
 test "rpc top-level resolve helpers initialize messages" {
@@ -23840,6 +23844,8 @@ test "rpc top-level resolve helpers initialize exceptions" {
     const exception = info.exception orelse return error.TestUnexpectedResult;
     try std.testing.expectEqualStrings("", exception.reason.?);
     try std.testing.expectEqual(@as(u16, 1), exception.type_raw);
+    try std.testing.expect(!exception.hasReason());
+    try std.testing.expect(!exception.hasTrace());
 
     var state = cpz.rpc.State.init(std.testing.allocator);
     defer state.deinit();

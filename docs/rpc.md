@@ -31,7 +31,8 @@ that a complete RPC runtime exists.
   union shape from generated readers into lightweight `WireEvent` values,
   shares a `wireMessageTag()` helper with method/options metadata decoders, and
   projects only the semantically-aligned subset into `State.apply()` events.
-  RPC exception helpers preserve reason, raw type, and optional trace text.
+  RPC exception helpers preserve reason, raw type, and optional trace text, with
+  predicates for non-empty reason and trace fields.
   Return wire events preserve `releaseParamCaps` and `noFinishNeeded` flags
   while still projecting to the simplified answer-resolving event.
   Return outcomes for exception, canceled, results-sent-elsewhere, and

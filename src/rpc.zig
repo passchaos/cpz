@@ -39,6 +39,14 @@ pub const ExceptionInfo = struct {
     reason: ?[]const u8,
     type_raw: u16,
     trace: ?[]const u8 = null,
+
+    pub fn hasReason(self: @This()) bool {
+        return self.reason != null and self.reason.?.len != 0;
+    }
+
+    pub fn hasTrace(self: @This()) bool {
+        return self.trace != null and self.trace.?.len != 0;
+    }
 };
 
 pub const ReturnOutcome = union(enum) {
