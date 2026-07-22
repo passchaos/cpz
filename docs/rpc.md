@@ -249,7 +249,7 @@ that a complete RPC runtime exists.
   ranges/source-position mappings, empty/source-presence predicates,
   stats/capacity validation, and local indexes, and
   combine dispatch, ready handoff
-  returns, and pending Disembargo queue counts plus per-role and combined capacity checks for split
+  returns, and pending Disembargo queue counts plus per-role, Disembargo, and combined capacity checks for split
   or unified output queues, including helpers for validating builders and
   slicing/querying unified output ranges and local indexes into response,
   forward, and Disembargo regions.
