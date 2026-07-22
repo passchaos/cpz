@@ -1291,6 +1291,37 @@ pub const RpcTurnResponseSourceStats = struct {
         return .{ .dispatch = dispatch.response_initialized };
     }
 
+    pub fn dispatchRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.dispatch };
+    }
+
+    pub fn handoffReturnRange(self: @This()) OutputRange {
+        const start = self.dispatch;
+        return .{ .start = start, .end = start + self.handoff_returns };
+    }
+
+    pub fn dispatchLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.dispatchRange().localIndex(output_index);
+    }
+
+    pub fn handoffReturnLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.handoffReturnRange().localIndex(output_index);
+    }
+
+    pub fn sourcePosition(self: @This(), output_index: usize) ?RpcTurnResponseSourcePosition {
+        if (self.dispatchLocalIndex(output_index)) |local_index| return .{ .role = .dispatch, .local_index = local_index };
+        if (self.handoffReturnLocalIndex(output_index)) |local_index| return .{ .role = .handoff_return, .local_index = local_index };
+
+        return null;
+    }
+
+    pub fn sourceOutputIndex(self: @This(), position: RpcTurnResponseSourcePosition) ?usize {
+        return switch (position.role) {
+            .dispatch => if (position.local_index < self.dispatch) position.local_index else null,
+            .handoff_return => if (position.local_index < self.handoff_returns) self.dispatch + position.local_index else null,
+        };
+    }
+
     pub fn recordRole(self: *@This(), role: RpcTurnResponseSourceRole) void {
         switch (role) {
             .dispatch => self.dispatch += 1,

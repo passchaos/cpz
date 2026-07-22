@@ -24338,6 +24338,18 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .handoff_return, .local_index = 1 }, response_source_stats.nextPosition(.handoff_return));
     try response_source_stats.recordOutputIndex(mixed_response_plan, 3);
     try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2, .handoff_returns = 2 }, response_source_stats);
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, response_source_stats.dispatchRange());
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 4 }, response_source_stats.handoffReturnRange());
+    try std.testing.expectEqual(@as(?usize, 1), response_source_stats.dispatchLocalIndex(1));
+    try std.testing.expectEqual(@as(?usize, null), response_source_stats.dispatchLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, 0), response_source_stats.handoffReturnLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, null), response_source_stats.handoffReturnLocalIndex(4));
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .dispatch, .local_index = 1 }, response_source_stats.sourcePosition(1).?);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .handoff_return, .local_index = 0 }, response_source_stats.sourcePosition(2).?);
+    try std.testing.expect(response_source_stats.sourcePosition(4) == null);
+    try std.testing.expectEqual(@as(?usize, 1), response_source_stats.sourceOutputIndex(.{ .role = .dispatch, .local_index = 1 }));
+    try std.testing.expectEqual(@as(?usize, 2), response_source_stats.sourceOutputIndex(.{ .role = .handoff_return, .local_index = 0 }));
+    try std.testing.expectEqual(@as(?usize, null), response_source_stats.sourceOutputIndex(.{ .role = .handoff_return, .local_index = 2 }));
     try std.testing.expect(response_source_stats.hasResponses());
     try std.testing.expect(!response_source_stats.isEmpty());
     try std.testing.expect(response_source_stats.hasDispatchResponses());
