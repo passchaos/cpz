@@ -1607,6 +1607,26 @@ pub fn sendRpcTurnResponsesToSourceSinksStats(
     return stats;
 }
 
+pub fn appendRpcTurnResponsesToSourceQueues(
+    allocator: std.mem.Allocator,
+    turn_plan: RpcTurnPlan,
+    response_messages: anytype,
+    dispatch_queue: anytype,
+    handoff_queue: anytype,
+) !RpcTurnResponseSourceStats {
+    try turn_plan.responseMessageRange().validateCapacity(response_messages.len);
+    var stats: RpcTurnResponseSourceStats = .{};
+    for (try turn_plan.dispatchResponseRange().slice(response_messages)) |message| {
+        try dispatch_queue.append(allocator, message);
+        stats.recordRole(.dispatch);
+    }
+    for (try turn_plan.handoffReturnRange().slice(response_messages)) |message| {
+        try handoff_queue.append(allocator, message);
+        stats.recordRole(.handoff_return);
+    }
+    return stats;
+}
+
 /// Send exactly the initialized prefix of a unified RPC turn output queue to an
 /// embedding transport/enqueue callback.
 ///

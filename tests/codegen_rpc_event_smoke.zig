@@ -24459,6 +24459,31 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(@as(u32, 501 + 502), dispatch_response_sink.answer_sum);
     try std.testing.expectEqual(@as(usize, 2), handoff_response_sink.sent);
     try std.testing.expectEqual(@as(u32, 503 + 504), handoff_response_sink.answer_sum);
+    var dispatch_response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer dispatch_response_queue.deinit(std.testing.allocator);
+    var handoff_response_queue = std.ArrayList(generated.Message.Builder).empty;
+    defer handoff_response_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcTurnResponsesToSourceQueues(
+        std.testing.allocator,
+        mixed_response_plan,
+        source_responses[0..3],
+        &dispatch_response_queue,
+        &handoff_response_queue,
+    ));
+    const queued_split_response_source_stats = try cpz.rpc.appendRpcTurnResponsesToSourceQueues(
+        std.testing.allocator,
+        mixed_response_plan,
+        source_responses[0..],
+        &dispatch_response_queue,
+        &handoff_response_queue,
+    );
+    try std.testing.expectEqual(mixed_response_plan.responseSourceStats(), queued_split_response_source_stats);
+    try std.testing.expectEqual(@as(usize, 2), dispatch_response_queue.items.len);
+    try std.testing.expectEqual(@as(u32, 501), try (try dispatch_response_queue.items[0].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 502), try (try dispatch_response_queue.items[1].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(usize, 2), handoff_response_queue.items.len);
+    try std.testing.expectEqual(@as(u32, 503), try (try handoff_response_queue.items[0].get_return_()).get_answerId());
+    try std.testing.expectEqual(@as(u32, 504), try (try handoff_response_queue.items[1].get_return_()).get_answerId());
 
     var unified_sink: UnifiedSink = .{};
     try std.testing.expectEqual(
