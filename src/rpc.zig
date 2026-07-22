@@ -1430,6 +1430,10 @@ pub const RpcOutputStats = struct {
         };
     }
 
+    pub fn fromResponseSourceStats(stats: RpcTurnResponseSourceStats) @This() {
+        return .{ .responses = stats.total() };
+    }
+
     pub fn matchesDispatchStats(self: @This(), dispatch: WireDispatchStats) bool {
         const expected = @This().fromDispatchStats(dispatch);
         return self.responses == expected.responses and
@@ -1451,6 +1455,13 @@ pub const RpcOutputStats = struct {
             self.disembargos == expected.disembargos;
     }
 
+    pub fn matchesResponseSourceStats(self: @This(), stats: RpcTurnResponseSourceStats) bool {
+        const expected = @This().fromResponseSourceStats(stats);
+        return self.responses == expected.responses and
+            self.forwards == expected.forwards and
+            self.disembargos == expected.disembargos;
+    }
+
     pub fn validateAgainstDispatchStats(self: @This(), dispatch: WireDispatchStats) Error!void {
         if (!self.matchesDispatchStats(dispatch)) return error.InvalidTransition;
     }
@@ -1461,6 +1472,10 @@ pub const RpcOutputStats = struct {
 
     pub fn validateAgainstServiceActionStats(self: @This(), stats: TrackedCallServiceActionStats) Error!void {
         if (!self.matchesServiceActionStats(stats)) return error.InvalidTransition;
+    }
+
+    pub fn validateAgainstResponseSourceStats(self: @This(), stats: RpcTurnResponseSourceStats) Error!void {
+        if (!self.matchesResponseSourceStats(stats)) return error.InvalidTransition;
     }
 
     pub fn recordRole(self: *@This(), role: RpcTurnOutputRole) void {

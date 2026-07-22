@@ -24349,6 +24349,10 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectError(error.InvalidTransition, response_source_stats.validateAgainstStats(cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }));
     try std.testing.expect(response_source_stats.matchesTurnPlan(mixed_response_plan));
     try response_source_stats.validateAgainstTurnPlan(mixed_response_plan);
+    try std.testing.expectEqual(cpz.rpc.RpcOutputStats{ .responses = 4 }, cpz.rpc.RpcOutputStats.fromResponseSourceStats(response_source_stats));
+    try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 4 }).matchesResponseSourceStats(response_source_stats));
+    try (cpz.rpc.RpcOutputStats{ .responses = 4 }).validateAgainstResponseSourceStats(response_source_stats);
+    try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcOutputStats{ .responses = 3 }).validateAgainstResponseSourceStats(response_source_stats));
     try std.testing.expectError(error.InvalidTransition, response_source_stats.recordOutputIndex(mixed_response_plan, 4));
     try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }).validateAgainstTurnPlan(mixed_response_plan));
     var source_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
