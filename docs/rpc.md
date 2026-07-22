@@ -245,8 +245,9 @@ that a complete RPC runtime exists.
   response-source ranges, next-source and role-tagged positions, role-specific
   source-to-output-index helpers, source-tagged response sinks/queues and
   source-specific response sinks/queues, output stats derived from response
-  sources, dispatch-derived and directly exposed source stats with
-  empty/source-presence predicates, stats/capacity validation, and local indexes, and
+  sources, dispatch-derived and directly exposed source stats with their own
+  ranges/source-position mappings, empty/source-presence predicates,
+  stats/capacity validation, and local indexes, and
   combine dispatch, ready handoff
   returns, and pending Disembargo queue counts plus capacity checks for split
   or unified output queues, including helpers for validating builders and
