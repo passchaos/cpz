@@ -380,6 +380,22 @@ pub const WireDispatchStats = struct {
         self.record(.state_applied);
     }
 
+    pub fn recordDenseOutputRole(self: *@This(), role: WireDispatchOutputRole) void {
+        switch (role) {
+            .response => self.response_initialized += 1,
+            .forward => self.forward_required += 1,
+        }
+    }
+
+    pub fn recordDenseOutputPosition(self: *@This(), position: WireDispatchOutputPosition) void {
+        self.recordDenseOutputRole(position.role);
+    }
+
+    pub fn recordDenseOutputIndex(self: *@This(), source_stats: WireDispatchStats, output_index: usize) Error!void {
+        const position = source_stats.unifiedDenseOutputPosition(output_index) orelse return error.InvalidTransition;
+        self.recordDenseOutputPosition(position);
+    }
+
     pub fn total(self: @This()) usize {
         return self.response_initialized + self.forward_required + self.state_applied;
     }
