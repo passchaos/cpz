@@ -283,7 +283,7 @@ that a complete RPC runtime exists.
   tags, counted with lightweight output stats returned by untagged, tagged, or
   split send helpers with stats/capacity/builder validation, accumulated from turn-plan or service-action unified
   output indexes, queried directly
-  for next/unified role-local positions and mapped back to output indexes from the turn plan, checked against
+  for stats/turn-plan ranges, next/unified role-local positions, and mapped back to output indexes, checked against
   dispatch/turn plans, tested for empty/non-empty output sets, or split by output role into separate sinks, including ordinary, method-table,
   token-filtered, and apply-detail variants.
   Forwarding helpers can copy an inbound Call into a new outgoing Call while
