@@ -1231,6 +1231,29 @@ pub const RpcTurnPlan = struct {
         return rpcTurnUnifiedOutputPosition(self, output_index);
     }
 
+    pub fn outputIndex(self: @This(), position: RpcTurnOutputPosition) ?usize {
+        return switch (position.role) {
+            .response => self.responseOutputIndex(position.local_index),
+            .forward => self.forwardOutputIndex(position.local_index),
+            .disembargo => self.disembargoOutputIndex(position.local_index),
+        };
+    }
+
+    pub fn responseOutputIndex(self: @This(), local_index: usize) ?usize {
+        if (local_index >= self.responseMessages()) return null;
+        return local_index;
+    }
+
+    pub fn forwardOutputIndex(self: @This(), local_index: usize) ?usize {
+        if (local_index >= self.forwardedMessages()) return null;
+        return self.responseMessages() + local_index;
+    }
+
+    pub fn disembargoOutputIndex(self: @This(), local_index: usize) ?usize {
+        if (local_index >= self.disembargoMessages()) return null;
+        return self.responseMessages() + self.forwardedMessages() + local_index;
+    }
+
     pub fn validateResponseCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.responseMessages()) return error.InvalidTransition;
     }

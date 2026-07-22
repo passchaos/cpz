@@ -24632,6 +24632,9 @@ test "rpc unified output helper sends tagged output roles" {
     try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, response_position);
     try std.testing.expectEqual(response_position, plan.unifiedOutputPosition(0).?);
     try std.testing.expectEqual(@as(?usize, 0), plan.responseLocalIndex(0));
+    try std.testing.expectEqual(@as(?usize, 0), plan.outputIndex(response_position));
+    try std.testing.expectEqual(@as(?usize, 0), plan.responseOutputIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), plan.responseOutputIndex(1));
     try std.testing.expect(response_position.isResponse());
     try std.testing.expect(!response_position.isForward());
     try std.testing.expect(!response_position.isDisembargo());
@@ -24639,6 +24642,9 @@ test "rpc unified output helper sends tagged output roles" {
     try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, forward_position);
     try std.testing.expectEqual(forward_position, plan.unifiedOutputPosition(1).?);
     try std.testing.expectEqual(@as(?usize, 0), plan.forwardLocalIndex(1));
+    try std.testing.expectEqual(@as(?usize, 1), plan.outputIndex(forward_position));
+    try std.testing.expectEqual(@as(?usize, 1), plan.forwardOutputIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), plan.forwardOutputIndex(1));
     try std.testing.expect(plan.responseLocalIndex(1) == null);
     try std.testing.expect(forward_position.isForward());
     try std.testing.expect(!forward_position.isResponse());
@@ -24646,6 +24652,9 @@ test "rpc unified output helper sends tagged output roles" {
     try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 0 }, disembargo_position);
     try std.testing.expectEqual(disembargo_position, plan.unifiedOutputPosition(2).?);
     try std.testing.expectEqual(@as(?usize, 0), plan.disembargoLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, 2), plan.outputIndex(disembargo_position));
+    try std.testing.expectEqual(@as(?usize, 2), plan.disembargoOutputIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), plan.disembargoOutputIndex(1));
     try std.testing.expect(plan.forwardLocalIndex(2) == null);
     try std.testing.expect(disembargo_position.isDisembargo());
     try std.testing.expect(!disembargo_position.isResponse());
