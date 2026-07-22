@@ -201,8 +201,8 @@ that a complete RPC runtime exists.
   produce compact action queues for Call batches or top-level Message batches,
   top-level-message previews/outputs that skip non-Call messages and can fill
   split response/forward queues, send compact unified output prefixes with
-  optional response/forward role tags, expose response/forward local indexes
-  and role predicates from service-action output positions, return lightweight
+  optional response/forward role tags, expose response/forward local indexes,
+  output-index mapping, and role predicates from service-action output positions, return lightweight
   output stats, record stats from service-action output positions, append outputs to caller-owned
   unified, role-tagged, or role-specific queues, or split them back to
   role-specific sinks,
