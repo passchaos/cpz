@@ -24399,6 +24399,34 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(@as(usize, 4), response_source_sink.sent);
     try std.testing.expectEqual(@as(u32, 501 + 502), response_source_sink.dispatch_answer_sum);
     try std.testing.expectEqual(@as(u32, 503 + 504), response_source_sink.handoff_answer_sum);
+    const SourceTaggedQueueItem = struct {
+        position: cpz.rpc.RpcTurnResponseSourcePosition,
+        message: generated.Message.Builder,
+    };
+    var response_source_queue = std.ArrayList(SourceTaggedQueueItem).empty;
+    defer response_source_queue.deinit(std.testing.allocator);
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.appendRpcTurnResponsesToSourceTaggedQueue(
+        std.testing.allocator,
+        mixed_response_plan,
+        source_responses[0..3],
+        &response_source_queue,
+    ));
+    const queued_response_source_stats = try cpz.rpc.appendRpcTurnResponsesToSourceTaggedQueue(
+        std.testing.allocator,
+        mixed_response_plan,
+        source_responses[0..],
+        &response_source_queue,
+    );
+    try std.testing.expectEqual(mixed_response_plan.responseSourceStats(), queued_response_source_stats);
+    try std.testing.expectEqual(@as(usize, 4), response_source_queue.items.len);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .dispatch, .local_index = 0 }, response_source_queue.items[0].position);
+    try std.testing.expectEqual(@as(u32, 501), try (try response_source_queue.items[0].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .dispatch, .local_index = 1 }, response_source_queue.items[1].position);
+    try std.testing.expectEqual(@as(u32, 502), try (try response_source_queue.items[1].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .handoff_return, .local_index = 0 }, response_source_queue.items[2].position);
+    try std.testing.expectEqual(@as(u32, 503), try (try response_source_queue.items[2].message.get_return_()).get_answerId());
+    try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .handoff_return, .local_index = 1 }, response_source_queue.items[3].position);
+    try std.testing.expectEqual(@as(u32, 504), try (try response_source_queue.items[3].message.get_return_()).get_answerId());
 
     var unified_sink: UnifiedSink = .{};
     try std.testing.expectEqual(
