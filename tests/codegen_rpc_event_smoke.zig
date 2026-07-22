@@ -24353,6 +24353,8 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 4 }).matchesResponseSourceStats(response_source_stats));
     try (cpz.rpc.RpcOutputStats{ .responses = 4 }).validateAgainstResponseSourceStats(response_source_stats);
     try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcOutputStats{ .responses = 3 }).validateAgainstResponseSourceStats(response_source_stats));
+    try response_source_stats.validateResponseCapacity(4);
+    try std.testing.expectError(error.InvalidTransition, response_source_stats.validateResponseCapacity(3));
     try std.testing.expectError(error.InvalidTransition, response_source_stats.recordOutputIndex(mixed_response_plan, 4));
     try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }).validateAgainstTurnPlan(mixed_response_plan));
     var source_response_builder0 = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 16 });
@@ -24372,6 +24374,8 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     const source_response3 = try generated.Message.initRootTyped(&source_response_builder3);
     try cpz.rpc.initEmptyReturnMessage(source_response3, 504, true, true);
     const source_responses = [_]generated.Message.Builder{ source_response0, source_response1, source_response2, source_response3 };
+    try response_source_stats.validateResponseBuilders(source_responses[0..]);
+    try std.testing.expectError(error.InvalidTransition, response_source_stats.validateResponseBuilders(source_responses[0..3]));
     const ResponseSourceSink = struct {
         sent: usize = 0,
         dispatch_answer_sum: u32 = 0,

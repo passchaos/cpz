@@ -1334,6 +1334,14 @@ pub const RpcTurnResponseSourceStats = struct {
         return self.handoff_returns != 0;
     }
 
+    pub fn validateResponseCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.total()) return error.InvalidTransition;
+    }
+
+    pub fn validateResponseBuilders(self: @This(), response_messages: anytype) Error!void {
+        try self.validateResponseCapacity(response_messages.len);
+    }
+
     pub fn matchesStats(self: @This(), expected: RpcTurnResponseSourceStats) bool {
         return self.dispatch == expected.dispatch and self.handoff_returns == expected.handoff_returns;
     }
