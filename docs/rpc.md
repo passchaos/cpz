@@ -239,8 +239,8 @@ that a complete RPC runtime exists.
   want to enqueue or inspect initialized messages themselves.
   Non-mutating dispatch planning helpers can preview response, forward, and
   state-only counts plus dense output slot requirements, empty/non-empty
-  predicates, dense response/forward next-output positions and role-local indexes with reverse
-  output-index mapping, and output
+  predicates, dense response/forward next-output positions and role-local indexes
+  with reverse output-index mapping and dense-output-derived stats, and output
   stats accumulated from those dense indexes before builders are allocated, with turn-level plans that expose work/output-presence predicates,
   distinguish dispatch-initialized responses from ready handoff Returns with
   response-source ranges, next-source and role-tagged positions, role-specific
