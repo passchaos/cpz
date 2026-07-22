@@ -1612,6 +1612,14 @@ pub const RpcOutputStats = struct {
         self.recordRole(position.role);
     }
 
+    pub fn nextPosition(self: @This(), role: RpcTurnOutputRole) RpcTurnOutputPosition {
+        return switch (role) {
+            .response => .{ .role = .response, .local_index = self.responses },
+            .forward => .{ .role = .forward, .local_index = self.forwards },
+            .disembargo => .{ .role = .disembargo, .local_index = self.disembargos },
+        };
+    }
+
     pub fn recordServiceActionPosition(self: *@This(), position: TrackedCallServiceActionOutputPosition) void {
         switch (position.role) {
             .response => self.responses += 1,

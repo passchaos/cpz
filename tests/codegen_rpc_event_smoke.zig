@@ -24320,6 +24320,13 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expect(plan_output_stats.matchesStats(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }));
     try plan_output_stats.validateAgainstStats(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 });
     try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateAgainstStats(cpz.rpc.RpcOutputStats{ .responses = 1 }));
+    var next_output_stats: cpz.rpc.RpcOutputStats = .{};
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 0 }, next_output_stats.nextPosition(.response));
+    next_output_stats.recordRole(.response);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .response, .local_index = 1 }, next_output_stats.nextPosition(.response));
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .forward, .local_index = 0 }, next_output_stats.nextPosition(.forward));
+    next_output_stats.recordRole(.disembargo);
+    try std.testing.expectEqual(cpz.rpc.RpcTurnOutputPosition{ .role = .disembargo, .local_index = 1 }, next_output_stats.nextPosition(.disembargo));
     try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateResponseCapacity(0));
     try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateForwardCapacity(0));
     try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateDisembargoCapacity(0));
