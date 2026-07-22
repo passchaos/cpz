@@ -488,8 +488,17 @@ pub const WireDispatchStats = struct {
         try self.validateDenseForwardCapacity(forward_capacity);
     }
 
+    pub fn validateDenseResponseBuilders(self: @This(), response_messages: anytype) Error!void {
+        try self.validateDenseResponseCapacity(response_messages.len);
+    }
+
+    pub fn validateDenseForwardBuilders(self: @This(), forward_messages: anytype) Error!void {
+        try self.validateDenseForwardCapacity(forward_messages.len);
+    }
+
     pub fn validateDenseOutputBuilders(self: @This(), response_messages: anytype, forward_messages: anytype) Error!void {
-        try self.validateDenseOutputCapacity(response_messages.len, forward_messages.len);
+        try self.validateDenseResponseBuilders(response_messages);
+        try self.validateDenseForwardBuilders(forward_messages);
     }
 
     pub fn validateUnifiedDenseOutputCapacity(self: @This(), capacity: usize) Error!void {

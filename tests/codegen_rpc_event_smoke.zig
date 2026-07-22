@@ -12092,11 +12092,15 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try stats.validateDenseResponseCapacity(2);
     try stats.validateDenseForwardCapacity(1);
     try stats.validateDenseOutputCapacity(2, 1);
+    try stats.validateDenseResponseBuilders(requests[0..2]);
+    try stats.validateDenseForwardBuilders(requests[0..1]);
     try stats.validateDenseOutputBuilders(requests[0..2], requests[0..1]);
     try stats.validateUnifiedDenseOutputCapacity(3);
     try stats.validateUnifiedDenseOutputBuilders(requests[0..3]);
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseResponseCapacity(1));
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseForwardCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, stats.validateDenseResponseBuilders(requests[0..1]));
+    try std.testing.expectError(error.InvalidTransition, stats.validateDenseForwardBuilders(requests[0..0]));
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseOutputCapacity(2, 0));
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseOutputBuilders(requests[0..1], requests[0..1]));
     try std.testing.expectError(error.InvalidTransition, stats.validateDenseOutputBuilders(requests[0..2], requests[0..0]));
