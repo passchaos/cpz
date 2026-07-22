@@ -1568,6 +1568,45 @@ pub fn appendRpcTurnResponsesToSourceTaggedQueue(
     return stats;
 }
 
+pub fn sendRpcTurnResponsesToSourceSinks(
+    turn_plan: RpcTurnPlan,
+    response_messages: anytype,
+    dispatch_context: anytype,
+    dispatch_handler: anytype,
+    handoff_context: anytype,
+    handoff_handler: anytype,
+) !void {
+    _ = try sendRpcTurnResponsesToSourceSinksStats(
+        turn_plan,
+        response_messages,
+        dispatch_context,
+        dispatch_handler,
+        handoff_context,
+        handoff_handler,
+    );
+}
+
+pub fn sendRpcTurnResponsesToSourceSinksStats(
+    turn_plan: RpcTurnPlan,
+    response_messages: anytype,
+    dispatch_context: anytype,
+    dispatch_handler: anytype,
+    handoff_context: anytype,
+    handoff_handler: anytype,
+) !RpcTurnResponseSourceStats {
+    try turn_plan.responseMessageRange().validateCapacity(response_messages.len);
+    var stats: RpcTurnResponseSourceStats = .{};
+    for (try turn_plan.dispatchResponseRange().slice(response_messages)) |message| {
+        try dispatch_handler(dispatch_context, message);
+        stats.recordRole(.dispatch);
+    }
+    for (try turn_plan.handoffReturnRange().slice(response_messages)) |message| {
+        try handoff_handler(handoff_context, message);
+        stats.recordRole(.handoff_return);
+    }
+    return stats;
+}
+
 /// Send exactly the initialized prefix of a unified RPC turn output queue to an
 /// embedding transport/enqueue callback.
 ///

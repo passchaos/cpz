@@ -24427,6 +24427,38 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(@as(u32, 503), try (try response_source_queue.items[2].message.get_return_()).get_answerId());
     try std.testing.expectEqual(cpz.rpc.RpcTurnResponseSourcePosition{ .role = .handoff_return, .local_index = 1 }, response_source_queue.items[3].position);
     try std.testing.expectEqual(@as(u32, 504), try (try response_source_queue.items[3].message.get_return_()).get_answerId());
+    const ResponseSourceRoleSink = struct {
+        sent: usize = 0,
+        answer_sum: u32 = 0,
+
+        fn handle(context: *@This(), message: anytype) !void {
+            context.sent += 1;
+            context.answer_sum += try (try message.get_return_()).get_answerId();
+        }
+    };
+    var dispatch_response_sink: ResponseSourceRoleSink = .{};
+    var handoff_response_sink: ResponseSourceRoleSink = .{};
+    try std.testing.expectError(error.InvalidTransition, cpz.rpc.sendRpcTurnResponsesToSourceSinks(
+        mixed_response_plan,
+        source_responses[0..3],
+        &dispatch_response_sink,
+        ResponseSourceRoleSink.handle,
+        &handoff_response_sink,
+        ResponseSourceRoleSink.handle,
+    ));
+    const split_response_source_stats = try cpz.rpc.sendRpcTurnResponsesToSourceSinksStats(
+        mixed_response_plan,
+        source_responses[0..],
+        &dispatch_response_sink,
+        ResponseSourceRoleSink.handle,
+        &handoff_response_sink,
+        ResponseSourceRoleSink.handle,
+    );
+    try std.testing.expectEqual(mixed_response_plan.responseSourceStats(), split_response_source_stats);
+    try std.testing.expectEqual(@as(usize, 2), dispatch_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 501 + 502), dispatch_response_sink.answer_sum);
+    try std.testing.expectEqual(@as(usize, 2), handoff_response_sink.sent);
+    try std.testing.expectEqual(@as(u32, 503 + 504), handoff_response_sink.answer_sum);
 
     var unified_sink: UnifiedSink = .{};
     try std.testing.expectEqual(
