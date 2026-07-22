@@ -12050,6 +12050,8 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseRange().len());
     try std.testing.expectEqual(@as(usize, 1), stats.denseForwardRange().len());
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutputPosition{ .role = .response, .local_index = 2 }, stats.nextDenseOutputPosition(.response));
+    try std.testing.expectEqual(cpz.rpc.WireDispatchOutputPosition{ .role = .forward, .local_index = 1 }, stats.nextDenseOutputPosition(.forward));
     const dense_response_position = stats.unifiedDenseOutputPosition(1).?;
     try std.testing.expectEqual(cpz.rpc.WireDispatchOutputPosition{ .role = .response, .local_index = 1 }, dense_response_position);
     try std.testing.expectEqual(@as(?usize, 1), stats.denseOutputIndex(dense_response_position));

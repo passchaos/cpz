@@ -425,6 +425,13 @@ pub const WireDispatchStats = struct {
         return wireDispatchUnifiedDenseOutputPosition(self, output_index);
     }
 
+    pub fn nextDenseOutputPosition(self: @This(), role: WireDispatchOutputRole) WireDispatchOutputPosition {
+        return switch (role) {
+            .response => .{ .role = .response, .local_index = self.denseResponseSlots() },
+            .forward => .{ .role = .forward, .local_index = self.denseForwardSlots() },
+        };
+    }
+
     pub fn denseOutputIndex(self: @This(), position: WireDispatchOutputPosition) ?usize {
         return switch (position.role) {
             .response => self.denseResponseOutputIndex(position.local_index),
