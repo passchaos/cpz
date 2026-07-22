@@ -12173,6 +12173,8 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
         defer disembargo_builder.deinit();
         const disembargo_root = try generated.Message.initRootTyped(&disembargo_builder);
         const disembargo_builders = [_]generated.Message.Builder{disembargo_root};
+        try embargo_plan.validateDisembargoBuilders(disembargo_builders[0..]);
+        try std.testing.expectError(error.InvalidTransition, embargo_plan.validateDisembargoBuilders(disembargo_builders[0..0]));
         try embargo_plan.validateUnifiedOutputBuilders(disembargo_builders[0..]);
         try std.testing.expectError(error.InvalidTransition, embargo_plan.validateUnifiedOutputBuilders(disembargo_builders[0..0]));
         try std.testing.expectEqual(@as(usize, 1), (try embargo_plan.disembargoMessageRange().slice(disembargo_builders[0..])).len);

@@ -1268,9 +1268,13 @@ pub const RpcTurnPlan = struct {
         if (capacity < self.disembargoMessages()) return error.InvalidTransition;
     }
 
+    pub fn validateDisembargoBuilders(self: @This(), disembargo_messages: anytype) Error!void {
+        try self.validateDisembargoCapacity(disembargo_messages.len);
+    }
+
     pub fn validateOutputBuilderSets(self: @This(), response_messages: anytype, forward_messages: anytype, disembargo_messages: anytype) Error!void {
         try self.validateOutputBuilders(response_messages, forward_messages);
-        try self.validateDisembargoCapacity(disembargo_messages.len);
+        try self.validateDisembargoBuilders(disembargo_messages);
     }
 };
 
