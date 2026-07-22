@@ -12022,6 +12022,9 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     }, stats);
     try std.testing.expect(stats.hasWork());
     try std.testing.expect(!stats.isEmpty());
+    try std.testing.expect(stats.matchesStats(cpz.rpc.WireDispatchStats{ .response_initialized = 2, .forward_required = 1, .state_applied = 1 }));
+    try stats.validateAgainstStats(cpz.rpc.WireDispatchStats{ .response_initialized = 2, .forward_required = 1, .state_applied = 1 });
+    try std.testing.expectError(error.InvalidTransition, stats.validateAgainstStats(cpz.rpc.WireDispatchStats{ .response_initialized = 2 }));
     try std.testing.expect(!((cpz.rpc.WireDispatchStats{}).hasWork()));
     try std.testing.expect((cpz.rpc.WireDispatchStats{}).isEmpty());
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseSlots());

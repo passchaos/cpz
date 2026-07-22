@@ -408,6 +408,16 @@ pub const WireDispatchStats = struct {
         return self.total() == 0;
     }
 
+    pub fn matchesStats(self: @This(), expected: WireDispatchStats) bool {
+        return self.response_initialized == expected.response_initialized and
+            self.forward_required == expected.forward_required and
+            self.state_applied == expected.state_applied;
+    }
+
+    pub fn validateAgainstStats(self: @This(), expected: WireDispatchStats) Error!void {
+        if (!self.matchesStats(expected)) return error.InvalidTransition;
+    }
+
     pub fn denseResponseSlots(self: @This()) usize {
         return self.response_initialized;
     }
