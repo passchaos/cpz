@@ -12117,8 +12117,16 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 3, .end = 3 }, turn_plan.disembargoMessageRange());
     try std.testing.expect(turn_plan.disembargoMessageRange().isEmpty());
     try turn_plan.validateOutputCapacity(2, 1);
+    try turn_plan.validateResponseCapacity(2);
+    try turn_plan.validateForwardCapacity(1);
+    try turn_plan.validateResponseBuilders(requests[0..2]);
+    try turn_plan.validateForwardBuilders(requests[0..1]);
     try turn_plan.validateUnifiedOutputCapacity(3);
     try turn_plan.validateUnifiedOutputBuilders(requests[0..3]);
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateResponseCapacity(1));
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateForwardCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateResponseBuilders(requests[0..1]));
+    try std.testing.expectError(error.InvalidTransition, turn_plan.validateForwardBuilders(requests[0..0]));
     try std.testing.expectError(error.InvalidTransition, turn_plan.validateOutputCapacity(1, 1));
     try std.testing.expectError(error.InvalidTransition, turn_plan.validateOutputCapacity(2, 0));
     try std.testing.expectError(error.InvalidTransition, turn_plan.validateUnifiedOutputCapacity(2));

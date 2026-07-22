@@ -1231,9 +1231,17 @@ pub const RpcTurnPlan = struct {
         return rpcTurnUnifiedOutputPosition(self, output_index);
     }
 
+    pub fn validateResponseCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.responseMessages()) return error.InvalidTransition;
+    }
+
+    pub fn validateForwardCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.forwardedMessages()) return error.InvalidTransition;
+    }
+
     pub fn validateOutputCapacity(self: @This(), response_capacity: usize, forward_capacity: usize) Error!void {
-        if (response_capacity < self.responseMessages()) return error.InvalidTransition;
-        if (forward_capacity < self.forwardedMessages()) return error.InvalidTransition;
+        try self.validateResponseCapacity(response_capacity);
+        try self.validateForwardCapacity(forward_capacity);
     }
 
     pub fn validateUnifiedOutputCapacity(self: @This(), capacity: usize) Error!void {
@@ -1242,6 +1250,14 @@ pub const RpcTurnPlan = struct {
 
     pub fn validateUnifiedOutputBuilders(self: @This(), output_messages: anytype) Error!void {
         try self.validateUnifiedOutputCapacity(output_messages.len);
+    }
+
+    pub fn validateResponseBuilders(self: @This(), response_messages: anytype) Error!void {
+        try self.validateResponseCapacity(response_messages.len);
+    }
+
+    pub fn validateForwardBuilders(self: @This(), forward_messages: anytype) Error!void {
+        try self.validateForwardCapacity(forward_messages.len);
     }
 
     pub fn validateOutputBuilders(self: @This(), response_messages: anytype, forward_messages: anytype) Error!void {
