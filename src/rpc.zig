@@ -1516,48 +1516,46 @@ pub const RpcOutputStats = struct {
         return .{ .responses = stats.total() };
     }
 
-    pub fn matchesDispatchStats(self: @This(), dispatch: WireDispatchStats) bool {
-        const expected = @This().fromDispatchStats(dispatch);
+    pub fn matchesStats(self: @This(), expected: RpcOutputStats) bool {
         return self.responses == expected.responses and
             self.forwards == expected.forwards and
             self.disembargos == expected.disembargos;
+    }
+
+    pub fn validateAgainstStats(self: @This(), expected: RpcOutputStats) Error!void {
+        if (!self.matchesStats(expected)) return error.InvalidTransition;
+    }
+
+    pub fn matchesDispatchStats(self: @This(), dispatch: WireDispatchStats) bool {
+        return self.matchesStats(@This().fromDispatchStats(dispatch));
     }
 
     pub fn matchesTurnPlan(self: @This(), turn_plan: RpcTurnPlan) bool {
-        const expected = @This().fromTurnPlan(turn_plan);
-        return self.responses == expected.responses and
-            self.forwards == expected.forwards and
-            self.disembargos == expected.disembargos;
+        return self.matchesStats(@This().fromTurnPlan(turn_plan));
     }
 
     pub fn matchesServiceActionStats(self: @This(), stats: TrackedCallServiceActionStats) bool {
-        const expected = @This().fromServiceActionStats(stats);
-        return self.responses == expected.responses and
-            self.forwards == expected.forwards and
-            self.disembargos == expected.disembargos;
+        return self.matchesStats(@This().fromServiceActionStats(stats));
     }
 
     pub fn matchesResponseSourceStats(self: @This(), stats: RpcTurnResponseSourceStats) bool {
-        const expected = @This().fromResponseSourceStats(stats);
-        return self.responses == expected.responses and
-            self.forwards == expected.forwards and
-            self.disembargos == expected.disembargos;
+        return self.matchesStats(@This().fromResponseSourceStats(stats));
     }
 
     pub fn validateAgainstDispatchStats(self: @This(), dispatch: WireDispatchStats) Error!void {
-        if (!self.matchesDispatchStats(dispatch)) return error.InvalidTransition;
+        try self.validateAgainstStats(@This().fromDispatchStats(dispatch));
     }
 
     pub fn validateAgainstTurnPlan(self: @This(), turn_plan: RpcTurnPlan) Error!void {
-        if (!self.matchesTurnPlan(turn_plan)) return error.InvalidTransition;
+        try self.validateAgainstStats(@This().fromTurnPlan(turn_plan));
     }
 
     pub fn validateAgainstServiceActionStats(self: @This(), stats: TrackedCallServiceActionStats) Error!void {
-        if (!self.matchesServiceActionStats(stats)) return error.InvalidTransition;
+        try self.validateAgainstStats(@This().fromServiceActionStats(stats));
     }
 
     pub fn validateAgainstResponseSourceStats(self: @This(), stats: RpcTurnResponseSourceStats) Error!void {
-        if (!self.matchesResponseSourceStats(stats)) return error.InvalidTransition;
+        try self.validateAgainstStats(@This().fromResponseSourceStats(stats));
     }
 
     pub fn validateResponseCapacity(self: @This(), capacity: usize) Error!void {

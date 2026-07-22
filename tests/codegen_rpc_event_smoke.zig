@@ -24317,6 +24317,9 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try plan_output_stats.validateDisembargoBuilders(outputs[2..3]);
     try plan_output_stats.validateSplitBuilders(outputs[0..1], outputs[1..2], outputs[2..3]);
     try plan_output_stats.validateUnifiedOutputBuilders(outputs[0..3]);
+    try std.testing.expect(plan_output_stats.matchesStats(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }));
+    try plan_output_stats.validateAgainstStats(cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 });
+    try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateAgainstStats(cpz.rpc.RpcOutputStats{ .responses = 1 }));
     try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateResponseCapacity(0));
     try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateForwardCapacity(0));
     try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateDisembargoCapacity(0));
