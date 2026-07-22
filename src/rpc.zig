@@ -1600,6 +1600,48 @@ pub const RpcOutputStats = struct {
         try self.validateUnifiedOutputCapacity(output_messages.len);
     }
 
+    pub fn responseRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.responses };
+    }
+
+    pub fn forwardRange(self: @This()) OutputRange {
+        const start = self.responses;
+        return .{ .start = start, .end = start + self.forwards };
+    }
+
+    pub fn disembargoRange(self: @This()) OutputRange {
+        const start = self.responses + self.forwards;
+        return .{ .start = start, .end = start + self.disembargos };
+    }
+
+    pub fn responseLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.responseRange().localIndex(output_index);
+    }
+
+    pub fn forwardLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.forwardRange().localIndex(output_index);
+    }
+
+    pub fn disembargoLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.disembargoRange().localIndex(output_index);
+    }
+
+    pub fn unifiedOutputPosition(self: @This(), output_index: usize) ?RpcTurnOutputPosition {
+        if (self.responseLocalIndex(output_index)) |local_index| return .{ .role = .response, .local_index = local_index };
+        if (self.forwardLocalIndex(output_index)) |local_index| return .{ .role = .forward, .local_index = local_index };
+        if (self.disembargoLocalIndex(output_index)) |local_index| return .{ .role = .disembargo, .local_index = local_index };
+
+        return null;
+    }
+
+    pub fn outputIndex(self: @This(), position: RpcTurnOutputPosition) ?usize {
+        return switch (position.role) {
+            .response => if (position.local_index < self.responses) position.local_index else null,
+            .forward => if (position.local_index < self.forwards) self.responses + position.local_index else null,
+            .disembargo => if (position.local_index < self.disembargos) self.responses + self.forwards + position.local_index else null,
+        };
+    }
+
     pub fn recordRole(self: *@This(), role: RpcTurnOutputRole) void {
         switch (role) {
             .response => self.responses += 1,
