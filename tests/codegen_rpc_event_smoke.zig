@@ -24306,6 +24306,21 @@ test "rpc unified output helper sends role ranges to separate sinks" {
         cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 },
         cpz.rpc.RpcOutputStats.fromTurnPlan(plan),
     );
+    const plan_output_stats = cpz.rpc.RpcOutputStats.fromTurnPlan(plan);
+    try plan_output_stats.validateResponseCapacity(1);
+    try plan_output_stats.validateForwardCapacity(1);
+    try plan_output_stats.validateDisembargoCapacity(1);
+    try plan_output_stats.validateSplitCapacity(1, 1, 1);
+    try plan_output_stats.validateUnifiedOutputCapacity(3);
+    try plan_output_stats.validateResponseBuilders(outputs[0..1]);
+    try plan_output_stats.validateForwardBuilders(outputs[1..2]);
+    try plan_output_stats.validateDisembargoBuilders(outputs[2..3]);
+    try plan_output_stats.validateSplitBuilders(outputs[0..1], outputs[1..2], outputs[2..3]);
+    try plan_output_stats.validateUnifiedOutputBuilders(outputs[0..3]);
+    try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateResponseCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateForwardCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateDisembargoCapacity(0));
+    try std.testing.expectError(error.InvalidTransition, plan_output_stats.validateUnifiedOutputCapacity(2));
     try std.testing.expect((cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }).matchesTurnPlan(plan));
     try (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1, .disembargos = 1 }).validateAgainstTurnPlan(plan);
     try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcOutputStats{ .responses = 1, .forwards = 1 }).validateAgainstTurnPlan(plan));

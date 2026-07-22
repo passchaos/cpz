@@ -1560,6 +1560,48 @@ pub const RpcOutputStats = struct {
         if (!self.matchesResponseSourceStats(stats)) return error.InvalidTransition;
     }
 
+    pub fn validateResponseCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.responses) return error.InvalidTransition;
+    }
+
+    pub fn validateForwardCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.forwards) return error.InvalidTransition;
+    }
+
+    pub fn validateDisembargoCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.disembargos) return error.InvalidTransition;
+    }
+
+    pub fn validateSplitCapacity(self: @This(), response_capacity: usize, forward_capacity: usize, disembargo_capacity: usize) Error!void {
+        try self.validateResponseCapacity(response_capacity);
+        try self.validateForwardCapacity(forward_capacity);
+        try self.validateDisembargoCapacity(disembargo_capacity);
+    }
+
+    pub fn validateUnifiedOutputCapacity(self: @This(), capacity: usize) Error!void {
+        if (capacity < self.total()) return error.InvalidTransition;
+    }
+
+    pub fn validateResponseBuilders(self: @This(), response_messages: anytype) Error!void {
+        try self.validateResponseCapacity(response_messages.len);
+    }
+
+    pub fn validateForwardBuilders(self: @This(), forward_messages: anytype) Error!void {
+        try self.validateForwardCapacity(forward_messages.len);
+    }
+
+    pub fn validateDisembargoBuilders(self: @This(), disembargo_messages: anytype) Error!void {
+        try self.validateDisembargoCapacity(disembargo_messages.len);
+    }
+
+    pub fn validateSplitBuilders(self: @This(), response_messages: anytype, forward_messages: anytype, disembargo_messages: anytype) Error!void {
+        try self.validateSplitCapacity(response_messages.len, forward_messages.len, disembargo_messages.len);
+    }
+
+    pub fn validateUnifiedOutputBuilders(self: @This(), output_messages: anytype) Error!void {
+        try self.validateUnifiedOutputCapacity(output_messages.len);
+    }
+
     pub fn recordRole(self: *@This(), role: RpcTurnOutputRole) void {
         switch (role) {
             .response => self.responses += 1,
