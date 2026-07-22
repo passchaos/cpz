@@ -2736,6 +2736,23 @@ pub const TrackedCallServiceActionStats = struct {
         if (position.role != .forward) return null;
         return position.local_index;
     }
+
+    pub fn outputIndex(self: @This(), position: TrackedCallServiceActionOutputPosition) ?usize {
+        return switch (position.role) {
+            .response => self.responseOutputIndex(position.local_index),
+            .forward => self.forwardOutputIndex(position.local_index),
+        };
+    }
+
+    pub fn responseOutputIndex(self: @This(), local_index: usize) ?usize {
+        if (local_index >= self.responseMessages()) return null;
+        return local_index;
+    }
+
+    pub fn forwardOutputIndex(self: @This(), local_index: usize) ?usize {
+        if (local_index >= self.forward) return null;
+        return self.responseMessages() + local_index;
+    }
 };
 
 pub const TrackedCallServiceActionOutputRole = enum {
