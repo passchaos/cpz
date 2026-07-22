@@ -425,6 +425,23 @@ pub const WireDispatchStats = struct {
         return wireDispatchUnifiedDenseOutputPosition(self, output_index);
     }
 
+    pub fn denseOutputIndex(self: @This(), position: WireDispatchOutputPosition) ?usize {
+        return switch (position.role) {
+            .response => self.denseResponseOutputIndex(position.local_index),
+            .forward => self.denseForwardOutputIndex(position.local_index),
+        };
+    }
+
+    pub fn denseResponseOutputIndex(self: @This(), local_index: usize) ?usize {
+        if (local_index >= self.denseResponseSlots()) return null;
+        return local_index;
+    }
+
+    pub fn denseForwardOutputIndex(self: @This(), local_index: usize) ?usize {
+        if (local_index >= self.denseForwardSlots()) return null;
+        return self.denseResponseSlots() + local_index;
+    }
+
     pub fn validateDenseResponseCapacity(self: @This(), capacity: usize) Error!void {
         if (capacity < self.denseResponseSlots()) return error.InvalidTransition;
     }
