@@ -1642,6 +1642,18 @@ pub const RpcOutputStats = struct {
         };
     }
 
+    pub fn responseOutputIndex(self: @This(), local_index: usize) ?usize {
+        return self.outputIndex(.{ .role = .response, .local_index = local_index });
+    }
+
+    pub fn forwardOutputIndex(self: @This(), local_index: usize) ?usize {
+        return self.outputIndex(.{ .role = .forward, .local_index = local_index });
+    }
+
+    pub fn disembargoOutputIndex(self: @This(), local_index: usize) ?usize {
+        return self.outputIndex(.{ .role = .disembargo, .local_index = local_index });
+    }
+
     pub fn recordRole(self: *@This(), role: RpcTurnOutputRole) void {
         switch (role) {
             .response => self.responses += 1,

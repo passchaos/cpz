@@ -24332,6 +24332,12 @@ test "rpc unified output helper sends role ranges to separate sinks" {
     try std.testing.expectEqual(@as(?usize, 1), plan_output_stats.outputIndex(.{ .role = .forward, .local_index = 0 }));
     try std.testing.expectEqual(@as(?usize, 2), plan_output_stats.outputIndex(.{ .role = .disembargo, .local_index = 0 }));
     try std.testing.expectEqual(@as(?usize, null), plan_output_stats.outputIndex(.{ .role = .response, .local_index = 1 }));
+    try std.testing.expectEqual(@as(?usize, 0), plan_output_stats.responseOutputIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), plan_output_stats.responseOutputIndex(1));
+    try std.testing.expectEqual(@as(?usize, 1), plan_output_stats.forwardOutputIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), plan_output_stats.forwardOutputIndex(1));
+    try std.testing.expectEqual(@as(?usize, 2), plan_output_stats.disembargoOutputIndex(0));
+    try std.testing.expectEqual(@as(?usize, null), plan_output_stats.disembargoOutputIndex(1));
     var output_index_stats: cpz.rpc.RpcOutputStats = .{};
     try output_index_stats.recordOutputIndex(plan_output_stats, 0);
     try output_index_stats.recordOutputIndex(plan_output_stats, 1);
