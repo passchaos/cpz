@@ -1654,6 +1654,11 @@ pub const RpcOutputStats = struct {
         self.recordRole(position.role);
     }
 
+    pub fn recordOutputIndex(self: *@This(), source_stats: RpcOutputStats, output_index: usize) Error!void {
+        const position = source_stats.unifiedOutputPosition(output_index) orelse return error.InvalidTransition;
+        self.recordPosition(position);
+    }
+
     pub fn nextPosition(self: @This(), role: RpcTurnOutputRole) RpcTurnOutputPosition {
         return switch (role) {
             .response => .{ .role = .response, .local_index = self.responses },
