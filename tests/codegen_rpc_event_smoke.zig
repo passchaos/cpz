@@ -12049,10 +12049,14 @@ test "rpc dispatch planner previews dense output slots without mutating state" {
     try std.testing.expect((cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }).matchesDispatchStats(stats));
     try (cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 2 }).validateAgainstDispatchStats(stats);
     try std.testing.expectError(error.InvalidTransition, (cpz.rpc.RpcTurnResponseSourceStats{ .dispatch = 1 }).validateAgainstDispatchStats(stats));
+    try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 3 }, stats.denseOutputRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 0, .end = 2 }, stats.denseResponseRange());
     try std.testing.expectEqual(cpz.rpc.OutputRange{ .start = 2, .end = 3 }, stats.denseForwardRange());
+    try std.testing.expectEqual(@as(usize, 3), stats.denseOutputRange().len());
     try std.testing.expectEqual(@as(usize, 2), stats.denseResponseRange().len());
     try std.testing.expectEqual(@as(usize, 1), stats.denseForwardRange().len());
+    try std.testing.expectEqual(@as(?usize, 2), stats.denseOutputLocalIndex(2));
+    try std.testing.expectEqual(@as(?usize, null), stats.denseOutputLocalIndex(3));
     try std.testing.expectEqual(cpz.rpc.WireDispatchOutputPosition{ .role = .response, .local_index = 2 }, stats.nextDenseOutputPosition(.response));
     try std.testing.expectEqual(cpz.rpc.WireDispatchOutputPosition{ .role = .forward, .local_index = 1 }, stats.nextDenseOutputPosition(.forward));
     const dense_response_position = stats.unifiedDenseOutputPosition(1).?;

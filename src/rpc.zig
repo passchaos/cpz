@@ -430,6 +430,10 @@ pub const WireDispatchStats = struct {
         return self.response_initialized + self.forward_required;
     }
 
+    pub fn denseOutputRange(self: @This()) OutputRange {
+        return .{ .start = 0, .end = self.denseOutputSlots() };
+    }
+
     pub fn denseResponseRange(self: @This()) OutputRange {
         return .{ .start = 0, .end = self.denseResponseSlots() };
     }
@@ -445,6 +449,10 @@ pub const WireDispatchStats = struct {
 
     pub fn denseForwardLocalIndex(self: @This(), output_index: usize) ?usize {
         return self.denseForwardRange().localIndex(output_index);
+    }
+
+    pub fn denseOutputLocalIndex(self: @This(), output_index: usize) ?usize {
+        return self.denseOutputRange().localIndex(output_index);
     }
 
     pub fn unifiedDenseOutputPosition(self: @This(), output_index: usize) ?WireDispatchOutputPosition {
