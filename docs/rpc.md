@@ -100,9 +100,9 @@ helpers.
 ## Testing
 
 - Unit tests live in `src/rpc.zig`.
-- The large integration suite is `tests/codegen_rpc_event_smoke.zig`, which
-  compiles generated RPC schemas and exercises wire, state, dispatch, handoff,
-  and output paths.
+- The integration suite is split under `tests/codegen/rpc_event/`, with shared
+  helpers in `tests/support/rpc_event.zig`. It exercises wire, state, dispatch,
+  handoff, turn, and output paths.
 - `tests/schema_rpc_event.capnp` is the primary generated-schema fixture.
 
 ## Design note

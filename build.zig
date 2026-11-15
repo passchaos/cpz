@@ -167,8 +167,20 @@ pub fn build(b: *std.Build) void {
         .{
             .schema = "tests/schema_rpc_event.capnp",
             .basename = "schema_rpc_event.zig",
-            .test_file = "tests/codegen_rpc_event_smoke.zig",
+            .test_files = &.{
+                "tests/codegen/rpc_event/wire.zig",
+                "tests/codegen/rpc_event/dispatch_1.zig",
+                "tests/codegen/rpc_event/dispatch_2.zig",
+                "tests/codegen/rpc_event/handoff_1.zig",
+                "tests/codegen/rpc_event/handoff_2.zig",
+                "tests/codegen/rpc_event/handoff_3.zig",
+                "tests/codegen/rpc_event/turn_plan_1.zig",
+                "tests/codegen/rpc_event/turn_plan_2.zig",
+                "tests/codegen/rpc_event/turn_output.zig",
+                "tests/codegen/rpc_event/state.zig",
+            },
             .import_name = "generated_rpc_event_schema",
+            .test_support = "tests/support/rpc_event.zig",
         },
         .{
             .schema = "tests/schema_no_file_id.capnp",
@@ -257,11 +269,13 @@ const GeneratedModuleSpec = struct {
 const GeneratedTestSpec = struct {
     schema: []const u8,
     basename: []const u8,
-    test_file: []const u8,
+    test_file: ?[]const u8 = null,
+    test_files: []const []const u8 = &.{},
     import_name: []const u8,
     args: []const []const u8 = &.{},
     generated_extra_imports: []const ExtraImport = &.{},
     test_extra_imports: []const ExtraImport = &.{},
+    test_support: ?[]const u8 = null,
 };
 
 fn addGeneratedModule(
@@ -306,16 +320,46 @@ fn addGeneratedSchemaTest(
         .extra_imports = spec.generated_extra_imports,
     });
 
+    if (spec.test_file) |test_file| {
+        addGeneratedTestFile(b, test_step, target, optimize, cpz_mod, generated, spec, test_file);
+    }
+    for (spec.test_files) |test_file| {
+        addGeneratedTestFile(b, test_step, target, optimize, cpz_mod, generated, spec, test_file);
+    }
+}
+
+fn addGeneratedTestFile(
+    b: *std.Build,
+    test_step: *std.Build.Step,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    cpz_mod: *std.Build.Module,
+    generated: *std.Build.Module,
+    spec: GeneratedTestSpec,
+    test_file: []const u8,
+) void {
     var imports = std.ArrayList(std.Build.Module.Import).empty;
     defer imports.deinit(b.allocator);
     imports.append(b.allocator, .{ .name = "cpz", .module = cpz_mod }) catch @panic("OOM");
     imports.append(b.allocator, .{ .name = spec.import_name, .module = generated }) catch @panic("OOM");
+    if (spec.test_support) |support_path| {
+        const support_mod = b.createModule(.{
+            .root_source_file = b.path(support_path),
+            .target = target,
+            .optimize = optimize,
+            .imports = &.{
+                .{ .name = "cpz", .module = cpz_mod },
+                .{ .name = spec.import_name, .module = generated },
+            },
+        });
+        imports.append(b.allocator, .{ .name = "test_support", .module = support_mod }) catch @panic("OOM");
+    }
     for (spec.test_extra_imports) |extra| {
         imports.append(b.allocator, .{ .name = extra.name, .module = extra.module }) catch @panic("OOM");
     }
 
     const test_mod = b.createModule(.{
-        .root_source_file = b.path(spec.test_file),
+        .root_source_file = b.path(test_file),
         .target = target,
         .optimize = optimize,
         .imports = imports.items,

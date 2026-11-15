@@ -25,6 +25,8 @@ All notable changes to `cpz` are documented here.
 
 - `build.zig` generated-schema test wiring is now declarative and shared through
   helpers instead of repeated blocks.
+- The 33k-line RPC smoke suite was split into focused files under
+  `tests/codegen/rpc_event/` with shared helpers in `tests/support/rpc_event.zig`.
 - Documentation was restructured into architecture, codegen, compatibility,
   performance, RPC, design, contributing, and security documents.
 - README was rewritten as a concise entry point with quick starts and status
