@@ -49,8 +49,10 @@ pub fn main() !void {
 
     var flat_ns: u64 = std.math.maxInt(u64);
     var packed_ns: u64 = std.math.maxInt(u64);
+    var unpack_ns: u64 = std.math.maxInt(u64);
     var flat_buffer: [128 * 1024]u8 = undefined;
     var packed_buffer: [128 * 1024]u8 = undefined;
+    var unpacked_buffer: [128 * 1024]u8 = undefined;
     var table_buffer: [128]u8 = undefined;
     for (0..rounds) |_| {
         const flat_start = std.Io.Clock.awake.now(io);
@@ -68,11 +70,20 @@ pub fn main() !void {
         }
         packed_ns = @min(packed_ns, @as(u64, @intCast(packed_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
         std.mem.doNotOptimizeAway(packed_checksum);
+
+        const unpack_start = std.Io.Clock.awake.now(io);
+        var unpack_checksum: usize = 0;
+        for (0..serialize_iterations) |_| {
+            unpack_checksum +%= try cpz.unpackInto(&unpacked_buffer, packed_bytes);
+        }
+        unpack_ns = @min(unpack_ns, @as(u64, @intCast(unpack_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
+        std.mem.doNotOptimizeAway(unpack_checksum);
     }
 
     printResult("dynamic reader", reader_ns, reader_iterations);
     printResult("flat serialize", flat_ns, serialize_iterations);
     printResult("packed serialize", packed_ns, serialize_iterations);
+    printResult("unpack", unpack_ns, serialize_iterations);
 }
 
 fn readRound(reader: *cpz.MessageReader, iterations: usize) !u64 {

@@ -299,41 +299,12 @@ fn readUnpackedReaderWord(reader: *std.Io.Reader, word: *[wire.bytes_per_word]u8
 /// Decode a packed Cap'n Proto stream into a newly-allocated word-aligned byte
 /// sequence. The returned slice length is always a multiple of 8.
 pub fn unpack(allocator: std.mem.Allocator, packed_bytes: []const u8) Error![]u8 {
-    var out = try std.ArrayList(u8).initCapacity(allocator, try unpackedSize(packed_bytes));
-    errdefer out.deinit(allocator);
-
-    var i: usize = 0;
-    while (i < packed_bytes.len) {
-        const tag = packed_bytes[i];
-        i += 1;
-
-        var word = [_]u8{0} ** wire.bytes_per_word;
-        inline for (0..wire.bytes_per_word) |j| {
-            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
-                if (i >= packed_bytes.len) return error.PackedInputTruncated;
-                word[j] = packed_bytes[i];
-                i += 1;
-            }
-        }
-        try out.appendSlice(allocator, &word);
-
-        if (tag == 0x00) {
-            if (i >= packed_bytes.len) return error.PackedInputTruncated;
-            const additional_words = @as(usize, packed_bytes[i]);
-            i += 1;
-            try out.appendNTimes(allocator, 0, additional_words * wire.bytes_per_word);
-        } else if (tag == 0xff) {
-            if (i >= packed_bytes.len) return error.PackedInputTruncated;
-            const raw_words = @as(usize, packed_bytes[i]);
-            i += 1;
-            const raw_bytes = raw_words * wire.bytes_per_word;
-            if (packed_bytes.len - i < raw_bytes) return error.PackedInputTruncated;
-            try out.appendSlice(allocator, packed_bytes[i .. i + raw_bytes]);
-            i += raw_bytes;
-        }
-    }
-
-    return out.toOwnedSlice(allocator);
+    const out_len = try unpackedSize(packed_bytes);
+    const out = try allocator.alloc(u8, out_len);
+    errdefer allocator.free(out);
+    const written = try unpackInto(out, packed_bytes);
+    if (written != out_len) return error.PackedOutputLengthMismatch;
+    return out;
 }
 
 /// Decode into a caller-provided buffer. Returns bytes written.
