@@ -26,20 +26,24 @@ Example output on the current aarch64 development host:
 ```text
 # Debug
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 162932033 ns total, 814.7 ns/op
-flat serialize: 50000 iterations, 17532161 ns total, 350.6 ns/op
-packed serialize: 50000 iterations, 2632536186 ns total, 52650.7 ns/op
+dynamic reader: 200000 iterations, 160841964 ns total, 804.2 ns/op
+flat serialize: 50000 iterations, 17511147 ns total, 350.2 ns/op
+packed serialize: 50000 iterations, 1437080466 ns total, 28741.6 ns/op
 
 # ReleaseFast
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 3943798 ns total, 19.7 ns/op
-flat serialize: 50000 iterations, 116881 ns total, 2.3 ns/op
-packed serialize: 50000 iterations, 258453511 ns total, 5169.1 ns/op
+dynamic reader: 200000 iterations, 3931622 ns total, 19.7 ns/op
+flat serialize: 50000 iterations, 117168 ns total, 2.3 ns/op
+packed serialize: 50000 iterations, 155413276 ns total, 3108.3 ns/op
 ```
 
-These numbers are a local smoke baseline, not a cross-engine claim. The packed
-serialization path is currently much slower than flat serialization and should
-be profiled before optimizing.
+These numbers are a local smoke baseline, not a cross-engine claim.
+`messageToPackedBytesInto` no longer performs a redundant packed-size pre-pass;
+it relies on `packInto` bounds checks and may leave a partial prefix when the
+destination is too small. This cut packed serialization time by roughly 40% in
+both Debug and ReleaseFast. Packed output is still slower than flat output
+because it must scan tags and compress payload bytes; further word-level
+optimizations are tracked as follow-up work.
 
 ## Codegen size
 

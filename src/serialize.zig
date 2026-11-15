@@ -261,11 +261,11 @@ fn packedMessageSizeFromTable(table: []const u8, segments: []const ConstSegment)
 /// Serialize segments as a packed stream into caller-provided buffers. The
 /// `table_buffer` stores the temporary flat segment table, while `dest`
 /// receives the packed stream bytes. Returns bytes written to `dest`.
+/// If `dest` is too small, returns `error.PackedOutputTooSmall`; `dest` may
+/// contain a partial prefix in that case.
 pub fn messageToPackedBytesInto(table_buffer: []u8, dest: []u8, segments: []const ConstSegment) Error!usize {
     _ = try computeSerializedSize(segments);
     const table_len = try writeSegmentTable(table_buffer, segments);
-    const packed_len = try packedMessageSizeFromTable(table_buffer[0..table_len], segments);
-    if (dest.len < packed_len) return error.PackedOutputTooSmall;
     var out_i: usize = 0;
 
     const packed_table_len = try packing.packInto(dest[out_i..], table_buffer[0..table_len]);

@@ -35,6 +35,10 @@ All notable changes to `cpz` are documented here.
 
 ### Changed
 
+- `messageToPackedBytesInto` no longer performs a redundant packed-size
+  pre-pass; packed serialization is roughly 40% faster in the benchmark
+  (ReleaseFast 5.2 us -> 3.1 us per 4 KB message). A too-small destination may
+  now contain a partial prefix.
 - `build.zig` generated-schema test wiring is now declarative and shared through
   helpers instead of repeated blocks.
 - The 33k-line RPC smoke suite was split into focused files under
