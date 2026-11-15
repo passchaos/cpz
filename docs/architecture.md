@@ -11,7 +11,7 @@ src/
   wire.zig       pointer encoding/decoding and low-level size helpers
   packing.zig    Cap'n Proto packing codec and streaming helpers
   serialize.zig  stream segment tables, flat/packed framing, Io.Reader/Writer
-  message.zig            dynamic message runtime facade and tests
+  message.zig            dynamic message runtime facade
   message/options.zig    errors, reader/builder options, stats, sizes
   message/capability.zig capability tables and registries
   message/reader.zig     owned/borrowed message readers and flat/canonical helpers
@@ -20,7 +20,7 @@ src/
   message/struct.zig     struct readers/builders
   message/list.zig       list readers/builders
   message/validate.zig   pointer validation, stats collection, canonical sizes
-  schema.zig             public schema facade plus parser/layout/codegen tests
+  schema.zig             public schema facade
   schema/frontend.zig    facade over the schema frontend stages
   schema/frontend/
     types.zig            AST/data model and metadata types
@@ -44,7 +44,7 @@ src/
     list.zig             list wrappers, element helpers, slice setters
     state.zig            shared codegen state and pointer-default kinds
   schema/zig_names.zig   Zig identifier escaping and keyword avoidance
-  rpc.zig                RPC facade, re-exports, and integration tests
+  rpc.zig                public RPC facade and re-exports
   rpc/types.zig          RPC vocabulary, call/capability/payload types, output plans
   rpc/state.zig          RPC question/answer/capability state machine
   rpc/wire.zig           wire message init/encode/decode helpers
