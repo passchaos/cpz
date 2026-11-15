@@ -49,6 +49,8 @@ All notable changes to `cpz` are documented here.
 - The schema integration test suite moved from `src/schema.zig` into focused
   files under `src/schema/tests/` (parser, layout, resolve, codegen,
   integration), leaving `src/schema.zig` as a pure facade.
+- The RPC integration tests moved from `src/rpc.zig` into
+  `src/rpc/tests/integration_tests.zig`, leaving `src/rpc.zig` as a pure facade.
 - Documentation was restructured into architecture, codegen, compatibility,
   performance, RPC, design, contributing, and security documents.
 - README was rewritten as a concise entry point with quick starts and status

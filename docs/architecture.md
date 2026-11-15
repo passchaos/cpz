@@ -144,6 +144,7 @@ vats, or generated service stubs. See [rpc.md](rpc.md).
 - Unit tests live next to the logic in `src/*.zig`.
 - Schema integration tests live in `src/schema/tests/` and cover parser, layout,
   resolution, code generation, and end-to-end combinations.
+- RPC integration tests live in `src/rpc/tests/`.
 - Integration/codegen tests live in `tests/` and compile generated code through
   `build.zig`.
 - `tests/upstream_*` validate against an optional local Cap'n Proto C++
@@ -161,13 +162,13 @@ vats, or generated service stubs. See [rpc.md](rpc.md).
 `src/message.zig`, `src/schema.zig`, and `src/rpc.zig` are public facades. The
 message runtime, schema frontend, schema code generator, and RPC layers are
 split into cohesive modules under `src/message/`, `src/schema/frontend/`,
-`src/schema/codegen/`, and `src/rpc/`; schema integration tests live under
-`src/schema/tests/`. All implementation modules are now below roughly 5,000
-lines.
+`src/schema/codegen/`, and `src/rpc/`; schema and RPC integration tests live
+under `src/schema/tests/` and `src/rpc/tests/`. All implementation modules are
+now below roughly 5,000 lines.
 
-The remaining optional cleanup is moving the RPC integration tests out of
-`src/rpc.zig` into focused files under `src/rpc/tests/` if that facade starts
-growing again.
+The remaining optional cleanup is moving the message integration tests out of
+`src/message.zig` into focused files under `src/message/tests/` if that facade
+starts growing again.
 
 The runtime should remain low-level and allocation-explicit; convenience layers
 belong above it.
