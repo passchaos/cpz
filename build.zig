@@ -99,244 +99,94 @@ pub fn build(b: *std.Build) void {
     const fuzz_step = b.step("fuzz", "Run fuzz corpus smoke (use `zig build test --fuzz` for continuous fuzzing)");
     fuzz_step.dependOn(&run_fuzz.step);
 
-    const run_schema_codegen = b.addRunArtifact(cpzc_host);
-    run_schema_codegen.addFileArg(b.path("tests/schema_smoke.capnp"));
-    const generated_schema = b.createModule(.{
-        .root_source_file = run_schema_codegen.captureStdOut(.{ .basename = "schema_smoke.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    const generated_import_base = addGeneratedModule(b, target, optimize, cpz_mod, cpzc_host, .{
+        .schema = "tests/schema_import_base.capnp",
+        .basename = "schema_import_base.zig",
     });
-    const codegen_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "generated_schema", .module = generated_schema },
-        },
-    });
-    const codegen_smoke_tests = b.addTest(.{ .root_module = codegen_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_smoke_tests).step);
+    const import_extra_imports = [_]ExtraImport{
+        .{ .name = "Base", .module = generated_import_base },
+        .{ .name = "schema_import_base", .module = generated_import_base },
+        .{ .name = "Child", .module = generated_import_base },
+        .{ .name = "Local", .module = generated_import_base },
+        .{ .name = "Extra", .module = generated_import_base },
+    };
 
-    const run_method_defaults_codegen = b.addRunArtifact(cpzc_host);
-    run_method_defaults_codegen.addFileArg(b.path("tests/schema_method_defaults.capnp"));
-    const generated_method_defaults_schema = b.createModule(.{
-        .root_source_file = run_method_defaults_codegen.captureStdOut(.{ .basename = "schema_method_defaults.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_method_defaults_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_method_defaults_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "generated_method_defaults_schema", .module = generated_method_defaults_schema },
+    const generated_tests = [_]GeneratedTestSpec{
+        .{
+            .schema = "tests/schema_smoke.capnp",
+            .basename = "schema_smoke.zig",
+            .test_file = "tests/codegen_smoke.zig",
+            .import_name = "generated_schema",
         },
-    });
-    const codegen_method_defaults_smoke_tests = b.addTest(.{ .root_module = codegen_method_defaults_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_method_defaults_smoke_tests).step);
-
-    const run_scalar_const_lists_codegen = b.addRunArtifact(cpzc_host);
-    run_scalar_const_lists_codegen.addFileArg(b.path("tests/schema_scalar_const_lists.capnp"));
-    const generated_scalar_const_lists_schema = b.createModule(.{
-        .root_source_file = run_scalar_const_lists_codegen.captureStdOut(.{ .basename = "schema_scalar_const_lists.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_scalar_const_lists_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_scalar_const_lists_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "generated_scalar_const_lists_schema", .module = generated_scalar_const_lists_schema },
+        .{
+            .schema = "tests/schema_method_defaults.capnp",
+            .basename = "schema_method_defaults.zig",
+            .test_file = "tests/codegen_method_defaults_smoke.zig",
+            .import_name = "generated_method_defaults_schema",
         },
-    });
-    const codegen_scalar_const_lists_smoke_tests = b.addTest(.{ .root_module = codegen_scalar_const_lists_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_scalar_const_lists_smoke_tests).step);
-
-    const run_capability_table_codegen = b.addRunArtifact(cpzc_host);
-    run_capability_table_codegen.addFileArg(b.path("tests/schema_capability_table.capnp"));
-    const generated_capability_table_schema = b.createModule(.{
-        .root_source_file = run_capability_table_codegen.captureStdOut(.{ .basename = "schema_capability_table.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_capability_table_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_capability_table_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "generated_capability_table_schema", .module = generated_capability_table_schema },
+        .{
+            .schema = "tests/schema_scalar_const_lists.capnp",
+            .basename = "schema_scalar_const_lists.zig",
+            .test_file = "tests/codegen_scalar_const_lists_smoke.zig",
+            .import_name = "generated_scalar_const_lists_schema",
         },
-    });
-    const codegen_capability_table_smoke_tests = b.addTest(.{ .root_module = codegen_capability_table_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_capability_table_smoke_tests).step);
-
-    const run_rpc_event_codegen = b.addRunArtifact(cpzc_host);
-    run_rpc_event_codegen.addFileArg(b.path("tests/schema_rpc_event.capnp"));
-    const generated_rpc_event_schema = b.createModule(.{
-        .root_source_file = run_rpc_event_codegen.captureStdOut(.{ .basename = "schema_rpc_event.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_rpc_event_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_rpc_event_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "generated_rpc_event_schema", .module = generated_rpc_event_schema },
+        .{
+            .schema = "tests/schema_capability_table.capnp",
+            .basename = "schema_capability_table.zig",
+            .test_file = "tests/codegen_capability_table_smoke.zig",
+            .import_name = "generated_capability_table_schema",
         },
-    });
-    const codegen_rpc_event_smoke_tests = b.addTest(.{ .root_module = codegen_rpc_event_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_rpc_event_smoke_tests).step);
-
-    const run_no_file_id_codegen = b.addRunArtifact(cpzc_host);
-    run_no_file_id_codegen.addFileArg(b.path("tests/schema_no_file_id.capnp"));
-    const generated_no_file_id_schema = b.createModule(.{
-        .root_source_file = run_no_file_id_codegen.captureStdOut(.{ .basename = "schema_no_file_id.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_no_file_id_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_no_file_id_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "generated_no_file_id_schema", .module = generated_no_file_id_schema }},
-    });
-    const codegen_no_file_id_smoke_tests = b.addTest(.{ .root_module = codegen_no_file_id_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_no_file_id_smoke_tests).step);
-
-    const run_lazy_codegen = b.addRunArtifact(cpzc_host);
-    run_lazy_codegen.addFileArg(b.path("tests/schema_lazy_codegen.capnp"));
-    const generated_lazy_schema = b.createModule(.{
-        .root_source_file = run_lazy_codegen.captureStdOut(.{ .basename = "schema_lazy_codegen.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_lazy_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_lazy_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "generated_lazy_schema", .module = generated_lazy_schema },
+        .{
+            .schema = "tests/schema_rpc_event.capnp",
+            .basename = "schema_rpc_event.zig",
+            .test_file = "tests/codegen_rpc_event_smoke.zig",
+            .import_name = "generated_rpc_event_schema",
         },
-    });
-    const codegen_lazy_smoke_tests = b.addTest(.{ .root_module = codegen_lazy_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_lazy_smoke_tests).step);
-
-    const run_keyword_schema_codegen = b.addRunArtifact(cpzc_host);
-    run_keyword_schema_codegen.addFileArg(b.path("tests/schema_keywords.capnp"));
-    const generated_keyword_schema = b.createModule(.{
-        .root_source_file = run_keyword_schema_codegen.captureStdOut(.{ .basename = "schema_keywords.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_keyword_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_keyword_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "generated_keyword_schema", .module = generated_keyword_schema },
+        .{
+            .schema = "tests/schema_no_file_id.capnp",
+            .basename = "schema_no_file_id.zig",
+            .test_file = "tests/codegen_no_file_id_smoke.zig",
+            .import_name = "generated_no_file_id_schema",
         },
-    });
-    const codegen_keyword_smoke_tests = b.addTest(.{ .root_module = codegen_keyword_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_keyword_smoke_tests).step);
-
-    const run_namespace_schema_codegen = b.addRunArtifact(cpzc_host);
-    run_namespace_schema_codegen.addArgs(&.{ "--namespace", "api" });
-    run_namespace_schema_codegen.addFileArg(b.path("tests/schema_namespace.capnp"));
-    const generated_namespace_schema = b.createModule(.{
-        .root_source_file = run_namespace_schema_codegen.captureStdOut(.{ .basename = "schema_namespace.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const codegen_namespace_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_namespace_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "generated_namespace_schema", .module = generated_namespace_schema },
+        .{
+            .schema = "tests/schema_lazy_codegen.capnp",
+            .basename = "schema_lazy_codegen.zig",
+            .test_file = "tests/codegen_lazy_smoke.zig",
+            .import_name = "generated_lazy_schema",
         },
-    });
-    const codegen_namespace_smoke_tests = b.addTest(.{ .root_module = codegen_namespace_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_namespace_smoke_tests).step);
-
-    const run_import_base_codegen = b.addRunArtifact(cpzc_host);
-    run_import_base_codegen.addFileArg(b.path("tests/schema_import_base.capnp"));
-    const generated_import_base = b.createModule(.{
-        .root_source_file = run_import_base_codegen.captureStdOut(.{ .basename = "schema_import_base.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
-    });
-    const run_import_use_codegen = b.addRunArtifact(cpzc_host);
-    run_import_use_codegen.addFileArg(b.path("tests/schema_import_use.capnp"));
-    const generated_import_use = b.createModule(.{
-        .root_source_file = run_import_use_codegen.captureStdOut(.{ .basename = "schema_import_use.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "Base", .module = generated_import_base },
-            .{ .name = "schema_import_base", .module = generated_import_base },
-            .{ .name = "Child", .module = generated_import_base },
-            .{ .name = "Local", .module = generated_import_base },
-            .{ .name = "Extra", .module = generated_import_base },
+        .{
+            .schema = "tests/schema_keywords.capnp",
+            .basename = "schema_keywords.zig",
+            .test_file = "tests/codegen_keyword_smoke.zig",
+            .import_name = "generated_keyword_schema",
         },
-    });
-    const codegen_import_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_import_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "Base", .module = generated_import_base },
-            .{ .name = "generated_import_use", .module = generated_import_use },
+        .{
+            .schema = "tests/schema_namespace.capnp",
+            .basename = "schema_namespace.zig",
+            .test_file = "tests/codegen_namespace_smoke.zig",
+            .import_name = "generated_namespace_schema",
+            .args = &.{ "--namespace", "api" },
         },
-    });
-    const codegen_import_smoke_tests = b.addTest(.{ .root_module = codegen_import_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_import_smoke_tests).step);
-
-    const run_import_use_namespace_codegen = b.addRunArtifact(cpzc_host);
-    run_import_use_namespace_codegen.addArgs(&.{ "--namespace", "api" });
-    run_import_use_namespace_codegen.addFileArg(b.path("tests/schema_import_use.capnp"));
-    const generated_import_use_namespace = b.createModule(.{
-        .root_source_file = run_import_use_namespace_codegen.captureStdOut(.{ .basename = "schema_import_use_namespace.zig" }),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "cpz", .module = cpz_mod },
-            .{ .name = "Base", .module = generated_import_base },
-            .{ .name = "schema_import_base", .module = generated_import_base },
-            .{ .name = "Child", .module = generated_import_base },
-            .{ .name = "Local", .module = generated_import_base },
-            .{ .name = "Extra", .module = generated_import_base },
+        .{
+            .schema = "tests/schema_import_use.capnp",
+            .basename = "schema_import_use.zig",
+            .test_file = "tests/codegen_import_smoke.zig",
+            .import_name = "generated_import_use",
+            .generated_extra_imports = &import_extra_imports,
+            .test_extra_imports = &.{.{ .name = "Base", .module = generated_import_base }},
         },
-    });
-    const codegen_import_namespace_smoke_mod = b.createModule(.{
-        .root_source_file = b.path("tests/codegen_import_namespace_smoke.zig"),
-        .target = target,
-        .optimize = optimize,
-        .imports = &.{
-            .{ .name = "generated_import_use_namespace", .module = generated_import_use_namespace },
+        .{
+            .schema = "tests/schema_import_use.capnp",
+            .basename = "schema_import_use_namespace.zig",
+            .test_file = "tests/codegen_import_namespace_smoke.zig",
+            .import_name = "generated_import_use_namespace",
+            .args = &.{ "--namespace", "api" },
+            .generated_extra_imports = &import_extra_imports,
         },
-    });
-    const codegen_import_namespace_smoke_tests = b.addTest(.{ .root_module = codegen_import_namespace_smoke_mod });
-    test_step.dependOn(&addTestRun(b, codegen_import_namespace_smoke_tests).step);
+    };
+    for (generated_tests) |spec| {
+        addGeneratedSchemaTest(b, test_step, target, optimize, cpz_mod, cpzc_host, spec);
+    }
 
     const fmt_step = b.step("fmt", "Format Zig sources");
     const fmt = b.addFmt(.{
@@ -354,6 +204,88 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(test_step);
     check_step.dependOn(&example.step);
     check_step.dependOn(&bench.step);
+}
+
+const ExtraImport = struct {
+    name: []const u8,
+    module: *std.Build.Module,
+};
+
+const GeneratedModuleSpec = struct {
+    schema: []const u8,
+    basename: []const u8,
+    args: []const []const u8 = &.{},
+    extra_imports: []const ExtraImport = &.{},
+};
+
+const GeneratedTestSpec = struct {
+    schema: []const u8,
+    basename: []const u8,
+    test_file: []const u8,
+    import_name: []const u8,
+    args: []const []const u8 = &.{},
+    generated_extra_imports: []const ExtraImport = &.{},
+    test_extra_imports: []const ExtraImport = &.{},
+};
+
+fn addGeneratedModule(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    cpz_mod: *std.Build.Module,
+    cpzc_host: *std.Build.Step.Compile,
+    spec: GeneratedModuleSpec,
+) *std.Build.Module {
+    const run = b.addRunArtifact(cpzc_host);
+    if (spec.args.len != 0) run.addArgs(spec.args);
+    run.addFileArg(b.path(spec.schema));
+
+    var imports = std.ArrayList(std.Build.Module.Import).empty;
+    defer imports.deinit(b.allocator);
+    imports.append(b.allocator, .{ .name = "cpz", .module = cpz_mod }) catch @panic("OOM");
+    for (spec.extra_imports) |extra| {
+        imports.append(b.allocator, .{ .name = extra.name, .module = extra.module }) catch @panic("OOM");
+    }
+    return b.createModule(.{
+        .root_source_file = run.captureStdOut(.{ .basename = spec.basename }),
+        .target = target,
+        .optimize = optimize,
+        .imports = imports.items,
+    });
+}
+
+fn addGeneratedSchemaTest(
+    b: *std.Build,
+    test_step: *std.Build.Step,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    cpz_mod: *std.Build.Module,
+    cpzc_host: *std.Build.Step.Compile,
+    spec: GeneratedTestSpec,
+) void {
+    const generated = addGeneratedModule(b, target, optimize, cpz_mod, cpzc_host, .{
+        .schema = spec.schema,
+        .basename = spec.basename,
+        .args = spec.args,
+        .extra_imports = spec.generated_extra_imports,
+    });
+
+    var imports = std.ArrayList(std.Build.Module.Import).empty;
+    defer imports.deinit(b.allocator);
+    imports.append(b.allocator, .{ .name = "cpz", .module = cpz_mod }) catch @panic("OOM");
+    imports.append(b.allocator, .{ .name = spec.import_name, .module = generated }) catch @panic("OOM");
+    for (spec.test_extra_imports) |extra| {
+        imports.append(b.allocator, .{ .name = extra.name, .module = extra.module }) catch @panic("OOM");
+    }
+
+    const test_mod = b.createModule(.{
+        .root_source_file = b.path(spec.test_file),
+        .target = target,
+        .optimize = optimize,
+        .imports = imports.items,
+    });
+    const tests = b.addTest(.{ .root_module = test_mod });
+    test_step.dependOn(&addTestRun(b, tests).step);
 }
 
 fn addTestRun(b: *std.Build, test_exe: *std.Build.Step.Compile) *std.Build.Step.Run {
