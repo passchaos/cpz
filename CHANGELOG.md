@@ -15,6 +15,8 @@ All notable changes to `cpz` are documented here.
   the current test suite.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
+- `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to
+  generate a directory of schemas without spelling each output path.
 
 ### Changed
 

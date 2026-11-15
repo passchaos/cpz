@@ -2,10 +2,12 @@ const std = @import("std");
 const cpz = @import("cpz");
 
 const usage =
-    \\usage: cpzc [--help] [--runtime-import name] [--namespace name] [--check] [--emit-raw-schema-comments] <schema.capnp> [output.zig]
+    \\usage: cpzc [--help] [--runtime-import name] [--namespace name] [--check] [--no-metadata] [--emit-raw-schema-comments] [--output-dir dir] <schema.capnp> [output.zig]
     \\
     \\Parses a supported subset of Cap'n Proto schemas and emits Zig accessor skeletons.
     \\Use --check to validate parse/layout/codegen without writing generated output.
+    \\Use --no-metadata to omit schema introspection tables and @"cpz.*" lookup helpers.
+    \\Use --output-dir to write <schema-stem>.zig into a directory.
     \\
 ;
 
@@ -53,7 +55,16 @@ pub fn main(init: std.process.Init) !u8 {
 
     if (options.check) return 0;
 
-    if (options.output_path) |path| {
+    var derived_output: ?[]u8 = null;
+    defer if (derived_output) |path| allocator.free(path);
+    const output_path = if (options.output_dir) |dir| blk: {
+        const filename = try std.fmt.allocPrint(allocator, "{s}.zig", .{std.fs.path.stem(input)});
+        defer allocator.free(filename);
+        derived_output = try std.fs.path.join(allocator, &.{ dir, filename });
+        break :blk derived_output.?;
+    } else options.output_path;
+
+    if (output_path) |path| {
         if (std.fs.path.dirname(path)) |parent| {
             if (parent.len != 0 and !std.mem.eql(u8, parent, ".")) {
                 try std.Io.Dir.cwd().createDirPath(io, parent);
@@ -74,6 +85,7 @@ const CliOptions = struct {
     emit_raw_schema_comments: bool = false,
     input_path: ?[]const u8 = null,
     output_path: ?[]const u8 = null,
+    output_dir: ?[]const u8 = null,
 };
 
 const CliParseResult = union(enum) {
@@ -109,6 +121,15 @@ fn parseCliArgs(raw_args: []const []const u8) CliParseResult {
             if (raw_args[index].len == 0 or looksLikeOption(raw_args[index])) return .usage_error;
             options.namespace = raw_args[index];
             index += 1;
+        } else if (parse_options and optionValue(arg, "--output-dir") != null) {
+            const value = optionValue(arg, "--output-dir").?;
+            if (looksLikeOption(value)) return .usage_error;
+            options.output_dir = value;
+        } else if (parse_options and std.mem.eql(u8, arg, "--output-dir")) {
+            if (index >= raw_args.len) return .usage_error;
+            if (raw_args[index].len == 0 or looksLikeOption(raw_args[index])) return .usage_error;
+            options.output_dir = raw_args[index];
+            index += 1;
         } else if (parse_options and std.mem.eql(u8, arg, "--check")) {
             options.check = true;
         } else if (parse_options and (std.mem.eql(u8, arg, "--no-metadata") or std.mem.eql(u8, arg, "--lean"))) {
@@ -130,6 +151,7 @@ fn parseCliArgs(raw_args: []const []const u8) CliParseResult {
         }
     }
     if (options.input_path == null) return .usage_error;
+    if (options.output_dir != null and options.output_path != null) return .usage_error;
     return .{ .run = options };
 }
 
@@ -186,6 +208,22 @@ test "cpzc CLI parser handles help and option values" {
         else => return error.TestUnexpectedResult,
     };
     try std.testing.expect(metadata.emit_metadata);
+
+    const output_dir = switch (parseCliArgs(&.{ "--output-dir", "generated", "schema.capnp" })) {
+        .run => |dir_options| dir_options,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expectEqualStrings("generated", output_dir.output_dir.?);
+    try std.testing.expect(output_dir.output_path == null);
+
+    try std.testing.expect(switch (parseCliArgs(&.{ "--output-dir=generated", "schema.capnp", "out.zig" })) {
+        .usage_error => true,
+        else => false,
+    });
+    try std.testing.expect(switch (parseCliArgs(&.{"--output-dir"})) {
+        .usage_error => true,
+        else => false,
+    });
 }
 
 test "cpzc CLI parser rejects bad options and honors terminator" {

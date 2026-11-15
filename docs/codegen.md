@@ -20,6 +20,7 @@ set, parse/layout/codegen are validated and no file is written.
 | `--no-metadata`, `--lean` | Omit schema introspection tables and `@"cpz.*"` lookup helpers. |
 | `--emit-metadata` | Re-enable metadata after a previous lean flag. |
 | `--emit-raw-schema-comments` | Include the source schema as comments in generated output. |
+| `--output-dir <dir>` | Write `<schema-stem>.zig` into `dir` instead of an explicit output path. |
 | `--help`, `-h` | Show usage. |
 
 Examples:
@@ -28,7 +29,17 @@ Examples:
 zig build cpzc -- schema.capnp generated.zig
 zig build cpzc -- --namespace api schema.capnp generated.zig
 zig build cpzc -- --no-metadata schema.capnp generated.zig
+zig build cpzc -- --output-dir generated schemas/person.capnp
 zig build cpzc -- --check schema.capnp
+```
+
+For a directory of schemas:
+
+```sh
+mkdir -p generated
+for schema in schemas/*.capnp; do
+  zig build cpzc -- --output-dir generated "$schema"
+done
 ```
 
 ## Generated API shape
