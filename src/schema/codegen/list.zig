@@ -3,6 +3,7 @@ const wire = @import("../../wire.zig");
 const frontend = @import("../frontend.zig");
 const zig_names = @import("../zig_names.zig");
 
+const state = @import("state.zig");
 const mod_pointer = @import("pointer.zig");
 const mod_text = @import("text.zig");
 
@@ -47,167 +48,175 @@ pub fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\            return self.list.len();
         \\        }}
         \\
-        \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesLen(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn isEmpty(self: @This()) bool {{
-        \\            return self.list.isEmpty();
-        \\        }}
-        \\
-        \\        pub fn hasIndex(self: @This(), @"cpz.index": usize) bool {{
-        \\            return self.list.hasIndex(@"cpz.index");
-        \\        }}
-        \\
-        \\        pub fn firstIndex(self: @This()) !usize {{
-        \\            return self.list.firstIndex();
-        \\        }}
-        \\
-        \\        pub fn lastIndex(self: @This()) !usize {{
-        \\            return self.list.lastIndex();
-        \\        }}
-        \\
-        \\        pub fn rawBytes(self: @This()) []const u8 {{
-        \\            return self.list.bytes();
-        \\        }}
-        \\
-        \\        pub fn rawPrimitiveBytes(self: @This()) ![]const u8 {{
-        \\            return self.list.rawPrimitiveBytes();
-        \\        }}
-        \\
-        \\        pub fn validate(self: @This()) !cpz.MessageStats {{
-        \\            return self.list.validate();
-        \\        }}
-        \\
-        \\        pub fn validateWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-        \\            return self.list.validateWithOptions(@"cpz.options");
-        \\        }}
-        \\
-        \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
-        \\            return self.list.totalSize();
-        \\        }}
-        \\
-        \\        pub fn totalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
-        \\            return self.list.totalSizeWithOptions(@"cpz.options");
-        \\        }}
-        \\
-        \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
-        \\            return self.list.elementSize();
-        \\        }}
-        \\
-        \\        pub fn matchesElementSize(self: @This(), @"cpz.expected": cpz.ElementSize) bool {{
-        \\            return self.list.matchesElementSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn elementBitCount(self: @This()) usize {{
-        \\            return self.list.elementBitCount();
-        \\        }}
-        \\
-        \\        pub fn elementByteCount(self: @This()) !usize {{
-        \\            return self.list.elementByteCount();
-        \\        }}
-        \\
-        \\        pub fn elementWordCount(self: @This()) !usize {{
-        \\            return self.list.elementWordCount();
-        \\        }}
-        \\
-        \\        pub fn contentBitCount(self: @This()) !usize {{
-        \\            return self.list.contentBitCount();
-        \\        }}
-        \\
-        \\        pub fn contentByteCount(self: @This()) !usize {{
-        \\            return self.list.contentByteCount();
-        \\        }}
-        \\
-        \\        pub fn contentWordCount(self: @This()) !usize {{
-        \\            return self.list.contentWordCount();
-        \\        }}
-        \\
-        \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesElementBits(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesElementBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesElementWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesContentBits(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesContentBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesContentWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
-        \\            return self.list.structElementSize();
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
-        \\            return self.list.matchesStructElementSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn structElementDataWordCount(self: @This()) u16 {{
-        \\            return self.list.structElementDataWordCount();
-        \\        }}
-        \\
-        \\        pub fn structElementPointerCount(self: @This()) u16 {{
-        \\            return self.list.structElementPointerCount();
-        \\        }}
-        \\
-        \\        pub fn structElementTotalWords(self: @This()) usize {{
-        \\            return self.list.structElementTotalWords();
-        \\        }}
-        \\
-        \\        pub fn structElementDataByteCount(self: @This()) usize {{
-        \\            return self.list.structElementDataByteCount();
-        \\        }}
-        \\
-        \\        pub fn structElementPointerByteCount(self: @This()) usize {{
-        \\            return self.list.structElementPointerByteCount();
-        \\        }}
-        \\
-        \\        pub fn structElementTotalByteCount(self: @This()) usize {{
-        \\            return self.list.structElementTotalByteCount();
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
-        \\            return self.list.matchesStructElementDataWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
-        \\            return self.list.matchesStructElementPointerCount(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementTotalWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementDataBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementPointerBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementTotalBytes(@"cpz.count");
-        \\        }}
+    , .{ owner_name, field_name });
+    if (state.emit_introspection_enabled) {
+        try appendFmt(allocator, out,
+            \\
+            \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesLen(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn isEmpty(self: @This()) bool {{
+            \\            return self.list.isEmpty();
+            \\        }}
+            \\
+            \\        pub fn hasIndex(self: @This(), @"cpz.index": usize) bool {{
+            \\            return self.list.hasIndex(@"cpz.index");
+            \\        }}
+            \\
+            \\        pub fn firstIndex(self: @This()) !usize {{
+            \\            return self.list.firstIndex();
+            \\        }}
+            \\
+            \\        pub fn lastIndex(self: @This()) !usize {{
+            \\            return self.list.lastIndex();
+            \\        }}
+            \\
+            \\        pub fn rawBytes(self: @This()) []const u8 {{
+            \\            return self.list.bytes();
+            \\        }}
+            \\
+            \\        pub fn rawPrimitiveBytes(self: @This()) ![]const u8 {{
+            \\            return self.list.rawPrimitiveBytes();
+            \\        }}
+            \\
+            \\        pub fn validate(self: @This()) !cpz.MessageStats {{
+            \\            return self.list.validate();
+            \\        }}
+            \\
+            \\        pub fn validateWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+            \\            return self.list.validateWithOptions(@"cpz.options");
+            \\        }}
+            \\
+            \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
+            \\            return self.list.totalSize();
+            \\        }}
+            \\
+            \\        pub fn totalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+            \\            return self.list.totalSizeWithOptions(@"cpz.options");
+            \\        }}
+            \\
+            \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
+            \\            return self.list.elementSize();
+            \\        }}
+            \\
+            \\        pub fn matchesElementSize(self: @This(), @"cpz.expected": cpz.ElementSize) bool {{
+            \\            return self.list.matchesElementSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn elementBitCount(self: @This()) usize {{
+            \\            return self.list.elementBitCount();
+            \\        }}
+            \\
+            \\        pub fn elementByteCount(self: @This()) !usize {{
+            \\            return self.list.elementByteCount();
+            \\        }}
+            \\
+            \\        pub fn elementWordCount(self: @This()) !usize {{
+            \\            return self.list.elementWordCount();
+            \\        }}
+            \\
+            \\        pub fn contentBitCount(self: @This()) !usize {{
+            \\            return self.list.contentBitCount();
+            \\        }}
+            \\
+            \\        pub fn contentByteCount(self: @This()) !usize {{
+            \\            return self.list.contentByteCount();
+            \\        }}
+            \\
+            \\        pub fn contentWordCount(self: @This()) !usize {{
+            \\            return self.list.contentWordCount();
+            \\        }}
+            \\
+            \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesElementBits(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesElementBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesElementWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesContentBits(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesContentBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesContentWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
+            \\            return self.list.structElementSize();
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
+            \\            return self.list.matchesStructElementSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn structElementDataWordCount(self: @This()) u16 {{
+            \\            return self.list.structElementDataWordCount();
+            \\        }}
+            \\
+            \\        pub fn structElementPointerCount(self: @This()) u16 {{
+            \\            return self.list.structElementPointerCount();
+            \\        }}
+            \\
+            \\        pub fn structElementTotalWords(self: @This()) usize {{
+            \\            return self.list.structElementTotalWords();
+            \\        }}
+            \\
+            \\        pub fn structElementDataByteCount(self: @This()) usize {{
+            \\            return self.list.structElementDataByteCount();
+            \\        }}
+            \\
+            \\        pub fn structElementPointerByteCount(self: @This()) usize {{
+            \\            return self.list.structElementPointerByteCount();
+            \\        }}
+            \\
+            \\        pub fn structElementTotalByteCount(self: @This()) usize {{
+            \\            return self.list.structElementTotalByteCount();
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
+            \\            return self.list.matchesStructElementDataWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
+            \\            return self.list.matchesStructElementPointerCount(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementTotalWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementDataBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementPointerBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementTotalBytes(@"cpz.count");
+            \\        }}
+            \\
+        , .{});
+    }
+    try appendFmt(allocator, out,
         \\
         \\        pub fn slice(self: @This(), @"cpz.start": usize, @"cpz.count": usize) !{s}_{s}_List {{
         \\            return .{{ .list = try self.list.slice(@"cpz.start", @"cpz.count") }};
         \\        }}
         \\
-    , .{ owner_name, field_name, owner_name, field_name });
+    , .{ owner_name, field_name });
 
     if (isPointerListElement(file, scope, child)) {
         try emitListReaderPointerElementHelpers(allocator, out);
@@ -684,137 +693,145 @@ pub fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\            return self.orphan.getListLen({s});
         \\        }}
         \\
-        \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.listMatchesLen({s}, @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn isEmpty(self: @This()) bool {{
-        \\            return (self.get() catch return false).isEmpty();
-        \\        }}
-        \\
-        \\        pub fn hasIndex(self: @This(), @"cpz.index": usize) bool {{
-        \\            return (self.get() catch return false).hasIndex(@"cpz.index");
-        \\        }}
-        \\
-        \\        pub fn firstIndex(self: @This()) !usize {{
-        \\            return (try self.get()).firstIndex();
-        \\        }}
-        \\
-        \\        pub fn lastIndex(self: @This()) !usize {{
-        \\            return (try self.get()).lastIndex();
-        \\        }}
-        \\
-        \\        pub fn elementSize(self: @This()) !cpz.ElementSize {{
-        \\            return self.orphan.getListElementSize({s});
-        \\        }}
-        \\
-        \\        pub fn matchesElementSize(self: @This(), @"cpz.elementSize": cpz.ElementSize) bool {{
-        \\            return self.orphan.listMatchesElementSize({s}, @"cpz.elementSize");
-        \\        }}
-        \\
-        \\        pub fn elementBitCount(self: @This()) !usize {{
-        \\            return self.orphan.getListElementBitCount({s});
-        \\        }}
-        \\
-        \\        pub fn elementByteCount(self: @This()) !usize {{
-        \\            return self.orphan.getListElementByteCount({s});
-        \\        }}
-        \\
-        \\        pub fn elementWordCount(self: @This()) !usize {{
-        \\            return self.orphan.getListElementWordCount({s});
-        \\        }}
-        \\
-        \\        pub fn contentBitCount(self: @This()) !usize {{
-        \\            return self.orphan.getListContentBitCount({s});
-        \\        }}
-        \\
-        \\        pub fn contentByteCount(self: @This()) !usize {{
-        \\            return self.orphan.getListContentByteCount({s});
-        \\        }}
-        \\
-        \\        pub fn contentWordCount(self: @This()) !usize {{
-        \\            return self.orphan.getListContentWordCount({s});
-        \\        }}
-        \\
-        \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.listMatchesElementBits({s}, @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.listMatchesElementBytes({s}, @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.listMatchesElementWords({s}, @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.listMatchesContentBits({s}, @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.listMatchesContentWords({s}, @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.listMatchesContentBytes({s}, @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn structElementSize(self: @This()) !cpz.StructSize {{
-        \\            return self.orphan.getListStructElementSize({s});
-        \\        }}
-        \\
-        \\        pub fn structElementDataWordCount(self: @This()) !u16 {{
-        \\            return (try self.structElementSize()).dataWordCount();
-        \\        }}
-        \\
-        \\        pub fn structElementPointerCount(self: @This()) !u16 {{
-        \\            return (try self.structElementSize()).pointerCount();
-        \\        }}
-        \\
-        \\        pub fn structElementTotalWords(self: @This()) !usize {{
-        \\            return (try self.structElementSize()).totalWords();
-        \\        }}
-        \\
-        \\        pub fn structElementDataByteCount(self: @This()) !usize {{
-        \\            return (try self.structElementSize()).dataByteCount();
-        \\        }}
-        \\
-        \\        pub fn structElementPointerByteCount(self: @This()) !usize {{
-        \\            return (try self.structElementSize()).pointerByteCount();
-        \\        }}
-        \\
-        \\        pub fn structElementTotalByteCount(self: @This()) !usize {{
-        \\            return (try self.structElementSize()).totalByteCount();
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementSize(self: @This(), @"cpz.size": cpz.StructSize) bool {{
-        \\            return self.orphan.listMatchesStructElementSize({s}, @"cpz.size");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
-        \\            return (self.structElementDataWordCount() catch return false) == @"cpz.count";
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
-        \\            return (self.structElementPointerCount() catch return false) == @"cpz.count";
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return (self.structElementTotalWords() catch return false) == @"cpz.count";
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return (self.structElementDataByteCount() catch return false) == @"cpz.count";
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return (self.structElementPointerByteCount() catch return false) == @"cpz.count";
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return (self.structElementTotalByteCount() catch return false) == @"cpz.count";
-        \\        }}
+    , .{ owner_name, field_name, list_orphan_new, owner_name, field_name, try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child) });
+    if (state.emit_introspection_enabled) {
+        try appendFmt(allocator, out,
+            \\
+            \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.listMatchesLen({s}, @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn isEmpty(self: @This()) bool {{
+            \\            return (self.get() catch return false).isEmpty();
+            \\        }}
+            \\
+            \\        pub fn hasIndex(self: @This(), @"cpz.index": usize) bool {{
+            \\            return (self.get() catch return false).hasIndex(@"cpz.index");
+            \\        }}
+            \\
+            \\        pub fn firstIndex(self: @This()) !usize {{
+            \\            return (try self.get()).firstIndex();
+            \\        }}
+            \\
+            \\        pub fn lastIndex(self: @This()) !usize {{
+            \\            return (try self.get()).lastIndex();
+            \\        }}
+            \\
+            \\        pub fn elementSize(self: @This()) !cpz.ElementSize {{
+            \\            return self.orphan.getListElementSize({s});
+            \\        }}
+            \\
+            \\        pub fn matchesElementSize(self: @This(), @"cpz.elementSize": cpz.ElementSize) bool {{
+            \\            return self.orphan.listMatchesElementSize({s}, @"cpz.elementSize");
+            \\        }}
+            \\
+            \\        pub fn elementBitCount(self: @This()) !usize {{
+            \\            return self.orphan.getListElementBitCount({s});
+            \\        }}
+            \\
+            \\        pub fn elementByteCount(self: @This()) !usize {{
+            \\            return self.orphan.getListElementByteCount({s});
+            \\        }}
+            \\
+            \\        pub fn elementWordCount(self: @This()) !usize {{
+            \\            return self.orphan.getListElementWordCount({s});
+            \\        }}
+            \\
+            \\        pub fn contentBitCount(self: @This()) !usize {{
+            \\            return self.orphan.getListContentBitCount({s});
+            \\        }}
+            \\
+            \\        pub fn contentByteCount(self: @This()) !usize {{
+            \\            return self.orphan.getListContentByteCount({s});
+            \\        }}
+            \\
+            \\        pub fn contentWordCount(self: @This()) !usize {{
+            \\            return self.orphan.getListContentWordCount({s});
+            \\        }}
+            \\
+            \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.listMatchesElementBits({s}, @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.listMatchesElementBytes({s}, @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.listMatchesElementWords({s}, @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.listMatchesContentBits({s}, @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.listMatchesContentWords({s}, @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.listMatchesContentBytes({s}, @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn structElementSize(self: @This()) !cpz.StructSize {{
+            \\            return self.orphan.getListStructElementSize({s});
+            \\        }}
+            \\
+            \\        pub fn structElementDataWordCount(self: @This()) !u16 {{
+            \\            return (try self.structElementSize()).dataWordCount();
+            \\        }}
+            \\
+            \\        pub fn structElementPointerCount(self: @This()) !u16 {{
+            \\            return (try self.structElementSize()).pointerCount();
+            \\        }}
+            \\
+            \\        pub fn structElementTotalWords(self: @This()) !usize {{
+            \\            return (try self.structElementSize()).totalWords();
+            \\        }}
+            \\
+            \\        pub fn structElementDataByteCount(self: @This()) !usize {{
+            \\            return (try self.structElementSize()).dataByteCount();
+            \\        }}
+            \\
+            \\        pub fn structElementPointerByteCount(self: @This()) !usize {{
+            \\            return (try self.structElementSize()).pointerByteCount();
+            \\        }}
+            \\
+            \\        pub fn structElementTotalByteCount(self: @This()) !usize {{
+            \\            return (try self.structElementSize()).totalByteCount();
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementSize(self: @This(), @"cpz.size": cpz.StructSize) bool {{
+            \\            return self.orphan.listMatchesStructElementSize({s}, @"cpz.size");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
+            \\            return (self.structElementDataWordCount() catch return false) == @"cpz.count";
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
+            \\            return (self.structElementPointerCount() catch return false) == @"cpz.count";
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return (self.structElementTotalWords() catch return false) == @"cpz.count";
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return (self.structElementDataByteCount() catch return false) == @"cpz.count";
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return (self.structElementPointerByteCount() catch return false) == @"cpz.count";
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return (self.structElementTotalByteCount() catch return false) == @"cpz.count";
+            \\        }}
+            \\
+        , .{ try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child), try listElementSizeLiteral(file, scope, child) });
+    }
+    try appendFmt(allocator, out,
         \\
         \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s}_{s}_List {{
         \\            return .{{ .list = try self.orphan.asReader(message_reader).getList({s}) }};
@@ -845,37 +862,7 @@ pub fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\        }}
         \\    }};
         \\
-    , .{
-        owner_name,
-        field_name,
-        list_orphan_new,
-        owner_name,
-        field_name,
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        try listElementSizeLiteral(file, scope, child),
-        owner_name,
-        field_name,
-        try listElementSizeLiteral(file, scope, child),
-        owner_name,
-        field_name,
-    });
+    , .{ owner_name, field_name, try listElementSizeLiteral(file, scope, child), owner_name, field_name });
 
     try appendFmt(allocator, out,
         \\
@@ -886,165 +873,173 @@ pub fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\            return self.list.len();
         \\        }}
         \\
-        \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesLen(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn isEmpty(self: @This()) bool {{
-        \\            return self.list.isEmpty();
-        \\        }}
-        \\
-        \\        pub fn hasIndex(self: @This(), @"cpz.index": usize) bool {{
-        \\            return self.list.hasIndex(@"cpz.index");
-        \\        }}
-        \\
-        \\        pub fn firstIndex(self: @This()) !usize {{
-        \\            return self.list.firstIndex();
-        \\        }}
-        \\
-        \\        pub fn lastIndex(self: @This()) !usize {{
-        \\            return self.list.lastIndex();
-        \\        }}
-        \\
-        \\        pub fn rawBytes(self: @This()) []u8 {{
-        \\            return self.list.bytes();
-        \\        }}
-        \\
-        \\        pub fn rawPrimitiveBytes(self: @This()) ![]u8 {{
-        \\            return self.list.rawPrimitiveBytes();
-        \\        }}
-        \\
-        \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) {s}_{s}_List {{
-        \\            return .{{ .list = self.list.asReader(message_reader) }};
-        \\        }}
-        \\
-        \\        pub fn validate(self: @This()) !cpz.MessageStats {{
-        \\            return self.list.validate();
-        \\        }}
-        \\
-        \\        pub fn validateWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-        \\            return self.list.validateWithOptions(@"cpz.options");
-        \\        }}
-        \\
-        \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
-        \\            return self.list.totalSize();
-        \\        }}
-        \\
-        \\        pub fn totalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
-        \\            return self.list.totalSizeWithOptions(@"cpz.options");
-        \\        }}
-        \\
-        \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
-        \\            return self.list.elementSize();
-        \\        }}
-        \\
-        \\        pub fn matchesElementSize(self: @This(), @"cpz.expected": cpz.ElementSize) bool {{
-        \\            return self.list.matchesElementSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn elementBitCount(self: @This()) usize {{
-        \\            return self.list.elementBitCount();
-        \\        }}
-        \\
-        \\        pub fn elementByteCount(self: @This()) !usize {{
-        \\            return self.list.elementByteCount();
-        \\        }}
-        \\
-        \\        pub fn elementWordCount(self: @This()) !usize {{
-        \\            return self.list.elementWordCount();
-        \\        }}
-        \\
-        \\        pub fn contentBitCount(self: @This()) !usize {{
-        \\            return self.list.contentBitCount();
-        \\        }}
-        \\
-        \\        pub fn contentByteCount(self: @This()) !usize {{
-        \\            return self.list.contentByteCount();
-        \\        }}
-        \\
-        \\        pub fn contentWordCount(self: @This()) !usize {{
-        \\            return self.list.contentWordCount();
-        \\        }}
-        \\
-        \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesElementBits(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesElementBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesElementWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesContentBits(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesContentBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesContentWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
-        \\            return self.list.structElementSize();
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
-        \\            return self.list.matchesStructElementSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn structElementDataWordCount(self: @This()) u16 {{
-        \\            return self.list.structElementDataWordCount();
-        \\        }}
-        \\
-        \\        pub fn structElementPointerCount(self: @This()) u16 {{
-        \\            return self.list.structElementPointerCount();
-        \\        }}
-        \\
-        \\        pub fn structElementTotalWords(self: @This()) usize {{
-        \\            return self.list.structElementTotalWords();
-        \\        }}
-        \\
-        \\        pub fn structElementDataByteCount(self: @This()) usize {{
-        \\            return self.list.structElementDataByteCount();
-        \\        }}
-        \\
-        \\        pub fn structElementPointerByteCount(self: @This()) usize {{
-        \\            return self.list.structElementPointerByteCount();
-        \\        }}
-        \\
-        \\        pub fn structElementTotalByteCount(self: @This()) usize {{
-        \\            return self.list.structElementTotalByteCount();
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
-        \\            return self.list.matchesStructElementDataWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
-        \\            return self.list.matchesStructElementPointerCount(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementTotalWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementDataBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementPointerBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.list.matchesStructElementTotalBytes(@"cpz.count");
-        \\        }}
+    , .{ owner_name, field_name });
+    if (state.emit_introspection_enabled) {
+        try appendFmt(allocator, out,
+            \\
+            \\        pub fn matchesLen(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesLen(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn isEmpty(self: @This()) bool {{
+            \\            return self.list.isEmpty();
+            \\        }}
+            \\
+            \\        pub fn hasIndex(self: @This(), @"cpz.index": usize) bool {{
+            \\            return self.list.hasIndex(@"cpz.index");
+            \\        }}
+            \\
+            \\        pub fn firstIndex(self: @This()) !usize {{
+            \\            return self.list.firstIndex();
+            \\        }}
+            \\
+            \\        pub fn lastIndex(self: @This()) !usize {{
+            \\            return self.list.lastIndex();
+            \\        }}
+            \\
+            \\        pub fn rawBytes(self: @This()) []u8 {{
+            \\            return self.list.bytes();
+            \\        }}
+            \\
+            \\        pub fn rawPrimitiveBytes(self: @This()) ![]u8 {{
+            \\            return self.list.rawPrimitiveBytes();
+            \\        }}
+            \\
+            \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) {s}_{s}_List {{
+            \\            return .{{ .list = self.list.asReader(message_reader) }};
+            \\        }}
+            \\
+            \\        pub fn validate(self: @This()) !cpz.MessageStats {{
+            \\            return self.list.validate();
+            \\        }}
+            \\
+            \\        pub fn validateWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+            \\            return self.list.validateWithOptions(@"cpz.options");
+            \\        }}
+            \\
+            \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
+            \\            return self.list.totalSize();
+            \\        }}
+            \\
+            \\        pub fn totalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+            \\            return self.list.totalSizeWithOptions(@"cpz.options");
+            \\        }}
+            \\
+            \\        pub fn elementSize(self: @This()) cpz.ElementSize {{
+            \\            return self.list.elementSize();
+            \\        }}
+            \\
+            \\        pub fn matchesElementSize(self: @This(), @"cpz.expected": cpz.ElementSize) bool {{
+            \\            return self.list.matchesElementSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn elementBitCount(self: @This()) usize {{
+            \\            return self.list.elementBitCount();
+            \\        }}
+            \\
+            \\        pub fn elementByteCount(self: @This()) !usize {{
+            \\            return self.list.elementByteCount();
+            \\        }}
+            \\
+            \\        pub fn elementWordCount(self: @This()) !usize {{
+            \\            return self.list.elementWordCount();
+            \\        }}
+            \\
+            \\        pub fn contentBitCount(self: @This()) !usize {{
+            \\            return self.list.contentBitCount();
+            \\        }}
+            \\
+            \\        pub fn contentByteCount(self: @This()) !usize {{
+            \\            return self.list.contentByteCount();
+            \\        }}
+            \\
+            \\        pub fn contentWordCount(self: @This()) !usize {{
+            \\            return self.list.contentWordCount();
+            \\        }}
+            \\
+            \\        pub fn matchesElementBits(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesElementBits(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesElementBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesElementBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesElementWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesElementWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentBits(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesContentBits(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesContentBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesContentWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesContentWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn structElementSize(self: @This()) cpz.StructSize {{
+            \\            return self.list.structElementSize();
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
+            \\            return self.list.matchesStructElementSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn structElementDataWordCount(self: @This()) u16 {{
+            \\            return self.list.structElementDataWordCount();
+            \\        }}
+            \\
+            \\        pub fn structElementPointerCount(self: @This()) u16 {{
+            \\            return self.list.structElementPointerCount();
+            \\        }}
+            \\
+            \\        pub fn structElementTotalWords(self: @This()) usize {{
+            \\            return self.list.structElementTotalWords();
+            \\        }}
+            \\
+            \\        pub fn structElementDataByteCount(self: @This()) usize {{
+            \\            return self.list.structElementDataByteCount();
+            \\        }}
+            \\
+            \\        pub fn structElementPointerByteCount(self: @This()) usize {{
+            \\            return self.list.structElementPointerByteCount();
+            \\        }}
+            \\
+            \\        pub fn structElementTotalByteCount(self: @This()) usize {{
+            \\            return self.list.structElementTotalByteCount();
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementDataWords(self: @This(), @"cpz.count": u16) bool {{
+            \\            return self.list.matchesStructElementDataWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementPointerCount(self: @This(), @"cpz.count": u16) bool {{
+            \\            return self.list.matchesStructElementPointerCount(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementTotalWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementTotalWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementDataBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementDataBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementPointerBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesStructElementTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.list.matchesStructElementTotalBytes(@"cpz.count");
+            \\        }}
+            \\
+        , .{ owner_name, field_name });
+    }
+    try appendFmt(allocator, out,
         \\
         \\        pub fn orphanage(self: @This()) cpz.Orphanage {{
         \\            return self.list.orphanage();
@@ -1090,7 +1085,7 @@ pub fn emitListWrapper(allocator: std.mem.Allocator, out: *std.ArrayList(u8), fi
         \\            return self.list.clearElements(@"cpz.start", @"cpz.count");
         \\        }}
         \\
-    , .{ owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
+    , .{ owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name, owner_name, field_name });
 
     if (isPointerListElement(file, scope, child)) {
         try emitListBuilderPointerElementHelpers(allocator, out);

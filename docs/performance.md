@@ -49,14 +49,15 @@ time and binary size. Current measurements:
 | Schema | Default | `--no-metadata` | `--no-introspection` | Both |
 |---|---:|---:|---:|---:|
 | Two-field `struct Lean` | 3,394 lines / 163 KB | 928 lines / 39.6 KB | 2,922 lines / 139 KB | 456 lines / 15.7 KB |
-| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 63,033 lines / 3.1 MB | 67,197 lines / 3.3 MB | 37,903 lines / 1.8 MB |
+| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 63,033 lines / 3.1 MB | 56,893 lines / 2.9 MB | 27,599 lines / 1.4 MB |
 
 `--no-metadata` removes schema introspection tables, `@"cpz.*"` lookup
 helpers, and root-level convenience helpers. `--no-introspection` removes the
 per-pointer-field diagnostic helpers (pointer kind/location, decoded pointer,
-struct/list shape, stats, and match predicates) while keeping readers,
-builders, and list wrappers. Combining both is intended for production code
-that only reads and writes messages.
+struct/list shape, stats, and match predicates) plus the reader/orphan/builder
+list-wrapper diagnostics, while keeping readers, builders, list wrappers, and
+element accessors. Combining both is intended for production code that only
+reads and writes messages.
 
 ## Runtime design notes
 

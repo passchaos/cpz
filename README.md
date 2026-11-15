@@ -86,9 +86,10 @@ try person.set_name("Alice");
 `--no-metadata` omits schema introspection tables and `@"cpz.*"` lookup
 helpers. `--no-introspection` additionally omits per-pointer-field
 introspection helpers (pointer kind/location, struct/list shape, stats, and
-match predicates) while keeping the readers, builders, and list wrappers needed
-to read and write messages. For `tests/schema_smoke.capnp`, enabling both drops
-generated output from 92,327 lines / 4.7 MB to 37,903 lines / 1.8 MB.
+match predicates) and list-wrapper diagnostics while keeping the readers,
+builders, list wrappers, and element accessors needed to read and write
+messages. For `tests/schema_smoke.capnp`, enabling both drops generated output
+from 92,327 lines / 4.7 MB to 27,599 lines / 1.4 MB.
 
 See [docs/codegen.md](docs/codegen.md) for all CLI options, the supported
 schema subset, and multi-file import wiring.
