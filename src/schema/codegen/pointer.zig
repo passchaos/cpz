@@ -511,15 +511,20 @@ pub fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
                 \\        return try @"cpz.pointer".getText();
                 \\    }}
                 \\
-                \\    pub fn {s}ByteCount(self: @This()) !usize {{
-                \\        return (try self.{s}()).len;
-                \\    }}
-                \\
-                \\    pub fn {s}MatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
-                \\        return (try self.{s}ByteCount()) == @"cpz.count";
-                \\    }}
-                \\
-            , .{ field_name, field_name, field_name, field_name });
+            , .{});
+            if (state.emit_introspection_enabled) {
+                try appendFmt(allocator, out,
+                    \\
+                    \\    pub fn {s}ByteCount(self: @This()) !usize {{
+                    \\        return (try self.{s}()).len;
+                    \\    }}
+                    \\
+                    \\    pub fn {s}MatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
+                    \\        return (try self.{s}ByteCount()) == @"cpz.count";
+                    \\    }}
+                    \\
+                , .{ field_name, field_name, field_name, field_name });
+            }
         },
         .data => {
             const is_null_default = defaultExpressionIsNullPointer(file, layout.decl, field.default_expression);
@@ -566,15 +571,20 @@ pub fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
                 \\        return try @"cpz.pointer".getData();
                 \\    }}
                 \\
-                \\    pub fn {s}ByteCount(self: @This()) !usize {{
-                \\        return (try self.{s}()).len;
-                \\    }}
-                \\
-                \\    pub fn {s}MatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
-                \\        return (try self.{s}ByteCount()) == @"cpz.count";
-                \\    }}
-                \\
-            , .{ field_name, field_name, field_name, field_name });
+            , .{});
+            if (state.emit_introspection_enabled) {
+                try appendFmt(allocator, out,
+                    \\
+                    \\    pub fn {s}ByteCount(self: @This()) !usize {{
+                    \\        return (try self.{s}()).len;
+                    \\    }}
+                    \\
+                    \\    pub fn {s}MatchesBytes(self: @This(), @"cpz.count": usize) !bool {{
+                    \\        return (try self.{s}ByteCount()) == @"cpz.count";
+                    \\    }}
+                    \\
+                , .{ field_name, field_name, field_name, field_name });
+            }
         },
         .any_pointer => {
             try appendFmt(allocator, out,
@@ -1465,15 +1475,20 @@ pub fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayLis
                 \\            return try @"cpz.pointer".getText();
                 \\        }}
                 \\
-                \\        pub fn get_{s}ByteCount(self: Builder) !usize {{
-                \\            return (try self.get_{s}()).len;
-                \\        }}
-                \\
-                \\        pub fn get_{s}MatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
-                \\            return (try self.get_{s}ByteCount()) == @"cpz.count";
-                \\        }}
-                \\
-            , .{ field_name, field_name, field_name, field_name });
+            , .{});
+            if (state.emit_introspection_enabled) {
+                try appendFmt(allocator, out,
+                    \\
+                    \\        pub fn get_{s}ByteCount(self: Builder) !usize {{
+                    \\            return (try self.get_{s}()).len;
+                    \\        }}
+                    \\
+                    \\        pub fn get_{s}MatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
+                    \\            return (try self.get_{s}ByteCount()) == @"cpz.count";
+                    \\        }}
+                    \\
+                , .{ field_name, field_name, field_name, field_name });
+            }
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}(self: Builder, new_value: []const u8) !void {{
             , .{field_name});
@@ -1538,15 +1553,20 @@ pub fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayLis
                 \\            return try @"cpz.pointer".getData();
                 \\        }}
                 \\
-                \\        pub fn get_{s}ByteCount(self: Builder) !usize {{
-                \\            return (try self.get_{s}()).len;
-                \\        }}
-                \\
-                \\        pub fn get_{s}MatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
-                \\            return (try self.get_{s}ByteCount()) == @"cpz.count";
-                \\        }}
-                \\
-            , .{ field_name, field_name, field_name, field_name });
+            , .{});
+            if (state.emit_introspection_enabled) {
+                try appendFmt(allocator, out,
+                    \\
+                    \\        pub fn get_{s}ByteCount(self: Builder) !usize {{
+                    \\            return (try self.get_{s}()).len;
+                    \\        }}
+                    \\
+                    \\        pub fn get_{s}MatchesBytes(self: Builder, @"cpz.count": usize) !bool {{
+                    \\            return (try self.get_{s}ByteCount()) == @"cpz.count";
+                    \\        }}
+                    \\
+                , .{ field_name, field_name, field_name, field_name });
+            }
             try appendFmt(allocator, out,
                 \\        pub fn set_{s}(self: Builder, new_value: []const u8) !void {{
             , .{field_name});
