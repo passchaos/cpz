@@ -11,7 +11,15 @@ src/
   wire.zig       pointer encoding/decoding and low-level size helpers
   packing.zig    Cap'n Proto packing codec and streaming helpers
   serialize.zig  stream segment tables, flat/packed framing, Io.Reader/Writer
-  message.zig    dynamic readers/builders, orphans, capability views, validation
+  message.zig            dynamic message runtime facade and tests
+  message/options.zig    errors, reader/builder options, stats, sizes
+  message/capability.zig capability tables and registries
+  message/reader.zig     owned/borrowed message readers and flat/canonical helpers
+  message/builder.zig    segment builders, orphans, message builder
+  message/pointer.zig    pointer readers/builders and copy helpers
+  message/struct.zig     struct readers/builders
+  message/list.zig       list readers/builders
+  message/validate.zig   pointer validation, stats collection, canonical sizes
   schema.zig             public schema facade plus parser/layout/codegen tests
   schema/frontend.zig    facade over the schema frontend stages
   schema/frontend/
@@ -148,16 +156,15 @@ vats, or generated service stubs. See [rpc.md](rpc.md).
 
 ## Structural debt
 
-`src/schema.zig` and `src/rpc.zig` are now public facades plus their integration
-test suites. The schema frontend, schema code generator, and RPC layers are
-split into cohesive modules under `src/schema/frontend/`, `src/schema/codegen/`,
-and `src/rpc/`.
+`src/message.zig`, `src/schema.zig`, and `src/rpc.zig` are now public facades
+plus their integration test suites. The message runtime, schema frontend,
+schema code generator, and RPC layers are split into cohesive modules under
+`src/message/`, `src/schema/frontend/`, `src/schema/codegen/`, and `src/rpc/`.
+All implementation modules are now below roughly 5,000 lines.
 
-The largest remaining implementation file is `src/message.zig`. If it keeps
-growing, the intended direction is to split readers/builders, capability views,
-validation, and canonicalization into `src/message/` modules. The schema
-integration tests in `src/schema.zig` can move into focused files under `tests/`
-if the facade starts to grow again.
+The remaining optional cleanup is moving the schema and RPC integration tests
+out of their facades into focused files under `tests/` if those facades start
+growing again.
 
 The runtime should remain low-level and allocation-explicit; convenience layers
 belong above it.
