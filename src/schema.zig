@@ -3,6 +3,11 @@ const message = @import("message.zig");
 const serialize = @import("serialize.zig");
 const wire = @import("wire.zig");
 
+// Code generation is synchronous, but tests and embedders may run independent
+// generators on different threads. Keep the metadata-emission switch scoped to
+// the current thread and restore it when generateZigWithOptions returns.
+threadlocal var emit_metadata_enabled: bool = true;
+
 pub const Error = error{
     UnexpectedToken,
     InvalidToken,
@@ -9485,6 +9490,9 @@ pub const CodegenOptions = struct {
     runtime_import_name: []const u8 = "cpz",
     raw_schema_comment: ?[]const u8 = null,
     namespace: ?[]const u8 = null,
+    /// Emit schema introspection tables and `@"cpz.*"` lookup helpers.
+    /// Disable this for a lean generated API that only contains wire accessors.
+    emit_metadata: bool = true,
 };
 
 pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
@@ -9493,6 +9501,10 @@ pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *co
 
 pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile, options: CodegenOptions) LayoutError![]u8 {
     try validateZigNameCollisions(allocator, file);
+
+    const previous_emit_metadata = emit_metadata_enabled;
+    emit_metadata_enabled = options.emit_metadata;
+    defer emit_metadata_enabled = previous_emit_metadata;
 
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);
@@ -9571,7 +9583,21 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     if (options.namespace != null) {
         try out.appendSlice(allocator, "};\n");
     }
+    if (!emit_metadata_enabled) stripRootHelperBlocks(&out);
     return out.toOwnedSlice(allocator);
+}
+
+fn stripRootHelperBlocks(out: *std.ArrayList(u8)) void {
+    const start_marker = "    pub fn @\"cpz.root.isNull\"";
+    const end_marker = "    pub fn fromReader(@\"cpz.reader\": cpz.StructReader)";
+    var search_start: usize = 0;
+    while (std.mem.indexOfPos(u8, out.items, search_start, start_marker)) |start| {
+        const end = std.mem.indexOfPos(u8, out.items, start, end_marker) orelse break;
+        const remove_len = end - start;
+        std.mem.copyForwards(u8, out.items[start..], out.items[end..]);
+        out.items.len -= remove_len;
+        search_start = start;
+    }
 }
 
 fn appendRawSchemaComment(allocator: std.mem.Allocator, out: *std.ArrayList(u8), source: []const u8) std.mem.Allocator.Error!void {
@@ -10503,6 +10529,7 @@ fn zigNamesEqual(allocator: std.mem.Allocator, lhs_raw: []const u8, rhs_raw: []c
 }
 
 fn emitDeclarationAnnotations(allocator: std.mem.Allocator, out: *std.ArrayList(u8), annotations: []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     if (annotations.len == 0) return;
     const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, annotations);
     defer allocator.free(annotation_literal);
@@ -10978,6 +11005,7 @@ fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
 }
 
 fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, superclasses: []const Type, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.superclassCount": usize = {};
         \\
@@ -11196,6 +11224,7 @@ fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(
 }
 
 fn emitParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try emitParameterConstants(allocator, out, "cpz.parameter", parameters, indent);
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.parameterCount": usize = {};
@@ -11209,6 +11238,7 @@ fn emitParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
 }
 
 fn emitParameterLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), metadata_name: []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     const metadata_ident = try zigStringLiteralAlloc(allocator, metadata_name);
     defer allocator.free(metadata_ident);
     const by_name = try std.fmt.allocPrint(allocator, "{s}.parameterByName", .{metadata_name});
@@ -11234,6 +11264,7 @@ fn emitParameterLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(
 }
 
 fn emitParameterConstants(allocator: std.mem.Allocator, out: *std.ArrayList(u8), prefix: []const u8, parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     for (parameters, 0..) |parameter, index| {
         const parameter_name = try zigIdentAlloc(allocator, parameter);
         defer allocator.free(parameter_name);
@@ -11259,6 +11290,7 @@ fn appendParameterListLiteral(allocator: std.mem.Allocator, out: *std.ArrayList(
 }
 
 fn appendMethodParameterMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), method_name: []const u8, parameters: []const []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     const method_parameter_prefix = try std.fmt.allocPrint(allocator, "cpz.method.{s}.parameter", .{method_name});
     defer allocator.free(method_parameter_prefix);
     try emitParameterConstants(allocator, out, method_parameter_prefix, parameters, indent);
@@ -12674,6 +12706,7 @@ fn appendMethodFieldMetadata(
     fields: []const MethodField,
     indent: []const u8,
 ) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.method.{s}.{s}.fieldCount": usize = {};
         \\
@@ -12777,6 +12810,7 @@ fn appendMethodFieldListLiteral(
 }
 
 fn emitMethodFieldLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), metadata_name: []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     const metadata_ident = try zigStringLiteralAlloc(allocator, metadata_name);
     defer allocator.free(metadata_ident);
     const by_name = try std.fmt.allocPrint(allocator, "{s}.fieldByName", .{metadata_name});
@@ -13022,6 +13056,7 @@ fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_
 }
 
 fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), annotations_raw: []const []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.fileAnnotationCount": usize = {};
         \\
@@ -13060,6 +13095,7 @@ fn emitFileAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Array
 }
 
 fn emitDeclarationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     var constant_index: usize = 0;
     for (file.structs) |decl| {
         try emitDeclarationMetadataConstants(allocator, out, constant_index, decl.name, "struct_decl", decl.id, decl.annotations, decl.parameters, indent);
@@ -13219,6 +13255,7 @@ fn appendDeclarationMetadataLiteral(
 }
 
 fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), imports: []const ImportDecl, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.importCount": usize = {};
         \\
@@ -13299,6 +13336,7 @@ fn emitImportMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
 }
 
 fn emitAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, annotations: []const AnnotationDecl, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.annotationCount": usize = {};
         \\
@@ -13317,6 +13355,7 @@ fn emitAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList
 }
 
 fn emitScopedAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, owner_name: []const u8, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     var count: usize = 0;
     for (file.annotations) |annotation| {
         if (!std.mem.eql(u8, annotationOwnerName(annotation.name) orelse continue, owner_name)) continue;
@@ -13341,6 +13380,7 @@ fn emitScopedAnnotationMetadataTable(allocator: std.mem.Allocator, out: *std.Arr
 }
 
 fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList(u8), indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub fn @"cpz.annotationByName"(@"cpz.name": []const u8) ?cpz.schema.AnnotationMetadata {{
         \\{s}    for (@This().@"cpz.annotation_decls") |@"cpz.annotation"| if (std.mem.eql(u8, @"cpz.annotation".name, @"cpz.name")) return @"cpz.annotation";
@@ -13386,6 +13426,7 @@ fn emitAnnotationLookupHelpers(allocator: std.mem.Allocator, out: *std.ArrayList
 }
 
 fn emitAnnotationMetadataConstants(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, index: usize, decl: *const AnnotationDecl, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     const annotation_name = try zigIdentAlloc(allocator, decl.name);
     defer allocator.free(annotation_name);
     const name_literal = try zigStringLiteralAlloc(allocator, decl.name);
@@ -13483,6 +13524,7 @@ fn appendAnnotationTargetsLiteral(allocator: std.mem.Allocator, out: *std.ArrayL
 }
 
 fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, aliases: []const AliasDecl, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.aliasCount": usize = {};
         \\
@@ -13529,6 +13571,7 @@ fn emitAliasMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8),
 }
 
 fn emitConstMetadataTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const Struct, consts: []const ConstDecl, indent: []const u8) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.constCount": usize = {};
         \\
@@ -17497,6 +17540,7 @@ fn emitOptionalCapabilityListConst(allocator: std.mem.Allocator, out: *std.Array
 }
 
 fn emitStructUnionMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\    pub const @"cpz.unionCount": usize = {};
         \\
@@ -17714,6 +17758,7 @@ fn unionFieldCount(layout: *const StructLayout, union_index: u32) usize {
 }
 
 fn emitStructFieldMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, layout: *const StructLayout) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\    pub const @"cpz.fieldCount": usize = {};
         \\
@@ -18316,6 +18361,7 @@ fn fieldSlotMetadata(slot: FieldSlot) struct { name: []const u8, offset: usize }
 }
 
 fn emitStructGroupMetadata(allocator: std.mem.Allocator, out: *std.ArrayList(u8), groups: []const GroupDecl) LayoutError!void {
+    if (!emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\    pub const @"cpz.groupCount": usize = {};
         \\
@@ -20853,54 +20899,56 @@ fn emitFieldGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: 
     const field = field_layout.field;
     const field_name = try zigIdentAlloc(allocator, field.name);
     defer allocator.free(field_name);
-    const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
-    defer allocator.free(field_name_literal);
-    const field_index = try fieldIndex(layout, field);
-    const slot = fieldSlotMetadata(field_layout.slot);
-    const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
-    defer allocator.free(slot_literal);
-    try appendFmt(allocator, out,
-        \\    pub const @"cpz.field.{s}.index": usize = {};
-        \\    pub const @"cpz.field.{s}.name": []const u8 = {s};
-        \\    pub const @"cpz.field.{s}.ordinal": u32 = {};
-        \\    pub const @"cpz.field.{s}.metadata": cpz.schema.FieldMetadata = @"cpz.fields"[{}];
-        \\
-    , .{ field_name, field_index, field_name, field_name_literal, field_name, field.ordinal, field_name, field_index });
-    const type_name = try schemaTypeNameAlloc(allocator, field.ty);
-    defer allocator.free(type_name);
-    const type_literal = try zigStringLiteralAlloc(allocator, type_name);
-    defer allocator.free(type_literal);
-    const resolved_type_name = try schemaResolvedTypeNameAlloc(allocator, file, layout.decl, field.ty);
-    defer allocator.free(resolved_type_name);
-    const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
-    defer allocator.free(resolved_type_literal);
-    try appendFmt(allocator, out,
-        \\    pub const @"cpz.field.{s}.type": []const u8 = {s};
-        \\    pub const @"cpz.field.{s}.resolvedType": []const u8 = {s};
-        \\    pub const @"cpz.field.{s}.slot": []const u8 = {s};
-        \\    pub const @"cpz.field.{s}.offset": usize = {};
-        \\    pub const @"cpz.field.{s}.isUnionMember": bool = {};
-        \\    pub const @"cpz.field.{s}.unionIndex": ?u32 = 
-    , .{ field_name, type_literal, field_name, resolved_type_literal, field_name, slot_literal, field_name, slot.offset, field_name, field.union_index != null, field_name });
-    if (field.union_index) |union_index| {
-        try appendFmt(allocator, out, "{};\n", .{union_index});
-    } else {
-        try out.appendSlice(allocator, "null;\n");
+    if (emit_metadata_enabled) {
+        const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
+        defer allocator.free(field_name_literal);
+        const field_index = try fieldIndex(layout, field);
+        const slot = fieldSlotMetadata(field_layout.slot);
+        const slot_literal = try zigStringLiteralAlloc(allocator, slot.name);
+        defer allocator.free(slot_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.field.{s}.index": usize = {};
+            \\    pub const @"cpz.field.{s}.name": []const u8 = {s};
+            \\    pub const @"cpz.field.{s}.ordinal": u32 = {};
+            \\    pub const @"cpz.field.{s}.metadata": cpz.schema.FieldMetadata = @"cpz.fields"[{}];
+            \\
+        , .{ field_name, field_index, field_name, field_name_literal, field_name, field.ordinal, field_name, field_index });
+        const type_name = try schemaTypeNameAlloc(allocator, field.ty);
+        defer allocator.free(type_name);
+        const type_literal = try zigStringLiteralAlloc(allocator, type_name);
+        defer allocator.free(type_literal);
+        const resolved_type_name = try schemaResolvedTypeNameAlloc(allocator, file, layout.decl, field.ty);
+        defer allocator.free(resolved_type_name);
+        const resolved_type_literal = try zigStringLiteralAlloc(allocator, resolved_type_name);
+        defer allocator.free(resolved_type_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.field.{s}.type": []const u8 = {s};
+            \\    pub const @"cpz.field.{s}.resolvedType": []const u8 = {s};
+            \\    pub const @"cpz.field.{s}.slot": []const u8 = {s};
+            \\    pub const @"cpz.field.{s}.offset": usize = {};
+            \\    pub const @"cpz.field.{s}.isUnionMember": bool = {};
+            \\    pub const @"cpz.field.{s}.unionIndex": ?u32 = 
+        , .{ field_name, type_literal, field_name, resolved_type_literal, field_name, slot_literal, field_name, slot.offset, field_name, field.union_index != null, field_name });
+        if (field.union_index) |union_index| {
+            try appendFmt(allocator, out, "{};\n", .{union_index});
+        } else {
+            try out.appendSlice(allocator, "null;\n");
+        }
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.field.{s}.unionDiscriminant": u16 = {};
+        , .{ field_name, field.union_discriminant });
+        const default_expression_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.default_expression);
+        defer allocator.free(default_expression_literal);
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
+        defer allocator.free(annotation_literal);
+        try appendFmt(allocator, out,
+            \\    pub const @"cpz.field.{s}.default": []const u8 = {s};
+            \\    pub const @"cpz.field.{s}.hasExplicitDefault": bool = {};
+            \\    pub const @"cpz.field.{s}.defaultIsHexData": bool = {};
+            \\    pub const @"cpz.field.{s}.annotations": []const u8 = {s};
+            \\
+        , .{ field_name, default_expression_literal, field_name, field.default_expression.len != 0, field_name, field.default_is_hex_data, field_name, annotation_literal });
     }
-    try appendFmt(allocator, out,
-        \\    pub const @"cpz.field.{s}.unionDiscriminant": u16 = {};
-    , .{ field_name, field.union_discriminant });
-    const default_expression_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.default_expression);
-    defer allocator.free(default_expression_literal);
-    const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, field.annotations);
-    defer allocator.free(annotation_literal);
-    try appendFmt(allocator, out,
-        \\    pub const @"cpz.field.{s}.default": []const u8 = {s};
-        \\    pub const @"cpz.field.{s}.hasExplicitDefault": bool = {};
-        \\    pub const @"cpz.field.{s}.defaultIsHexData": bool = {};
-        \\    pub const @"cpz.field.{s}.annotations": []const u8 = {s};
-        \\
-    , .{ field_name, default_expression_literal, field_name, field.default_expression.len != 0, field_name, field.default_is_hex_data, field_name, annotation_literal });
     switch (field_layout.slot) {
         .void => if (unionLayoutForField(layout, field)) |union_layout| try appendFmt(allocator, out,
             \\    pub fn {s}(self: @This()) !void {{
@@ -26589,6 +26637,32 @@ test "schema code generator emits file id constant" {
     const code = try generateZig(std.testing.allocator, &file, &layouts);
     defer std.testing.allocator.free(code);
     try std.testing.expect(std.mem.indexOf(u8, code, "pub const @\"cpz.file_id\": u64 = 0xabcdef;") != null);
+}
+
+test "schema code generator can omit metadata tables" {
+    const source =
+        \\struct Lean {
+        \\  value @0 :UInt32;
+        \\  text @1 :Text;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const full = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(full);
+    const lean = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{ .emit_metadata = false });
+    defer std.testing.allocator.free(lean);
+
+    try std.testing.expect(std.mem.indexOf(u8, full, "cpz.fieldByName") != null);
+    try std.testing.expect(std.mem.indexOf(u8, full, "cpz.declarations") != null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "cpz.fieldByName") == null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "cpz.declarations") == null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "pub const Lean") != null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "pub fn get_value") != null);
+    try std.testing.expect(lean.len < full.len);
 }
 
 test "schema code generator emits Zig accessor skeletons" {

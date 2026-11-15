@@ -47,6 +47,7 @@ pub fn main(init: std.process.Init) !u8 {
         .runtime_import_name = options.runtime_import_name,
         .raw_schema_comment = if (options.emit_raw_schema_comments) source else null,
         .namespace = options.namespace,
+        .emit_metadata = options.emit_metadata,
     });
     defer allocator.free(code);
 
@@ -69,6 +70,7 @@ const CliOptions = struct {
     runtime_import_name: []const u8 = "cpz",
     namespace: ?[]const u8 = null,
     check: bool = false,
+    emit_metadata: bool = true,
     emit_raw_schema_comments: bool = false,
     input_path: ?[]const u8 = null,
     output_path: ?[]const u8 = null,
@@ -109,6 +111,10 @@ fn parseCliArgs(raw_args: []const []const u8) CliParseResult {
             index += 1;
         } else if (parse_options and std.mem.eql(u8, arg, "--check")) {
             options.check = true;
+        } else if (parse_options and (std.mem.eql(u8, arg, "--no-metadata") or std.mem.eql(u8, arg, "--lean"))) {
+            options.emit_metadata = false;
+        } else if (parse_options and std.mem.eql(u8, arg, "--emit-metadata")) {
+            options.emit_metadata = true;
         } else if (parse_options and (std.mem.eql(u8, arg, "--help") or std.mem.eql(u8, arg, "-h"))) {
             return .help;
         } else if (parse_options and std.mem.eql(u8, arg, "--emit-raw-schema-comments")) {
@@ -152,6 +158,7 @@ test "cpzc CLI parser handles help and option values" {
         "--runtime-import=runtime",
         "--namespace",
         "api",
+        "--no-metadata",
         "--emit-raw-schema-comments",
         "schema.capnp",
         "out.zig",
@@ -161,11 +168,24 @@ test "cpzc CLI parser handles help and option values" {
         else => return error.TestUnexpectedResult,
     };
     try std.testing.expect(options.check);
+    try std.testing.expect(!options.emit_metadata);
     try std.testing.expect(options.emit_raw_schema_comments);
     try std.testing.expectEqualStrings("runtime", options.runtime_import_name);
     try std.testing.expectEqualStrings("api", options.namespace.?);
     try std.testing.expectEqualStrings("schema.capnp", options.input_path.?);
     try std.testing.expectEqualStrings("out.zig", options.output_path.?);
+
+    const lean = switch (parseCliArgs(&.{ "--lean", "schema.capnp" })) {
+        .run => |lean_options| lean_options,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expect(!lean.emit_metadata);
+
+    const metadata = switch (parseCliArgs(&.{ "--no-metadata", "--emit-metadata", "schema.capnp" })) {
+        .run => |metadata_options| metadata_options,
+        else => return error.TestUnexpectedResult,
+    };
+    try std.testing.expect(metadata.emit_metadata);
 }
 
 test "cpzc CLI parser rejects bad options and honors terminator" {

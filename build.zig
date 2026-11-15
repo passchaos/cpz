@@ -183,6 +183,13 @@ pub fn build(b: *std.Build) void {
             .args = &.{ "--namespace", "api" },
             .generated_extra_imports = &import_extra_imports,
         },
+        .{
+            .schema = "tests/schema_lean.capnp",
+            .basename = "schema_lean.zig",
+            .test_file = "tests/codegen_lean_smoke.zig",
+            .import_name = "generated_lean_schema",
+            .args = &.{"--no-metadata"},
+        },
     };
     for (generated_tests) |spec| {
         addGeneratedSchemaTest(b, test_step, target, optimize, cpz_mod, cpzc_host, spec);
