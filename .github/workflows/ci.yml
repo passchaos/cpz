@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (${{ matrix.optimize }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        optimize: [Debug, ReleaseSafe]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Check formatting
+        if: matrix.optimize == 'Debug'
+        run: zig fmt --check build.zig src examples tests
+      - name: Build and run tests
+        run: zig build test -Doptimize=${{ matrix.optimize }}
+      - name: Check examples and bench compile
+        if: matrix.optimize == 'Debug'
+        run: zig build check
+
+  cross:
+    name: Cross compile (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [x86_64-linux, aarch64-linux]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Compile tests, examples, and bench for target
+        run: zig build check -Dtarget=${{ matrix.target }}
+
+  codegen:
+    name: Schema codegen check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Check every test schema parses, plans, and generates
+        run: |
+          set -euo pipefail
+          for schema in tests/*.capnp; do
+            echo "checking ${schema}"
+            zig build cpzc -- --check "${schema}"
+          done
+
+  upstream:
+    name: Upstream Cap'n Proto compatibility
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+      - name: Fetch upstream fixtures
+        run: git clone --depth 1 https://github.com/capnproto/capnproto.git upstream-capnproto
+      - name: Run optional upstream compatibility tests
+        env:
+          CPZ_CAPNP_SRC: ${{ github.workspace }}/upstream-capnproto
+        run: zig build test

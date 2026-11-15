@@ -1,14 +1,17 @@
 const std = @import("std");
 const cpz = @import("cpz");
+const upstream = @import("support/upstream.zig");
 
 // Optional compatibility smoke for the upstream RPC schema. The upstream
 // checkout is intentionally not vendored into cpz, so source distributions skip
-// this test when the local reference tree is absent.
-const rpc_schema_path = "/home/passchaos/Work/capnproto/c++/src/capnp/rpc.capnp";
+// this test when the local reference tree is absent. Set CPZ_CAPNP_SRC (or
+// CPZ_RPC_SCHEMA) to point at a Cap'n Proto checkout in CI.
 const max_schema_bytes = 2 * 1024 * 1024;
 
 fn readRpcSchema(allocator: std.mem.Allocator) ![]u8 {
-    return std.Io.Dir.cwd().readFileAlloc(std.testing.io, rpc_schema_path, allocator, .limited(max_schema_bytes)) catch |err| switch (err) {
+    const path = try upstream.rpcSchemaPath(allocator);
+    defer allocator.free(path);
+    return std.Io.Dir.cwd().readFileAlloc(std.testing.io, path, allocator, .limited(max_schema_bytes)) catch |err| switch (err) {
         error.FileNotFound => error.SkipZigTest,
         else => err,
     };

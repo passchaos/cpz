@@ -1,14 +1,18 @@
 const std = @import("std");
 const cpz = @import("cpz");
+const upstream = @import("support/upstream.zig");
 
 // Optional compatibility smoke for the upstream Cap'n Proto C++ fixture corpus.
 // The fixtures are not vendored into cpz, so missing local checkouts skip the
 // test instead of making ordinary source distributions depend on a sibling repo.
-const fixture_base = "/home/passchaos/Work/capnproto/c++/src/capnp/testdata";
+// Set CPZ_CAPNP_SRC (or CPZ_CAPNP_TESTDATA) to point at a Cap'n Proto checkout
+// in CI.
 const max_fixture_bytes = 64 * 1024 * 1024;
 
 fn fixturePath(allocator: std.mem.Allocator, name: []const u8) ![]u8 {
-    return std.fmt.allocPrint(allocator, "{s}/{s}", .{ fixture_base, name });
+    const base = try upstream.testdataDir(allocator);
+    defer allocator.free(base);
+    return std.fs.path.join(allocator, &.{ base, name });
 }
 
 fn readFixture(allocator: std.mem.Allocator, name: []const u8) ![]u8 {
