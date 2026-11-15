@@ -12,8 +12,30 @@ src/
   packing.zig    Cap'n Proto packing codec and streaming helpers
   serialize.zig  stream segment tables, flat/packed framing, Io.Reader/Writer
   message.zig    dynamic readers/builders, orphans, capability views, validation
-  schema.zig             code generation, tests, and public facade
-  schema/frontend.zig    lexer, parser, AST, layout planner, semantic checks
+  schema.zig             public schema facade plus parser/layout/codegen tests
+  schema/frontend.zig    facade over the schema frontend stages
+  schema/frontend/
+    types.zig            AST/data model and metadata types
+    parser.zig           lexer, tokenizer, parser
+    layout.zig           ordinal-aware slot planning and union layout
+    validate.zig         semantic checks and default validation
+    resolve.zig          name resolution, aliases, literal and const helpers
+    embed.zig            embedded const file loading
+  schema/codegen.zig     facade over the code generator modules
+  schema/codegen/
+    entry.zig            CodegenOptions and top-level generation flow
+    validate.zig         generated Zig name-collision validation
+    text.zig             Zig identifier/literal/type-name rendering
+    flat.zig             flat-buffer literal construction and const encoding
+    const_emit.zig       alias/const declarations and flat container emission
+    field_defaults.zig   field default flat containers
+    metadata.zig         introspection tables and metadata constants
+    interface.zig        enum/interface/method/annotation emission
+    struct.zig           struct/union declarations and scalar accessors
+    pointer.zig          pointer getters and builder methods
+    list.zig             list wrappers, element helpers, slice setters
+    state.zig            shared codegen state and pointer-default kinds
+  schema/zig_names.zig   Zig identifier escaping and keyword avoidance
   rpc.zig                RPC facade, dispatch helpers, wire apply/init helpers
   rpc/types.zig          RPC vocabulary, call/capability/payload types, output plans
   rpc/state.zig          RPC question/answer/capability state machine
@@ -29,7 +51,7 @@ examples/
 Dependency direction:
 
 ```text
-wire <- packing/serialize <- message <- schema <- tools/cpzc
+wire <- packing/serialize <- message <- schema/frontend <- schema/codegen <- tools/cpzc
 cpz.zig (facade)
 rpc.zig (uses anytype-based adapters instead of importing generated code)
 ```
@@ -120,18 +142,15 @@ vats, or generated service stubs. See [rpc.md](rpc.md).
 
 ## Structural debt
 
-The largest modules are `schema.zig` and `rpc.zig`. They are cohesive but
-oversized. The intended direction is:
+`src/schema.zig` is now a public facade plus the parser/layout/codegen
+integration test suite. The schema frontend and code generator are split into
+cohesive modules under `src/schema/frontend/` and `src/schema/codegen/`; the
+largest implementation modules are `src/schema/frontend/parser.zig` and the
+emitter modules under `src/schema/codegen/`.
 
-```text
-src/schema/{ast,lexer,parser,layout,validate,codegen/}
-src/rpc/{types,state,wire,dispatch,handoff,output}
-src/message/{reader,builder,capability,validate,canonical}
-
-`src/schema/frontend.zig`, `src/rpc/types.zig`, and `src/rpc/state.zig` are the
-first completed extractions. Remaining split targets are the schema codegen
-emitters and the RPC dispatch/wire helper grouping in `src/rpc.zig`.
-```
+Remaining split targets are the RPC dispatch/wire helper grouping in
+`src/rpc.zig` and, if it keeps growing, extracting the schema integration tests
+from `src/schema.zig` into focused files under `tests/`.
 
 The runtime should remain low-level and allocation-explicit; convenience layers
 belong above it.

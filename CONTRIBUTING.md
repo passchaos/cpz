@@ -19,9 +19,11 @@ See [docs/architecture.md](docs/architecture.md) for the module map and
 ownership model. Keep the runtime core (`wire`, `packing`, `serialize`,
 `message`) independent of generated code.
 
-The largest current modules are `src/schema.zig` and `src/rpc.zig`. New work
-should prefer extracting cohesive modules under `src/schema/` and `src/rpc/`
-rather than growing those files further.
+The largest implementation modules are `src/schema/frontend/parser.zig`,
+`src/schema/codegen/list.zig`, `src/schema/codegen/pointer.zig`, and
+`src/rpc.zig`. `src/schema.zig` is a public facade plus integration tests. New
+work should prefer extracting cohesive modules under `src/schema/` and
+`src/rpc/` rather than growing oversized files further.
 
 ## Tests
 
