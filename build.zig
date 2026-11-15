@@ -86,6 +86,18 @@ pub fn build(b: *std.Build) void {
     addCpzOnlyTest(b, test_step, "src/rpc.zig", target, optimize, cpz_mod);
     addCpzOnlyTest(b, test_step, "tests/upstream_testdata_smoke.zig", target, optimize, cpz_mod);
     addCpzOnlyTest(b, test_step, "tests/upstream_rpc_schema_smoke.zig", target, optimize, cpz_mod);
+    addCpzOnlyTest(b, test_step, "tests/fuzz_smoke.zig", target, optimize, cpz_mod);
+
+    const fuzz_mod = b.createModule(.{
+        .root_source_file = b.path("tests/fuzz_smoke.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const fuzz_tests = b.addTest(.{ .root_module = fuzz_mod });
+    const run_fuzz = addTestRun(b, fuzz_tests);
+    const fuzz_step = b.step("fuzz", "Run fuzz corpus smoke (use `zig build test --fuzz` for continuous fuzzing)");
+    fuzz_step.dependOn(&run_fuzz.step);
 
     const run_schema_codegen = b.addRunArtifact(cpzc_host);
     run_schema_codegen.addFileArg(b.path("tests/schema_smoke.capnp"));
