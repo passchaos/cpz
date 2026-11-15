@@ -19,6 +19,8 @@ set, parse/layout/codegen are validated and no file is written.
 | `--check` | Validate parsing, layout, and code generation without writing output. |
 | `--no-metadata`, `--lean` | Omit schema introspection tables and `@"cpz.*"` lookup helpers. |
 | `--emit-metadata` | Re-enable metadata after a previous lean flag. |
+| `--no-introspection` | Omit per-pointer-field introspection helpers (kind, location, struct/list shape, stats, match predicates). |
+| `--emit-introspection` | Re-enable introspection helpers after `--no-introspection`. |
 | `--emit-raw-schema-comments` | Include the source schema as comments in generated output. |
 | `--output-dir <dir>` | Write `<schema-stem>.zig` into `dir` instead of an explicit output path. |
 | `--help`, `-h` | Show usage. |
@@ -29,6 +31,7 @@ Examples:
 zig build cpzc -- schema.capnp generated.zig
 zig build cpzc -- --namespace api schema.capnp generated.zig
 zig build cpzc -- --no-metadata schema.capnp generated.zig
+zig build cpzc -- --no-metadata --no-introspection schema.capnp generated.zig
 zig build cpzc -- --output-dir generated schemas/person.capnp
 zig build cpzc -- --check schema.capnp
 ```

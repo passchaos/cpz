@@ -230,6 +230,13 @@ pub fn build(b: *std.Build) void {
             .import_name = "generated_lean_schema",
             .args = &.{"--no-metadata"},
         },
+        .{
+            .schema = "tests/schema_lean.capnp",
+            .basename = "schema_minimal.zig",
+            .test_file = "tests/codegen_minimal_smoke.zig",
+            .import_name = "generated_minimal_schema",
+            .args = &.{ "--no-metadata", "--no-introspection" },
+        },
     };
     for (generated_tests) |spec| {
         addGeneratedSchemaTest(b, test_step, target, optimize, cpz_mod, cpzc_host, spec);

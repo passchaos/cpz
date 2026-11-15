@@ -15,7 +15,7 @@ generates typed Zig reader/builder accessors.
 | Flat and packed stream framing | Implemented |
 | Dynamic readers/builders, orphans, canonical copy | Implemented |
 | `.capnp` parser and layout planner | Broad subset implemented |
-| Zig code generation | Broad subset implemented; `--no-metadata` lean mode available |
+| Zig code generation | Broad subset implemented; `--no-metadata` and `--no-introspection` lean modes available |
 | RPC message vocabulary and state machine | Foundation implemented |
 | RPC transport, promise pipelining, vats, generated service stubs | Not implemented |
 | Fuzzing | Deterministic corpus fuzzing in `zig build fuzz`; `std.testing.fuzz` harnesses included |
@@ -71,6 +71,7 @@ rules.
 ```sh
 zig build cpzc -- schema.capnp generated.zig
 zig build cpzc -- --no-metadata schema.capnp generated.zig
+zig build cpzc -- --no-metadata --no-introspection schema.capnp generated.zig
 ```
 
 ```zig
@@ -83,8 +84,11 @@ try person.set_name("Alice");
 ```
 
 `--no-metadata` omits schema introspection tables and `@"cpz.*"` lookup
-helpers. For a two-field schema this reduced generated output from 3,392 lines
-to 926 lines in the current test suite.
+helpers. `--no-introspection` additionally omits per-pointer-field
+introspection helpers (pointer kind/location, struct/list shape, stats, and
+match predicates) while keeping the readers, builders, and list wrappers needed
+to read and write messages. For `tests/schema_smoke.capnp`, enabling both drops
+generated output from 92,327 lines / 4.7 MB to 37,903 lines / 1.8 MB.
 
 See [docs/codegen.md](docs/codegen.md) for all CLI options, the supported
 schema subset, and multi-file import wiring.

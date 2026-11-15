@@ -13,6 +13,10 @@ All notable changes to `cpz` are documented here.
 - `CodegenOptions.emit_metadata` and `cpzc --no-metadata` / `--lean` for lean
   generated APIs. A two-field schema drops from 3,392 to 926 generated lines in
   the current test suite.
+- `CodegenOptions.emit_introspection` and `cpzc --no-introspection` to omit
+  per-pointer-field introspection helpers while keeping readers, builders, and
+  list wrappers. Combining both modes drops `tests/schema_smoke.capnp`
+  generated output from 92,327 lines / 4.7 MB to 37,903 lines / 1.8 MB.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to

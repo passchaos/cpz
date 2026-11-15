@@ -105,6 +105,34 @@ test "schema code generator can omit metadata tables" {
     try std.testing.expect(lean.len < full.len);
 }
 
+test "schema code generator can omit field introspection helpers" {
+    const source =
+        \\struct Lean {
+        \\  value @0 :UInt32;
+        \\  text @1 :Text;
+        \\  scores @2 :List(UInt32);
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const full = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(full);
+    const minimal = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{ .emit_introspection = false });
+    defer std.testing.allocator.free(minimal);
+
+    try std.testing.expect(std.mem.indexOf(u8, full, "textPointerKind") != null);
+    try std.testing.expect(std.mem.indexOf(u8, full, "scoresListLen") != null);
+    try std.testing.expect(std.mem.indexOf(u8, minimal, "textPointerKind") == null);
+    try std.testing.expect(std.mem.indexOf(u8, minimal, "scoresListLen") == null);
+    try std.testing.expect(std.mem.indexOf(u8, minimal, "pub fn text") != null);
+    try std.testing.expect(std.mem.indexOf(u8, minimal, "pub fn get_text") != null);
+    try std.testing.expect(std.mem.indexOf(u8, minimal, "pub fn scores") != null);
+    try std.testing.expect(minimal.len < full.len);
+}
+
 test "schema code generator emits Zig accessor skeletons" {
     const source =
         \\enum Color {

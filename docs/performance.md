@@ -46,14 +46,17 @@ be profiled before optimizing.
 Generated code size is part of the performance story because it affects compile
 time and binary size. Current measurements:
 
-| Schema | Default | `--no-metadata` |
-|---|---:|---:|
-| Two-field `struct Tiny` | 3,392 lines / 166 KB | 926 lines / 39.7 KB |
-| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 63,033 lines / 3.1 MB |
+| Schema | Default | `--no-metadata` | `--no-introspection` | Both |
+|---|---:|---:|---:|---:|
+| Two-field `struct Lean` | 3,394 lines / 163 KB | 928 lines / 39.6 KB | 2,922 lines / 139 KB | 456 lines / 15.7 KB |
+| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 63,033 lines / 3.1 MB | 67,197 lines / 3.3 MB | 37,903 lines / 1.8 MB |
 
-Lean mode removes schema introspection tables, `@"cpz.*"` lookup helpers, and
-root-level convenience helpers. Complex schemas still contain per-const and
-per-enum metadata; further trimming is planned.
+`--no-metadata` removes schema introspection tables, `@"cpz.*"` lookup
+helpers, and root-level convenience helpers. `--no-introspection` removes the
+per-pointer-field diagnostic helpers (pointer kind/location, decoded pointer,
+struct/list shape, stats, and match predicates) while keeping readers,
+builders, and list wrappers. Combining both is intended for production code
+that only reads and writes messages.
 
 ## Runtime design notes
 

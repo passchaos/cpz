@@ -40,6 +40,11 @@ pub const CodegenOptions = struct {
     /// Emit schema introspection tables and `@"cpz.*"` lookup helpers.
     /// Disable this for a lean generated API that only contains wire accessors.
     emit_metadata: bool = true,
+    /// Emit per-pointer-field introspection helpers such as pointer kind,
+    /// location, decoded pointer, struct/list shape, stats, and match
+    /// predicates. Disable this to keep only the accessors needed to read and
+    /// build data.
+    emit_introspection: bool = true,
 };
 
 /// Generate Zig accessors with default options. The caller owns the result.
@@ -54,6 +59,10 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     const previous_emit_metadata = state.emit_metadata_enabled;
     state.emit_metadata_enabled = options.emit_metadata;
     defer state.emit_metadata_enabled = previous_emit_metadata;
+
+    const previous_emit_introspection = state.emit_introspection_enabled;
+    state.emit_introspection_enabled = options.emit_introspection;
+    defer state.emit_introspection_enabled = previous_emit_introspection;
 
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);

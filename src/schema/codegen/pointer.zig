@@ -3,6 +3,7 @@ const wire = @import("../../wire.zig");
 const frontend = @import("../frontend.zig");
 const zig_names = @import("../zig_names.zig");
 
+const state = @import("state.zig");
 const mod_field_defaults = @import("field_defaults.zig");
 const mod_flat = @import("flat.zig");
 const mod_interface = @import("interface.zig");
@@ -76,388 +77,393 @@ pub fn emitPointerGetter(allocator: std.mem.Allocator, out: *std.ArrayList(u8), 
         \\        return self.reader.getPointerField({});
         \\    }}
         \\
-        \\    pub fn {s}PointerKind(self: @This()) !?cpz.wire.PointerType {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).pointerType();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerSegmentId(self: @This()) !u32 {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).segmentId();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerWordIndex(self: @This()) !usize {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).pointerWordIndex();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerMatchesLocation(self: @This(), @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
-        \\    }}
-        \\
-        \\    pub fn {s}MatchesPointerKind(self: @This(), @"cpz.kind": cpz.wire.PointerType) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).matchesPointerType(@"cpz.kind");
-        \\    }}
-        \\
-        \\    pub fn {s}PointerIsStruct(self: @This()) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).isStructPointer();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerIsList(self: @This()) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).isListPointer();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerIsFar(self: @This()) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).isFarPointer();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerIsOther(self: @This()) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).isOtherPointer();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerIsCapability(self: @This()) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).isCapabilityPointer();
-        \\    }}
-        \\
-        \\    pub fn {s}PointerIsNear(self: @This()) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).isNearPointer();
-        \\    }}
-        \\
-        \\    pub fn {s}RawPointer(self: @This()) !cpz.Word {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).raw();
-        \\    }}
-        \\
-        \\    pub fn {s}DecodedPointer(self: @This()) !?cpz.wire.DecodedPointer {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).decode();
-        \\    }}
-        \\
-        \\    pub fn {s}MaxCapabilityCount(self: @This()) !usize {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).maxCapabilityCount();
-        \\    }}
-        \\
-        \\    pub fn {s}MatchesMaxCapabilityCount(self: @This(), @"cpz.count": usize) !bool {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).matchesMaxCapabilityCount(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}Stats(self: @This()) !cpz.MessageStats {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).validate();
-        \\    }}
-        \\
-        \\    pub fn {s}StatsWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).validateWithOptions(@"cpz.options");
-        \\    }}
-        \\
-        \\    pub fn {s}TotalSize(self: @This()) !cpz.MessageSize {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).totalSize();
-        \\    }}
-        \\
-        \\    pub fn {s}TotalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
-    , .{ index, field_name });
-    try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\        return self.reader.getPointerField({}).totalSizeWithOptions(@"cpz.options");
-        \\    }}
-        \\
     , .{index});
-    try appendFmt(allocator, out,
-        \\    pub fn {s}StructSize(self: @This()) !cpz.StructSize {{
-        \\        return (try self.{s}AsPointer()).getStructSize();
-        \\    }}
-        \\
-        \\    pub fn {s}StructDataWordCount(self: @This()) !u16 {{
-        \\        return (try self.{s}AsPointer()).getStructDataWordCount();
-        \\    }}
-        \\
-        \\    pub fn {s}StructPointerCount(self: @This()) !u16 {{
-        \\        return (try self.{s}AsPointer()).getStructPointerCount();
-        \\    }}
-        \\
-        \\    pub fn {s}StructTotalWords(self: @This()) !usize {{
-        \\        return (try self.{s}AsPointer()).getStructTotalWords();
-        \\    }}
-        \\
-        \\    pub fn {s}StructDataByteCount(self: @This()) !usize {{
-        \\        return (try self.{s}AsPointer()).getStructDataByteCount();
-        \\    }}
-        \\
-        \\    pub fn {s}StructPointerByteCount(self: @This()) !usize {{
-        \\        return (try self.{s}AsPointer()).getStructPointerByteCount();
-        \\    }}
-        \\
-        \\    pub fn {s}StructTotalByteCount(self: @This()) !usize {{
-        \\        return (try self.{s}AsPointer()).getStructTotalByteCount();
-        \\    }}
-        \\
-        \\    pub fn {s}StructMatchesSize(self: @This(), @"cpz.expected": cpz.StructSize) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesSize(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}StructMatchesDataWords(self: @This(), @"cpz.count": u16) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesDataWords(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}StructMatchesPointerCount(self: @This(), @"cpz.count": u16) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesPointerCount(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}StructMatchesTotalWords(self: @This(), @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesTotalWords(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}StructMatchesTotalBytes(self: @This(), @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).structMatchesTotalBytes(@"cpz.count");
-        \\    }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
-    try appendFmt(allocator, out,
-        \\    pub fn {s}ListLen(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListLen(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesLen(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesLen(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize) !cpz.ElementSize {{
-        \\        return (try self.{s}AsPointer()).getListElementSize(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
-        \\    }}
-        \\
-        \\    pub fn {s}ListElementBitCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListElementBitCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListElementByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListElementByteCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListElementWordCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListElementWordCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListContentBitCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListContentBitCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListContentByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListContentByteCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListContentWordCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListContentWordCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesContentBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesContentBytes(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListStructElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize) !cpz.StructSize {{
-        \\        return (try self.{s}AsPointer()).getListStructElementSize(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesStructElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementSize(@"cpz.expected", @"cpz.size");
-        \\    }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+    if (state.emit_introspection_enabled) {
+        try appendFmt(allocator, out,
+            \\
+            \\    pub fn {s}PointerKind(self: @This()) !?cpz.wire.PointerType {{
+        , .{field_name});
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).pointerType();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerSegmentId(self: @This()) !u32 {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).segmentId();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerWordIndex(self: @This()) !usize {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).pointerWordIndex();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerMatchesLocation(self: @This(), @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
+            \\    }}
+            \\
+            \\    pub fn {s}MatchesPointerKind(self: @This(), @"cpz.kind": cpz.wire.PointerType) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).matchesPointerType(@"cpz.kind");
+            \\    }}
+            \\
+            \\    pub fn {s}PointerIsStruct(self: @This()) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).isStructPointer();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerIsList(self: @This()) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).isListPointer();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerIsFar(self: @This()) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).isFarPointer();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerIsOther(self: @This()) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).isOtherPointer();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerIsCapability(self: @This()) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).isCapabilityPointer();
+            \\    }}
+            \\
+            \\    pub fn {s}PointerIsNear(self: @This()) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).isNearPointer();
+            \\    }}
+            \\
+            \\    pub fn {s}RawPointer(self: @This()) !cpz.Word {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).raw();
+            \\    }}
+            \\
+            \\    pub fn {s}DecodedPointer(self: @This()) !?cpz.wire.DecodedPointer {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).decode();
+            \\    }}
+            \\
+            \\    pub fn {s}MaxCapabilityCount(self: @This()) !usize {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).maxCapabilityCount();
+            \\    }}
+            \\
+            \\    pub fn {s}MatchesMaxCapabilityCount(self: @This(), @"cpz.count": usize) !bool {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).matchesMaxCapabilityCount(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}Stats(self: @This()) !cpz.MessageStats {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).validate();
+            \\    }}
+            \\
+            \\    pub fn {s}StatsWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).validateWithOptions(@"cpz.options");
+            \\    }}
+            \\
+            \\    pub fn {s}TotalSize(self: @This()) !cpz.MessageSize {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).totalSize();
+            \\    }}
+            \\
+            \\    pub fn {s}TotalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+        , .{ index, field_name });
+        try emitReaderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\        return self.reader.getPointerField({}).totalSizeWithOptions(@"cpz.options");
+            \\    }}
+            \\
+        , .{index});
+        try appendFmt(allocator, out,
+            \\    pub fn {s}StructSize(self: @This()) !cpz.StructSize {{
+            \\        return (try self.{s}AsPointer()).getStructSize();
+            \\    }}
+            \\
+            \\    pub fn {s}StructDataWordCount(self: @This()) !u16 {{
+            \\        return (try self.{s}AsPointer()).getStructDataWordCount();
+            \\    }}
+            \\
+            \\    pub fn {s}StructPointerCount(self: @This()) !u16 {{
+            \\        return (try self.{s}AsPointer()).getStructPointerCount();
+            \\    }}
+            \\
+            \\    pub fn {s}StructTotalWords(self: @This()) !usize {{
+            \\        return (try self.{s}AsPointer()).getStructTotalWords();
+            \\    }}
+            \\
+            \\    pub fn {s}StructDataByteCount(self: @This()) !usize {{
+            \\        return (try self.{s}AsPointer()).getStructDataByteCount();
+            \\    }}
+            \\
+            \\    pub fn {s}StructPointerByteCount(self: @This()) !usize {{
+            \\        return (try self.{s}AsPointer()).getStructPointerByteCount();
+            \\    }}
+            \\
+            \\    pub fn {s}StructTotalByteCount(self: @This()) !usize {{
+            \\        return (try self.{s}AsPointer()).getStructTotalByteCount();
+            \\    }}
+            \\
+            \\    pub fn {s}StructMatchesSize(self: @This(), @"cpz.expected": cpz.StructSize) !bool {{
+            \\        return (try self.{s}AsPointer()).structMatchesSize(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}StructMatchesDataWords(self: @This(), @"cpz.count": u16) !bool {{
+            \\        return (try self.{s}AsPointer()).structMatchesDataWords(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}StructMatchesPointerCount(self: @This(), @"cpz.count": u16) !bool {{
+            \\        return (try self.{s}AsPointer()).structMatchesPointerCount(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}StructMatchesTotalWords(self: @This(), @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).structMatchesTotalWords(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}StructMatchesTotalBytes(self: @This(), @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).structMatchesTotalBytes(@"cpz.count");
+            \\    }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
+        try appendFmt(allocator, out,
+            \\    pub fn {s}ListLen(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListLen(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesLen(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesLen(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize) !cpz.ElementSize {{
+            \\        return (try self.{s}AsPointer()).getListElementSize(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
+            \\    }}
+            \\
+            \\    pub fn {s}ListElementBitCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListElementBitCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListElementByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListElementByteCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListElementWordCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListElementWordCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListContentBitCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListContentBitCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListContentByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListContentByteCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListContentWordCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListContentWordCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesContentBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesContentBytes(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListStructElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize) !cpz.StructSize {{
+            \\        return (try self.{s}AsPointer()).getListStructElementSize(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesStructElementSize(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesStructElementSize(@"cpz.expected", @"cpz.size");
+            \\    }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
 
-    try appendFmt(allocator, out,
-        \\    pub fn {s}ListIsEmpty(self: @This(), @"cpz.expected": ?cpz.ElementSize) !bool {{
-        \\        return (try self.{s}AsPointer()).listIsEmpty(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListHasIndex(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.index": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listHasIndex(@"cpz.expected", @"cpz.index");
-        \\    }}
-        \\
-        \\    pub fn {s}ListFirstIndex(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListFirstIndex(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListLastIndex(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListLastIndex(@"cpz.expected");
-        \\    }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+        try appendFmt(allocator, out,
+            \\    pub fn {s}ListIsEmpty(self: @This(), @"cpz.expected": ?cpz.ElementSize) !bool {{
+            \\        return (try self.{s}AsPointer()).listIsEmpty(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListHasIndex(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.index": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listHasIndex(@"cpz.expected", @"cpz.index");
+            \\    }}
+            \\
+            \\    pub fn {s}ListFirstIndex(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListFirstIndex(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListLastIndex(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListLastIndex(@"cpz.expected");
+            \\    }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
 
-    try appendFmt(allocator, out,
-        \\    pub fn {s}ListMatchesElementBits(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementBits(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesElementBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementBytes(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesElementWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesElementWords(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesContentBits(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesContentBits(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesContentWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesContentWords(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+        try appendFmt(allocator, out,
+            \\    pub fn {s}ListMatchesElementBits(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesElementBits(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesElementBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesElementBytes(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesElementWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesElementWords(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesContentBits(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesContentBits(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesContentWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesContentWords(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
 
-    try appendFmt(allocator, out,
-        \\    pub fn {s}ListStructElementDataWordCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !u16 {{
-        \\        return (try self.{s}AsPointer()).getListStructElementDataWordCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListStructElementPointerCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !u16 {{
-        \\        return (try self.{s}AsPointer()).getListStructElementPointerCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListStructElementTotalWords(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListStructElementTotalWords(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListStructElementDataByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListStructElementDataByteCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListStructElementPointerByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListStructElementPointerByteCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListStructElementTotalByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\        return (try self.{s}AsPointer()).getListStructElementTotalByteCount(@"cpz.expected");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesStructElementDataWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataWords(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesStructElementPointerCount(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerCount(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesStructElementTotalWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalWords(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesStructElementDataBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementDataBytes(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesStructElementPointerBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerBytes(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn {s}ListMatchesStructElementTotalBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalBytes(@"cpz.expected", @"cpz.count");
-        \\    }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+        try appendFmt(allocator, out,
+            \\    pub fn {s}ListStructElementDataWordCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !u16 {{
+            \\        return (try self.{s}AsPointer()).getListStructElementDataWordCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListStructElementPointerCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !u16 {{
+            \\        return (try self.{s}AsPointer()).getListStructElementPointerCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListStructElementTotalWords(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListStructElementTotalWords(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListStructElementDataByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListStructElementDataByteCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListStructElementPointerByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListStructElementPointerByteCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListStructElementTotalByteCount(self: @This(), @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\        return (try self.{s}AsPointer()).getListStructElementTotalByteCount(@"cpz.expected");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesStructElementDataWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesStructElementDataWords(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesStructElementPointerCount(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerCount(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesStructElementTotalWords(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalWords(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesStructElementDataBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesStructElementDataBytes(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesStructElementPointerBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesStructElementPointerBytes(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn {s}ListMatchesStructElementTotalBytes(self: @This(), @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\        return (try self.{s}AsPointer()).listMatchesStructElementTotalBytes(@"cpz.expected", @"cpz.count");
+            \\    }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
+    }
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
@@ -1025,388 +1031,393 @@ pub fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayLis
         \\            return (try self.builder.getPointerField({})).asReader(message_reader);
         \\        }}
         \\
-        \\        pub fn get_{s}PointerKind(self: Builder) !?cpz.wire.PointerType {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).pointerType();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerSegmentId(self: Builder) !u32 {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).segmentId();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerWordIndex(self: Builder) !usize {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).pointerWordIndex();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerMatchesLocation(self: Builder, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
-        \\        }}
-        \\
-        \\        pub fn get_{s}MatchesPointerKind(self: Builder, @"cpz.kind": cpz.wire.PointerType) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).matchesPointerType(@"cpz.kind");
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerIsStruct(self: Builder) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).isStructPointer();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerIsList(self: Builder) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).isListPointer();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerIsFar(self: Builder) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).isFarPointer();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerIsOther(self: Builder) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).isOtherPointer();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerIsCapability(self: Builder) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).isCapabilityPointer();
-        \\        }}
-        \\
-        \\        pub fn get_{s}PointerIsNear(self: Builder) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).isNearPointer();
-        \\        }}
-        \\
-        \\        pub fn get_{s}RawPointer(self: Builder) !cpz.Word {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).raw();
-        \\        }}
-        \\
-        \\        pub fn get_{s}DecodedPointer(self: Builder) !?cpz.wire.DecodedPointer {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).decode();
-        \\        }}
-        \\
-        \\        pub fn get_{s}MaxCapabilityCount(self: Builder) !usize {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).maxCapabilityCount();
-        \\        }}
-        \\
-        \\        pub fn get_{s}MatchesMaxCapabilityCount(self: Builder, @"cpz.count": usize) !bool {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).matchesMaxCapabilityCount(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}Stats(self: Builder) !cpz.MessageStats {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).validate();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StatsWithOptions(self: Builder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).validateWithOptions(@"cpz.options");
-        \\        }}
-        \\
-        \\        pub fn get_{s}TotalSize(self: Builder) !cpz.MessageSize {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).totalSize();
-        \\        }}
-        \\
-        \\        pub fn get_{s}TotalSizeWithOptions(self: Builder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
-    , .{ index, field_name });
-    try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-    try appendFmt(allocator, out,
-        \\            return (try self.builder.getPointerField({})).totalSizeWithOptions(@"cpz.options");
-        \\        }}
-        \\
     , .{index});
-    try appendFmt(allocator, out,
-        \\        pub fn get_{s}StructSize(self: Builder) !cpz.StructSize {{
-        \\            return (try self.get_{s}AsPointer()).getStructSize();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructDataWordCount(self: Builder) !u16 {{
-        \\            return (try self.get_{s}AsPointer()).getStructDataWordCount();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructPointerCount(self: Builder) !u16 {{
-        \\            return (try self.get_{s}AsPointer()).getStructPointerCount();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructTotalWords(self: Builder) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getStructTotalWords();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructDataByteCount(self: Builder) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getStructDataByteCount();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructPointerByteCount(self: Builder) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getStructPointerByteCount();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructTotalByteCount(self: Builder) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getStructTotalByteCount();
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructMatchesSize(self: Builder, @"cpz.expected": cpz.StructSize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructMatchesDataWords(self: Builder, @"cpz.count": u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesDataWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructMatchesPointerCount(self: Builder, @"cpz.count": u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesPointerCount(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructMatchesTotalWords(self: Builder, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesTotalWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}StructMatchesTotalBytes(self: Builder, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).structMatchesTotalBytes(@"cpz.count");
-        \\        }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
-    try appendFmt(allocator, out,
-        \\        pub fn get_{s}ListLen(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListLen(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesLen(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesLen(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize) !cpz.ElementSize {{
-        \\            return (try self.get_{s}AsPointer()).getListElementSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListElementBitCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListElementBitCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListElementByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListElementByteCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListElementWordCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListElementWordCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListContentBitCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListContentBitCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListContentByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListContentByteCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListContentWordCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListContentWordCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesContentBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesContentBytes(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListStructElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize) !cpz.StructSize {{
-        \\            return (try self.get_{s}AsPointer()).getListStructElementSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesStructElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementSize(@"cpz.expected", @"cpz.size");
-        \\        }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+    if (state.emit_introspection_enabled) {
+        try appendFmt(allocator, out,
+            \\
+            \\        pub fn get_{s}PointerKind(self: Builder) !?cpz.wire.PointerType {{
+        , .{field_name});
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).pointerType();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerSegmentId(self: Builder) !u32 {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).segmentId();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerWordIndex(self: Builder) !usize {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).pointerWordIndex();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerMatchesLocation(self: Builder, @"cpz.segmentId": u32, @"cpz.wordIndex": usize) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
+            \\        }}
+            \\
+            \\        pub fn get_{s}MatchesPointerKind(self: Builder, @"cpz.kind": cpz.wire.PointerType) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).matchesPointerType(@"cpz.kind");
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerIsStruct(self: Builder) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).isStructPointer();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerIsList(self: Builder) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).isListPointer();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerIsFar(self: Builder) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).isFarPointer();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerIsOther(self: Builder) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).isOtherPointer();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerIsCapability(self: Builder) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).isCapabilityPointer();
+            \\        }}
+            \\
+            \\        pub fn get_{s}PointerIsNear(self: Builder) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).isNearPointer();
+            \\        }}
+            \\
+            \\        pub fn get_{s}RawPointer(self: Builder) !cpz.Word {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).raw();
+            \\        }}
+            \\
+            \\        pub fn get_{s}DecodedPointer(self: Builder) !?cpz.wire.DecodedPointer {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).decode();
+            \\        }}
+            \\
+            \\        pub fn get_{s}MaxCapabilityCount(self: Builder) !usize {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).maxCapabilityCount();
+            \\        }}
+            \\
+            \\        pub fn get_{s}MatchesMaxCapabilityCount(self: Builder, @"cpz.count": usize) !bool {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).matchesMaxCapabilityCount(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}Stats(self: Builder) !cpz.MessageStats {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).validate();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StatsWithOptions(self: Builder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).validateWithOptions(@"cpz.options");
+            \\        }}
+            \\
+            \\        pub fn get_{s}TotalSize(self: Builder) !cpz.MessageSize {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).totalSize();
+            \\        }}
+            \\
+            \\        pub fn get_{s}TotalSizeWithOptions(self: Builder, @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+        , .{ index, field_name });
+        try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+        try appendFmt(allocator, out,
+            \\            return (try self.builder.getPointerField({})).totalSizeWithOptions(@"cpz.options");
+            \\        }}
+            \\
+        , .{index});
+        try appendFmt(allocator, out,
+            \\        pub fn get_{s}StructSize(self: Builder) !cpz.StructSize {{
+            \\            return (try self.get_{s}AsPointer()).getStructSize();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructDataWordCount(self: Builder) !u16 {{
+            \\            return (try self.get_{s}AsPointer()).getStructDataWordCount();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructPointerCount(self: Builder) !u16 {{
+            \\            return (try self.get_{s}AsPointer()).getStructPointerCount();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructTotalWords(self: Builder) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getStructTotalWords();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructDataByteCount(self: Builder) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getStructDataByteCount();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructPointerByteCount(self: Builder) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getStructPointerByteCount();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructTotalByteCount(self: Builder) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getStructTotalByteCount();
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructMatchesSize(self: Builder, @"cpz.expected": cpz.StructSize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).structMatchesSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructMatchesDataWords(self: Builder, @"cpz.count": u16) !bool {{
+            \\            return (try self.get_{s}AsPointer()).structMatchesDataWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructMatchesPointerCount(self: Builder, @"cpz.count": u16) !bool {{
+            \\            return (try self.get_{s}AsPointer()).structMatchesPointerCount(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructMatchesTotalWords(self: Builder, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).structMatchesTotalWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}StructMatchesTotalBytes(self: Builder, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).structMatchesTotalBytes(@"cpz.count");
+            \\        }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
+        try appendFmt(allocator, out,
+            \\        pub fn get_{s}ListLen(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListLen(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesLen(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesLen(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize) !cpz.ElementSize {{
+            \\            return (try self.get_{s}AsPointer()).getListElementSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.elementSize": cpz.ElementSize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesElementSize(@"cpz.expected", @"cpz.elementSize");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListElementBitCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListElementBitCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListElementByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListElementByteCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListElementWordCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListElementWordCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListContentBitCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListContentBitCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListContentByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListContentByteCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListContentWordCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListContentWordCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesContentBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesContentBytes(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListStructElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize) !cpz.StructSize {{
+            \\            return (try self.get_{s}AsPointer()).getListStructElementSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesStructElementSize(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.size": cpz.StructSize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesStructElementSize(@"cpz.expected", @"cpz.size");
+            \\        }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
 
-    try appendFmt(allocator, out,
-        \\        pub fn get_{s}ListIsEmpty(self: Builder, @"cpz.expected": ?cpz.ElementSize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listIsEmpty(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListHasIndex(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.index": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listHasIndex(@"cpz.expected", @"cpz.index");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListFirstIndex(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListFirstIndex(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListLastIndex(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListLastIndex(@"cpz.expected");
-        \\        }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+        try appendFmt(allocator, out,
+            \\        pub fn get_{s}ListIsEmpty(self: Builder, @"cpz.expected": ?cpz.ElementSize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listIsEmpty(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListHasIndex(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.index": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listHasIndex(@"cpz.expected", @"cpz.index");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListFirstIndex(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListFirstIndex(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListLastIndex(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListLastIndex(@"cpz.expected");
+            \\        }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
 
-    try appendFmt(allocator, out,
-        \\        pub fn get_{s}ListMatchesElementBits(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementBits(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesElementBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementBytes(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesElementWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesElementWords(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesContentBits(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesContentBits(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesContentWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesContentWords(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+        try appendFmt(allocator, out,
+            \\        pub fn get_{s}ListMatchesElementBits(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesElementBits(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesElementBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesElementBytes(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesElementWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesElementWords(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesContentBits(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesContentBits(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesContentWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesContentWords(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
 
-    try appendFmt(allocator, out,
-        \\        pub fn get_{s}ListStructElementDataWordCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !u16 {{
-        \\            return (try self.get_{s}AsPointer()).getListStructElementDataWordCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListStructElementPointerCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !u16 {{
-        \\            return (try self.get_{s}AsPointer()).getListStructElementPointerCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListStructElementTotalWords(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListStructElementTotalWords(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListStructElementDataByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListStructElementDataByteCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListStructElementPointerByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListStructElementPointerByteCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListStructElementTotalByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
-        \\            return (try self.get_{s}AsPointer()).getListStructElementTotalByteCount(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesStructElementDataWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataWords(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesStructElementPointerCount(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerCount(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesStructElementTotalWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalWords(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesStructElementDataBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataBytes(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesStructElementPointerBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerBytes(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn get_{s}ListMatchesStructElementTotalBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
-        \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalBytes(@"cpz.expected", @"cpz.count");
-        \\        }}
-        \\
-    , .{
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-        field_name, field_name,
-    });
+        try appendFmt(allocator, out,
+            \\        pub fn get_{s}ListStructElementDataWordCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !u16 {{
+            \\            return (try self.get_{s}AsPointer()).getListStructElementDataWordCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListStructElementPointerCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !u16 {{
+            \\            return (try self.get_{s}AsPointer()).getListStructElementPointerCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListStructElementTotalWords(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListStructElementTotalWords(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListStructElementDataByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListStructElementDataByteCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListStructElementPointerByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListStructElementPointerByteCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListStructElementTotalByteCount(self: Builder, @"cpz.expected": ?cpz.ElementSize) !usize {{
+            \\            return (try self.get_{s}AsPointer()).getListStructElementTotalByteCount(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesStructElementDataWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataWords(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesStructElementPointerCount(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": u16) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerCount(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesStructElementTotalWords(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalWords(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesStructElementDataBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesStructElementDataBytes(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesStructElementPointerBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesStructElementPointerBytes(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn get_{s}ListMatchesStructElementTotalBytes(self: Builder, @"cpz.expected": ?cpz.ElementSize, @"cpz.count": usize) !bool {{
+            \\            return (try self.get_{s}AsPointer()).listMatchesStructElementTotalBytes(@"cpz.expected", @"cpz.count");
+            \\        }}
+            \\
+        , .{
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+            field_name, field_name,
+        });
+    }
 
     switch (resolveTypeScoped(file, layout.decl, field.ty)) {
         .text => {
