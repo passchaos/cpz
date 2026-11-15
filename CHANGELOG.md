@@ -29,6 +29,8 @@ All notable changes to `cpz` are documented here.
   `tests/codegen/rpc_event/` with shared helpers in `tests/support/rpc_event.zig`.
 - RPC vocabulary/wire types and the `State` machine were extracted into
   `src/rpc/types.zig` and `src/rpc/state.zig`, reducing `src/rpc.zig` size.
+- The schema lexer/parser/AST/layout front-end was extracted into
+  `src/schema/frontend.zig`, reducing `src/schema.zig` size.
 - Documentation was restructured into architecture, codegen, compatibility,
   performance, RPC, design, contributing, and security documents.
 - README was rewritten as a concise entry point with quick starts and status
