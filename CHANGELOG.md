@@ -14,10 +14,10 @@ All notable changes to `cpz` are documented here.
   generated APIs. A two-field schema drops from 3,392 to 926 generated lines in
   the current test suite.
 - `CodegenOptions.emit_introspection` and `cpzc --no-introspection` to omit
-  per-pointer-field and list-wrapper introspection helpers while keeping
-  readers, builders, list wrappers, and element accessors. Combining both modes
-  drops `tests/schema_smoke.capnp` generated output from 92,327 lines / 4.7 MB
-  to 24,734 lines / 1.2 MB.
+  per-pointer-field, list-wrapper, and pointer-list element introspection
+  helpers while keeping readers, builders, list wrappers, and element
+  conversions. Combining both modes drops `tests/schema_smoke.capnp` generated
+  output from 92,327 lines / 4.7 MB to 15,190 lines / 0.71 MB.
 - `--no-metadata` now also omits per-const, per-alias, and per-enum metadata
   for values that are emitted directly, while retaining metadata required by
   aggregate const values.
@@ -25,6 +25,9 @@ All notable changes to `cpz` are documented here.
   containers, struct-level actual-size/section diagnostics, and text/data
   byte-count/match helpers; pointer/list default containers remain because
   builders use them.
+- The benchmark now also measures bulk primitive list reads with
+  `ListReader.getAll`; `--minimal --no-orphans` reduces the smoke schema to
+  10,672 lines / 0.54 MB.
 - `cpzc --minimal` enables both lean modes for production accessors and roughly
   halves generated-code compile time on the smoke schema.
 - `CodegenOptions.emit_orphan_helpers` and `cpzc --no-orphans` omit generated

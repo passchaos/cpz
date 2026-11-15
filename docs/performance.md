@@ -78,27 +78,27 @@ time and binary size. Current measurements:
 | Schema | Default | `--no-metadata` | `--no-introspection` | Both |
 |---|---:|---:|---:|---:|
 | Two-field `struct Lean` | 3,394 lines / 163 KB | 928 lines / 39.6 KB | 2,776 lines / 134 KB | 310 lines / 10.8 KB |
-| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 60,631 lines / 3.0 MB | 54,614 lines / 2.9 MB | 22,918 lines / 1.1 MB |
+| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 60,631 lines / 3.0 MB | 46,886 lines / 2.4 MB | 15,190 lines / 0.71 MB |
 
 `--no-metadata` removes schema introspection tables, `@"cpz.*"` lookup
 helpers, root-level convenience helpers, and per-const/alias/enum metadata for
 values that are emitted directly. Metadata needed by aggregate const values is
 kept. `--no-introspection` removes the per-pointer-field diagnostic helpers
 (pointer kind/location, decoded pointer, struct/list shape, stats, and match
-predicates), list-wrapper diagnostics, struct-level actual-size/section
-diagnostics, text/data byte-count/match helpers, and scalar/blob/enum
-default-value flat containers, while keeping readers, builders, list wrappers,
-element accessors, `validate`, and `totalSize`. `--minimal` enables both modes.
-Combining both is intended for production code that only reads and writes
-messages.
+predicates), list-wrapper diagnostics, pointer-list element diagnostics,
+struct-level actual-size/section diagnostics, text/data byte-count/match
+helpers, and scalar/blob/enum default-value flat containers, while keeping
+readers, builders, list wrappers, element conversions, `validate`, and
+`totalSize`. `--minimal` enables both modes. Combining both is intended for
+production code that only reads and writes messages.
 
 On the current aarch64 development host, a cold-cache
 `zig build-obj -ODebug` of the generated `tests/schema_smoke.capnp` output takes
-roughly 234 ms in default mode, 78 ms in `--minimal` mode, and 73 ms with
-`--minimal --no-orphans` (median of three runs).
+roughly 234 ms in default mode and 80-95 ms in the lean modes (median of three
+runs).
 
 Adding `--no-orphans` to `--minimal` removes generated Orphan wrapper types and
-typed orphan/copy helpers, reducing the smoke schema to 18,400 lines / 1.0 MB
+typed orphan/copy helpers, reducing the smoke schema to 10,672 lines / 0.54 MB
 and the two-field schema to 152 lines / 5.8 KB. Raw `cpz.Orphan` builder methods
 remain available because they are part of the core builder API.
 
