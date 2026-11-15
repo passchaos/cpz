@@ -23,6 +23,8 @@ All notable changes to `cpz` are documented here.
   aggregate const values.
 - `--no-introspection` also omits scalar/blob/enum default-value flat
   containers; pointer/list default containers remain because builders use them.
+- `cpzc --minimal` enables both lean modes for production accessors and roughly
+  halves generated-code compile time on the smoke schema.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to

@@ -71,7 +71,7 @@ rules.
 ```sh
 zig build cpzc -- schema.capnp generated.zig
 zig build cpzc -- --no-metadata schema.capnp generated.zig
-zig build cpzc -- --no-metadata --no-introspection schema.capnp generated.zig
+zig build cpzc -- --minimal schema.capnp generated.zig
 ```
 
 ```zig
@@ -88,9 +88,10 @@ helpers. `--no-introspection` additionally omits per-pointer-field
 introspection helpers (pointer kind/location, struct/list shape, stats, and
 match predicates), list-wrapper diagnostics, and scalar/blob/enum default-value
 flat containers while keeping the readers, builders, list wrappers, and element
-accessors needed to read and write messages. For
-`tests/schema_smoke.capnp`, enabling both drops generated output from 92,327
-lines / 4.7 MB to 24,734 lines / 1.2 MB.
+accessors needed to read and write messages. `--minimal` enables both modes.
+For `tests/schema_smoke.capnp`, `--minimal` drops generated output from 92,327
+lines / 4.7 MB to 24,734 lines / 1.2 MB and roughly halves generated-code
+compile time.
 
 See [docs/codegen.md](docs/codegen.md) for all CLI options, the supported
 schema subset, and multi-file import wiring.

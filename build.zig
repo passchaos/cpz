@@ -235,7 +235,7 @@ pub fn build(b: *std.Build) void {
             .basename = "schema_minimal.zig",
             .test_file = "tests/codegen_minimal_smoke.zig",
             .import_name = "generated_minimal_schema",
-            .args = &.{ "--no-metadata", "--no-introspection" },
+            .args = &.{"--minimal"},
         },
     };
     for (generated_tests) |spec| {
