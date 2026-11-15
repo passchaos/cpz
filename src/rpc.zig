@@ -5,6 +5,7 @@ pub const AnswerId = u32;
 pub const ExportId = u32;
 pub const ImportId = u32;
 
+/// Errors produced by RPC state transitions and wire helpers.
 pub const Error = error{
     InvalidTransition,
     QuestionAlreadyOpen,
@@ -14,6 +15,7 @@ pub const Error = error{
     ImportAlreadyReleased,
 };
 
+/// A lightweight reference to a capability by index or tracked ID.
 pub const CapabilityRef = union(enum) {
     export_id: ExportId,
     import_id: ImportId,
@@ -62,6 +64,7 @@ pub const CapabilityRelease = struct {
     }
 };
 
+/// Finish message fields for closing a question.
 pub const Finish = struct {
     question_id: QuestionId,
     release_result_caps: bool,
@@ -71,6 +74,7 @@ pub const Finish = struct {
     }
 };
 
+/// Return message fields for resolving an answer.
 pub const Return = struct {
     answer_id: AnswerId,
     release_param_caps: bool,
@@ -89,6 +93,7 @@ pub const Return = struct {
     }
 };
 
+/// Standard Cap'n Proto exception type codes.
 pub const ExceptionType = enum(u16) {
     failed = 0,
     overloaded = 1,
@@ -96,6 +101,7 @@ pub const ExceptionType = enum(u16) {
     unimplemented = 3,
 };
 
+/// Decoded exception reason, type, and optional trace text.
 pub const ExceptionInfo = struct {
     reason: ?[]const u8,
     type_raw: u16,
@@ -134,6 +140,7 @@ pub const ExceptionInfo = struct {
     }
 };
 
+/// The possible semantic outcomes of a Return message.
 pub const ReturnOutcome = union(enum) {
     results,
     exception: ExceptionInfo,
@@ -197,6 +204,7 @@ pub const ReturnOutcome = union(enum) {
     }
 };
 
+/// A transport-independent result produced by a service dispatch callback.
 pub const DispatchResult = union(enum) {
     empty,
     capability: ExportId,
@@ -355,6 +363,7 @@ pub const OutputRange = struct {
     }
 };
 
+/// Aggregate counts for wire dispatch outputs and state-only actions.
 pub const WireDispatchStats = struct {
     response_initialized: usize = 0,
     forward_required: usize = 0,
@@ -601,6 +610,7 @@ pub const StateCleanupStats = struct {
     }
 };
 
+/// Aggregate counts for Provide/Accept/Join handoff state.
 pub const StateHandoffStats = struct {
     provides: usize = 0,
     provide_recipients: usize = 0,
@@ -1162,6 +1172,7 @@ pub fn appendHandoffReturnOutputsToQueues(
     return stats;
 }
 
+/// A validated plan combining dispatch responses, handoff Returns, and Disembargos.
 pub const RpcTurnPlan = struct {
     dispatch: WireDispatchStats = .{},
     handoff_returns: StateHandoffReturnStats = .{},
@@ -1552,6 +1563,7 @@ pub const RpcTurnOutputPosition = struct {
     }
 };
 
+/// Counts and ranges for initialized RPC turn outputs.
 pub const RpcOutputStats = struct {
     responses: usize = 0,
     forwards: usize = 0,
@@ -3240,6 +3252,7 @@ pub const PromisedAnswerTargetOwned = struct {
     }
 };
 
+/// A Call target: imported capability or promised answer.
 pub const CallTarget = union(enum) {
     imported_cap: ImportId,
     promised_answer: PromisedAnswerTarget,
@@ -3383,6 +3396,7 @@ pub const CallFlags = struct {
     }
 };
 
+/// An interface/method identifier pair.
 pub const CallMethod = struct {
     interface_id: u64 = 0,
     method_id: u16 = 0,
@@ -3421,6 +3435,7 @@ pub const CallMethod = struct {
     }
 };
 
+/// A method-table entry pairing a `CallMethod` with a handler.
 pub fn CallMethodEntry(comptime Handler: type) type {
     return struct {
         method: CallMethod,
@@ -3460,6 +3475,7 @@ pub fn CallMethodEntry(comptime Handler: type) type {
     };
 }
 
+/// Method ID, result routing, and call flags decoded from a Call.
 pub const CallOptions = struct {
     method: CallMethod = .{},
     send_results_to: CallSendResultsTo = .caller,
@@ -3576,6 +3592,7 @@ pub const CallOptions = struct {
     }
 };
 
+/// A capability descriptor used by payload cap tables.
 pub const CapDescriptor = union(enum) {
     none,
     sender_hosted: ExportId,
@@ -3716,6 +3733,7 @@ pub fn wireMessageTag(message: anytype) !WireMessageTag {
     return std.enums.fromInt(WireMessageTag, message.whichDiscriminant()) orelse error.InvalidTransition;
 }
 
+/// A decoded top-level RPC message event.
 pub const WireEvent = union(WireMessageTag) {
     unimplemented: WireMessageTag,
     abort: ExceptionInfo,
@@ -4069,6 +4087,7 @@ pub const AnswerTracker = struct {
     }
 };
 
+/// A small import/export lifetime tracker keyed by ID.
 pub fn CapabilityTracker(comptime Id: type, comptime already_released_error: Error) type {
     return struct {
         id: Id,
@@ -17886,6 +17905,7 @@ pub fn eventFromWireMessage(message: anytype) !WireEvent {
     };
 }
 
+/// Transport-independent RPC question/answer/capability state machine.
 pub const State = struct {
     allocator: std.mem.Allocator,
     questions: std.AutoHashMap(QuestionId, QuestionTracker),

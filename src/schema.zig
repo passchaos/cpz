@@ -8,6 +8,7 @@ const wire = @import("wire.zig");
 // the current thread and restore it when generateZigWithOptions returns.
 threadlocal var emit_metadata_enabled: bool = true;
 
+/// Syntax, semantic, and allocation errors produced by schema parsing.
 pub const Error = error{
     UnexpectedToken,
     InvalidToken,
@@ -17,6 +18,7 @@ pub const Error = error{
     UnsupportedType,
 } || std.mem.Allocator.Error || std.fmt.ParseIntError;
 
+/// Schema type expression as written in a `.capnp` file.
 pub const Type = union(enum) {
     void,
     bool,
@@ -141,6 +143,7 @@ fn typesEqual(lhs: Type, rhs: Type) bool {
     };
 }
 
+/// A struct field, including its ordinal, type, default, and union metadata.
 pub const Field = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -163,6 +166,7 @@ pub const Field = struct {
     }
 };
 
+/// A `using` alias declaration.
 pub const AliasDecl = struct {
     name: []const u8,
     target: Type,
@@ -204,6 +208,7 @@ pub const AliasMetadata = struct {
     }
 };
 
+/// A top-level, struct-local, or interface-local constant declaration.
 pub const ConstDecl = struct {
     name: []const u8,
     id: ?u64 = null,
@@ -596,6 +601,7 @@ fn parseConstStructFieldsAlloc(allocator: std.mem.Allocator, expression: []const
     return fields.toOwnedSlice(allocator);
 }
 
+/// A parsed import declaration. Imports are resolved by the embedding build.
 pub const ImportDecl = struct {
     name: []const u8,
     path: []const u8,
@@ -702,6 +708,7 @@ pub const GroupDecl = struct {
     }
 };
 
+/// A parsed struct declaration before layout planning.
 pub const Struct = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -763,6 +770,7 @@ pub const EnumValueMetadata = struct {
     }
 };
 
+/// Runtime metadata describing a generated struct field.
 pub const FieldMetadata = struct {
     index: usize = 0,
     name: []const u8,
@@ -980,6 +988,7 @@ pub const UnionMetadata = struct {
     }
 };
 
+/// Declaration kinds exposed by generated metadata.
 pub const DeclarationKind = enum {
     struct_decl,
     enum_decl,
@@ -987,6 +996,7 @@ pub const DeclarationKind = enum {
     annotation_decl,
 };
 
+/// Runtime metadata describing a generated declaration.
 pub const DeclarationMetadata = struct {
     index: usize = 0,
     name: []const u8,
@@ -1047,6 +1057,7 @@ pub const DeclarationMetadata = struct {
     }
 };
 
+/// A parsed enum declaration and its enumerants.
 pub const EnumDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -1368,6 +1379,7 @@ pub const InterfaceSuperclassMetadata = struct {
     }
 };
 
+/// A parsed interface declaration, methods, superclasses, and nested declarations.
 pub const InterfaceDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -1421,6 +1433,7 @@ pub const AnnotationTargets = struct {
     }
 };
 
+/// Return whether an annotation target set contains `name`.
 pub fn annotationTargetsHas(targets: AnnotationTargets, name: []const u8) bool {
     if (std.mem.eql(u8, name, "file")) return targets.file;
     if (std.mem.eql(u8, name, "const")) return targets.const_decl;
@@ -1460,6 +1473,7 @@ fn allAnnotationTargets() AnnotationTargets {
     };
 }
 
+/// A parsed annotation declaration and its allowed targets.
 pub const AnnotationDecl = struct {
     name: []const u8,
     owns_name: bool = false,
@@ -1547,6 +1561,7 @@ pub const FileAnnotationMetadata = struct {
     }
 };
 
+/// A parsed schema file: file ID, declarations, imports, aliases, and annotations.
 pub const File = struct {
     id: ?u64,
     annotations_raw: []const []const u8 = &.{},
@@ -1577,10 +1592,12 @@ pub const File = struct {
     }
 };
 
+/// Errors produced by layout planning and code generation.
 pub const LayoutError = Error || serialize.Error || wire.Error || error{
     UnsupportedInlineComposite,
 };
 
+/// The physical storage slot assigned to a field by the layout planner.
 pub const FieldSlot = union(enum) {
     void,
     data_bit: usize,
@@ -1604,6 +1621,7 @@ pub const UnionLayout = struct {
     pointer_count: usize = 0,
 };
 
+/// Planned data/pointer layout for one struct declaration.
 pub const StructLayout = struct {
     decl: *const Struct,
     data_words: u16,
@@ -1618,6 +1636,7 @@ pub const StructLayout = struct {
     }
 };
 
+/// Layout plans for every struct in a schema file.
 pub const LayoutFile = struct {
     structs: []StructLayout,
 
@@ -1861,6 +1880,7 @@ const Lexer = struct {
     }
 };
 
+/// Recursive-descent parser for the supported Cap'n Proto schema subset.
 pub const Parser = struct {
     allocator: std.mem.Allocator,
     lexer: Lexer,
@@ -4702,14 +4722,17 @@ pub const Parser = struct {
     }
 };
 
+/// Parse schema source into an AST. The caller owns the returned `File`.
 pub fn parse(allocator: std.mem.Allocator, source: []const u8) Error!File {
     var parser = try Parser.init(allocator, source);
     defer parser.deinitLiteralScratch();
     return parser.parse();
 }
 
+/// Errors produced while loading `embed` constant payloads from disk.
 pub const EmbedError = std.Io.Dir.ReadFileAllocError || std.mem.Allocator.Error || serialize.Error || message.Error;
 
+/// Load `embed` constant payloads relative to `base_dir`.
 pub fn loadEmbeddedConstValues(allocator: std.mem.Allocator, io: std.Io, file: *File, base_dir: []const u8) EmbedError!void {
     try loadEmbeddedConstValuesInScope(allocator, io, file, null, file.consts, base_dir);
     for (file.structs) |*decl| {
@@ -4847,6 +4870,7 @@ fn unionDeclsFromBuilders(allocator: std.mem.Allocator, builders: []const UnionB
     return decls;
 }
 
+/// Plan ordinal-aware data/pointer layouts for every struct in `file`.
 pub fn planLayouts(allocator: std.mem.Allocator, file: *const File) LayoutError!LayoutFile {
     try validateFileTypeApplications(allocator, file);
     try validateFileConstReferenceCycles(file);
@@ -5762,6 +5786,7 @@ fn findStructFieldByNameOrGroupFirst(decl: *const Struct, name: []const u8) ?*co
     return null;
 }
 
+/// Plan the physical layout for a single struct declaration.
 pub fn planStructLayout(allocator: std.mem.Allocator, file: *const File, decl: *const Struct) LayoutError!StructLayout {
     const fields = try allocator.alloc(FieldLayout, decl.fields.len);
     errdefer allocator.free(fields);
@@ -9486,6 +9511,7 @@ test "schema layout planner reports alignment overflow" {
     try std.testing.expectError(error.InvalidOrdinal, allocateDataBits(std.testing.allocator, &ranges, 64));
 }
 
+/// Options controlling generated Zig source.
 pub const CodegenOptions = struct {
     runtime_import_name: []const u8 = "cpz",
     raw_schema_comment: ?[]const u8 = null,
@@ -9495,10 +9521,12 @@ pub const CodegenOptions = struct {
     emit_metadata: bool = true,
 };
 
+/// Generate Zig accessors with default options. The caller owns the result.
 pub fn generateZig(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile) LayoutError![]u8 {
     return generateZigWithOptions(allocator, file, layouts, .{});
 }
 
+/// Generate Zig accessors with explicit options. The caller owns the result.
 pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, layouts: *const LayoutFile, options: CodegenOptions) LayoutError![]u8 {
     try validateZigNameCollisions(allocator, file);
 

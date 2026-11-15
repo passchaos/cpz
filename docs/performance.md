@@ -15,20 +15,31 @@ The current benchmark:
 
 - builds a small message with a scalar, text field, and 1,024-element UInt32
   list;
-- serializes it to flat bytes;
+- serializes it to flat and packed bytes;
 - parses it once;
-- performs 100,000 dynamic reader iterations reading the scalar and one list
-  element;
-- prints total nanoseconds and a checksum.
+- runs five rounds and reports the best round;
+- measures dynamic reader iteration, flat serialization into a caller buffer,
+  and packed serialization into a caller buffer.
 
-Example output on the current aarch64 development host (Debug):
+Example output on the current aarch64 development host:
 
 ```text
-100000 iterations, 80420839 ns, checksum 5900000
+# Debug
+message: 1 segments, 4160 bytes flat, 4160 bytes packed
+dynamic reader: 200000 iterations, 162932033 ns total, 814.7 ns/op
+flat serialize: 50000 iterations, 17532161 ns total, 350.6 ns/op
+packed serialize: 50000 iterations, 2632536186 ns total, 52650.7 ns/op
+
+# ReleaseFast
+message: 1 segments, 4160 bytes flat, 4160 bytes packed
+dynamic reader: 200000 iterations, 3943798 ns total, 19.7 ns/op
+flat serialize: 50000 iterations, 116881 ns total, 2.3 ns/op
+packed serialize: 50000 iterations, 258453511 ns total, 5169.1 ns/op
 ```
 
-This is approximately 0.8 microseconds per iteration. The checksum ensures the
-compiler cannot eliminate the reads.
+These numbers are a local smoke baseline, not a cross-engine claim. The packed
+serialization path is currently much slower than flat serialization and should
+be profiled before optimizing.
 
 ## Codegen size
 

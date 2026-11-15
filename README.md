@@ -96,7 +96,8 @@ zig build check          # formatting, tests, examples, bench compile
 zig build test           # unit and integration tests
 zig build test -Doptimize=ReleaseSafe
 zig build fuzz           # deterministic fuzz smoke
-zig build bench          # dynamic reader microbenchmark
+zig build bench          # dynamic reader / serialization microbenchmark
+zig build run-generated  # generated-code addressbook example
 zig build cpzc -- --help
 ```
 

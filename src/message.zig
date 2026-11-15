@@ -10,6 +10,7 @@ fn wordsToBytesChecked(words: usize) Error!usize {
     return std.math.mul(usize, words, wire.bytes_per_word) catch return error.SerializedSizeOverflow;
 }
 
+/// Errors produced by dynamic message readers, builders, and validation.
 pub const Error = wire.Error || std.mem.Allocator.Error || error{
     ReadOnly,
     NestingLimitExceeded,
@@ -23,6 +24,7 @@ pub const Error = wire.Error || std.mem.Allocator.Error || error{
     IncompatibleListShape,
 };
 
+/// Safety limits applied while traversing untrusted messages.
 pub const ReaderOptions = struct {
     traversal_limit_words: usize = 8 * 1024 * 1024, // 64 MiB like C++ default.
     nesting_limit: u16 = 64,
@@ -99,6 +101,7 @@ test "reader options helper methods" {
     try testing.expect(!custom.matchesCapabilityCountLimit(8));
 }
 
+/// Schema-agnostic statistics collected during message validation.
 pub const MessageStats = struct {
     /// Pointer slots inspected, including null slots and the root pointer.
     pointer_slots: usize = 0,
@@ -321,6 +324,7 @@ test "message stats byte helper methods" {
     try testing.expectEqual(std.math.maxInt(usize), huge.size().byteCount());
 }
 
+/// Byte and word counts derived from `MessageStats`.
 pub const MessageSize = struct {
     word_count: usize = 0,
     cap_count: usize = 0,
@@ -382,6 +386,7 @@ test "message size byte helper methods" {
     try testing.expect(size.hasCapabilities());
 }
 
+/// A non-owning view mapping wire capability indexes to application handles.
 pub fn CapabilityTable(comptime T: type) type {
     return struct {
         /// Application-owned capability handles indexed by wire capability
@@ -476,6 +481,7 @@ pub fn CapabilityTable(comptime T: type) type {
     };
 }
 
+/// An append-only registry that assigns outgoing capability indexes.
 pub fn CapabilityRegistry(comptime T: type) type {
     return struct {
         entries: std.ArrayList(T) = .empty,
@@ -644,6 +650,7 @@ test "capability registry assigns wire indexes for builders" {
     try registry.validateStats(list_stats);
 }
 
+/// A reader that owns its decoded flat message storage.
 pub const OwnedMessageReader = struct {
     flat: serialize.FlatMessage,
     reader: MessageReader,
@@ -1102,6 +1109,7 @@ pub const OwnedMessageReader = struct {
     }
 };
 
+/// A reader view that owns only its segment table, not segment bytes.
 pub const MessageReaderView = struct {
     flat: serialize.FlatMessageView,
     reader: MessageReader,
@@ -1565,6 +1573,7 @@ pub const MessageReaderView = struct {
     }
 };
 
+/// Initial segment sizing options for `MessageBuilder`.
 pub const BuilderOptions = struct {
     first_segment_words: usize = 1024,
     next_segment_min_words: usize = 1024,
@@ -1683,6 +1692,7 @@ const SegmentCursor = struct {
     start: usize,
 };
 
+/// A detached object owned by a `MessageBuilder`.
 pub const Orphan = struct {
     message: *MessageBuilder,
     segment_id: u32,
@@ -2067,6 +2077,7 @@ pub const Orphan = struct {
     }
 };
 
+/// An allocator for detached objects within a `MessageBuilder`.
 pub const Orphanage = struct {
     message: *MessageBuilder,
 
@@ -2147,6 +2158,7 @@ pub const Orphanage = struct {
     }
 };
 
+/// An append-only message builder over one or more word segments.
 pub const MessageBuilder = struct {
     allocator: std.mem.Allocator,
     segments: std.ArrayList(SegmentBuilder),
@@ -2890,6 +2902,7 @@ pub const MessageBuilder = struct {
     }
 };
 
+/// A lazy, zero-copy reader over caller-owned message segments.
 pub const MessageReader = struct {
     segments: []const serialize.ConstSegment,
     options: ReaderOptions,
@@ -3397,6 +3410,7 @@ fn ensureSingleSegment(segments: []const serialize.ConstSegment) Error!void {
     if (segments.len != 1) return error.MessageTooLarge;
 }
 
+/// A mutable pointer slot inside a `MessageBuilder`.
 pub const PointerBuilder = struct {
     message: *MessageBuilder,
     segment_id: u32,
@@ -4209,6 +4223,7 @@ fn listElementBitRange(base_word: usize, base_bit_offset: usize, step_bits: usiz
     };
 }
 
+/// A read-only pointer slot inside a `MessageReader`.
 pub const PointerReader = struct {
     message: *MessageReader,
     segment_id: u32,
@@ -4762,6 +4777,7 @@ const ResolvedPointer = struct {
     raw: wire.Word,
 };
 
+/// A mutable struct view with data and pointer sections.
 pub const StructBuilder = struct {
     message: *MessageBuilder,
     segment_id: u32,
@@ -5152,6 +5168,7 @@ pub const StructBuilder = struct {
     }
 };
 
+/// A read-only struct view with data and pointer sections.
 pub const StructReader = struct {
     message: *MessageReader,
     segment_id: u32,
@@ -5372,6 +5389,7 @@ pub const StructReader = struct {
     }
 };
 
+/// A mutable list view supporting primitive and composite elements.
 pub const ListBuilder = struct {
     message: *MessageBuilder,
     segment_id: u32,
@@ -5996,6 +6014,7 @@ pub const ListBuilder = struct {
     }
 };
 
+/// A read-only list view supporting primitive and composite elements.
 pub const ListReader = struct {
     message: *MessageReader,
     segment_id: u32,

@@ -17,6 +17,9 @@ All notable changes to `cpz` are documented here.
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to
   generate a directory of schemas without spelling each output path.
+- A generated-code addressbook example (`zig build run-generated`) and a more
+  rigorous benchmark covering dynamic reads, flat serialization, and packed
+  serialization.
 
 ### Changed
 

@@ -14,14 +14,19 @@ src/
   message.zig    dynamic readers/builders, orphans, capability views, validation
   schema.zig     lexer, parser, AST, layout planner, Zig code generator
   rpc.zig        RPC message vocabulary, state, dispatch, output routing
+tools/
   cpzc.zig       schema-to-Zig command-line compiler
-  bench.zig      dynamic reader microbenchmark
+bench/
+  bench.zig      dynamic reader and serialization microbenchmark
+examples/
+  addressbook.zig           hand-written dynamic API example
+  generated_addressbook.*   end-to-end codegen example
 ```
 
 Dependency direction:
 
 ```text
-wire <- packing/serialize <- message <- schema <- cpzc
+wire <- packing/serialize <- message <- schema <- tools/cpzc
 cpz.zig (facade)
 rpc.zig (uses anytype-based adapters instead of importing generated code)
 ```

@@ -1,9 +1,13 @@
 const std = @import("std");
 
+/// A single Cap'n Proto machine word (8 bytes, little-endian on the wire).
 pub const Word = u64;
+/// Number of bytes in a Cap'n Proto word.
 pub const bytes_per_word: usize = 8;
+/// Number of bits in a Cap'n Proto word.
 pub const bits_per_word: usize = 64;
 
+/// Errors returned while decoding or validating wire pointers and sizes.
 pub const Error = error{
     NullPointer,
     InvalidPointerKind,
@@ -18,6 +22,7 @@ pub const Error = error{
     NonCanonical,
 };
 
+/// The four pointer families encoded in the low two bits of a pointer word.
 pub const PointerType = enum(u2) {
     struct_ptr = 0,
     list = 1,
@@ -53,6 +58,7 @@ pub const PointerType = enum(u2) {
     }
 };
 
+/// List element-size codes used by list pointers and composite-list tags.
 pub const ElementSize = enum(u3) {
     void = 0,
     bit = 1,
@@ -145,6 +151,7 @@ pub const ElementSize = enum(u3) {
     }
 };
 
+/// Data-word and pointer-word counts describing a struct layout.
 pub const StructSize = struct {
     data_words: u16 = 0,
     pointer_count: u16 = 0,
@@ -210,6 +217,7 @@ pub const StructSize = struct {
     }
 };
 
+/// Decoded struct pointer fields. Offsets are signed word distances.
 pub const StructPointer = struct {
     offset_words: i32,
     data_words: u16,
@@ -296,6 +304,7 @@ pub const StructPointer = struct {
     }
 };
 
+/// Decoded list pointer fields. `element_count_or_words` is interpreted by element size.
 pub const ListPointer = struct {
     offset_words: i32,
     element_size: ElementSize,
@@ -406,6 +415,7 @@ pub const ListPointer = struct {
     }
 };
 
+/// Decoded far pointer targeting a landing pad in another segment.
 pub const FarPointer = struct {
     two_word_landing_pad: bool,
     landing_pad_offset: u29,
@@ -444,6 +454,7 @@ pub const FarPointer = struct {
     }
 };
 
+/// Decoded capability pointer carrying a capability-table index.
 pub const CapabilityPointer = struct {
     index: u32,
 
@@ -471,6 +482,7 @@ pub const CapabilityPointer = struct {
     }
 };
 
+/// A pointer word decoded into its concrete family-specific representation.
 pub const DecodedPointer = union(PointerType) {
     struct_ptr: StructPointer,
     list: ListPointer,
@@ -569,6 +581,7 @@ pub inline fn isNull(raw: Word) bool {
     return raw == 0;
 }
 
+/// Decode a raw pointer word into its concrete pointer family.
 pub fn decode(raw: Word) Error!DecodedPointer {
     return switch (pointerType(raw)) {
         .struct_ptr => .{ .struct_ptr = decodeStruct(raw) },
@@ -608,6 +621,7 @@ pub inline fn decodeOther(raw: Word) Error!CapabilityPointer {
     return .{ .index = @as(u32, @truncate(raw >> 32)) };
 }
 
+/// Encode a near struct pointer from a signed offset and struct size.
 pub fn encodeStruct(offset_words: i32, data_words: u16, pointer_count: u16) Error!Word {
     const off = try encodeSigned30(offset_words);
     return @as(Word, @intFromEnum(PointerType.struct_ptr)) |
@@ -616,6 +630,7 @@ pub fn encodeStruct(offset_words: i32, data_words: u16, pointer_count: u16) Erro
         (@as(Word, pointer_count) << 48);
 }
 
+/// Encode a near list pointer. The count field is words for composite lists.
 pub fn encodeList(offset_words: i32, element_size: ElementSize, element_count_or_words: usize) Error!Word {
     if (element_count_or_words > std.math.maxInt(u29)) return error.CountOutOfRange;
     const off = try encodeSigned30(offset_words);
@@ -625,6 +640,7 @@ pub fn encodeList(offset_words: i32, element_size: ElementSize, element_count_or
         (@as(Word, @as(u29, @intCast(element_count_or_words))) << 35);
 }
 
+/// Encode a far pointer to a single- or double-word landing pad.
 pub fn encodeFar(two_word_landing_pad: bool, landing_pad_offset: usize, segment_id: u32) Error!Word {
     if (landing_pad_offset > std.math.maxInt(u29)) return error.CountOutOfRange;
     return @as(Word, @intFromEnum(PointerType.far)) |
@@ -637,6 +653,7 @@ pub inline fn encodeCapability(index: u32) Word {
     return @as(Word, @intFromEnum(PointerType.other)) | (@as(Word, index) << 32);
 }
 
+/// Resolve a signed pointer offset to an absolute word index.
 pub fn targetWordIndex(pointer_word_index: usize, offset_words: i32) Error!usize {
     const base = std.math.add(usize, pointer_word_index, 1) catch return error.PointerOutOfBounds;
     if (offset_words >= 0) {
@@ -653,6 +670,7 @@ pub fn targetWordIndex(pointer_word_index: usize, offset_words: i32) Error!usize
     return base - backward;
 }
 
+/// Compute the signed offset from a pointer word to a target word.
 pub fn offsetFromPointer(pointer_word_index: usize, target_word_index: usize) Error!i32 {
     const base = std.math.add(usize, pointer_word_index, 1) catch return error.OffsetOutOfRange;
     if (target_word_index >= base) {
@@ -704,11 +722,13 @@ pub inline fn wordsForStructList(element_count: usize, size: StructSize) Error!u
     return std.math.mul(usize, element_count, size.totalWords()) catch return error.MessageTooLarge;
 }
 
+/// Encode the tag word that precedes composite struct-list elements.
 pub fn encodeStructListTag(element_count: usize, size: StructSize) Error!Word {
     if (element_count > std.math.maxInt(i29)) return error.CountOutOfRange;
     return try encodeStruct(@intCast(element_count), size.data_words, size.pointer_count);
 }
 
+/// Decode a composite struct-list tag word.
 pub fn decodeStructListTag(raw: Word) Error!struct { element_count: usize, size: StructSize } {
     if (pointerType(raw) != .struct_ptr) return error.InvalidPointerKind;
     const tag = decodeStruct(raw);

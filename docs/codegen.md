@@ -42,6 +42,13 @@ for schema in schemas/*.capnp; do
 done
 ```
 
+A complete generated-code example lives in `examples/generated_addressbook.zig`
+and runs with:
+
+```sh
+zig build run-generated
+```
+
 ## Generated API shape
 
 For a schema such as:

@@ -29,7 +29,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(example);
 
     const bench_mod = b.createModule(.{
-        .root_source_file = b.path("src/bench.zig"),
+        .root_source_file = b.path("bench/bench.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
@@ -41,7 +41,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(bench);
 
     const cpzc_mod = b.createModule(.{
-        .root_source_file = b.path("src/cpzc.zig"),
+        .root_source_file = b.path("tools/cpzc.zig"),
         .target = target,
         .optimize = optimize,
         .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
@@ -53,7 +53,7 @@ pub fn build(b: *std.Build) void {
     b.installArtifact(cpzc);
 
     const cpzc_host_mod = b.createModule(.{
-        .root_source_file = b.path("src/cpzc.zig"),
+        .root_source_file = b.path("tools/cpzc.zig"),
         .target = b.graph.host,
         .optimize = optimize,
         .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
@@ -62,6 +62,34 @@ pub fn build(b: *std.Build) void {
         .name = "cpzc-host",
         .root_module = cpzc_host_mod,
     });
+
+    const run_generated_example_codegen = b.addRunArtifact(cpzc_host);
+    run_generated_example_codegen.addArgs(&.{"--no-metadata"});
+    run_generated_example_codegen.addFileArg(b.path("examples/generated_addressbook.capnp"));
+    const generated_example_schema = b.createModule(.{
+        .root_source_file = run_generated_example_codegen.captureStdOut(.{ .basename = "generated_addressbook_schema.zig" }),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{.{ .name = "cpz", .module = cpz_mod }},
+    });
+    const generated_example_mod = b.createModule(.{
+        .root_source_file = b.path("examples/generated_addressbook.zig"),
+        .target = target,
+        .optimize = optimize,
+        .imports = &.{
+            .{ .name = "cpz", .module = cpz_mod },
+            .{ .name = "generated_addressbook", .module = generated_example_schema },
+        },
+    });
+    const generated_example = b.addExecutable(.{
+        .name = "cpz-generated-addressbook",
+        .root_module = generated_example_mod,
+    });
+    b.installArtifact(generated_example);
+
+    const run_generated_example = b.addRunArtifact(generated_example);
+    const generated_example_step = b.step("run-generated", "Run the generated-code addressbook example");
+    generated_example_step.dependOn(&run_generated_example.step);
 
     const run_bench = b.addRunArtifact(bench);
     const bench_step = b.step("bench", "Run a microbenchmark over dynamic readers");
@@ -80,7 +108,7 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_unit_tests.step);
 
-    addCpzOnlyTest(b, test_step, "src/cpzc.zig", target, optimize, cpz_mod);
+    addCpzOnlyTest(b, test_step, "tools/cpzc.zig", target, optimize, cpz_mod);
     addCpzOnlyTest(b, test_step, "tests/malformed_input_smoke.zig", target, optimize, cpz_mod);
     addCpzOnlyTest(b, test_step, "tests/public_api_smoke.zig", target, optimize, cpz_mod);
     addCpzOnlyTest(b, test_step, "src/rpc.zig", target, optimize, cpz_mod);
@@ -197,13 +225,13 @@ pub fn build(b: *std.Build) void {
 
     const fmt_step = b.step("fmt", "Format Zig sources");
     const fmt = b.addFmt(.{
-        .paths = &.{ "build.zig", "src", "examples", "tests" },
+        .paths = &.{ "build.zig", "src", "tools", "bench", "examples", "tests" },
         .check = false,
     });
     fmt_step.dependOn(&fmt.step);
 
     const check_fmt = b.addFmt(.{
-        .paths = &.{ "build.zig", "src", "examples", "tests" },
+        .paths = &.{ "build.zig", "src", "tools", "bench", "examples", "tests" },
         .check = true,
     });
     const check_step = b.step("check", "Check formatting, compile examples, and run tests");
@@ -211,6 +239,7 @@ pub fn build(b: *std.Build) void {
     check_step.dependOn(test_step);
     check_step.dependOn(&example.step);
     check_step.dependOn(&bench.step);
+    check_step.dependOn(&generated_example.step);
 }
 
 const ExtraImport = struct {

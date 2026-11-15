@@ -77,6 +77,7 @@ pub const Segment = serialize.Segment;
 pub const ConstSegment = serialize.ConstSegment;
 pub const FlatMessage = serialize.FlatMessage;
 pub const FlatMessageView = serialize.FlatMessageView;
+pub const maxSegmentCount = serialize.maxSegmentCount;
 pub const max_segment_count = serialize.max_segment_count;
 pub const computeSerializedSize = serialize.computeSerializedSize;
 pub const computeSerializedSizeInWords = serialize.computeSerializedSizeInWords;
