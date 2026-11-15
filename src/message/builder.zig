@@ -74,7 +74,6 @@ pub const SegmentBuilder = struct {
     fn init(allocator: std.mem.Allocator, capacity_words: usize) !SegmentBuilder {
         var words = try std.ArrayList(wire.Word).initCapacity(allocator, capacity_words);
         try words.resize(allocator, capacity_words);
-        @memset(words.items, 0);
         return .{ .words = words, .used = 0 };
     }
 
@@ -88,6 +87,7 @@ pub const SegmentBuilder = struct {
         if (self.words.items.len - self.used < word_count) return null;
         const start = self.used;
         self.used += word_count;
+        @memset(self.words.items[start..self.used], 0);
         return start;
     }
 
@@ -1255,9 +1255,10 @@ pub const MessageBuilder = struct {
 
     pub fn readWord(self: *MessageBuilder, segment_id: u32, word_index: usize) Error!wire.Word {
         if (segment_id >= self.segments.items.len) return error.SegmentOutOfBounds;
-        const words = self.segments.items[segment_id].words.items;
-        if (word_index >= words.len) return error.SegmentOutOfBounds;
-        return words[word_index];
+        const segment = &self.segments.items[segment_id];
+        if (word_index >= segment.words.items.len) return error.SegmentOutOfBounds;
+        if (word_index >= segment.used) return 0;
+        return segment.words.items[word_index];
     }
 
     pub fn allocObject(self: *MessageBuilder, preferred_segment_id: u32, word_count: usize) Error!SegmentCursor {

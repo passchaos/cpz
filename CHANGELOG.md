@@ -43,9 +43,10 @@ All notable changes to `cpz` are documented here.
 
 ### Changed
 
-- The segment builder no longer re-zeroes memory that was already zeroed when
-  the segment was allocated, and the benchmark now measures message building
-  with `ListBuilder.setAll` (ReleaseFast build time roughly 8.2 us -> 6.4 us).
+- The segment builder now zeroes capacity lazily as words are allocated instead
+  of zeroing the whole first segment up front, and the benchmark measures
+  message building with `ListBuilder.setAll` (ReleaseFast build time roughly
+  8.2 us -> 0.9 us).
 - Allocating `unpack` now allocates the exact decoded size and reuses
   `unpackInto` instead of appending to an `ArrayList` per word; the fixed-buffer
   microbenchmark is about 17% faster.
