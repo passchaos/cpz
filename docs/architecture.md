@@ -36,9 +36,15 @@ src/
     list.zig             list wrappers, element helpers, slice setters
     state.zig            shared codegen state and pointer-default kinds
   schema/zig_names.zig   Zig identifier escaping and keyword avoidance
-  rpc.zig                RPC facade, dispatch helpers, wire apply/init helpers
+  rpc.zig                RPC facade, re-exports, and integration tests
   rpc/types.zig          RPC vocabulary, call/capability/payload types, output plans
   rpc/state.zig          RPC question/answer/capability state machine
+  rpc/wire.zig           wire message init/encode/decode helpers
+  rpc/call.zig           bootstrap/call dispatch and dispatch planning
+  rpc/dispatch_wire.zig  wire-message dispatch and forwarding variants
+  rpc/turn.zig           RPC turn dispatch and output planning
+  rpc/output.zig         service-action output sinks and queues
+  rpc/event.zig          wire event decoding helpers
 tools/
   cpzc.zig       schema-to-Zig command-line compiler
 bench/
@@ -142,15 +148,16 @@ vats, or generated service stubs. See [rpc.md](rpc.md).
 
 ## Structural debt
 
-`src/schema.zig` is now a public facade plus the parser/layout/codegen
-integration test suite. The schema frontend and code generator are split into
-cohesive modules under `src/schema/frontend/` and `src/schema/codegen/`; the
-largest implementation modules are `src/schema/frontend/parser.zig` and the
-emitter modules under `src/schema/codegen/`.
+`src/schema.zig` and `src/rpc.zig` are now public facades plus their integration
+test suites. The schema frontend, schema code generator, and RPC layers are
+split into cohesive modules under `src/schema/frontend/`, `src/schema/codegen/`,
+and `src/rpc/`.
 
-Remaining split targets are the RPC dispatch/wire helper grouping in
-`src/rpc.zig` and, if it keeps growing, extracting the schema integration tests
-from `src/schema.zig` into focused files under `tests/`.
+The largest remaining implementation file is `src/message.zig`. If it keeps
+growing, the intended direction is to split readers/builders, capability views,
+validation, and canonicalization into `src/message/` modules. The schema
+integration tests in `src/schema.zig` can move into focused files under `tests/`
+if the facade starts to grow again.
 
 The runtime should remain low-level and allocation-explicit; convenience layers
 belong above it.
