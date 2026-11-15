@@ -222,73 +222,133 @@ pub fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8) (Error |
 /// same zero-run/raw-run encoding heuristic as pack() without requiring the
 /// caller to materialize the whole unpacked byte sequence.
 pub fn packReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
-    var current: [wire.bytes_per_word]u8 = undefined;
-    var has_current = try readUnpackedReaderWord(reader, &current);
-
-    while (has_current) {
+    var in = ReaderBuffer{ .reader = reader };
+    var out_buf: [4096]u8 = undefined;
+    var out_i: usize = 0;
+    var maybe_current = try in.readWord();
+    while (maybe_current) |current| {
         var tag: u8 = 0;
-        var payload: [wire.bytes_per_word]u8 = undefined;
         var payload_len: usize = 0;
-        inline for (0..wire.bytes_per_word) |j| {
-            const b = current[j];
-            if (b != 0) {
-                tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                payload[payload_len] = b;
-                payload_len += 1;
+        if (out_buf.len - out_i >= wire.bytes_per_word + 1) {
+            out_buf[out_i] = 0;
+            inline for (0..wire.bytes_per_word) |j| {
+                const b = current[j];
+                if (b != 0) {
+                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                    out_buf[out_i + 1 + payload_len] = b;
+                    payload_len += 1;
+                }
             }
+            out_buf[out_i] = tag;
+            out_i += 1 + payload_len;
+        } else {
+            var payload: [wire.bytes_per_word]u8 = undefined;
+            inline for (0..wire.bytes_per_word) |j| {
+                const b = current[j];
+                if (b != 0) {
+                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                    payload[payload_len] = b;
+                    payload_len += 1;
+                }
+            }
+            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{tag});
+            try writeStreamingPackedSlice(writer, &out_buf, &out_i, payload[0..payload_len]);
         }
-        try writer.writeAll(&[_]u8{tag});
-        try writer.writeAll(payload[0..payload_len]);
-        has_current = false;
+        maybe_current = null;
 
         if (tag == 0x00) {
             var run_words: usize = 0;
             while (run_words < 255) {
-                var next: [wire.bytes_per_word]u8 = undefined;
-                if (!try readUnpackedReaderWord(reader, &next)) break;
+                const next = try in.readWord() orelse break;
                 if (!isZeroWord(&next)) {
-                    current = next;
-                    has_current = true;
+                    maybe_current = next;
                     break;
                 }
                 run_words += 1;
             }
-            try writer.writeAll(&[_]u8{@intCast(run_words)});
-            if (!has_current and run_words == 255) has_current = try readUnpackedReaderWord(reader, &current);
+            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{@intCast(run_words)});
+            if (maybe_current == null and run_words == 255) maybe_current = try in.readWord();
         } else if (tag == 0xff) {
             var raw_words: [255 * wire.bytes_per_word]u8 = undefined;
             var run_words: usize = 0;
             while (run_words < 255) {
-                var next: [wire.bytes_per_word]u8 = undefined;
-                if (!try readUnpackedReaderWord(reader, &next)) break;
+                const next = try in.readWord() orelse break;
                 if (!shouldCopyRaw(&next)) {
-                    current = next;
-                    has_current = true;
+                    maybe_current = next;
                     break;
                 }
                 @memcpy(raw_words[run_words * wire.bytes_per_word ..][0..wire.bytes_per_word], &next);
                 run_words += 1;
             }
-            try writer.writeAll(&[_]u8{@intCast(run_words)});
-            try writer.writeAll(raw_words[0 .. run_words * wire.bytes_per_word]);
-            if (!has_current and run_words == 255) has_current = try readUnpackedReaderWord(reader, &current);
+            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{@intCast(run_words)});
+            try writeStreamingPackedSlice(writer, &out_buf, &out_i, raw_words[0 .. run_words * wire.bytes_per_word]);
+            if (maybe_current == null and run_words == 255) maybe_current = try in.readWord();
         } else {
-            has_current = try readUnpackedReaderWord(reader, &current);
+            maybe_current = try in.readWord();
         }
     }
+    if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
 }
 
-fn readUnpackedReaderWord(reader: *std.Io.Reader, word: *[wire.bytes_per_word]u8) (Error || std.Io.Reader.Error)!bool {
-    word[0] = reader.takeByte() catch |err| switch (err) {
-        error.EndOfStream => return false,
-        else => |e| return e,
-    };
-    reader.readSliceAll(word[1..]) catch |err| switch (err) {
-        error.EndOfStream => return error.UnpackedInputNotWordAligned,
-        else => |e| return e,
-    };
-    return true;
-}
+const ReaderBuffer = struct {
+    reader: *std.Io.Reader,
+    buf: [4096]u8 = undefined,
+    pos: usize = 0,
+    len: usize = 0,
+
+    fn refill(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!bool {
+        self.len = try self.reader.readSliceShort(&self.buf);
+        self.pos = 0;
+        return self.len != 0;
+    }
+
+    fn next(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!?u8 {
+        if (self.pos == self.len and !try self.refill()) return null;
+        const b = self.buf[self.pos];
+        self.pos += 1;
+        return b;
+    }
+
+    fn take(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!u8 {
+        return (try self.next()) orelse error.PackedInputTruncated;
+    }
+
+    fn readWord(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!?[wire.bytes_per_word]u8 {
+        if (self.pos == self.len and !try self.refill()) return null;
+        var word: [wire.bytes_per_word]u8 = undefined;
+        if (self.len - self.pos >= wire.bytes_per_word) {
+            @memcpy(&word, self.buf[self.pos..][0..wire.bytes_per_word]);
+            self.pos += wire.bytes_per_word;
+            return word;
+        }
+        const first = self.len - self.pos;
+        @memcpy(word[0..first], self.buf[self.pos..self.len]);
+        self.pos = self.len;
+        self.reader.readSliceAll(word[first..]) catch |err| switch (err) {
+            error.EndOfStream => return error.UnpackedInputNotWordAligned,
+            else => |e| return e,
+        };
+        return word;
+    }
+
+    fn copyExact(self: *ReaderBuffer, dest: []u8) (Error || std.Io.Reader.Error)!void {
+        var off: usize = 0;
+        if (self.pos != self.len) {
+            const chunk = @min(dest.len, self.len - self.pos);
+            @memcpy(dest[0..chunk], self.buf[self.pos..][0..chunk]);
+            self.pos += chunk;
+            off = chunk;
+        }
+        if (off < dest.len) {
+            self.reader.readSliceAll(dest[off..]) catch |err| switch (err) {
+                error.EndOfStream => return error.PackedInputTruncated,
+                else => |e| return e,
+            };
+            self.pos = 0;
+            self.len = 0;
+        }
+    }
+};
 
 /// Decode a packed Cap'n Proto stream into a newly-allocated word-aligned byte
 /// sequence. The returned slice length is always a multiple of 8.
@@ -415,49 +475,64 @@ fn writeZeroesToWriter(writer: *std.Io.Writer, byte_count: usize) std.Io.Writer.
 /// Decode a packed Cap'n Proto stream from an Io reader directly to an Io
 /// writer without allocating the complete packed or unpacked byte sequence.
 pub fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
+    var in = ReaderBuffer{ .reader = reader };
+    var out_buf: [4096]u8 = undefined;
+    var out_i: usize = 0;
     while (true) {
-        const tag = reader.takeByte() catch |err| switch (err) {
-            error.EndOfStream => return,
-            else => |e| return e,
-        };
+        if (in.pos == in.len and !try in.refill()) break;
+        const tag = in.buf[in.pos];
+        in.pos += 1;
 
-        var word = [_]u8{0} ** wire.bytes_per_word;
-        inline for (0..wire.bytes_per_word) |j| {
-            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
-                word[j] = try takePackedReaderByte(reader);
+        if (out_buf.len - out_i < wire.bytes_per_word) {
+            if (out_i != 0) {
+                try writer.writeAll(out_buf[0..out_i]);
+                out_i = 0;
             }
         }
-        try writer.writeAll(&word);
+        @memset(out_buf[out_i..][0..wire.bytes_per_word], 0);
+        if (in.len - in.pos >= wire.bytes_per_word) {
+            inline for (0..wire.bytes_per_word) |j| {
+                if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                    out_buf[out_i + j] = in.buf[in.pos];
+                    in.pos += 1;
+                }
+            }
+        } else {
+            inline for (0..wire.bytes_per_word) |j| {
+                if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                    out_buf[out_i + j] = try in.take();
+                }
+            }
+        }
+        out_i += wire.bytes_per_word;
 
         if (tag == 0x00) {
-            const additional_bytes = @as(usize, try takePackedReaderByte(reader)) * wire.bytes_per_word;
-            try writeZeroesToWriter(writer, additional_bytes);
+            var remaining = @as(usize, try in.take()) * wire.bytes_per_word;
+            while (remaining != 0) {
+                if (out_i == out_buf.len) {
+                    try writer.writeAll(out_buf[0..out_i]);
+                    out_i = 0;
+                }
+                const chunk = @min(remaining, out_buf.len - out_i);
+                @memset(out_buf[out_i..][0..chunk], 0);
+                out_i += chunk;
+                remaining -= chunk;
+            }
         } else if (tag == 0xff) {
-            const raw_bytes = @as(usize, try takePackedReaderByte(reader)) * wire.bytes_per_word;
-            try copyPackedReaderBytesToWriter(reader, writer, raw_bytes);
+            var remaining = @as(usize, try in.take()) * wire.bytes_per_word;
+            while (remaining != 0) {
+                if (out_i == out_buf.len) {
+                    try writer.writeAll(out_buf[0..out_i]);
+                    out_i = 0;
+                }
+                const chunk = @min(remaining, out_buf.len - out_i);
+                try in.copyExact(out_buf[out_i..][0..chunk]);
+                out_i += chunk;
+                remaining -= chunk;
+            }
         }
     }
-}
-
-fn takePackedReaderByte(reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!u8 {
-    return reader.takeByte() catch |err| switch (err) {
-        error.EndOfStream => error.PackedInputTruncated,
-        else => |e| e,
-    };
-}
-
-fn copyPackedReaderBytesToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer, byte_count: usize) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
-    var buffer: [4096]u8 = undefined;
-    var remaining = byte_count;
-    while (remaining != 0) {
-        const chunk = @min(remaining, buffer.len);
-        reader.readSliceAll(buffer[0..chunk]) catch |err| switch (err) {
-            error.EndOfStream => return error.PackedInputTruncated,
-            else => |e| return e,
-        };
-        try writer.writeAll(buffer[0..chunk]);
-        remaining -= chunk;
-    }
+    if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
 }
 
 fn writePackedSlice(dest: []u8, out_i: *usize, bytes: []const u8) Error!void {

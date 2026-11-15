@@ -55,6 +55,11 @@ All notable changes to `cpz` are documented here.
 - `packToWriter` and `unpackToWriter` now batch through a 4 KB buffer, and
   `packToWriter` writes tag/payload directly into it, roughly halving streaming
   time versus per-slice writer calls. The benchmark now measures both paths.
+- `packReaderToWriter` and `unpackReaderToWriter` now read through a 4 KB
+  buffer, and unpack decodes words directly from it when enough bytes are
+  buffered; fixed-buffer microbenchmarks show roughly 6.6 us -> 2.3 us for
+  reader packing and 13.7 us -> 3.2 us for reader unpacking. The benchmark now
+  measures both reader-to-writer paths.
 - Allocating `pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks
   to the written length, avoiding the packed-size pre-pass and per-word
   `ArrayList` appends; it is roughly 4x faster in a fixed-buffer microbenchmark,

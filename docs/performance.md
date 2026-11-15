@@ -22,51 +22,58 @@ The current benchmark:
   list with `ListReader.getAll`, flat serialization into a caller buffer, packed
   serialization into a caller buffer, allocating packed serialization with
   `messageToPackedBytes`, allocating raw packing with `pack`, streaming packing
-  with `packToWriter`, unpacking into a caller buffer, and streaming unpacking
-  with `unpackToWriter`.
+  with `packToWriter` and `packReaderToWriter`, unpacking into a caller buffer,
+  and streaming unpacking with `unpackToWriter` and `unpackReaderToWriter`.
 
 Example output on the current aarch64 development host:
 
 ```text
 # Debug
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 161711117 ns total, 808.6 ns/op
-bulk read list: 50000 iterations, 12881187 ns total, 257.6 ns/op
-build message: 50000 iterations, 821580662 ns total, 16431.6 ns/op
-flat serialize: 50000 iterations, 17728116 ns total, 354.6 ns/op
-packed serialize: 50000 iterations, 862873874 ns total, 17257.5 ns/op
-packed serialize (allocating): 50000 iterations, 935215468 ns total, 18704.3 ns/op
-pack (allocating): 50000 iterations, 912121125 ns total, 18242.4 ns/op
-pack to writer: 50000 iterations, 778140351 ns total, 15562.8 ns/op
-unpack: 50000 iterations, 655504564 ns total, 13110.1 ns/op
-unpack to writer: 50000 iterations, 610182117 ns total, 12203.6 ns/op
+dynamic reader: 200000 iterations, 163281743 ns total, 816.4 ns/op
+bulk read list: 50000 iterations, 13100152 ns total, 262.0 ns/op
+build message: 50000 iterations, 820873511 ns total, 16417.5 ns/op
+flat serialize: 50000 iterations, 17624568 ns total, 352.5 ns/op
+packed serialize: 50000 iterations, 863161200 ns total, 17263.2 ns/op
+packed serialize (allocating): 50000 iterations, 935812750 ns total, 18716.3 ns/op
+pack (allocating): 50000 iterations, 911944664 ns total, 18238.9 ns/op
+pack to writer: 50000 iterations, 778003789 ns total, 15560.1 ns/op
+pack reader to writer: 50000 iterations, 1472725453 ns total, 29454.5 ns/op
+unpack: 50000 iterations, 645388432 ns total, 12907.8 ns/op
+unpack to writer: 50000 iterations, 611924074 ns total, 12238.5 ns/op
+unpack reader to writer: 50000 iterations, 630148806 ns total, 12603.0 ns/op
 
 # ReleaseFast
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 6604942 ns total, 33.0 ns/op
-bulk read list: 50000 iterations, 2567392 ns total, 51.3 ns/op
-build message: 50000 iterations, 46072603 ns total, 921.5 ns/op
-flat serialize: 50000 iterations, 118779 ns total, 2.4 ns/op
-packed serialize: 50000 iterations, 75204847 ns total, 1504.1 ns/op
-packed serialize (allocating): 50000 iterations, 75857677 ns total, 1517.2 ns/op
-pack (allocating): 50000 iterations, 75084205 ns total, 1501.7 ns/op
-pack to writer: 50000 iterations, 96745591 ns total, 1934.9 ns/op
-unpack: 50000 iterations, 84443928 ns total, 1688.9 ns/op
-unpack to writer: 50000 iterations, 113285728 ns total, 2265.7 ns/op
+dynamic reader: 200000 iterations, 6491904 ns total, 32.5 ns/op
+bulk read list: 50000 iterations, 2557493 ns total, 51.1 ns/op
+build message: 50000 iterations, 46251667 ns total, 925.0 ns/op
+flat serialize: 50000 iterations, 3001487 ns total, 60.0 ns/op
+packed serialize: 50000 iterations, 72481740 ns total, 1449.6 ns/op
+packed serialize (allocating): 50000 iterations, 73158363 ns total, 1463.2 ns/op
+pack (allocating): 50000 iterations, 72536685 ns total, 1450.7 ns/op
+pack to writer: 50000 iterations, 124340173 ns total, 2486.8 ns/op
+pack reader to writer: 50000 iterations, 131666586 ns total, 2633.3 ns/op
+unpack: 50000 iterations, 67449820 ns total, 1349.0 ns/op
+unpack to writer: 50000 iterations, 241652330 ns total, 4833.0 ns/op
+unpack reader to writer: 50000 iterations, 157181690 ns total, 3143.6 ns/op
 ```
 
 These numbers are a local smoke baseline, not a cross-engine claim; absolute
-values vary with host load.
+values vary with host load, and the flat path is memory-bandwidth-bound.
 `packInto` now writes the tag and payload bytes directly into the destination
 when at least one word of headroom is available, avoiding a stack payload buffer
 and two per-slice bounds checks. This cut packed serialization time by roughly
 50% in ReleaseFast (3.1 us -> 1.4 us per 4 KB message). `packToWriter` and
-`unpackToWriter` now batch through a 4 KB buffer (and pack writes tag/payload
-directly into it), roughly halving streaming time versus the previous per-slice
-writes. The allocating `pack` now allocates `maxPackedSize`, uses `packInto`,
-and shrinks to the written length, avoiding the packed-size pre-pass and
-per-word `ArrayList` appends; it is roughly 4x faster in a fixed-buffer
-microbenchmark. `ListReader.getAll`
+`unpackToWriter` batch through a 4 KB buffer (and pack writes tag/payload
+directly into it), roughly halving streaming time versus per-slice writer
+calls. `packReaderToWriter` and `unpackReaderToWriter` now read through a 4 KB
+buffer as well, and unpack decodes words directly from that buffer when enough
+bytes are available; fixed-buffer microbenchmarks show roughly 6.6 us -> 2.3 us
+for reader packing and 13.7 us -> 3.2 us for reader unpacking. The allocating
+`pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks to the written
+length, avoiding the packed-size pre-pass and per-word `ArrayList` appends; it is
+roughly 4x faster in a fixed-buffer microbenchmark. `ListReader.getAll`
 copies a primitive list in one pass, and `ListBuilder.setAll` does the same for
 writes. `getSlice`/`setSlice` provide the same fast path for subranges. A
 fixed-buffer microbenchmark of the 1,024-element UInt32 list measures roughly

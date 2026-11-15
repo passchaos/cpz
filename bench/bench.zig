@@ -69,6 +69,8 @@ pub fn main() !void {
     var pack_alloc_ns: u64 = std.math.maxInt(u64);
     var stream_pack_ns: u64 = std.math.maxInt(u64);
     var stream_unpack_ns: u64 = std.math.maxInt(u64);
+    var stream_pack_reader_ns: u64 = std.math.maxInt(u64);
+    var stream_unpack_reader_ns: u64 = std.math.maxInt(u64);
     var build_ns: u64 = std.math.maxInt(u64);
     var flat_buffer: [128 * 1024]u8 = undefined;
     var packed_buffer: [128 * 1024]u8 = undefined;
@@ -154,6 +156,28 @@ pub fn main() !void {
         }
         stream_unpack_ns = @min(stream_unpack_ns, @as(u64, @intCast(stream_unpack_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
         std.mem.doNotOptimizeAway(stream_unpack_checksum);
+
+        const stream_pack_reader_start = std.Io.Clock.awake.now(io);
+        var stream_pack_reader_checksum: usize = 0;
+        for (0..serialize_iterations) |_| {
+            var reader = std.Io.Reader.fixed(flat_bytes);
+            var writer = std.Io.Writer.fixed(&stream_buffer);
+            try cpz.packReaderToWriter(&reader, &writer);
+            stream_pack_reader_checksum +%= writer.end;
+        }
+        stream_pack_reader_ns = @min(stream_pack_reader_ns, @as(u64, @intCast(stream_pack_reader_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
+        std.mem.doNotOptimizeAway(stream_pack_reader_checksum);
+
+        const stream_unpack_reader_start = std.Io.Clock.awake.now(io);
+        var stream_unpack_reader_checksum: usize = 0;
+        for (0..serialize_iterations) |_| {
+            var reader = std.Io.Reader.fixed(packed_bytes);
+            var writer = std.Io.Writer.fixed(&stream_buffer);
+            try cpz.unpackReaderToWriter(&reader, &writer);
+            stream_unpack_reader_checksum +%= writer.end;
+        }
+        stream_unpack_reader_ns = @min(stream_unpack_reader_ns, @as(u64, @intCast(stream_unpack_reader_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
+        std.mem.doNotOptimizeAway(stream_unpack_reader_checksum);
     }
 
     printResult("dynamic reader", reader_ns, reader_iterations);
@@ -164,8 +188,10 @@ pub fn main() !void {
     printResult("packed serialize (allocating)", packed_alloc_ns, serialize_iterations);
     printResult("pack (allocating)", pack_alloc_ns, serialize_iterations);
     printResult("pack to writer", stream_pack_ns, serialize_iterations);
+    printResult("pack reader to writer", stream_pack_reader_ns, serialize_iterations);
     printResult("unpack", unpack_ns, serialize_iterations);
     printResult("unpack to writer", stream_unpack_ns, serialize_iterations);
+    printResult("unpack reader to writer", stream_unpack_reader_ns, serialize_iterations);
 }
 
 fn buildBenchMessage(allocator: std.mem.Allocator, values: []const u32) !cpz.MessageBuilder {
