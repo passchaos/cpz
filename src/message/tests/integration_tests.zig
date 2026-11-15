@@ -966,6 +966,33 @@ test "primitive and struct lists" {
     try testing.expectEqual(@as(u16, 44), try nums.getUInt16(1));
 }
 
+test "ListBuilder.setAll copies primitive slices" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 4 });
+
+    const u32s = try (try root.getPointerField(0)).initList(.four_bytes, 4);
+    try u32s.setAll(u32, &[_]u32{ 1, 2, 0xdeadbeef, 4 });
+    try testing.expectEqual(@as(u32, 0xdeadbeef), try u32s.getUInt32(2));
+
+    const u16s = try (try root.getPointerField(1)).initList(.two_bytes, 3);
+    try u16s.setAll(u16, &[_]u16{ 10, 20, 30 });
+    try testing.expectEqual(@as(u16, 20), try u16s.getUInt16(1));
+    try testing.expectError(error.IncompatibleListShape, u16s.setAll(u32, &[_]u32{ 1, 2, 3 }));
+    try testing.expectError(error.PointerOutOfBounds, u16s.setAll(u16, &[_]u16{ 1, 2 }));
+
+    const floats = try (try root.getPointerField(2)).initList(.four_bytes, 2);
+    try floats.setAll(f32, &[_]f32{ 1.5, -2.25 });
+    try testing.expectEqual(@as(f32, 1.5), try floats.getFloat32(0));
+
+    const bits = try (try root.getPointerField(3)).initList(.bit, 5);
+    try bits.setAll(bool, &[_]bool{ true, false, true, true, false });
+    try testing.expect(try bits.getBool(0));
+    try testing.expect(!try bits.getBool(1));
+    try testing.expect(try bits.getBool(3));
+}
+
 test "primitive lists expose raw bytes" {
     const testing = std.testing;
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });

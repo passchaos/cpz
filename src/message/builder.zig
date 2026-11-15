@@ -88,7 +88,6 @@ pub const SegmentBuilder = struct {
         if (self.words.items.len - self.used < word_count) return null;
         const start = self.used;
         self.used += word_count;
-        @memset(self.words.items[start..self.used], 0);
         return start;
     }
 

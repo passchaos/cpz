@@ -325,6 +325,38 @@ pub const ListBuilder = struct {
         self.message.segments.items[self.segment_id].words.items[word_index] = word;
     }
 
+    /// Copy a primitive slice into the whole list. The list shape must match
+    /// `T`, and `values.len` must equal the list length.
+    pub fn setAll(self: ListBuilder, comptime T: type, values: []const T) Error!void {
+        if (values.len != self.element_count) return error.PointerOutOfBounds;
+        switch (@typeInfo(T)) {
+            .bool => {
+                if (self.element_size != .bit) return error.IncompatibleListShape;
+                for (values, 0..) |value, index| try self.setBool(index, value);
+                return;
+            },
+            .int, .float => {},
+            else => @compileError("ListBuilder.setAll supports int, float, and bool elements"),
+        }
+        if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
+        if (self.limit_element_data_bits and @bitSizeOf(T) > self.element_data_bits) return error.PointerOutOfBounds;
+        const U = std.meta.Int(.unsigned, @bitSizeOf(T));
+        if (!self.isCompactPrimitiveView()) {
+            for (values, 0..) |value, index| try self.setPrimitive(U, index, @bitCast(value));
+            return;
+        }
+        const dest = try self.bytesChecked();
+        const byte_len = std.math.mul(usize, values.len, @sizeOf(T)) catch return error.MessageTooLarge;
+        if (dest.len < byte_len) return error.PointerOutOfBounds;
+        if (@import("builtin").cpu.arch.endian() == .little) {
+            @memcpy(dest[0..byte_len], std.mem.sliceAsBytes(values));
+        } else {
+            for (values, 0..) |value, index| {
+                std.mem.writeInt(U, dest[index * @sizeOf(T) ..][0..@sizeOf(T)], @bitCast(value), .little);
+            }
+        }
+    }
+
     pub fn getBool(self: ListBuilder, index: usize) Error!bool {
         if (self.element_size != .bit or index >= self.element_count) return error.PointerOutOfBounds;
         if (self.limit_element_data_bits and self.element_data_bits == 0) return error.PointerOutOfBounds;

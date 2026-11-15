@@ -14,46 +14,52 @@ zig build bench -Doptimize=ReleaseFast
 The current benchmark:
 
 - builds a small message with a scalar, text field, and 1,024-element UInt32
-  list;
+  list using `ListBuilder.setAll`;
 - serializes it to flat and packed bytes;
 - parses it once;
 - runs five rounds and reports the best round;
-- measures dynamic reader iteration, flat serialization into a caller buffer,
-  packed serialization into a caller buffer, allocating packed serialization,
-  and unpacking into a caller buffer.
+- measures message building, dynamic reader iteration, flat serialization into a
+  caller buffer, packed serialization into a caller buffer, allocating packed
+  serialization, and unpacking into a caller buffer.
 
 Example output on the current aarch64 development host:
 
 ```text
 # Debug
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 163042795 ns total, 815.2 ns/op
-flat serialize: 50000 iterations, 17526970 ns total, 350.5 ns/op
-packed serialize: 50000 iterations, 1432350992 ns total, 28647.0 ns/op
-packed serialize (allocating): 50000 iterations, 1617108351 ns total, 32342.2 ns/op
-unpack: 50000 iterations, 646709967 ns total, 12934.2 ns/op
+dynamic reader: 200000 iterations, 160987938 ns total, 804.9 ns/op
+build message: 50000 iterations, 1099183799 ns total, 21983.7 ns/op
+flat serialize: 50000 iterations, 17744922 ns total, 354.9 ns/op
+packed serialize: 50000 iterations, 1449109423 ns total, 28982.2 ns/op
+packed serialize (allocating): 50000 iterations, 1631722787 ns total, 32634.5 ns/op
+unpack: 50000 iterations, 643916118 ns total, 12878.3 ns/op
 
 # ReleaseFast
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 3979225 ns total, 19.9 ns/op
-flat serialize: 50000 iterations, 117668 ns total, 2.4 ns/op
-packed serialize: 50000 iterations, 157603388 ns total, 3152.1 ns/op
-packed serialize (allocating): 50000 iterations, 158626093 ns total, 3172.5 ns/op
-unpack: 50000 iterations, 77231651 ns total, 1544.6 ns/op
+dynamic reader: 200000 iterations, 3859966 ns total, 19.3 ns/op
+build message: 50000 iterations, 320917966 ns total, 6418.4 ns/op
+flat serialize: 50000 iterations, 117714 ns total, 2.4 ns/op
+packed serialize: 50000 iterations, 151788253 ns total, 3035.8 ns/op
+packed serialize (allocating): 50000 iterations, 152468435 ns total, 3049.4 ns/op
+unpack: 50000 iterations, 67294541 ns total, 1345.9 ns/op
 ```
 
 These numbers are a local smoke baseline, not a cross-engine claim.
-`messageToPackedBytesInto` no longer performs a redundant packed-size pre-pass;
-it relies on `packInto` bounds checks and may leave a partial prefix when the
-destination is too small. This cut packed serialization time by roughly 40% in
-both Debug and ReleaseFast. The allocating `messageToPackedBytes` now allocates
-`maxPackedMessageSize` once and shrinks to the written length, avoiding a full
-size pre-pass; it is also about 40% faster in the fixed-buffer microbenchmark.
-The allocating `unpack` now computes the exact decoded size and reuses
-`unpackInto` instead of appending to an `ArrayList` per word, which is about 17%
-faster in a fixed-buffer microbenchmark. Packed output is still slower than
-flat output because it must scan tags and compress payload bytes; further
-word-level optimizations are tracked as follow-up work.
+`ListBuilder.setAll` copies primitive slices in one pass, and the segment
+builder no longer re-zeroes memory that was already zeroed when the segment was
+allocated. Together these cut message build time from roughly 8.2 us to 6.4 us
+in ReleaseFast. `messageToPackedBytesInto` no longer performs a redundant
+packed-size pre-pass; it relies on `packInto` bounds checks and may leave a
+partial prefix when the destination is too small. This cut packed serialization
+time by roughly 40% in both Debug and ReleaseFast. The allocating
+`messageToPackedBytes` now allocates `maxPackedMessageSize` once and shrinks to
+the written length, avoiding a full size pre-pass; it is also about 40% faster
+in the fixed-buffer microbenchmark. The allocating `unpack` now computes the
+exact decoded size and reuses `unpackInto` instead of appending to an
+`ArrayList` per word, which is about 17% faster in a fixed-buffer
+microbenchmark. Packed output is still slower than flat output because it must
+scan tags and compress payload bytes; further word-level optimizations are
+tracked as follow-up work.
 
 ## Codegen size
 

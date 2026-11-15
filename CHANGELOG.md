@@ -31,6 +31,8 @@ All notable changes to `cpz` are documented here.
   Orphan wrapper types and typed orphan/copy helpers. Combining
   `--minimal --no-orphans` drops the smoke schema to 20,216 lines / 1.0 MB and
   the two-field schema to 298 lines / 10.5 KB.
+- `ListBuilder.setAll(T, values)` copies primitive slices (including floats and
+  bools) into a whole list in one pass instead of calling `set*` per element.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to
@@ -41,6 +43,9 @@ All notable changes to `cpz` are documented here.
 
 ### Changed
 
+- The segment builder no longer re-zeroes memory that was already zeroed when
+  the segment was allocated, and the benchmark now measures message building
+  with `ListBuilder.setAll` (ReleaseFast build time roughly 8.2 us -> 6.4 us).
 - Allocating `unpack` now allocates the exact decoded size and reuses
   `unpackInto` instead of appending to an `ArrayList` per word; the fixed-buffer
   microbenchmark is about 17% faster.

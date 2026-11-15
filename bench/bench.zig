@@ -11,13 +11,11 @@ pub fn main() !void {
     const allocator = gpa_state.allocator();
     const io = std.Io.Threaded.global_single_threaded.io();
 
-    var builder = try cpz.MessageBuilder.init(allocator, .{ .first_segment_words = 4096 });
+    var values: [1024]u32 = undefined;
+    for (0..values.len) |i| values[i] = @intCast(i);
+
+    var builder = try buildBenchMessage(allocator, &values);
     defer builder.deinit();
-    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 2 });
-    try root.setUInt32(0, 42, 0);
-    try root.setText(0, "benchmark payload");
-    const nums = try (try root.getPointerField(1)).initList(.four_bytes, 1024);
-    for (0..nums.len()) |i| try nums.setUInt32(i, @intCast(i));
 
     const segments = try builder.segmentsConst();
     const flat_bytes = try cpz.messageToFlatBytes(allocator, segments);
@@ -51,13 +49,27 @@ pub fn main() !void {
     var packed_ns: u64 = std.math.maxInt(u64);
     var unpack_ns: u64 = std.math.maxInt(u64);
     var packed_alloc_ns: u64 = std.math.maxInt(u64);
+    var build_ns: u64 = std.math.maxInt(u64);
     var flat_buffer: [128 * 1024]u8 = undefined;
     var packed_buffer: [128 * 1024]u8 = undefined;
     var unpacked_buffer: [128 * 1024]u8 = undefined;
     var table_buffer: [128]u8 = undefined;
     var packed_alloc_buffer: [128 * 1024]u8 = undefined;
     var packed_alloc_allocator = std.heap.FixedBufferAllocator.init(&packed_alloc_buffer);
+    var build_buffer: [128 * 1024]u8 = undefined;
+    var build_allocator = std.heap.FixedBufferAllocator.init(&build_buffer);
     for (0..rounds) |_| {
+        const build_start = std.Io.Clock.awake.now(io);
+        var build_checksum: usize = 0;
+        for (0..serialize_iterations) |_| {
+            build_allocator.reset();
+            var built = try buildBenchMessage(build_allocator.allocator(), &values);
+            defer built.deinit();
+            build_checksum +%= (try built.segmentsConst())[0].len;
+        }
+        build_ns = @min(build_ns, @as(u64, @intCast(build_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
+        std.mem.doNotOptimizeAway(build_checksum);
+
         const flat_start = std.Io.Clock.awake.now(io);
         var flat_checksum: usize = 0;
         for (0..serialize_iterations) |_| {
@@ -93,10 +105,22 @@ pub fn main() !void {
     }
 
     printResult("dynamic reader", reader_ns, reader_iterations);
+    printResult("build message", build_ns, serialize_iterations);
     printResult("flat serialize", flat_ns, serialize_iterations);
     printResult("packed serialize", packed_ns, serialize_iterations);
     printResult("packed serialize (allocating)", packed_alloc_ns, serialize_iterations);
     printResult("unpack", unpack_ns, serialize_iterations);
+}
+
+fn buildBenchMessage(allocator: std.mem.Allocator, values: []const u32) !cpz.MessageBuilder {
+    var builder = try cpz.MessageBuilder.init(allocator, .{ .first_segment_words = 4096 });
+    errdefer builder.deinit();
+    const root = try builder.initRoot(.{ .data_words = 1, .pointer_count = 2 });
+    try root.setUInt32(0, 42, 0);
+    try root.setText(0, "benchmark payload");
+    const nums = try (try root.getPointerField(1)).initList(.four_bytes, values.len);
+    try nums.setAll(u32, values);
+    return builder;
 }
 
 fn readRound(reader: *cpz.MessageReader, iterations: usize) !u64 {
