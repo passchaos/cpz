@@ -31,6 +31,21 @@ All notable changes to `cpz` are documented here.
   `src/rpc/types.zig` and `src/rpc/state.zig`, reducing `src/rpc.zig` size.
 - The schema lexer/parser/AST/layout front-end was extracted into
   `src/schema/frontend.zig`, reducing `src/schema.zig` size.
+- The schema frontend now lives in cohesive modules under
+  `src/schema/frontend/` (types, parser, layout, validation, resolution, embed),
+  with `src/schema/frontend.zig` as a compatibility facade.
+- The schema code generator now lives in cohesive modules under
+  `src/schema/codegen/` (entry, validation, text, flat buffers, consts, field
+  defaults, metadata, interfaces, structs, pointers, lists, state), with
+  `src/schema/codegen.zig` as a compatibility facade.
+- Shared schema helpers moved into the frontend and `src/schema/zig_names.zig`,
+  removing the frontend-to-facade import cycle and pruning dead facade aliases.
+- RPC dispatch and wire helpers now live in cohesive modules under `src/rpc/`
+  (wire, call, dispatch_wire, turn, output, event), with `src/rpc.zig` keeping
+  the public facade and integration tests.
+- The dynamic message runtime now lives in cohesive modules under
+  `src/message/` (options, capability, reader, builder, pointer, struct, list,
+  validate), with `src/message.zig` keeping the public facade and tests.
 - Documentation was restructured into architecture, codegen, compatibility,
   performance, RPC, design, contributing, and security documents.
 - README was rewritten as a concise entry point with quick starts and status
