@@ -166,18 +166,33 @@ pub fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8) (Error |
     var i: usize = 0;
     while (i < unpacked_bytes.len) {
         var tag: u8 = 0;
-        var payload: [wire.bytes_per_word]u8 = undefined;
         var payload_len: usize = 0;
-        inline for (0..wire.bytes_per_word) |j| {
-            const b = unpacked_bytes[i + j];
-            if (b != 0) {
-                tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                payload[payload_len] = b;
-                payload_len += 1;
+        if (out_buf.len - out_i >= wire.bytes_per_word + 1) {
+            const word: [wire.bytes_per_word]u8 = unpacked_bytes[i..][0..wire.bytes_per_word].*;
+            out_buf[out_i] = 0;
+            inline for (0..wire.bytes_per_word) |j| {
+                const b = word[j];
+                if (b != 0) {
+                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                    out_buf[out_i + 1 + payload_len] = b;
+                    payload_len += 1;
+                }
             }
+            out_buf[out_i] = tag;
+            out_i += 1 + payload_len;
+        } else {
+            var payload: [wire.bytes_per_word]u8 = undefined;
+            inline for (0..wire.bytes_per_word) |j| {
+                const b = unpacked_bytes[i + j];
+                if (b != 0) {
+                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                    payload[payload_len] = b;
+                    payload_len += 1;
+                }
+            }
+            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{tag});
+            try writeStreamingPackedSlice(writer, &out_buf, &out_i, payload[0..payload_len]);
         }
-        try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{tag});
-        try writeStreamingPackedSlice(writer, &out_buf, &out_i, payload[0..payload_len]);
         i += wire.bytes_per_word;
 
         if (tag == 0x00) {
@@ -328,35 +343,63 @@ pub fn unpackInto(dest: []u8, packed_bytes: []const u8) Error!usize {
 /// Decode a packed Cap'n Proto byte slice directly to an Io writer without
 /// allocating the complete unpacked output.
 pub fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8) (Error || std.Io.Writer.Error)!void {
+    var out_buf: [4096]u8 = undefined;
+    var out_i: usize = 0;
     var i: usize = 0;
     while (i < packed_bytes.len) {
         const tag = packed_bytes[i];
         i += 1;
 
-        var word = [_]u8{0} ** wire.bytes_per_word;
+        if (out_buf.len - out_i < wire.bytes_per_word) {
+            if (out_i != 0) {
+                try writer.writeAll(out_buf[0..out_i]);
+                out_i = 0;
+            }
+        }
+        @memset(out_buf[out_i..][0..wire.bytes_per_word], 0);
         inline for (0..wire.bytes_per_word) |j| {
             if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
                 if (i >= packed_bytes.len) return error.PackedInputTruncated;
-                word[j] = packed_bytes[i];
+                out_buf[out_i + j] = packed_bytes[i];
                 i += 1;
             }
         }
-        try writer.writeAll(&word);
+        out_i += wire.bytes_per_word;
 
         if (tag == 0x00) {
             if (i >= packed_bytes.len) return error.PackedInputTruncated;
-            const additional_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
+            var remaining = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
             i += 1;
-            try writeZeroesToWriter(writer, additional_bytes);
+            while (remaining != 0) {
+                if (out_i == out_buf.len) {
+                    try writer.writeAll(out_buf[0..out_i]);
+                    out_i = 0;
+                }
+                const chunk = @min(remaining, out_buf.len - out_i);
+                @memset(out_buf[out_i..][0..chunk], 0);
+                out_i += chunk;
+                remaining -= chunk;
+            }
         } else if (tag == 0xff) {
             if (i >= packed_bytes.len) return error.PackedInputTruncated;
             const raw_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
             i += 1;
             if (packed_bytes.len - i < raw_bytes) return error.PackedInputTruncated;
-            try writer.writeAll(packed_bytes[i .. i + raw_bytes]);
+            var src = packed_bytes[i .. i + raw_bytes];
+            while (src.len != 0) {
+                if (out_i == out_buf.len) {
+                    try writer.writeAll(out_buf[0..out_i]);
+                    out_i = 0;
+                }
+                const chunk = @min(src.len, out_buf.len - out_i);
+                @memcpy(out_buf[out_i..][0..chunk], src[0..chunk]);
+                out_i += chunk;
+                src = src[chunk..];
+            }
             i += raw_bytes;
         }
     }
+    if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
 }
 
 fn writeZeroesToWriter(writer: *std.Io.Writer, byte_count: usize) std.Io.Writer.Error!void {
