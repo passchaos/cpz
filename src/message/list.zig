@@ -341,7 +341,10 @@ pub const ListBuilder = struct {
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
         if (self.limit_element_data_bits and @bitSizeOf(T) > self.element_data_bits) return error.PointerOutOfBounds;
         const U = std.meta.Int(.unsigned, @bitSizeOf(T));
-        if (!self.isCompactPrimitiveView()) {
+        const compact = self.bit_offset == 0 and
+            self.element_size != .pointer and self.element_size != .composite and
+            self.step_bits == wire.bitsPerElement(self.element_size);
+        if (!compact) {
             for (values, 0..) |value, index| try self.setPrimitive(U, index, @bitCast(value));
             return;
         }
@@ -884,6 +887,42 @@ pub const ListReader = struct {
         if (self.element_size == .pointer or self.element_size == .composite) return error.IncompatibleListShape;
         if (self.bit_offset % 8 != 0) return error.UnsupportedElementSize;
         return self.bytesChecked();
+    }
+
+    /// Copy the whole primitive list into `out`. `out.len` must equal the list
+    /// length, and the list shape must match `T`.
+    pub fn getAll(self: ListReader, comptime T: type, out: []T) Error!void {
+        if (out.len != self.element_count) return error.PointerOutOfBounds;
+        switch (@typeInfo(T)) {
+            .bool => {
+                if (self.element_size != .bit) return error.IncompatibleListShape;
+                for (out, 0..) |*value, index| value.* = self.getBool(index);
+                return;
+            },
+            .int, .float => {},
+            else => @compileError("ListReader.getAll supports int, float, and bool elements"),
+        }
+        if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
+        if (self.limit_element_data_bits and @bitSizeOf(T) > self.element_data_bits) return error.PointerOutOfBounds;
+        const U = std.meta.Int(.unsigned, @bitSizeOf(T));
+        const compact = self.bit_offset == 0 and
+            self.element_size != .pointer and self.element_size != .composite and
+            self.step_bits == wire.bitsPerElement(self.element_size);
+        if (!compact) {
+            for (out, 0..) |*value, index| value.* = @bitCast(try self.getPrimitive(U, index));
+            return;
+        }
+        const src = try self.rawPrimitiveBytes();
+        const byte_len = std.math.mul(usize, out.len, @sizeOf(T)) catch return error.MessageTooLarge;
+        if (src.len < byte_len) return error.PointerOutOfBounds;
+        if (@import("builtin").cpu.arch.endian() == .little) {
+            @memcpy(std.mem.sliceAsBytes(out), src[0..byte_len]);
+        } else {
+            for (out, 0..) |*value, index| {
+                const bits = std.mem.readInt(U, src[index * @sizeOf(T) ..][0..@sizeOf(T)], .little);
+                value.* = @bitCast(bits);
+            }
+        }
     }
 
     pub fn getBool(self: ListReader, index: usize) bool {

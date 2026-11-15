@@ -37,13 +37,30 @@ pub fn main() !void {
     var reader_ns: u64 = std.math.maxInt(u64);
     for (0..rounds) |_| {
         var warmup = cpz.MessageReader.init(flat.segments, .{ .traversal_limit_words = std.math.maxInt(usize) });
-        _ = try readRound(&warmup, reader_iterations / 10);
+        var warm_checksum: u64 = 0;
+        for (0..reader_iterations / 10) |_| {
+            const root = try warmup.getRoot();
+            warm_checksum +%= root.getUInt32(0, 0);
+            const list = try root.getPointerField(1).getList(.four_bytes);
+            warm_checksum +%= list.getUInt32(17);
+        }
+        std.mem.doNotOptimizeAway(warm_checksum);
+
         var reader = cpz.MessageReader.init(flat.segments, .{ .traversal_limit_words = std.math.maxInt(usize) });
         const start = std.Io.Clock.awake.now(io);
-        _ = try readRound(&reader, reader_iterations);
+        var checksum: u64 = 0;
+        for (0..reader_iterations) |_| {
+            const root = try reader.getRoot();
+            checksum +%= root.getUInt32(0, 0);
+            const list = try root.getPointerField(1).getList(.four_bytes);
+            checksum +%= list.getUInt32(17);
+        }
         const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        std.mem.doNotOptimizeAway(checksum);
         reader_ns = @min(reader_ns, elapsed);
     }
+
+    const bulk_read_ns = try bulkReadRound(io, flat, serialize_iterations);
 
     var flat_ns: u64 = std.math.maxInt(u64);
     var packed_ns: u64 = std.math.maxInt(u64);
@@ -105,6 +122,7 @@ pub fn main() !void {
     }
 
     printResult("dynamic reader", reader_ns, reader_iterations);
+    printResult("bulk read list", bulk_read_ns, serialize_iterations);
     printResult("build message", build_ns, serialize_iterations);
     printResult("flat serialize", flat_ns, serialize_iterations);
     printResult("packed serialize", packed_ns, serialize_iterations);
@@ -123,15 +141,23 @@ fn buildBenchMessage(allocator: std.mem.Allocator, values: []const u32) !cpz.Mes
     return builder;
 }
 
-fn readRound(reader: *cpz.MessageReader, iterations: usize) !u64 {
-    var checksum: u64 = 0;
-    for (0..iterations) |_| {
-        const root = try reader.getRoot();
-        checksum +%= root.getUInt32(0, 0);
-        const list = try root.getPointerField(1).getList(.four_bytes);
-        checksum +%= list.getUInt32(17);
+fn bulkReadRound(io: std.Io, flat: cpz.FlatMessage, iterations: usize) !u64 {
+    var values: [1024]u32 = undefined;
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var reader = cpz.MessageReader.init(flat.segments, .{ .traversal_limit_words = std.math.maxInt(usize) });
+        const list = try (try reader.getRoot()).getPointerField(1).getList(.four_bytes);
+        const start = std.Io.Clock.awake.now(io);
+        var checksum: u32 = 0;
+        for (0..iterations) |_| {
+            try list.getAll(u32, &values);
+            checksum +%= values[17];
+        }
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
     }
-    return checksum;
+    return best;
 }
 
 fn printResult(name: []const u8, elapsed_ns: u64, iterations: usize) void {

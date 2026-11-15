@@ -18,36 +18,43 @@ The current benchmark:
 - serializes it to flat and packed bytes;
 - parses it once;
 - runs five rounds and reports the best round;
-- measures message building, dynamic reader iteration, flat serialization into a
-  caller buffer, packed serialization into a caller buffer, allocating packed
-  serialization, and unpacking into a caller buffer.
+- measures message building, dynamic reader iteration, bulk-reading the UInt32
+  list with `ListReader.getAll`, flat serialization into a caller buffer, packed
+  serialization into a caller buffer, allocating packed serialization, and
+  unpacking into a caller buffer.
 
 Example output on the current aarch64 development host:
 
 ```text
 # Debug
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 161655597 ns total, 808.3 ns/op
-build message: 50000 iterations, 820500935 ns total, 16410.0 ns/op
-flat serialize: 50000 iterations, 17545913 ns total, 350.9 ns/op
-packed serialize: 50000 iterations, 1512154217 ns total, 30243.1 ns/op
-packed serialize (allocating): 50000 iterations, 1522219040 ns total, 30444.4 ns/op
-unpack: 50000 iterations, 636848068 ns total, 12737.0 ns/op
+dynamic reader: 200000 iterations, 161142658 ns total, 805.7 ns/op
+bulk read list: 50000 iterations, 11451179 ns total, 229.0 ns/op
+build message: 50000 iterations, 819873368 ns total, 16397.5 ns/op
+flat serialize: 50000 iterations, 17526763 ns total, 350.5 ns/op
+packed serialize: 50000 iterations, 1507569043 ns total, 30151.4 ns/op
+packed serialize (allocating): 50000 iterations, 1521510305 ns total, 30430.2 ns/op
+unpack: 50000 iterations, 644107020 ns total, 12882.1 ns/op
 
 # ReleaseFast
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 3866178 ns total, 19.3 ns/op
-build message: 50000 iterations, 46167171 ns total, 923.3 ns/op
-flat serialize: 50000 iterations, 117741 ns total, 2.4 ns/op
-packed serialize: 50000 iterations, 154317053 ns total, 3086.3 ns/op
-packed serialize (allocating): 50000 iterations, 155164206 ns total, 3103.3 ns/op
-unpack: 50000 iterations, 67167521 ns total, 1343.4 ns/op
+dynamic reader: 200000 iterations, 6958239 ns total, 34.8 ns/op
+bulk read list: 50000 iterations, 2619909 ns total, 52.4 ns/op
+build message: 50000 iterations, 46070045 ns total, 921.4 ns/op
+flat serialize: 50000 iterations, 126084 ns total, 2.5 ns/op
+packed serialize: 50000 iterations, 154247940 ns total, 3085.0 ns/op
+packed serialize (allocating): 50000 iterations, 155187326 ns total, 3103.7 ns/op
+unpack: 50000 iterations, 74428164 ns total, 1488.6 ns/op
 ```
 
-These numbers are a local smoke baseline, not a cross-engine claim.
-`ListBuilder.setAll` copies primitive slices in one pass, and the segment
-builder now zeroes capacity lazily when words are allocated instead of zeroing
-the whole first segment up front. Together these cut message build time from
+These numbers are a local smoke baseline, not a cross-engine claim; absolute
+values vary with host load.
+`ListReader.getAll` copies a primitive list in one pass, and `ListBuilder.setAll`
+does the same for writes. A fixed-buffer microbenchmark of the 1,024-element
+UInt32 list measures roughly 55 ns for `getAll` versus 1,200-1,800 ns for a
+per-element loop, essentially `memcpy` speed. The segment builder zeroes
+capacity lazily when words are allocated instead of zeroing the whole first
+segment up front. Together with `setAll` this cut message build time from
 roughly 8.2 us to 0.9 us in ReleaseFast. `messageToPackedBytesInto` no longer
 performs a redundant packed-size pre-pass; it relies on `packInto` bounds checks
 and may leave a partial prefix when the destination is too small. This cut

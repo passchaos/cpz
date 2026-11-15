@@ -993,6 +993,46 @@ test "ListBuilder.setAll copies primitive slices" {
     try testing.expect(try bits.getBool(3));
 }
 
+test "ListReader.getAll copies primitive slices" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 4 });
+
+    const u32s = try (try root.getPointerField(0)).initList(.four_bytes, 4);
+    try u32s.setAll(u32, &[_]u32{ 1, 2, 0xdeadbeef, 4 });
+    const u16s = try (try root.getPointerField(1)).initList(.two_bytes, 3);
+    try u16s.setAll(u16, &[_]u16{ 10, 20, 30 });
+    const floats = try (try root.getPointerField(2)).initList(.four_bytes, 2);
+    try floats.setAll(f32, &[_]f32{ 1.5, -2.25 });
+    const bits = try (try root.getPointerField(3)).initList(.bit, 5);
+    try bits.setAll(bool, &[_]bool{ true, false, true, true, false });
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+
+    var u32_out: [4]u32 = undefined;
+    try (try read_root.getPointerField(0).getList(.four_bytes)).getAll(u32, &u32_out);
+    try testing.expectEqualSlices(u32, &[_]u32{ 1, 2, 0xdeadbeef, 4 }, &u32_out);
+
+    var u16_out: [3]u16 = undefined;
+    try (try read_root.getPointerField(1).getList(.two_bytes)).getAll(u16, &u16_out);
+    try testing.expectEqualSlices(u16, &[_]u16{ 10, 20, 30 }, &u16_out);
+
+    var float_out: [2]f32 = undefined;
+    try (try read_root.getPointerField(2).getList(.four_bytes)).getAll(f32, &float_out);
+    try testing.expectEqualSlices(f32, &[_]f32{ 1.5, -2.25 }, &float_out);
+
+    var bool_out: [5]bool = undefined;
+    try (try read_root.getPointerField(3).getList(.bit)).getAll(bool, &bool_out);
+    try testing.expectEqualSlices(bool, &[_]bool{ true, false, true, true, false }, &bool_out);
+
+    var too_short: [2]u32 = undefined;
+    try testing.expectError(error.PointerOutOfBounds, (try read_root.getPointerField(0).getList(.four_bytes)).getAll(u32, &too_short));
+    var wrong_shape: [3]u32 = undefined;
+    try testing.expectError(error.IncompatibleListShape, (try read_root.getPointerField(1).getList(.two_bytes)).getAll(u32, &wrong_shape));
+}
+
 test "primitive lists expose raw bytes" {
     const testing = std.testing;
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });

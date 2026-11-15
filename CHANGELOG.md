@@ -33,6 +33,9 @@ All notable changes to `cpz` are documented here.
   the two-field schema to 298 lines / 10.5 KB.
 - `ListBuilder.setAll(T, values)` copies primitive slices (including floats and
   bools) into a whole list in one pass instead of calling `set*` per element.
+- `ListReader.getAll(T, out)` copies a whole primitive list into a caller slice
+  in one pass; the fixed-buffer microbenchmark is roughly 20-30x faster than a
+  per-element loop and close to `memcpy` speed.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to
