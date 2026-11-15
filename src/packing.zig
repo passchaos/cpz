@@ -141,18 +141,33 @@ pub fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
     var i: usize = 0;
     while (i < unpacked_bytes.len) {
         var tag: u8 = 0;
-        var payload: [wire.bytes_per_word]u8 = undefined;
         var payload_len: usize = 0;
-        inline for (0..wire.bytes_per_word) |j| {
-            const b = unpacked_bytes[i + j];
-            if (b != 0) {
-                tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                payload[payload_len] = b;
-                payload_len += 1;
+        if (dest.len - out_i >= wire.bytes_per_word + 1) {
+            const word: [wire.bytes_per_word]u8 = unpacked_bytes[i..][0..wire.bytes_per_word].*;
+            dest[out_i] = 0;
+            inline for (0..wire.bytes_per_word) |j| {
+                const b = word[j];
+                if (b != 0) {
+                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                    dest[out_i + 1 + payload_len] = b;
+                    payload_len += 1;
+                }
             }
+            dest[out_i] = tag;
+            out_i += 1 + payload_len;
+        } else {
+            var payload: [wire.bytes_per_word]u8 = undefined;
+            inline for (0..wire.bytes_per_word) |j| {
+                const b = unpacked_bytes[i + j];
+                if (b != 0) {
+                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                    payload[payload_len] = b;
+                    payload_len += 1;
+                }
+            }
+            try writePackedSlice(dest, &out_i, &[_]u8{tag});
+            try writePackedSlice(dest, &out_i, payload[0..payload_len]);
         }
-        try writePackedSlice(dest, &out_i, &[_]u8{tag});
-        try writePackedSlice(dest, &out_i, payload[0..payload_len]);
         i += wire.bytes_per_word;
 
         if (tag == 0x00) {

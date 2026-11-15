@@ -52,6 +52,10 @@ All notable changes to `cpz` are documented here.
 
 ### Changed
 
+- `packInto` writes tag and payload bytes directly into the destination when at
+  least one word of headroom is available, avoiding a stack payload buffer and
+  per-slice bounds checks. Packed serialization is roughly 50% faster in
+  ReleaseFast (3.1 us -> 1.5 us per 4 KB message).
 - The segment builder now zeroes capacity lazily as words are allocated instead
   of zeroing the whole first segment up front, and the benchmark measures
   message building with `ListBuilder.setAll` (ReleaseFast build time roughly
