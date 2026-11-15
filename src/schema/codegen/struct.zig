@@ -94,166 +94,171 @@ pub fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
     try emitStructFieldMetadata(allocator, out, file, layout);
     try emitStructFieldDefaultFlats(allocator, out, file, layout);
 
+    if (state.emit_orphan_helpers_enabled) {
+        try appendFmt(allocator, out,
+            \\    pub const Orphan = struct {{
+            \\        orphan: cpz.Orphan,
+            \\
+            \\        pub fn fromOrphan(orphan: cpz.Orphan) Orphan {{
+            \\            return .{{ .orphan = orphan }};
+            \\        }}
+            \\
+            \\        pub fn fromRaw(orphan: cpz.Orphan) Orphan {{
+            \\            return fromOrphan(orphan);
+            \\        }}
+            \\
+            \\        pub fn raw(self: @This()) cpz.Word {{
+            \\            return self.orphan.raw;
+            \\        }}
+            \\
+            \\        pub fn isNull(self: @This()) bool {{
+            \\            return self.orphan.isNull();
+            \\        }}
+            \\
+            \\        pub fn pointerType(self: @This()) ?cpz.wire.PointerType {{
+            \\            return self.orphan.pointerType();
+            \\        }}
+            \\
+            \\        pub fn segmentId(self: @This()) u32 {{
+            \\            return self.orphan.segmentId();
+            \\        }}
+            \\
+            \\        pub fn pointerWordIndex(self: @This()) usize {{
+            \\            return self.orphan.pointerWordIndex();
+            \\        }}
+            \\
+            \\        pub fn matchesLocation(self: @This(), @"cpz.segmentId": u32, @"cpz.wordIndex": usize) bool {{
+            \\            return self.orphan.matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
+            \\        }}
+            \\
+            \\        pub fn matchesPointerType(self: @This(), @"cpz.expected": cpz.wire.PointerType) bool {{
+            \\            return self.orphan.matchesPointerType(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn isStructPointer(self: @This()) bool {{
+            \\            return self.orphan.isStructPointer();
+            \\        }}
+            \\
+            \\        pub fn isListPointer(self: @This()) bool {{
+            \\            return self.orphan.isListPointer();
+            \\        }}
+            \\
+            \\        pub fn isFarPointer(self: @This()) bool {{
+            \\            return self.orphan.isFarPointer();
+            \\        }}
+            \\
+            \\        pub fn isOtherPointer(self: @This()) bool {{
+            \\            return self.orphan.isOtherPointer();
+            \\        }}
+            \\
+            \\        pub fn isCapabilityPointer(self: @This()) bool {{
+            \\            return self.orphan.isCapabilityPointer();
+            \\        }}
+            \\
+            \\        pub fn isNearPointer(self: @This()) bool {{
+            \\            return self.orphan.isNearPointer();
+            \\        }}
+            \\
+            \\        pub fn maxCapabilityCount(self: @This()) !usize {{
+            \\            return self.orphan.maxCapabilityCount();
+            \\        }}
+            \\
+            \\        pub fn matchesMaxCapabilityCount(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.matchesMaxCapabilityCount(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn decode(self: @This(), message_reader: *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
+            \\            return self.orphan.decode(message_reader);
+            \\        }}
+            \\
+            \\        pub fn asPointerReader(self: @This(), message_reader: *cpz.MessageReader) cpz.PointerReader {{
+            \\            return self.orphan.asReader(message_reader);
+            \\        }}
+            \\
+            \\        pub fn get(self: @This()) !Builder {{
+            \\            return Builder.fromBuilder(try self.orphan.getStruct());
+            \\        }}
+            \\
+            \\        pub fn structSize(self: @This()) !cpz.StructSize {{
+            \\            return self.orphan.structSize();
+            \\        }}
+            \\
+            \\        pub fn structDataWordCount(self: @This()) !u16 {{
+            \\            return self.orphan.structDataWordCount();
+            \\        }}
+            \\
+            \\        pub fn structPointerCount(self: @This()) !u16 {{
+            \\            return self.orphan.structPointerCount();
+            \\        }}
+            \\
+            \\        pub fn structTotalWords(self: @This()) !usize {{
+            \\            return self.orphan.structTotalWords();
+            \\        }}
+            \\
+            \\        pub fn structDataByteCount(self: @This()) !usize {{
+            \\            return self.orphan.structDataByteCount();
+            \\        }}
+            \\
+            \\        pub fn structPointerByteCount(self: @This()) !usize {{
+            \\            return self.orphan.structPointerByteCount();
+            \\        }}
+            \\
+            \\        pub fn structTotalByteCount(self: @This()) !usize {{
+            \\            return self.orphan.structTotalByteCount();
+            \\        }}
+            \\
+            \\        pub fn structMatchesSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
+            \\            return self.orphan.structMatchesSize(@"cpz.expected");
+            \\        }}
+            \\
+            \\        pub fn structMatchesDataWords(self: @This(), @"cpz.count": u16) bool {{
+            \\            return self.orphan.structMatchesDataWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn structMatchesPointerCount(self: @This(), @"cpz.count": u16) bool {{
+            \\            return self.orphan.structMatchesPointerCount(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn structMatchesTotalWords(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.structMatchesTotalWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn structMatchesTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\            return self.orphan.structMatchesTotalBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
+            \\            return {s}.fromReader(try self.orphan.asReader(message_reader).getStruct(null));
+            \\        }}
+            \\
+            \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
+            \\            return self.getReader(message_reader);
+            \\        }}
+            \\
+            \\        pub fn validate(self: @This()) !cpz.MessageStats {{
+            \\            return self.orphan.validate();
+            \\        }}
+            \\
+            \\        pub fn validateWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+            \\            return self.orphan.validateWithOptions(@"cpz.options");
+            \\        }}
+            \\
+            \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
+            \\            return self.orphan.totalSize();
+            \\        }}
+            \\
+            \\        pub fn totalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
+            \\            return self.orphan.totalSizeWithOptions(@"cpz.options");
+            \\        }}
+            \\
+            \\        pub fn release(self: *@This()) void {{
+            \\            self.orphan.release();
+            \\        }}
+            \\    }};
+        , .{ struct_name, struct_name, struct_name });
+    }
     try appendFmt(allocator, out,
-        \\    pub const Orphan = struct {{
-        \\        orphan: cpz.Orphan,
         \\
-        \\        pub fn fromOrphan(orphan: cpz.Orphan) Orphan {{
-        \\            return .{{ .orphan = orphan }};
-        \\        }}
-        \\
-        \\        pub fn fromRaw(orphan: cpz.Orphan) Orphan {{
-        \\            return fromOrphan(orphan);
-        \\        }}
-        \\
-        \\        pub fn raw(self: @This()) cpz.Word {{
-        \\            return self.orphan.raw;
-        \\        }}
-        \\
-        \\        pub fn isNull(self: @This()) bool {{
-        \\            return self.orphan.isNull();
-        \\        }}
-        \\
-        \\        pub fn pointerType(self: @This()) ?cpz.wire.PointerType {{
-        \\            return self.orphan.pointerType();
-        \\        }}
-        \\
-        \\        pub fn segmentId(self: @This()) u32 {{
-        \\            return self.orphan.segmentId();
-        \\        }}
-        \\
-        \\        pub fn pointerWordIndex(self: @This()) usize {{
-        \\            return self.orphan.pointerWordIndex();
-        \\        }}
-        \\
-        \\        pub fn matchesLocation(self: @This(), @"cpz.segmentId": u32, @"cpz.wordIndex": usize) bool {{
-        \\            return self.orphan.matchesLocation(@"cpz.segmentId", @"cpz.wordIndex");
-        \\        }}
-        \\
-        \\        pub fn matchesPointerType(self: @This(), @"cpz.expected": cpz.wire.PointerType) bool {{
-        \\            return self.orphan.matchesPointerType(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn isStructPointer(self: @This()) bool {{
-        \\            return self.orphan.isStructPointer();
-        \\        }}
-        \\
-        \\        pub fn isListPointer(self: @This()) bool {{
-        \\            return self.orphan.isListPointer();
-        \\        }}
-        \\
-        \\        pub fn isFarPointer(self: @This()) bool {{
-        \\            return self.orphan.isFarPointer();
-        \\        }}
-        \\
-        \\        pub fn isOtherPointer(self: @This()) bool {{
-        \\            return self.orphan.isOtherPointer();
-        \\        }}
-        \\
-        \\        pub fn isCapabilityPointer(self: @This()) bool {{
-        \\            return self.orphan.isCapabilityPointer();
-        \\        }}
-        \\
-        \\        pub fn isNearPointer(self: @This()) bool {{
-        \\            return self.orphan.isNearPointer();
-        \\        }}
-        \\
-        \\        pub fn maxCapabilityCount(self: @This()) !usize {{
-        \\            return self.orphan.maxCapabilityCount();
-        \\        }}
-        \\
-        \\        pub fn matchesMaxCapabilityCount(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.matchesMaxCapabilityCount(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn decode(self: @This(), message_reader: *cpz.MessageReader) !?cpz.wire.DecodedPointer {{
-        \\            return self.orphan.decode(message_reader);
-        \\        }}
-        \\
-        \\        pub fn asPointerReader(self: @This(), message_reader: *cpz.MessageReader) cpz.PointerReader {{
-        \\            return self.orphan.asReader(message_reader);
-        \\        }}
-        \\
-        \\        pub fn get(self: @This()) !Builder {{
-        \\            return Builder.fromBuilder(try self.orphan.getStruct());
-        \\        }}
-        \\
-        \\        pub fn structSize(self: @This()) !cpz.StructSize {{
-        \\            return self.orphan.structSize();
-        \\        }}
-        \\
-        \\        pub fn structDataWordCount(self: @This()) !u16 {{
-        \\            return self.orphan.structDataWordCount();
-        \\        }}
-        \\
-        \\        pub fn structPointerCount(self: @This()) !u16 {{
-        \\            return self.orphan.structPointerCount();
-        \\        }}
-        \\
-        \\        pub fn structTotalWords(self: @This()) !usize {{
-        \\            return self.orphan.structTotalWords();
-        \\        }}
-        \\
-        \\        pub fn structDataByteCount(self: @This()) !usize {{
-        \\            return self.orphan.structDataByteCount();
-        \\        }}
-        \\
-        \\        pub fn structPointerByteCount(self: @This()) !usize {{
-        \\            return self.orphan.structPointerByteCount();
-        \\        }}
-        \\
-        \\        pub fn structTotalByteCount(self: @This()) !usize {{
-        \\            return self.orphan.structTotalByteCount();
-        \\        }}
-        \\
-        \\        pub fn structMatchesSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
-        \\            return self.orphan.structMatchesSize(@"cpz.expected");
-        \\        }}
-        \\
-        \\        pub fn structMatchesDataWords(self: @This(), @"cpz.count": u16) bool {{
-        \\            return self.orphan.structMatchesDataWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn structMatchesPointerCount(self: @This(), @"cpz.count": u16) bool {{
-        \\            return self.orphan.structMatchesPointerCount(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn structMatchesTotalWords(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.structMatchesTotalWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn structMatchesTotalBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\            return self.orphan.structMatchesTotalBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn getReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
-        \\            return {s}.fromReader(try self.orphan.asReader(message_reader).getStruct(null));
-        \\        }}
-        \\
-        \\        pub fn asReader(self: @This(), message_reader: *cpz.MessageReader) !{s} {{
-        \\            return self.getReader(message_reader);
-        \\        }}
-        \\
-        \\        pub fn validate(self: @This()) !cpz.MessageStats {{
-        \\            return self.orphan.validate();
-        \\        }}
-        \\
-        \\        pub fn validateWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-        \\            return self.orphan.validateWithOptions(@"cpz.options");
-        \\        }}
-        \\
-        \\        pub fn totalSize(self: @This()) !cpz.MessageSize {{
-        \\            return self.orphan.totalSize();
-        \\        }}
-        \\
-        \\        pub fn totalSizeWithOptions(self: @This(), @"cpz.options": cpz.ReaderOptions) !cpz.MessageSize {{
-        \\            return self.orphan.totalSizeWithOptions(@"cpz.options");
-        \\        }}
-        \\
-        \\        pub fn release(self: *@This()) void {{
-        \\            self.orphan.release();
-        \\        }}
-        \\    }};
         \\
         \\    reader: cpz.StructReader,
         \\
@@ -2222,7 +2227,7 @@ pub fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         \\        return self.reader.pointerSectionAsList();
         \\    }}
         \\
-    , .{ struct_name, struct_name, struct_name, struct_name, struct_name });
+    , .{ struct_name, struct_name });
 
     try emitUnionDeclarations(allocator, out, layout);
 

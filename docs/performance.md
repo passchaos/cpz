@@ -67,8 +67,13 @@ production code that only reads and writes messages.
 
 On the current aarch64 development host, a cold-cache
 `zig build-obj -ODebug` of the generated `tests/schema_smoke.capnp` output takes
-roughly 240 ms in default mode and 86 ms in `--minimal` mode (median of three
-runs).
+roughly 240 ms in default mode, 86 ms in `--minimal` mode, and 76 ms with
+`--minimal --no-orphans` (median of three runs).
+
+Adding `--no-orphans` to `--minimal` removes generated Orphan wrapper types and
+typed orphan/copy helpers, reducing the smoke schema to 20,216 lines / 1.0 MB
+and the two-field schema to 298 lines / 10.5 KB. Raw `cpz.Orphan` builder
+methods remain available because they are part of the core builder API.
 
 ## Runtime design notes
 

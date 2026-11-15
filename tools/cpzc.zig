@@ -2,13 +2,14 @@ const std = @import("std");
 const cpz = @import("cpz");
 
 const usage =
-    \\usage: cpzc [--help] [--runtime-import name] [--namespace name] [--check] [--no-metadata] [--no-introspection] [--minimal] [--emit-raw-schema-comments] [--output-dir dir] <schema.capnp> [output.zig]
+    \\usage: cpzc [--help] [--runtime-import name] [--namespace name] [--check] [--no-metadata] [--no-introspection] [--no-orphans] [--minimal] [--emit-raw-schema-comments] [--output-dir dir] <schema.capnp> [output.zig]
     \\
     \\Parses a supported subset of Cap'n Proto schemas and emits Zig accessor skeletons.
     \\Use --check to validate parse/layout/codegen without writing generated output.
     \\Use --no-metadata to omit schema introspection tables and @"cpz.*" lookup helpers.
     \\Use --no-introspection to omit per-field pointer introspection helpers.
-    \\Use --minimal to enable both lean modes for production accessors only.
+    \\Use --no-orphans to omit Orphan wrapper types and copy/orphan helpers.
+    \\Use --minimal to enable both metadata/introspection lean modes.
     \\Use --output-dir to write <schema-stem>.zig into a directory.
     \\
 ;
@@ -53,6 +54,7 @@ pub fn main(init: std.process.Init) !u8 {
         .namespace = options.namespace,
         .emit_metadata = options.emit_metadata,
         .emit_introspection = options.emit_introspection,
+        .emit_orphan_helpers = options.emit_orphan_helpers,
     });
     defer allocator.free(code);
 
@@ -86,6 +88,7 @@ const CliOptions = struct {
     check: bool = false,
     emit_metadata: bool = true,
     emit_introspection: bool = true,
+    emit_orphan_helpers: bool = true,
     emit_raw_schema_comments: bool = false,
     input_path: ?[]const u8 = null,
     output_path: ?[]const u8 = null,
@@ -144,6 +147,10 @@ fn parseCliArgs(raw_args: []const []const u8) CliParseResult {
             options.emit_introspection = false;
         } else if (parse_options and std.mem.eql(u8, arg, "--emit-introspection")) {
             options.emit_introspection = true;
+        } else if (parse_options and std.mem.eql(u8, arg, "--no-orphans")) {
+            options.emit_orphan_helpers = false;
+        } else if (parse_options and std.mem.eql(u8, arg, "--emit-orphans")) {
+            options.emit_orphan_helpers = true;
         } else if (parse_options and std.mem.eql(u8, arg, "--minimal")) {
             options.emit_metadata = false;
             options.emit_introspection = false;

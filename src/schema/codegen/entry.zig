@@ -45,6 +45,9 @@ pub const CodegenOptions = struct {
     /// predicates. Disable this to keep only the accessors needed to read and
     /// build data.
     emit_introspection: bool = true,
+    /// Emit Orphan wrapper types and orphan/copy helper methods.
+    /// Disable this when the generated API only needs to read and write data.
+    emit_orphan_helpers: bool = true,
 };
 
 /// Generate Zig accessors with default options. The caller owns the result.
@@ -63,6 +66,10 @@ pub fn generateZigWithOptions(allocator: std.mem.Allocator, file: *const File, l
     const previous_emit_introspection = state.emit_introspection_enabled;
     state.emit_introspection_enabled = options.emit_introspection;
     defer state.emit_introspection_enabled = previous_emit_introspection;
+
+    const previous_emit_orphan_helpers = state.emit_orphan_helpers_enabled;
+    state.emit_orphan_helpers_enabled = options.emit_orphan_helpers;
+    defer state.emit_orphan_helpers_enabled = previous_emit_orphan_helpers;
 
     var out = std.ArrayList(u8).empty;
     errdefer out.deinit(allocator);

@@ -12,5 +12,8 @@ pub threadlocal var emit_metadata_enabled: bool = true;
 /// pointer, struct/list shape, stats, and match predicates).
 pub threadlocal var emit_introspection_enabled: bool = true;
 
+/// Emit Orphan wrapper types and orphan/copy helper methods.
+pub threadlocal var emit_orphan_helpers_enabled: bool = true;
+
 /// Distinguishes AnyPointer default payloads while encoding constants.
 pub const AnyPointerDefaultKind = enum { any, struct_ptr, list };

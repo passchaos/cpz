@@ -89,9 +89,11 @@ introspection helpers (pointer kind/location, struct/list shape, stats, and
 match predicates), list-wrapper diagnostics, and scalar/blob/enum default-value
 flat containers while keeping the readers, builders, list wrappers, and element
 accessors needed to read and write messages. `--minimal` enables both modes.
-For `tests/schema_smoke.capnp`, `--minimal` drops generated output from 92,327
-lines / 4.7 MB to 24,734 lines / 1.2 MB and roughly halves generated-code
-compile time.
+`--no-orphans` additionally omits generated Orphan wrapper types and typed
+orphan/copy helpers; combine it with `--minimal` for the smallest output. For
+`tests/schema_smoke.capnp`, `--minimal` drops generated output from 92,327
+lines / 4.7 MB to 24,734 lines / 1.2 MB, and `--minimal --no-orphans` reaches
+20,216 lines / 1.0 MB with roughly a 3x faster generated-code compile.
 
 See [docs/codegen.md](docs/codegen.md) for all CLI options, the supported
 schema subset, and multi-file import wiring.

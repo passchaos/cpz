@@ -237,6 +237,13 @@ pub fn build(b: *std.Build) void {
             .import_name = "generated_minimal_schema",
             .args = &.{"--minimal"},
         },
+        .{
+            .schema = "tests/schema_no_orphans.capnp",
+            .basename = "schema_no_orphans.zig",
+            .test_file = "tests/codegen_no_orphans_smoke.zig",
+            .import_name = "generated_no_orphans_schema",
+            .args = &.{ "--minimal", "--no-orphans" },
+        },
     };
     for (generated_tests) |spec| {
         addGeneratedSchemaTest(b, test_step, target, optimize, cpz_mod, cpzc_host, spec);

@@ -25,6 +25,10 @@ All notable changes to `cpz` are documented here.
   containers; pointer/list default containers remain because builders use them.
 - `cpzc --minimal` enables both lean modes for production accessors and roughly
   halves generated-code compile time on the smoke schema.
+- `CodegenOptions.emit_orphan_helpers` and `cpzc --no-orphans` omit generated
+  Orphan wrapper types and typed orphan/copy helpers. Combining
+  `--minimal --no-orphans` drops the smoke schema to 20,216 lines / 1.0 MB and
+  the two-field schema to 298 lines / 10.5 KB.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to

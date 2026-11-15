@@ -22,6 +22,8 @@ set, parse/layout/codegen are validated and no file is written.
 | `--no-introspection` | Omit per-pointer-field introspection helpers (kind, location, struct/list shape, stats, match predicates). |
 | `--emit-introspection` | Re-enable introspection helpers after `--no-introspection`. |
 | `--minimal` | Enable both lean modes (`--no-metadata --no-introspection`) for production accessors only. |
+| `--no-orphans` | Omit generated Orphan wrapper types and typed orphan/copy helpers. |
+| `--emit-orphans` | Re-enable orphan helpers after `--no-orphans`. |
 | `--emit-raw-schema-comments` | Include the source schema as comments in generated output. |
 | `--output-dir <dir>` | Write `<schema-stem>.zig` into `dir` instead of an explicit output path. |
 | `--help`, `-h` | Show usage. |
@@ -34,6 +36,7 @@ zig build cpzc -- --namespace api schema.capnp generated.zig
 zig build cpzc -- --no-metadata schema.capnp generated.zig
 zig build cpzc -- --no-metadata --no-introspection schema.capnp generated.zig
 zig build cpzc -- --minimal schema.capnp generated.zig
+zig build cpzc -- --minimal --no-orphans schema.capnp generated.zig
 zig build cpzc -- --output-dir generated schemas/person.capnp
 zig build cpzc -- --check schema.capnp
 ```

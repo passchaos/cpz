@@ -1639,21 +1639,26 @@ pub fn emitPointerBuilderMethod(allocator: std.mem.Allocator, out: *std.ArrayLis
                 \\            return (try self.builder.getPointerField({})).copyListFromCanonicalBuilder(new_value.list);
                 \\        }}
                 \\
-                \\        pub fn disown_{s}_typed(self: Builder) !{s}_{s}_Orphan {{
-            , .{ index, field_name, owner_name, field_name });
-            try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
-            try appendFmt(allocator, out,
-                \\            return {s}_{s}_Orphan.fromOrphan((try self.builder.getPointerField({})).disown());
-                \\        }}
-                \\
-                \\        pub fn adopt_{s}_typed(self: Builder, orphan: *{s}_{s}_Orphan) !void {{
-            , .{ owner_name, field_name, index, field_name, owner_name, field_name });
-            try emitBuilderUnionActivation(allocator, out, field);
-            try appendFmt(allocator, out,
-                \\            return (try self.builder.getPointerField({})).adopt(&orphan.orphan);
-                \\        }}
-                \\
             , .{index});
+            if (state.emit_orphan_helpers_enabled) {
+                try appendFmt(allocator, out,
+                    \\
+                    \\        pub fn disown_{s}_typed(self: Builder) !{s}_{s}_Orphan {{
+                , .{ field_name, owner_name, field_name });
+                try emitBuilderUnionCheck(allocator, out, union_layout, field.union_discriminant);
+                try appendFmt(allocator, out,
+                    \\            return {s}_{s}_Orphan.fromOrphan((try self.builder.getPointerField({})).disown());
+                    \\        }}
+                    \\
+                    \\        pub fn adopt_{s}_typed(self: Builder, orphan: *{s}_{s}_Orphan) !void {{
+                , .{ owner_name, field_name, index, field_name, owner_name, field_name });
+                try emitBuilderUnionActivation(allocator, out, field);
+                try appendFmt(allocator, out,
+                    \\            return (try self.builder.getPointerField({})).adopt(&orphan.orphan);
+                    \\        }}
+                    \\
+                , .{index});
+            }
 
             try emitListSliceSetter(allocator, out, file, layout.decl, field_name, field, index, child.*);
 
