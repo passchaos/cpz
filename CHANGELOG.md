@@ -51,6 +51,9 @@ All notable changes to `cpz` are documented here.
   integration), leaving `src/schema.zig` as a pure facade.
 - The RPC integration tests moved from `src/rpc.zig` into
   `src/rpc/tests/integration_tests.zig`, leaving `src/rpc.zig` as a pure facade.
+- The message runtime tests moved from `src/message.zig` into
+  `src/message/tests/integration_tests.zig`, leaving `src/message.zig` as a
+  pure facade.
 - Documentation was restructured into architecture, codegen, compatibility,
   performance, RPC, design, contributing, and security documents.
 - README was rewritten as a concise entry point with quick starts and status
