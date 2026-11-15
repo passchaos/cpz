@@ -49,7 +49,7 @@ time and binary size. Current measurements:
 | Schema | Default | `--no-metadata` | `--no-introspection` | Both |
 |---|---:|---:|---:|---:|
 | Two-field `struct Lean` | 3,394 lines / 163 KB | 928 lines / 39.6 KB | 2,922 lines / 139 KB | 456 lines / 15.7 KB |
-| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 60,838 lines / 3.0 MB | 56,430 lines / 3.0 MB | 24,941 lines / 1.2 MB |
+| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 60,838 lines / 3.0 MB | 56,430 lines / 3.0 MB | 24,734 lines / 1.2 MB |
 
 `--no-metadata` removes schema introspection tables, `@"cpz.*"` lookup
 helpers, root-level convenience helpers, and per-const/alias/enum metadata for

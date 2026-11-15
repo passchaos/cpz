@@ -621,6 +621,7 @@ pub fn emitInterfaceSuperclassMetadata(allocator: std.mem.Allocator, out: *std.A
 }
 
 pub fn appendInterfaceMethodTable(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, scope: ?*const InterfaceDecl, methods: []const InterfaceMethod, indent: []const u8) LayoutError!void {
+    if (!state.emit_metadata_enabled) return;
     try appendFmt(allocator, out,
         \\{s}pub const @"cpz.methodCount": usize = {};
         \\
