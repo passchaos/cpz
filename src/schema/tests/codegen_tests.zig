@@ -105,6 +105,57 @@ test "schema code generator can omit metadata tables" {
     try std.testing.expect(lean.len < full.len);
 }
 
+test "schema code generator omits direct-value metadata in lean mode" {
+    const source =
+        \\const answer :UInt32 = 42;
+        \\const people :List(Person) = [(id = 1, name = "one")];
+        \\struct Person {
+        \\  id @0 :UInt32;
+        \\  name @1 :Text;
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const full = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(full);
+    const lean = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{ .emit_metadata = false });
+    defer std.testing.allocator.free(lean);
+
+    try std.testing.expect(std.mem.indexOf(u8, full, "cpz.const.answer") != null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "cpz.const.answer") == null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "pub const answer: u32 = 42;") != null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "cpz.const.people.listItems") != null);
+    try std.testing.expect(std.mem.indexOf(u8, lean, "pub const people = struct") != null);
+    try std.testing.expect(lean.len < full.len);
+}
+
+test "schema code generator keeps pointer defaults without introspection" {
+    const source =
+        \\struct Defaults {
+        \\  id @0 :UInt32 = 42;
+        \\  scores @1 :List(UInt32) = [1, 2];
+        \\}
+    ;
+    var file = try parse(std.testing.allocator, source);
+    defer file.deinit(std.testing.allocator);
+    var layouts = try planLayouts(std.testing.allocator, &file);
+    defer layouts.deinit(std.testing.allocator);
+
+    const full = try generateZig(std.testing.allocator, &file, &layouts);
+    defer std.testing.allocator.free(full);
+    const minimal = try generateZigWithOptions(std.testing.allocator, &file, &layouts, .{ .emit_introspection = false });
+    defer std.testing.allocator.free(minimal);
+
+    try std.testing.expect(std.mem.indexOf(u8, full, "idDefaultFlat") != null);
+    try std.testing.expect(std.mem.indexOf(u8, full, "scoresDefaultFlat") != null);
+    try std.testing.expect(std.mem.indexOf(u8, minimal, "idDefaultFlat") == null);
+    try std.testing.expect(std.mem.indexOf(u8, minimal, "scoresDefaultFlat") != null);
+    try std.testing.expect(minimal.len < full.len);
+}
+
 test "schema code generator can omit field introspection helpers" {
     const source =
         \\struct Lean {

@@ -17,7 +17,12 @@ All notable changes to `cpz` are documented here.
   per-pointer-field and list-wrapper introspection helpers while keeping
   readers, builders, list wrappers, and element accessors. Combining both modes
   drops `tests/schema_smoke.capnp` generated output from 92,327 lines / 4.7 MB
-  to 27,599 lines / 1.4 MB.
+  to 24,941 lines / 1.2 MB.
+- `--no-metadata` now also omits per-const, per-alias, and per-enum metadata
+  for values that are emitted directly, while retaining metadata required by
+  aggregate const values.
+- `--no-introspection` also omits scalar/blob/enum default-value flat
+  containers; pointer/list default containers remain because builders use them.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to

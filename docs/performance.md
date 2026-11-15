@@ -49,15 +49,17 @@ time and binary size. Current measurements:
 | Schema | Default | `--no-metadata` | `--no-introspection` | Both |
 |---|---:|---:|---:|---:|
 | Two-field `struct Lean` | 3,394 lines / 163 KB | 928 lines / 39.6 KB | 2,922 lines / 139 KB | 456 lines / 15.7 KB |
-| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 63,033 lines / 3.1 MB | 56,893 lines / 2.9 MB | 27,599 lines / 1.4 MB |
+| `tests/schema_smoke.capnp` | 92,327 lines / 4.7 MB | 60,838 lines / 3.0 MB | 56,430 lines / 3.0 MB | 24,941 lines / 1.2 MB |
 
 `--no-metadata` removes schema introspection tables, `@"cpz.*"` lookup
-helpers, and root-level convenience helpers. `--no-introspection` removes the
-per-pointer-field diagnostic helpers (pointer kind/location, decoded pointer,
-struct/list shape, stats, and match predicates) plus the reader/orphan/builder
-list-wrapper diagnostics, while keeping readers, builders, list wrappers, and
-element accessors. Combining both is intended for production code that only
-reads and writes messages.
+helpers, root-level convenience helpers, and per-const/alias/enum metadata for
+values that are emitted directly. Metadata needed by aggregate const values is
+kept. `--no-introspection` removes the per-pointer-field diagnostic helpers
+(pointer kind/location, decoded pointer, struct/list shape, stats, and match
+predicates), list-wrapper diagnostics, and scalar/blob/enum default-value flat
+containers, while keeping readers, builders, list wrappers, and element
+accessors. Combining both is intended for production code that only reads and
+writes messages.
 
 ## Runtime design notes
 

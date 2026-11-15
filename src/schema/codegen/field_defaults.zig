@@ -409,15 +409,18 @@ pub fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.Array
         }
         switch (resolved_ty) {
             .void, .bool, .int8, .int16, .int32, .int64, .uint8, .uint16, .uint32, .uint64, .float32, .float64 => {
+                if (!mod_state.emit_introspection_enabled) continue;
                 const literal = field.default_literal orelse continue;
                 try emitScalarFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, resolved_ty, literal);
             },
             .text => {
+                if (!mod_state.emit_introspection_enabled) continue;
                 const bytes = try fieldBlobDefaultBytesAlloc(allocator, file, layout.decl, field, true) orelse continue;
                 defer allocator.free(bytes);
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, true);
             },
             .data => {
+                if (!mod_state.emit_introspection_enabled) continue;
                 const bytes = try fieldBlobDefaultBytesAlloc(allocator, file, layout.decl, field, false) orelse continue;
                 defer allocator.free(bytes);
                 try emitBlobFieldDefaultFlatContainer(allocator, out, "    ", field_name, bytes, false);
@@ -455,6 +458,7 @@ pub fn emitStructFieldDefaultFlats(allocator: std.mem.Allocator, out: *std.Array
             },
             .named => |type_name| {
                 if (findEnum(file, type_name) != null) {
+                    if (!mod_state.emit_introspection_enabled) continue;
                     const literal = field.default_literal orelse continue;
                     try emitScalarFieldDefaultFlatContainer(allocator, out, file, layout.decl, "    ", field_name, resolved_ty, literal);
                     continue;

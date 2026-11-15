@@ -102,14 +102,16 @@ pub fn emitAlias(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *c
     defer allocator.free(resolved_target_name);
     const resolved_target_literal = try zigStringLiteralAlloc(allocator, resolved_target_name);
     defer allocator.free(resolved_target_literal);
-    try appendFmt(allocator, out,
-        \\{s}pub const @"cpz.alias.{s}.index": usize = {};
-        \\{s}pub const @"cpz.alias.{s}.name": []const u8 = {s};
-        \\{s}pub const @"cpz.alias.{s}.metadata": cpz.schema.AliasMetadata = @This().@"cpz.aliases"[{}];
-        \\{s}pub const @"cpz.alias.{s}.target": []const u8 = {s};
-        \\{s}pub const @"cpz.alias.{s}.resolvedTarget": []const u8 = {s};
-        \\
-    , .{ indent, alias_name, index, indent, alias_name, name_literal, indent, alias_name, index, indent, alias_name, target_literal, indent, alias_name, resolved_target_literal });
+    if (mod_state.emit_metadata_enabled) {
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.alias.{s}.index": usize = {};
+            \\{s}pub const @"cpz.alias.{s}.name": []const u8 = {s};
+            \\{s}pub const @"cpz.alias.{s}.metadata": cpz.schema.AliasMetadata = @This().@"cpz.aliases"[{}];
+            \\{s}pub const @"cpz.alias.{s}.target": []const u8 = {s};
+            \\{s}pub const @"cpz.alias.{s}.resolvedTarget": []const u8 = {s};
+            \\
+        , .{ indent, alias_name, index, indent, alias_name, name_literal, indent, alias_name, index, indent, alias_name, target_literal, indent, alias_name, resolved_target_literal });
+    }
     try emitAliasTarget(allocator, out, file, scope, indent, alias_name, decl.target);
 }
 
@@ -604,358 +606,360 @@ pub fn emitConstWithIndent(allocator: std.mem.Allocator, out: *std.ArrayList(u8)
         const referenced = findConstReference(file, scope, decl.literal) orelse break :blk null;
         break :blk referenced.list_items;
     };
-    try appendFmt(allocator, out,
-        \\{s}pub const @"cpz.const.{s}.index": usize = {};
-        \\{s}pub const @"cpz.const.{s}.name": []const u8 = {s};
-        \\{s}pub const @"cpz.const.{s}.metadata": cpz.schema.ConstMetadata = @This().@"cpz.consts"[{}];
-        \\{s}pub const @"cpz.const.{s}.type": []const u8 = {s};
-        \\{s}pub const @"cpz.const.{s}.resolvedType": []const u8 = {s};
-        \\{s}pub const @"cpz.const.{s}.literal": []const u8 = {s};
-        \\{s}pub const @"cpz.const.{s}.isHexData": bool = {};
-    , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, index, indent, const_name, type_literal, indent, const_name, resolved_type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data });
-    if (decl.id) |id| {
+    if (mod_state.emit_metadata_enabled or !decl.emit_value) {
         try appendFmt(allocator, out,
-            \\{s}pub const @"cpz.const.{s}.id": ?u64 = 0x{x};
-        , .{ indent, const_name, id });
-    } else {
-        try appendFmt(allocator, out,
-            \\{s}pub const @"cpz.const.{s}.id": ?u64 = null;
-        , .{ indent, const_name });
-    }
-    try appendFmt(allocator, out,
-        \\{s}pub const @"cpz.const.{s}.isEmbed": bool = {};
-        \\{s}pub const @"cpz.const.{s}.embedPath": []const u8 = {s};
-        \\{s}pub const @"cpz.const.{s}.embedByteCount": usize = {};
-        \\{s}pub const @"cpz.const.{s}.isStructLiteral": bool = {};
-        \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
-        \\{s}pub const @"cpz.const.{s}.listItemCount": usize = {};
-        \\{s}pub const @"cpz.const.{s}.listItems": []const cpz.schema.ConstListItem = 
-    , .{ indent, const_name, decl.is_embed, indent, const_name, embed_path_literal, indent, const_name, if (decl.embed_bytes) |bytes| bytes.len else 0, indent, const_name, decl.is_struct_literal, indent, const_name, decl.emit_value, indent, const_name, if (effective_list_items) |items| items.len else 0, indent, const_name });
-    if (effective_list_items) |items| {
-        try appendConstListItemsLiteral(allocator, out, items);
-    } else {
-        try out.appendSlice(allocator, "&[_]cpz.schema.ConstListItem{}");
-    }
-    try out.appendSlice(allocator, ";\n");
-    try appendFmt(allocator, out,
-        \\{s}pub fn @"cpz.const.{s}.listItemByIndex"(@"cpz.index": usize) ?cpz.schema.ConstListItem {{
-        \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.listItems".len) return null;
-        \\{s}    return @This().@"cpz.const.{s}.listItems"[@"cpz.index"];
-        \\{s}}}
-        \\
-        \\{s}pub fn @"cpz.const.{s}.listItemByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
-        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".literal, @"cpz.literal")) return @"cpz.item";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-        \\{s}pub fn @"cpz.const.{s}.listItemByHexData"(@"cpz.isHex": bool) ?cpz.schema.ConstListItem {{
-        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".is_hex_data == @"cpz.isHex") return @"cpz.item";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-        \\{s}pub fn @"cpz.const.{s}.listItemByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.ConstListItem {{
-        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".annotations, @"cpz.annotationFilter")) return @"cpz.item";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-    , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
-    try appendFmt(allocator, out,
-        \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldCount"(@"cpz.count": usize) ?cpz.schema.ConstListItem {{
-        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".struct_field_count == @"cpz.count") return @"cpz.item";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-        \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldName"(@"cpz.name": []const u8) ?cpz.schema.ConstListItem {{
-        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".structFieldByName(@"cpz.name") != null) return @"cpz.item";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-        \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
-        \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".structFieldByLiteral(@"cpz.literal") != null) return @"cpz.item";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-    , .{ indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
-    if (effective_list_items) |items| {
-        if (!decl.emit_value) {
+            \\{s}pub const @"cpz.const.{s}.index": usize = {};
+            \\{s}pub const @"cpz.const.{s}.name": []const u8 = {s};
+            \\{s}pub const @"cpz.const.{s}.metadata": cpz.schema.ConstMetadata = @This().@"cpz.consts"[{}];
+            \\{s}pub const @"cpz.const.{s}.type": []const u8 = {s};
+            \\{s}pub const @"cpz.const.{s}.resolvedType": []const u8 = {s};
+            \\{s}pub const @"cpz.const.{s}.literal": []const u8 = {s};
+            \\{s}pub const @"cpz.const.{s}.isHexData": bool = {};
+        , .{ indent, const_name, index, indent, const_name, name_literal, indent, const_name, index, indent, const_name, type_literal, indent, const_name, resolved_type_literal, indent, const_name, literal_value, indent, const_name, decl.is_hex_data });
+        if (decl.id) |id| {
             try appendFmt(allocator, out,
-                \\{s}pub const {s} = struct {{
-                \\{s}    pub const itemCount: usize = {};
-                \\{s}    pub const items: []const cpz.schema.ConstListItem = @"cpz.const.{s}.listItems";
-                \\
-            , .{ indent, const_name, indent, items.len, indent, const_name });
-            if (try structListLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
-                defer allocator.free(flat_bytes);
-                const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
-                defer allocator.free(flat_literal);
-                const child = constListChildTypeOrNull(file, scope, decl.ty) orelse return error.UnsupportedType;
-                const item_type_name = switch (resolveTypeScoped(file, scope, child)) {
-                    .named => |name| try zigTypeRefAlloc(allocator, file, name),
-                    else => return error.UnsupportedType,
-                };
-                defer allocator.free(item_type_name);
+                \\{s}pub const @"cpz.const.{s}.id": ?u64 = 0x{x};
+            , .{ indent, const_name, id });
+        } else {
+            try appendFmt(allocator, out,
+                \\{s}pub const @"cpz.const.{s}.id": ?u64 = null;
+            , .{ indent, const_name });
+        }
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.const.{s}.isEmbed": bool = {};
+            \\{s}pub const @"cpz.const.{s}.embedPath": []const u8 = {s};
+            \\{s}pub const @"cpz.const.{s}.embedByteCount": usize = {};
+            \\{s}pub const @"cpz.const.{s}.isStructLiteral": bool = {};
+            \\{s}pub const @"cpz.const.{s}.emitted": bool = {};
+            \\{s}pub const @"cpz.const.{s}.listItemCount": usize = {};
+            \\{s}pub const @"cpz.const.{s}.listItems": []const cpz.schema.ConstListItem = 
+        , .{ indent, const_name, decl.is_embed, indent, const_name, embed_path_literal, indent, const_name, if (decl.embed_bytes) |bytes| bytes.len else 0, indent, const_name, decl.is_struct_literal, indent, const_name, decl.emit_value, indent, const_name, if (effective_list_items) |items| items.len else 0, indent, const_name });
+        if (effective_list_items) |items| {
+            try appendConstListItemsLiteral(allocator, out, items);
+        } else {
+            try out.appendSlice(allocator, "&[_]cpz.schema.ConstListItem{}");
+        }
+        try out.appendSlice(allocator, ";\n");
+        try appendFmt(allocator, out,
+            \\{s}pub fn @"cpz.const.{s}.listItemByIndex"(@"cpz.index": usize) ?cpz.schema.ConstListItem {{
+            \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.listItems".len) return null;
+            \\{s}    return @This().@"cpz.const.{s}.listItems"[@"cpz.index"];
+            \\{s}}}
+            \\
+            \\{s}pub fn @"cpz.const.{s}.listItemByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+            \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".literal, @"cpz.literal")) return @"cpz.item";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+            \\{s}pub fn @"cpz.const.{s}.listItemByHexData"(@"cpz.isHex": bool) ?cpz.schema.ConstListItem {{
+            \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".is_hex_data == @"cpz.isHex") return @"cpz.item";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+            \\{s}pub fn @"cpz.const.{s}.listItemByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.ConstListItem {{
+            \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".annotations, @"cpz.annotationFilter")) return @"cpz.item";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+        , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
+        try appendFmt(allocator, out,
+            \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldCount"(@"cpz.count": usize) ?cpz.schema.ConstListItem {{
+            \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".struct_field_count == @"cpz.count") return @"cpz.item";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+            \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldName"(@"cpz.name": []const u8) ?cpz.schema.ConstListItem {{
+            \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".structFieldByName(@"cpz.name") != null) return @"cpz.item";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+            \\{s}pub fn @"cpz.const.{s}.listItemByStructFieldLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+            \\{s}    for (@This().@"cpz.const.{s}.listItems") |@"cpz.item"| if (@"cpz.item".structFieldByLiteral(@"cpz.literal") != null) return @"cpz.item";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+        , .{ indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
+        if (effective_list_items) |items| {
+            if (!decl.emit_value) {
                 try appendFmt(allocator, out,
-                    \\{s}    pub const flatBytes: []const u8 = {s};
-                    \\{s}    pub const segment0: []const u8 = flatBytes[8..];
-                    \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                    \\{s}pub const {s} = struct {{
+                    \\{s}    pub const itemCount: usize = {};
+                    \\{s}    pub const items: []const cpz.schema.ConstListItem = @"cpz.const.{s}.listItems";
                     \\
-                    \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
-                    \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
-                    \\{s}    }}
-                    \\
-                    \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
-                    \\{s}        return message_reader.getRootList(.composite);
-                    \\{s}    }}
-                    \\
-                    \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize) !{s} {{
-                    \\{s}        return {s}.fromReader(try (try @This().list(message_reader)).getStructElement(@"cpz.index"));
-                    \\{s}    }}
-                    \\
-                , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent });
-                try emitFlatContainerSizeHelpers(allocator, out, indent);
+                , .{ indent, const_name, indent, items.len, indent, const_name });
+                if (try structListLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
+                    defer allocator.free(flat_bytes);
+                    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
+                    defer allocator.free(flat_literal);
+                    const child = constListChildTypeOrNull(file, scope, decl.ty) orelse return error.UnsupportedType;
+                    const item_type_name = switch (resolveTypeScoped(file, scope, child)) {
+                        .named => |name| try zigTypeRefAlloc(allocator, file, name),
+                        else => return error.UnsupportedType,
+                    };
+                    defer allocator.free(item_type_name);
+                    try appendFmt(allocator, out,
+                        \\{s}    pub const flatBytes: []const u8 = {s};
+                        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                        \\
+                        \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+                        \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+                        \\{s}    }}
+                        \\
+                        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+                        \\{s}        return message_reader.getRootList(.composite);
+                        \\{s}    }}
+                        \\
+                        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize) !{s} {{
+                        \\{s}        return {s}.fromReader(try (try @This().list(message_reader)).getStructElement(@"cpz.index"));
+                        \\{s}    }}
+                        \\
+                    , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, item_type_name, indent, item_type_name, indent });
+                    try emitFlatContainerSizeHelpers(allocator, out, indent);
+                    try appendFmt(allocator, out,
+                        \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+                        \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+                        \\{s}        return @"cpz.reader".validate();
+                        \\{s}    }}
+                        \\
+                    , .{ indent, indent, indent, indent });
+                }
+                if (try nestedListLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
+                    defer allocator.free(flat_bytes);
+                    const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
+                    defer allocator.free(flat_literal);
+                    try appendFmt(allocator, out,
+                        \\{s}    pub const flatBytes: []const u8 = {s};
+                        \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                        \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                        \\
+                        \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+                        \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+                        \\{s}    }}
+                        \\
+                        \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
+                        \\{s}        return message_reader.getRootList(.pointer);
+                        \\{s}    }}
+                        \\
+                        \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
+                        \\{s}        return (try (try @This().list(message_reader)).getPointerElement(@"cpz.index")).getList(@"cpz.expected");
+                        \\{s}    }}
+                        \\
+                    , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+                    try emitFlatContainerSizeHelpers(allocator, out, indent);
+                    try appendFmt(allocator, out,
+                        \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+                        \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+                        \\{s}        return @"cpz.reader".validate();
+                        \\{s}    }}
+                        \\
+                    , .{ indent, indent, indent, indent });
+                }
+                for (items) |item| {
+                    const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
+                    defer allocator.free(item_literal);
+                    try appendFmt(allocator, out,
+                        \\{s}    pub const item{}: []const u8 = {s};
+                        \\
+                    , .{ indent, item.index, item_literal });
+                }
                 try appendFmt(allocator, out,
-                    \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-                    \\{s}        var @"cpz.reader" = reader(@"cpz.options");
-                    \\{s}        return @"cpz.reader".validate();
+                    \\{s}    pub fn itemByIndex(@"cpz.index": usize) ?cpz.schema.ConstListItem {{
+                    \\{s}        if (@"cpz.index" >= @This().items.len) return null;
+                    \\{s}        return @This().items[@"cpz.index"];
                     \\{s}    }}
                     \\
-                , .{ indent, indent, indent, indent });
-            }
-            if (try nestedListLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
-                defer allocator.free(flat_bytes);
-                const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
-                defer allocator.free(flat_literal);
-                try appendFmt(allocator, out,
-                    \\{s}    pub const flatBytes: []const u8 = {s};
-                    \\{s}    pub const segment0: []const u8 = flatBytes[8..];
-                    \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
-                    \\
-                    \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
-                    \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+                    \\{s}    pub fn itemByLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+                    \\{s}        for (@This().items) |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".literal, @"cpz.literal")) return @"cpz.item";
+                    \\{s}        return null;
                     \\{s}    }}
                     \\
-                    \\{s}    pub fn list(message_reader: *cpz.MessageReader) !cpz.ListReader {{
-                    \\{s}        return message_reader.getRootList(.pointer);
+                    \\{s}    pub fn itemByStructFieldName(@"cpz.name": []const u8) ?cpz.schema.ConstListItem {{
+                    \\{s}        for (@This().items) |@"cpz.item"| if (@"cpz.item".structFieldByName(@"cpz.name") != null) return @"cpz.item";
+                    \\{s}        return null;
                     \\{s}    }}
                     \\
-                    \\{s}    pub fn get(message_reader: *cpz.MessageReader, @"cpz.index": usize, @"cpz.expected": ?cpz.ElementSize) !cpz.ListReader {{
-                    \\{s}        return (try (try @This().list(message_reader)).getPointerElement(@"cpz.index")).getList(@"cpz.expected");
+                    \\{s}    pub fn itemByStructFieldLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
+                    \\{s}        for (@This().items) |@"cpz.item"| if (@"cpz.item".structFieldByLiteral(@"cpz.literal") != null) return @"cpz.item";
+                    \\{s}        return null;
                     \\{s}    }}
+                    \\{s}}};
                     \\
-                , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
-                try emitFlatContainerSizeHelpers(allocator, out, indent);
-                try appendFmt(allocator, out,
-                    \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-                    \\{s}        var @"cpz.reader" = reader(@"cpz.options");
-                    \\{s}        return @"cpz.reader".validate();
-                    \\{s}    }}
-                    \\
-                , .{ indent, indent, indent, indent });
+                , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
             }
             for (items) |item| {
                 const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
                 defer allocator.free(item_literal);
+                const item_annotations = try zigSchemaSyntaxLiteralAlloc(allocator, item.annotations);
+                defer allocator.free(item_annotations);
                 try appendFmt(allocator, out,
-                    \\{s}    pub const item{}: []const u8 = {s};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.index": usize = {};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.metadata": cpz.schema.ConstListItem = @This().@"cpz.const.{s}.listItems"[{}];
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.literal": []const u8 = {s};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.isHexData": bool = {};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.annotations": []const u8 = {s};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structFieldCount": usize = {};
+                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structFields": []const cpz.schema.ConstStructField =
+                , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, const_name, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations, indent, const_name, item.index, item.struct_fields.len, indent, const_name, item.index });
+                if (item.struct_fields.len != 0) {
+                    try appendConstStructFieldsLiteral(allocator, out, item.struct_fields);
+                } else {
+                    try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{}");
+                }
+                try out.appendSlice(allocator, ";\n");
+                try appendFmt(allocator, out,
+                    \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByIndex"(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
+                    \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.listItem.{}.structFields".len) return null;
+                    \\{s}    return @This().@"cpz.const.{s}.listItem.{}.structFields"[@"cpz.index"];
+                    \\{s}}}
                     \\
-                , .{ indent, item.index, item_literal });
+                    \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByName"(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
+                    \\{s}    for (@This().@"cpz.const.{s}.listItem.{}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+                    \\{s}    return null;
+                    \\{s}}}
+                    \\
+                , .{ indent, const_name, item.index, indent, const_name, item.index, indent, const_name, item.index, indent, indent, const_name, item.index, indent, const_name, item.index, indent, indent });
+                try appendFmt(allocator, out,
+                    \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
+                    \\{s}    for (@This().@"cpz.const.{s}.listItem.{}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
+                    \\{s}    return null;
+                    \\{s}}}
+                    \\
+                , .{ indent, const_name, item.index, indent, const_name, item.index, indent, indent });
+                for (item.struct_fields) |field| {
+                    const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
+                    defer allocator.free(field_name_literal);
+                    const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
+                    defer allocator.free(field_literal);
+                    try appendFmt(allocator, out,
+                        \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.index": usize = {};
+                        \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.metadata": cpz.schema.ConstStructField = @This().@"cpz.const.{s}.listItem.{}.structFields"[{}];
+                        \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.name": []const u8 = {s};
+                        \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.literal": []const u8 = {s};
+                        \\
+                    , .{ indent, const_name, item.index, field.index, field.index, indent, const_name, item.index, field.index, const_name, item.index, field.index, indent, const_name, item.index, field.index, field_name_literal, indent, const_name, item.index, field.index, field_literal });
+                }
             }
-            try appendFmt(allocator, out,
-                \\{s}    pub fn itemByIndex(@"cpz.index": usize) ?cpz.schema.ConstListItem {{
-                \\{s}        if (@"cpz.index" >= @This().items.len) return null;
-                \\{s}        return @This().items[@"cpz.index"];
-                \\{s}    }}
-                \\
-                \\{s}    pub fn itemByLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
-                \\{s}        for (@This().items) |@"cpz.item"| if (std.mem.eql(u8, @"cpz.item".literal, @"cpz.literal")) return @"cpz.item";
-                \\{s}        return null;
-                \\{s}    }}
-                \\
-                \\{s}    pub fn itemByStructFieldName(@"cpz.name": []const u8) ?cpz.schema.ConstListItem {{
-                \\{s}        for (@This().items) |@"cpz.item"| if (@"cpz.item".structFieldByName(@"cpz.name") != null) return @"cpz.item";
-                \\{s}        return null;
-                \\{s}    }}
-                \\
-                \\{s}    pub fn itemByStructFieldLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstListItem {{
-                \\{s}        for (@This().items) |@"cpz.item"| if (@"cpz.item".structFieldByLiteral(@"cpz.literal") != null) return @"cpz.item";
-                \\{s}        return null;
-                \\{s}    }}
-                \\{s}}};
-                \\
-            , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
         }
-        for (items) |item| {
-            const item_literal = try zigStringLiteralAlloc(allocator, item.literal);
-            defer allocator.free(item_literal);
-            const item_annotations = try zigSchemaSyntaxLiteralAlloc(allocator, item.annotations);
-            defer allocator.free(item_annotations);
-            try appendFmt(allocator, out,
-                \\{s}pub const @"cpz.const.{s}.listItem.{}.index": usize = {};
-                \\{s}pub const @"cpz.const.{s}.listItem.{}.metadata": cpz.schema.ConstListItem = @This().@"cpz.const.{s}.listItems"[{}];
-                \\{s}pub const @"cpz.const.{s}.listItem.{}.literal": []const u8 = {s};
-                \\{s}pub const @"cpz.const.{s}.listItem.{}.isHexData": bool = {};
-                \\{s}pub const @"cpz.const.{s}.listItem.{}.annotations": []const u8 = {s};
-                \\{s}pub const @"cpz.const.{s}.listItem.{}.structFieldCount": usize = {};
-                \\{s}pub const @"cpz.const.{s}.listItem.{}.structFields": []const cpz.schema.ConstStructField =
-            , .{ indent, const_name, item.index, item.index, indent, const_name, item.index, const_name, item.index, indent, const_name, item.index, item_literal, indent, const_name, item.index, item.is_hex_data, indent, const_name, item.index, item_annotations, indent, const_name, item.index, item.struct_fields.len, indent, const_name, item.index });
-            if (item.struct_fields.len != 0) {
-                try appendConstStructFieldsLiteral(allocator, out, item.struct_fields);
-            } else {
-                try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{}");
-            }
-            try out.appendSlice(allocator, ";\n");
-            try appendFmt(allocator, out,
-                \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByIndex"(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
-                \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.listItem.{}.structFields".len) return null;
-                \\{s}    return @This().@"cpz.const.{s}.listItem.{}.structFields"[@"cpz.index"];
-                \\{s}}}
-                \\
-                \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByName"(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
-                \\{s}    for (@This().@"cpz.const.{s}.listItem.{}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
-                \\{s}    return null;
-                \\{s}}}
-                \\
-            , .{ indent, const_name, item.index, indent, const_name, item.index, indent, const_name, item.index, indent, indent, const_name, item.index, indent, const_name, item.index, indent, indent });
-            try appendFmt(allocator, out,
-                \\{s}pub fn @"cpz.const.{s}.listItem.{}.structFieldByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
-                \\{s}    for (@This().@"cpz.const.{s}.listItem.{}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
-                \\{s}    return null;
-                \\{s}}}
-                \\
-            , .{ indent, const_name, item.index, indent, const_name, item.index, indent, indent });
-            for (item.struct_fields) |field| {
+        try appendFmt(allocator, out,
+            \\{s}pub const @"cpz.const.{s}.structFieldCount": usize = {};
+            \\{s}pub const @"cpz.const.{s}.structFields": []const cpz.schema.ConstStructField =
+        , .{ indent, const_name, if (decl.struct_fields) |fields| fields.len else 0, indent, const_name });
+        if (decl.struct_fields) |fields| {
+            try appendConstStructFieldsLiteral(allocator, out, fields);
+        } else {
+            try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{}");
+        }
+        try out.appendSlice(allocator, ";\n");
+        try appendFmt(allocator, out,
+            \\{s}pub fn @"cpz.const.{s}.structFieldByIndex"(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
+            \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.structFields".len) return null;
+            \\{s}    return @This().@"cpz.const.{s}.structFields"[@"cpz.index"];
+            \\{s}}}
+            \\
+            \\{s}pub fn @"cpz.const.{s}.structFieldByName"(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
+            \\{s}    for (@This().@"cpz.const.{s}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+            \\{s}pub fn @"cpz.const.{s}.structFieldByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
+            \\{s}    for (@This().@"cpz.const.{s}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
+            \\{s}    return null;
+            \\{s}}}
+            \\
+        , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
+        if (decl.struct_fields) |fields| {
+            for (fields) |field| {
                 const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
                 defer allocator.free(field_name_literal);
                 const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
                 defer allocator.free(field_literal);
                 try appendFmt(allocator, out,
-                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.index": usize = {};
-                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.metadata": cpz.schema.ConstStructField = @This().@"cpz.const.{s}.listItem.{}.structFields"[{}];
-                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.name": []const u8 = {s};
-                    \\{s}pub const @"cpz.const.{s}.listItem.{}.structField.{}.literal": []const u8 = {s};
+                    \\{s}pub const @"cpz.const.{s}.structField.{}.index": usize = {};
+                    \\{s}pub const @"cpz.const.{s}.structField.{}.metadata": cpz.schema.ConstStructField = @This().@"cpz.const.{s}.structFields"[{}];
+                    \\{s}pub const @"cpz.const.{s}.structField.{}.name": []const u8 = {s};
+                    \\{s}pub const @"cpz.const.{s}.structField.{}.literal": []const u8 = {s};
                     \\
-                , .{ indent, const_name, item.index, field.index, field.index, indent, const_name, item.index, field.index, const_name, item.index, field.index, indent, const_name, item.index, field.index, field_name_literal, indent, const_name, item.index, field.index, field_literal });
+                , .{ indent, const_name, field.index, field.index, indent, const_name, field.index, const_name, field.index, indent, const_name, field.index, field_name_literal, indent, const_name, field.index, field_literal });
             }
-        }
-    }
-    try appendFmt(allocator, out,
-        \\{s}pub const @"cpz.const.{s}.structFieldCount": usize = {};
-        \\{s}pub const @"cpz.const.{s}.structFields": []const cpz.schema.ConstStructField =
-    , .{ indent, const_name, if (decl.struct_fields) |fields| fields.len else 0, indent, const_name });
-    if (decl.struct_fields) |fields| {
-        try appendConstStructFieldsLiteral(allocator, out, fields);
-    } else {
-        try out.appendSlice(allocator, "&[_]cpz.schema.ConstStructField{}");
-    }
-    try out.appendSlice(allocator, ";\n");
-    try appendFmt(allocator, out,
-        \\{s}pub fn @"cpz.const.{s}.structFieldByIndex"(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
-        \\{s}    if (@"cpz.index" >= @This().@"cpz.const.{s}.structFields".len) return null;
-        \\{s}    return @This().@"cpz.const.{s}.structFields"[@"cpz.index"];
-        \\{s}}}
-        \\
-        \\{s}pub fn @"cpz.const.{s}.structFieldByName"(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
-        \\{s}    for (@This().@"cpz.const.{s}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-        \\{s}pub fn @"cpz.const.{s}.structFieldByLiteral"(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
-        \\{s}    for (@This().@"cpz.const.{s}.structFields") |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
-        \\{s}    return null;
-        \\{s}}}
-        \\
-    , .{ indent, const_name, indent, const_name, indent, const_name, indent, indent, const_name, indent, const_name, indent, indent, indent, const_name, indent, const_name, indent, indent });
-    if (decl.struct_fields) |fields| {
-        for (fields) |field| {
-            const field_name_literal = try zigStringLiteralAlloc(allocator, field.name);
-            defer allocator.free(field_name_literal);
-            const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
-            defer allocator.free(field_literal);
             try appendFmt(allocator, out,
-                \\{s}pub const @"cpz.const.{s}.structField.{}.index": usize = {};
-                \\{s}pub const @"cpz.const.{s}.structField.{}.metadata": cpz.schema.ConstStructField = @This().@"cpz.const.{s}.structFields"[{}];
-                \\{s}pub const @"cpz.const.{s}.structField.{}.name": []const u8 = {s};
-                \\{s}pub const @"cpz.const.{s}.structField.{}.literal": []const u8 = {s};
+                \\{s}pub const {s} = struct {{
+                \\{s}    pub const fieldCount: usize = {};
+                \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.const.{s}.structFields";
                 \\
-            , .{ indent, const_name, field.index, field.index, indent, const_name, field.index, const_name, field.index, indent, const_name, field.index, field_name_literal, indent, const_name, field.index, field_literal });
+            , .{ indent, const_name, indent, fields.len, indent, const_name });
+            if (try structLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
+                defer allocator.free(flat_bytes);
+                const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
+                defer allocator.free(flat_literal);
+                const struct_name_from_const_type = try zigTypeRefAlloc(allocator, file, structLiteralTypeName(file, scope, decl.ty) orelse return error.UnsupportedType);
+                defer allocator.free(struct_name_from_const_type);
+                try appendFmt(allocator, out,
+                    \\{s}    pub const flatBytes: []const u8 = {s};
+                    \\{s}    pub const segment0: []const u8 = flatBytes[8..];
+                    \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
+                    \\
+                    \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
+                    \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn root(message_reader: *cpz.MessageReader) !cpz.StructReader {{
+                    \\{s}        return message_reader.getRoot();
+                    \\{s}    }}
+                    \\
+                    \\{s}    pub fn typedRoot(message_reader: *cpz.MessageReader) !{s} {{
+                    \\{s}        return {s}.fromReader(try @This().root(message_reader));
+                    \\{s}    }}
+                    \\
+                , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, struct_name_from_const_type, indent, struct_name_from_const_type, indent });
+                try emitFlatContainerSizeHelpers(allocator, out, indent);
+                try appendFmt(allocator, out,
+                    \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
+                    \\{s}        var @"cpz.reader" = reader(@"cpz.options");
+                    \\{s}        return @"cpz.reader".validate();
+                    \\{s}    }}
+                    \\
+                , .{ indent, indent, indent, indent });
+            }
+            for (fields) |field| {
+                const field_name = try zigIdentAlloc(allocator, field.name);
+                defer allocator.free(field_name);
+                const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
+                defer allocator.free(field_literal);
+                try appendFmt(allocator, out,
+                    \\{s}    pub const {s}: []const u8 = {s};
+                    \\
+                , .{ indent, field_name, field_literal });
+            }
+            try appendFmt(allocator, out,
+                \\{s}    pub fn fieldByIndex(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
+                \\{s}        if (@"cpz.index" >= @This().fields.len) return null;
+                \\{s}        return @This().fields[@"cpz.index"];
+                \\{s}    }}
+                \\
+                \\{s}    pub fn fieldByName(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
+                \\{s}        for (@This().fields) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
+                \\{s}        return null;
+                \\{s}    }}
+                \\
+                \\{s}    pub fn fieldByLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
+                \\{s}        for (@This().fields) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
+                \\{s}        return null;
+                \\{s}    }}
+                \\{s}}};
+                \\
+            , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
         }
+        try out.appendSlice(allocator,
+            \\
+        );
+        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, decl.annotations);
+        defer allocator.free(annotation_literal);
         try appendFmt(allocator, out,
-            \\{s}pub const {s} = struct {{
-            \\{s}    pub const fieldCount: usize = {};
-            \\{s}    pub const fields: []const cpz.schema.ConstStructField = @"cpz.const.{s}.structFields";
+            \\{s}pub const @"cpz.const.{s}.annotations": []const u8 = {s};
             \\
-        , .{ indent, const_name, indent, fields.len, indent, const_name });
-        if (try structLiteralFlatBytesAlloc(allocator, file, scope, decl)) |flat_bytes| {
-            defer allocator.free(flat_bytes);
-            const flat_literal = try zigRawStringLiteralAlloc(allocator, flat_bytes);
-            defer allocator.free(flat_literal);
-            const struct_name_from_const_type = try zigTypeRefAlloc(allocator, file, structLiteralTypeName(file, scope, decl.ty) orelse return error.UnsupportedType);
-            defer allocator.free(struct_name_from_const_type);
-            try appendFmt(allocator, out,
-                \\{s}    pub const flatBytes: []const u8 = {s};
-                \\{s}    pub const segment0: []const u8 = flatBytes[8..];
-                \\{s}    pub const segments: []const []const u8 = &[_][]const u8{{segment0}};
-                \\
-                \\{s}    pub fn reader(@"cpz.options": cpz.ReaderOptions) cpz.MessageReader {{
-                \\{s}        return cpz.MessageReader.init(@This().segments, @"cpz.options");
-                \\{s}    }}
-                \\
-                \\{s}    pub fn root(message_reader: *cpz.MessageReader) !cpz.StructReader {{
-                \\{s}        return message_reader.getRoot();
-                \\{s}    }}
-                \\
-                \\{s}    pub fn typedRoot(message_reader: *cpz.MessageReader) !{s} {{
-                \\{s}        return {s}.fromReader(try @This().root(message_reader));
-                \\{s}    }}
-                \\
-            , .{ indent, flat_literal, indent, indent, indent, indent, indent, indent, indent, indent, indent, struct_name_from_const_type, indent, struct_name_from_const_type, indent });
-            try emitFlatContainerSizeHelpers(allocator, out, indent);
-            try appendFmt(allocator, out,
-                \\{s}    pub fn validate(@"cpz.options": cpz.ReaderOptions) !cpz.MessageStats {{
-                \\{s}        var @"cpz.reader" = reader(@"cpz.options");
-                \\{s}        return @"cpz.reader".validate();
-                \\{s}    }}
-                \\
-            , .{ indent, indent, indent, indent });
-        }
-        for (fields) |field| {
-            const field_name = try zigIdentAlloc(allocator, field.name);
-            defer allocator.free(field_name);
-            const field_literal = try zigStringLiteralAlloc(allocator, field.literal);
-            defer allocator.free(field_literal);
-            try appendFmt(allocator, out,
-                \\{s}    pub const {s}: []const u8 = {s};
-                \\
-            , .{ indent, field_name, field_literal });
-        }
-        try appendFmt(allocator, out,
-            \\{s}    pub fn fieldByIndex(@"cpz.index": usize) ?cpz.schema.ConstStructField {{
-            \\{s}        if (@"cpz.index" >= @This().fields.len) return null;
-            \\{s}        return @This().fields[@"cpz.index"];
-            \\{s}    }}
-            \\
-            \\{s}    pub fn fieldByName(@"cpz.name": []const u8) ?cpz.schema.ConstStructField {{
-            \\{s}        for (@This().fields) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".name, @"cpz.name")) return @"cpz.field";
-            \\{s}        return null;
-            \\{s}    }}
-            \\
-            \\{s}    pub fn fieldByLiteral(@"cpz.literal": []const u8) ?cpz.schema.ConstStructField {{
-            \\{s}        for (@This().fields) |@"cpz.field"| if (std.mem.eql(u8, @"cpz.field".literal, @"cpz.literal")) return @"cpz.field";
-            \\{s}        return null;
-            \\{s}    }}
-            \\{s}}};
-            \\
-        , .{ indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent, indent });
+        , .{ indent, const_name, annotation_literal });
     }
-    try out.appendSlice(allocator,
-        \\
-    );
-    const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, decl.annotations);
-    defer allocator.free(annotation_literal);
-    try appendFmt(allocator, out,
-        \\{s}pub const @"cpz.const.{s}.annotations": []const u8 = {s};
-        \\
-    , .{ indent, const_name, annotation_literal });
     if (!decl.emit_value) return;
     if (supportsScalarConstFlatContainer(file, scope, decl.ty)) {
         try emitScalarConstFlatContainer(allocator, out, file, scope, indent, const_name, decl.ty, decl.literal);

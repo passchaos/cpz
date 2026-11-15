@@ -120,113 +120,115 @@ pub fn emitEnum(allocator: std.mem.Allocator, out: *std.ArrayList(u8), decl: *co
         \\}};
         \\
     , .{});
-    try appendFmt(allocator, out,
-        \\pub fn @"cpz.enum.{s}.fromRaw"(raw: u16) ?{s} {{
-        \\    return std.enums.fromInt({s}, raw);
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.toRaw"(value: {s}) u16 {{
-        \\    return @intFromEnum(value);
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.name"(value: {s}) []const u8 {{
-        \\    const raw = @intFromEnum(value);
-        \\    for (@"cpz.enum.{s}.values") |item| if (item.ordinal == raw) return item.name;
-        \\    return @tagName(value);
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.nameFromRaw"(raw: u16) ?[]const u8 {{
-        \\    const value = @"cpz.enum.{s}.fromRaw"(raw) orelse return null;
-        \\    return @"cpz.enum.{s}.name"(value);
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.valueByName"(@"cpz.name": []const u8) ?{s} {{
-        \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.name, @"cpz.name")) return @"cpz.enum.{s}.fromRaw"(item.ordinal).?;
-        \\    return null;
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.valueByRaw"(raw: u16) ?{s} {{
-        \\    return @"cpz.enum.{s}.fromRaw"(raw);
-        \\}}
-        \\
-        \\
-        \\pub fn @"cpz.enum.{s}.valueByMetadata"(metadata: cpz.schema.EnumValueMetadata) ?{s} {{
-        \\    return @"cpz.enum.{s}.fromRaw"(metadata.ordinal);
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.valueByAnnotations"(@"cpz.annotationFilter": []const u8) ?{s} {{
-        \\    const metadata = @"cpz.enum.{s}.metadataByAnnotations"(@"cpz.annotationFilter") orelse return null;
-        \\    return @"cpz.enum.{s}.valueByMetadata"(metadata);
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.valueByIndex"(@"cpz.index": usize) ?{s} {{
-        \\    const metadata = @"cpz.enum.{s}.metadataByIndex"(@"cpz.index") orelse return null;
-        \\    return @"cpz.enum.{s}.valueByMetadata"(metadata);
-        \\}}
-        \\
-    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
-    try appendFmt(allocator, out,
-        \\pub fn @"cpz.enum.{s}.metadataByName"(@"cpz.name": []const u8) ?cpz.schema.EnumValueMetadata {{
-        \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.name, @"cpz.name")) return item;
-        \\    return null;
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.metadataByRaw"(raw: u16) ?cpz.schema.EnumValueMetadata {{
-        \\    for (@"cpz.enum.{s}.values") |item| if (item.ordinal == raw) return item;
-        \\    return null;
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.metadataByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.EnumValueMetadata {{
-        \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.annotations, @"cpz.annotationFilter")) return item;
-        \\    return null;
-        \\}}
-        \\
-        \\pub fn @"cpz.enum.{s}.metadataByIndex"(@"cpz.index": usize) ?cpz.schema.EnumValueMetadata {{
-        \\    if (@"cpz.index" >= @"cpz.enum.{s}.values".len) return null;
-        \\    return @"cpz.enum.{s}.values"[@"cpz.index"];
-        \\}}
-    , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
-    try appendFmt(allocator, out,
-        \\pub const @"cpz.enum.{s}.valueCount": usize = {};
-        \\
-    , .{ enum_name, decl.values.len });
-    try appendFmt(allocator, out,
-        \\pub const @"cpz.enum.{s}.values": []const cpz.schema.EnumValueMetadata = &[_]cpz.schema.EnumValueMetadata{{
-    , .{enum_name});
-    for (decl.values, 0..) |value, index| {
-        if (index != 0) try out.appendSlice(allocator, ", ");
-        const value_name_literal = try zigStringLiteralAlloc(allocator, value.name);
-        defer allocator.free(value_name_literal);
-        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, value.annotations);
-        defer allocator.free(annotation_literal);
-        if (value.annotations.len != 0) {
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .annotations = {s} }}", .{ value.index, value_name_literal, value.ordinal, annotation_literal });
-        } else {
-            try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {} }}", .{ value.index, value_name_literal, value.ordinal });
-        }
-    }
-    try out.appendSlice(allocator, "};\n");
-    for (decl.values) |value| {
-        const enum_name_for_const = try zigIdentAlloc(allocator, decl.name);
-        defer allocator.free(enum_name_for_const);
-        const value_name = try zigIdentAlloc(allocator, value.name);
-        defer allocator.free(value_name);
-        const value_name_literal = try zigStringLiteralAlloc(allocator, value.name);
-        defer allocator.free(value_name_literal);
+    if (state.emit_metadata_enabled) {
         try appendFmt(allocator, out,
-            \\pub const @"cpz.enumerant.{s}.{s}.index": usize = {};
-            \\pub const @"cpz.enumerant.{s}.{s}.name": []const u8 = {s};
-            \\pub const @"cpz.enumerant.{s}.{s}.ordinal": u16 = {};
-            \\pub const @"cpz.enumerant.{s}.{s}.metadata": cpz.schema.EnumValueMetadata = @"cpz.enum.{s}.values"[{}];
-        , .{ enum_name_for_const, value_name, value.index, enum_name_for_const, value_name, value_name_literal, enum_name_for_const, value_name, value.ordinal, enum_name_for_const, value_name, enum_name_for_const, value.index });
-        const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, value.annotations);
-        defer allocator.free(annotation_literal);
-        try appendFmt(allocator, out,
-            \\pub const @"cpz.enumerant.{s}.{s}.annotations": []const u8 = {s};
+            \\pub fn @"cpz.enum.{s}.fromRaw"(raw: u16) ?{s} {{
+            \\    return std.enums.fromInt({s}, raw);
+            \\}}
             \\
-        , .{ enum_name_for_const, value_name, annotation_literal });
+            \\pub fn @"cpz.enum.{s}.toRaw"(value: {s}) u16 {{
+            \\    return @intFromEnum(value);
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.name"(value: {s}) []const u8 {{
+            \\    const raw = @intFromEnum(value);
+            \\    for (@"cpz.enum.{s}.values") |item| if (item.ordinal == raw) return item.name;
+            \\    return @tagName(value);
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.nameFromRaw"(raw: u16) ?[]const u8 {{
+            \\    const value = @"cpz.enum.{s}.fromRaw"(raw) orelse return null;
+            \\    return @"cpz.enum.{s}.name"(value);
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.valueByName"(@"cpz.name": []const u8) ?{s} {{
+            \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.name, @"cpz.name")) return @"cpz.enum.{s}.fromRaw"(item.ordinal).?;
+            \\    return null;
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.valueByRaw"(raw: u16) ?{s} {{
+            \\    return @"cpz.enum.{s}.fromRaw"(raw);
+            \\}}
+            \\
+            \\
+            \\pub fn @"cpz.enum.{s}.valueByMetadata"(metadata: cpz.schema.EnumValueMetadata) ?{s} {{
+            \\    return @"cpz.enum.{s}.fromRaw"(metadata.ordinal);
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.valueByAnnotations"(@"cpz.annotationFilter": []const u8) ?{s} {{
+            \\    const metadata = @"cpz.enum.{s}.metadataByAnnotations"(@"cpz.annotationFilter") orelse return null;
+            \\    return @"cpz.enum.{s}.valueByMetadata"(metadata);
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.valueByIndex"(@"cpz.index": usize) ?{s} {{
+            \\    const metadata = @"cpz.enum.{s}.metadataByIndex"(@"cpz.index") orelse return null;
+            \\    return @"cpz.enum.{s}.valueByMetadata"(metadata);
+            \\}}
+            \\
+        , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
+        try appendFmt(allocator, out,
+            \\pub fn @"cpz.enum.{s}.metadataByName"(@"cpz.name": []const u8) ?cpz.schema.EnumValueMetadata {{
+            \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.name, @"cpz.name")) return item;
+            \\    return null;
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.metadataByRaw"(raw: u16) ?cpz.schema.EnumValueMetadata {{
+            \\    for (@"cpz.enum.{s}.values") |item| if (item.ordinal == raw) return item;
+            \\    return null;
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.metadataByAnnotations"(@"cpz.annotationFilter": []const u8) ?cpz.schema.EnumValueMetadata {{
+            \\    for (@"cpz.enum.{s}.values") |item| if (std.mem.eql(u8, item.annotations, @"cpz.annotationFilter")) return item;
+            \\    return null;
+            \\}}
+            \\
+            \\pub fn @"cpz.enum.{s}.metadataByIndex"(@"cpz.index": usize) ?cpz.schema.EnumValueMetadata {{
+            \\    if (@"cpz.index" >= @"cpz.enum.{s}.values".len) return null;
+            \\    return @"cpz.enum.{s}.values"[@"cpz.index"];
+            \\}}
+        , .{ enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name, enum_name });
+        try appendFmt(allocator, out,
+            \\pub const @"cpz.enum.{s}.valueCount": usize = {};
+            \\
+        , .{ enum_name, decl.values.len });
+        try appendFmt(allocator, out,
+            \\pub const @"cpz.enum.{s}.values": []const cpz.schema.EnumValueMetadata = &[_]cpz.schema.EnumValueMetadata{{
+        , .{enum_name});
+        for (decl.values, 0..) |value, index| {
+            if (index != 0) try out.appendSlice(allocator, ", ");
+            const value_name_literal = try zigStringLiteralAlloc(allocator, value.name);
+            defer allocator.free(value_name_literal);
+            const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, value.annotations);
+            defer allocator.free(annotation_literal);
+            if (value.annotations.len != 0) {
+                try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {}, .annotations = {s} }}", .{ value.index, value_name_literal, value.ordinal, annotation_literal });
+            } else {
+                try appendFmt(allocator, out, ".{{ .index = {}, .name = {s}, .ordinal = {} }}", .{ value.index, value_name_literal, value.ordinal });
+            }
+        }
+        try out.appendSlice(allocator, "};\n");
+        for (decl.values) |value| {
+            const enum_name_for_const = try zigIdentAlloc(allocator, decl.name);
+            defer allocator.free(enum_name_for_const);
+            const value_name = try zigIdentAlloc(allocator, value.name);
+            defer allocator.free(value_name);
+            const value_name_literal = try zigStringLiteralAlloc(allocator, value.name);
+            defer allocator.free(value_name_literal);
+            try appendFmt(allocator, out,
+                \\pub const @"cpz.enumerant.{s}.{s}.index": usize = {};
+                \\pub const @"cpz.enumerant.{s}.{s}.name": []const u8 = {s};
+                \\pub const @"cpz.enumerant.{s}.{s}.ordinal": u16 = {};
+                \\pub const @"cpz.enumerant.{s}.{s}.metadata": cpz.schema.EnumValueMetadata = @"cpz.enum.{s}.values"[{}];
+            , .{ enum_name_for_const, value_name, value.index, enum_name_for_const, value_name, value_name_literal, enum_name_for_const, value_name, value.ordinal, enum_name_for_const, value_name, enum_name_for_const, value.index });
+            const annotation_literal = try zigSchemaSyntaxLiteralAlloc(allocator, value.annotations);
+            defer allocator.free(annotation_literal);
+            try appendFmt(allocator, out,
+                \\pub const @"cpz.enumerant.{s}.{s}.annotations": []const u8 = {s};
+                \\
+            , .{ enum_name_for_const, value_name, annotation_literal });
+        }
+        try out.append(allocator, '\n');
     }
-    try out.append(allocator, '\n');
 }
 
 pub fn emitInterface(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *const File, decl: *const InterfaceDecl) LayoutError!void {
