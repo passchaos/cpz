@@ -2,31 +2,8 @@ const std = @import("std");
 const message = @import("../message.zig");
 const serialize = @import("../serialize.zig");
 const wire = @import("../wire.zig");
-const codegen = @import("../schema.zig");
-const parseFloatLiteral = codegen.parseFloatLiteral;
-const parseBoolLiteral = codegen.parseBoolLiteral;
-const enumLiteralOrdinal = codegen.enumLiteralOrdinal;
-const parseUnsignedLiteral = codegen.parseUnsignedLiteral;
-const resolveConstDeclType = codegen.resolveConstDeclType;
-const typeAcceptsVoidPointerDefault = codegen.typeAcceptsVoidPointerDefault;
-const resolveConstReferenceLiteral = codegen.resolveConstReferenceLiteral;
-const schemaTypeNameAlloc = codegen.schemaTypeNameAlloc;
-const annotationOwnerName = codegen.annotationOwnerName;
-const annotationTargetCount = codegen.annotationTargetCount;
-const constDeclOwnerName = codegen.constDeclOwnerName;
-const declHasParameter = codegen.declHasParameter;
-const findConstReference = codegen.findConstReference;
-const hexBytesAlloc = codegen.hexBytesAlloc;
-const matchingParen = codegen.matchingParen;
-const parseInlineConstListElementsAlloc = codegen.parseInlineConstListElementsAlloc;
-const parseSignedLiteral = codegen.parseSignedLiteral;
-const parseTypeArgAlloc = codegen.parseTypeArgAlloc;
-const resolveNamedAliasInOwnerScope = codegen.resolveNamedAliasInOwnerScope;
-const resolveTypeInOwnerScope = codegen.resolveTypeInOwnerScope;
-const splitTypeApplicationArgsAlloc = codegen.splitTypeApplicationArgsAlloc;
-const substituteGenericTypeAlloc = codegen.substituteGenericTypeAlloc;
-const typeAcceptsNullPointerDefault = codegen.typeAcceptsNullPointerDefault;
-const zigNamesEqual = codegen.zigNamesEqual;
+const zig_names = @import("zig_names.zig");
+const zigNamesEqual = zig_names.zigNamesEqual;
 
 /// Syntax, semantic, and allocation errors produced by schema parsing.
 pub const Error = error{
@@ -6785,5 +6762,608 @@ pub fn isNumberContinue(c: u8) bool {
     return switch (c) {
         '0'...'9', 'a'...'f', 'A'...'F', 'o', 'O', 'x', 'X', '_', '.', '+', '-' => true,
         else => false,
+    };
+}
+
+/// Literal parsing, const resolution, and type-name helpers shared with the
+/// code generator. These live in the frontend so the parser, layout planner,
+/// and validators do not depend on generated-source emission.
+pub fn parseFloatLiteral(comptime T: type, raw_literal: []const u8) ?T {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    const unsigned = if (std.mem.startsWith(u8, raw, "+")) raw[1..] else raw;
+    if (std.mem.eql(u8, unsigned, "inf")) return std.math.inf(T);
+    if (std.mem.eql(u8, unsigned, "-inf")) return -std.math.inf(T);
+    if (std.mem.eql(u8, unsigned, "nan")) return std.math.nan(T);
+    return std.fmt.parseFloat(T, unsigned) catch null;
+}
+
+pub fn parseBoolLiteral(raw_literal: []const u8) ?bool {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    if (std.mem.eql(u8, raw, "true")) return true;
+    if (std.mem.eql(u8, raw, "false")) return false;
+    return null;
+}
+
+pub fn enumLiteralOrdinal(decl: *const EnumDecl, raw_literal: []const u8) ?u16 {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    const unqualified = if (std.mem.startsWith(u8, raw, ".")) raw[1..] else raw;
+    const literal = if (lastTopLevelDot(unqualified)) |dot| unqualified[dot + 1 ..] else unqualified;
+    if (literal.len == 0) return null;
+    for (decl.values) |value| if (std.mem.eql(u8, value.name, literal)) return value.ordinal;
+    return null;
+}
+
+pub fn parseUnsignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    if (raw.len == 0 or raw[0] == '.') return null;
+    const digits = if (raw[0] == '+') raw[1..] else raw;
+    if (digits.len == 0) return null;
+    const value = parseInteger(digits) catch return null;
+    if (value > std.math.maxInt(T)) return null;
+    return @intCast(value);
+}
+
+pub fn resolveConstDeclType(file: *const File, scope: ?*const Struct, decl: *const ConstDecl) Type {
+    if (constDeclOwnerName(file, decl)) |owner_name| {
+        return resolveTypeInOwnerScope(file, owner_name, decl.ty);
+    }
+    return resolveTypeScoped(file, scope, decl.ty);
+}
+
+pub fn typeAcceptsVoidPointerDefault(file: *const File, ty: Type) bool {
+    return switch (ty) {
+        .any_pointer, .any_struct, .any_list, .capability => true,
+        .named => |type_name| findInterface(file, type_name) != null,
+        else => false,
+    };
+}
+
+pub fn resolveConstReferenceLiteral(file: *const File, scope: ?*const Struct, literal: []const u8) []const u8 {
+    return resolveConstReferenceLiteralDepth(file, scope, literal, 0);
+}
+
+pub fn schemaTypeNameAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError![]u8 {
+    return switch (ty) {
+        .void => allocator.dupe(u8, "Void"),
+        .bool => allocator.dupe(u8, "Bool"),
+        .int8 => allocator.dupe(u8, "Int8"),
+        .int16 => allocator.dupe(u8, "Int16"),
+        .int32 => allocator.dupe(u8, "Int32"),
+        .int64 => allocator.dupe(u8, "Int64"),
+        .uint8 => allocator.dupe(u8, "UInt8"),
+        .uint16 => allocator.dupe(u8, "UInt16"),
+        .uint32 => allocator.dupe(u8, "UInt32"),
+        .uint64 => allocator.dupe(u8, "UInt64"),
+        .float32 => allocator.dupe(u8, "Float32"),
+        .float64 => allocator.dupe(u8, "Float64"),
+        .text => allocator.dupe(u8, "Text"),
+        .data => allocator.dupe(u8, "Data"),
+        .any_pointer => allocator.dupe(u8, "AnyPointer"),
+        .any_struct => allocator.dupe(u8, "AnyStruct"),
+        .any_list => allocator.dupe(u8, "AnyList"),
+        .capability => allocator.dupe(u8, "Capability"),
+        .named => |name| allocator.dupe(u8, name),
+        .list => |child| {
+            const child_name = try schemaTypeNameAlloc(allocator, child.*);
+            defer allocator.free(child_name);
+            return std.fmt.allocPrint(allocator, "List({s})", .{child_name});
+        },
+        .optional => |child| {
+            const child_name = try schemaTypeNameAlloc(allocator, child.*);
+            defer allocator.free(child_name);
+            return std.fmt.allocPrint(allocator, "?{s}", .{child_name});
+        },
+    };
+}
+
+pub fn annotationOwnerName(annotation_name: []const u8) ?[]const u8 {
+    const dot = lastTopLevelDot(annotation_name) orelse return null;
+    return annotation_name[0..dot];
+}
+
+pub fn annotationTargetCount(targets: AnnotationTargets) usize {
+    var count: usize = 0;
+    if (targets.file) count += 1;
+    if (targets.const_decl) count += 1;
+    if (targets.enum_decl) count += 1;
+    if (targets.enumerant) count += 1;
+    if (targets.struct_decl) count += 1;
+    if (targets.field) count += 1;
+    if (targets.union_decl) count += 1;
+    if (targets.group) count += 1;
+    if (targets.interface_decl) count += 1;
+    if (targets.method) count += 1;
+    if (targets.param) count += 1;
+    if (targets.annotation_decl) count += 1;
+    return count;
+}
+
+pub fn constDeclOwnerName(file: *const File, decl: *const ConstDecl) ?[]const u8 {
+    for (file.structs) |*owner| {
+        for (owner.consts) |*candidate| {
+            if (candidate == decl) return owner.name;
+        }
+    }
+    for (file.interfaces) |*owner| {
+        for (owner.consts) |*candidate| {
+            if (candidate == decl) return owner.name;
+        }
+    }
+    return null;
+}
+
+pub fn declHasParameter(parameters: []const []const u8, name: []const u8) bool {
+    for (parameters) |parameter| {
+        if (std.mem.eql(u8, parameter, name)) return true;
+    }
+    return false;
+}
+
+pub fn findConstReference(file: *const File, scope: ?*const Struct, literal: []const u8) ?*const ConstDecl {
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    const name = if (lastTopLevelDot(raw)) |dot| raw[dot + 1 ..] else raw;
+    const owner = if (lastTopLevelDot(raw)) |dot| raw[0..dot] else null;
+    if (owner) |owner_name| {
+        if (scope) |decl| {
+            if (typeNameEqualsCanonical(owner_name, decl.name)) {
+                for (decl.consts) |*const_decl| {
+                    if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
+                }
+            }
+        }
+        if (findConstInOwner(file, scope, owner_name, name)) |decl| {
+            return decl;
+        }
+    } else if (scope) |decl| {
+        if (findConstInOwnerScope(file, scope, decl.name, name)) |const_decl| return const_decl;
+    }
+    for (file.consts) |*const_decl| {
+        if (std.mem.eql(u8, const_decl.name, name)) return const_decl;
+    }
+    return null;
+}
+
+pub fn hexBytesAlloc(allocator: std.mem.Allocator, raw: []const u8) LayoutError![]u8 {
+    var bytes = std.ArrayList(u8).empty;
+    errdefer bytes.deinit(allocator);
+    var high_nibble: ?u8 = null;
+    for (raw) |c| {
+        switch (c) {
+            ' ', '\t', '\n', '\r' => continue,
+            else => {},
+        }
+        const value = hexValue(c) orelse return error.InvalidToken;
+        if (high_nibble) |high| {
+            try bytes.append(allocator, (high << 4) | value);
+            high_nibble = null;
+        } else {
+            high_nibble = value;
+        }
+    }
+    if (high_nibble != null) return error.InvalidToken;
+    return bytes.toOwnedSlice(allocator);
+}
+
+pub fn matchingParen(raw: []const u8, open_index: usize) Error!?usize {
+    var depth: usize = 0;
+    var index = open_index;
+    while (index < raw.len) {
+        if (try skipRawStringOrCommentInPostLoop(raw, &index)) {
+            index += 1;
+            continue;
+        }
+        if (raw[index] == '(') depth += 1;
+        if (raw[index] == ')') {
+            if (depth == 0) return null;
+            depth -= 1;
+            if (depth == 0) return index;
+        }
+        index += 1;
+    }
+    return null;
+}
+
+pub fn parseInlineConstListElementsAlloc(allocator: std.mem.Allocator, expression: []const u8) LayoutError![]const []const u8 {
+    const source = std.mem.trim(u8, expression, " \t\r\n");
+    var index = try skipTriviaIndex(source, 0);
+    if (index >= source.len or source[index] != '[') return error.UnsupportedType;
+    index += 1;
+
+    var items = std.ArrayList([]const u8).empty;
+    errdefer items.deinit(allocator);
+    while (true) {
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len) return error.UnexpectedToken;
+        if (source[index] == ']') {
+            index += 1;
+            break;
+        }
+
+        const item_start = index;
+        var paren_depth: usize = 0;
+        var bracket_depth: usize = 0;
+        var brace_depth: usize = 0;
+        while (index < source.len) {
+            switch (source[index]) {
+                '"' => {
+                    index += 1;
+                    while (index < source.len) {
+                        if (source[index] == '\\') {
+                            index += 2;
+                        } else if (source[index] == '"') {
+                            index += 1;
+                            break;
+                        } else {
+                            index += 1;
+                        }
+                    }
+                    if (index > source.len) return error.UnexpectedToken;
+                    continue;
+                },
+                '#' => {
+                    index = skipLineCommentIndex(source, index);
+                    continue;
+                },
+                '/' => {
+                    const next = try skipRawSlashIndex(source, index);
+                    if (next != index + 1) {
+                        index = next;
+                        continue;
+                    }
+                    index = next;
+                    continue;
+                },
+                '(' => {
+                    paren_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                ')' => {
+                    if (paren_depth != 0) paren_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                '[' => {
+                    bracket_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                ']' => {
+                    if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) break;
+                    if (bracket_depth != 0) bracket_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                '{' => {
+                    brace_depth += 1;
+                    index += 1;
+                    continue;
+                },
+                '}' => {
+                    if (brace_depth != 0) brace_depth -= 1;
+                    index += 1;
+                    continue;
+                },
+                ',' => if (paren_depth == 0 and bracket_depth == 0 and brace_depth == 0) break,
+                else => {},
+            }
+            index += 1;
+        }
+        if (index >= source.len) return error.UnexpectedToken;
+        const item = std.mem.trim(u8, source[item_start..index], " \t\r\n");
+        if (item.len == 0) return error.UnexpectedToken;
+        try items.append(allocator, item);
+
+        index = try skipTriviaIndex(source, index);
+        if (index >= source.len) return error.UnexpectedToken;
+        if (source[index] == ',') {
+            index += 1;
+            index = try skipTriviaIndex(source, index);
+            if (index >= source.len or source[index] == ']') return error.UnexpectedToken;
+            continue;
+        }
+        if (source[index] == ']') {
+            index += 1;
+            break;
+        }
+        return error.UnexpectedToken;
+    }
+
+    index = try skipTriviaIndex(source, index);
+    if (index != source.len) return error.UnexpectedToken;
+    return items.toOwnedSlice(allocator);
+}
+
+pub fn parseSignedLiteral(comptime T: type, raw_literal: []const u8) ?T {
+    const raw = std.mem.trim(u8, raw_literal, " \t\r\n");
+    if (raw.len == 0 or raw[0] == '.') return null;
+    const negative = raw[0] == '-';
+    const positive = raw[0] == '+';
+    const digits = if (negative or positive) raw[1..] else raw;
+    if (digits.len == 0) return null;
+    const unsigned = parseInteger(digits) catch return null;
+    if (negative) {
+        const min_abs = @as(u64, @intCast(-(std.math.minInt(T) + 1))) + 1;
+        if (unsigned > min_abs) return null;
+        if (unsigned == min_abs) return std.math.minInt(T);
+        const positive_value: T = @intCast(unsigned);
+        return -positive_value;
+    }
+    if (unsigned > std.math.maxInt(T)) return null;
+    return @intCast(unsigned);
+}
+
+pub fn parseTypeArgAlloc(allocator: std.mem.Allocator, raw_arg: []const u8) LayoutError!Type {
+    const raw = std.mem.trim(u8, raw_arg, " \t\r\n");
+    if (raw.len == 0) return error.UnexpectedToken;
+    var parser = try Parser.init(allocator, raw);
+    defer parser.deinitLiteralScratch();
+    var ty = try parser.parseType();
+    errdefer ty.deinit(allocator);
+    if (parser.lookahead.tag != .eof) return error.UnexpectedToken;
+    return ty;
+}
+
+pub fn resolveNamedAliasInOwnerScope(file: *const File, owner_name: ?[]const u8, name: []const u8, depth: usize) ?Type {
+    if (depth >= 32) return null;
+    var current = owner_name;
+    while (current) |owner| {
+        if (findStructDirect(file, owner)) |decl| {
+            if (resolveNamedAliasInList(decl.aliases, file, owner, name, depth)) |resolved| return resolved;
+            if (declHasParameter(decl.parameters, name)) return null;
+        }
+        if (findInterfaceDirect(file, owner)) |decl| {
+            if (resolveNamedAliasInList(decl.aliases, file, owner, name, depth)) |resolved| return resolved;
+            if (declHasParameter(decl.parameters, name)) return null;
+        }
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
+    }
+    return resolveNamedAliasInList(file.aliases, file, null, name, depth);
+}
+
+pub fn resolveTypeInOwnerScope(file: *const File, owner_name: ?[]const u8, ty: Type) Type {
+    return switch (ty) {
+        .named => |name| resolveNamedAliasInOwnerScope(file, owner_name, name, 0) orelse ty,
+        else => ty,
+    };
+}
+
+pub fn splitTypeApplicationArgsAlloc(allocator: std.mem.Allocator, type_name: []const u8) LayoutError!?[]Type {
+    const open = typeApplicationOpen(type_name) orelse return null;
+    const close = (try matchingParen(type_name, open)) orelse return null;
+    const raw_args = type_name[open + 1 .. close];
+    var args = std.ArrayList(Type).empty;
+    errdefer {
+        for (args.items) |*arg| arg.deinit(allocator);
+        args.deinit(allocator);
+    }
+    var start: usize = 0;
+    var depth: usize = 0;
+    var index: usize = 0;
+    while (index < raw_args.len) {
+        if (try skipRawStringOrCommentInPostLoop(raw_args, &index)) {
+            index += 1;
+            continue;
+        }
+        switch (raw_args[index]) {
+            '(' => depth += 1,
+            ')' => {
+                if (depth != 0) depth -= 1;
+            },
+            ',' => if (depth == 0) {
+                if (std.mem.trim(u8, raw_args[start..index], " \t\r\n").len == 0) return error.UnexpectedToken;
+                try args.append(allocator, try parseTypeArgAlloc(allocator, raw_args[start..index]));
+                start = index + 1;
+            },
+            else => {},
+        }
+        index += 1;
+    }
+    if (std.mem.trim(u8, raw_args[start..], " \t\r\n").len != 0) {
+        try args.append(allocator, try parseTypeArgAlloc(allocator, raw_args[start..]));
+    }
+    return try args.toOwnedSlice(allocator);
+}
+
+pub fn substituteGenericTypeAlloc(allocator: std.mem.Allocator, owned_names: *std.ArrayList([]const u8), ty: Type, parameters: []const []const u8, args: []const Type) LayoutError!Type {
+    switch (ty) {
+        .named => |name| {
+            for (parameters, 0..) |parameter, index| {
+                if (index < args.len and typeNameEqualsCanonical(name, parameter)) return cloneTypeAlloc(allocator, args[index]);
+            }
+            if (try substituteGenericNameAlloc(allocator, name, parameters, args)) |substituted_name| {
+                try owned_names.append(allocator, substituted_name);
+                return .{ .named = substituted_name };
+            }
+            return ty;
+        },
+        .list => |child| {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try substituteGenericTypeAlloc(allocator, owned_names, child.*, parameters, args);
+            return .{ .list = cloned };
+        },
+        .optional => |child| {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try substituteGenericTypeAlloc(allocator, owned_names, child.*, parameters, args);
+            return .{ .optional = cloned };
+        },
+        else => return ty,
+    }
+}
+
+pub fn typeAcceptsNullPointerDefault(file: *const File, ty: Type) bool {
+    return switch (ty) {
+        .text, .data, .any_pointer, .any_struct, .any_list, .capability, .list => true,
+        .named => |type_name| findEnum(file, type_name) == null,
+        else => false,
+    };
+}
+
+pub fn cloneTypeAlloc(allocator: std.mem.Allocator, ty: Type) LayoutError!Type {
+    return switch (ty) {
+        .list => |child| blk: {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try cloneTypeAlloc(allocator, child.*);
+            break :blk .{ .list = cloned };
+        },
+        .optional => |child| blk: {
+            const cloned = try allocator.create(Type);
+            errdefer allocator.destroy(cloned);
+            cloned.* = try cloneTypeAlloc(allocator, child.*);
+            break :blk .{ .optional = cloned };
+        },
+        else => ty,
+    };
+}
+
+pub fn substituteGenericNameAlloc(allocator: std.mem.Allocator, raw: []const u8, parameters: []const []const u8, args: []const Type) LayoutError!?[]const u8 {
+    const open = typeApplicationOpen(raw) orelse return null;
+    const close = (try matchingParen(raw, open)) orelse return null;
+    var out = std.ArrayList(u8).empty;
+    errdefer out.deinit(allocator);
+    try out.appendSlice(allocator, raw[0 .. open + 1]);
+    const inner = raw[open + 1 .. close];
+    var start: usize = 0;
+    var depth: usize = 0;
+    var first = true;
+    var index: usize = 0;
+    while (index < inner.len) {
+        if (try skipRawStringOrCommentInPostLoop(inner, &index)) {
+            index += 1;
+            continue;
+        }
+        switch (inner[index]) {
+            '(' => depth += 1,
+            ')' => {
+                if (depth != 0) depth -= 1;
+            },
+            ',' => if (depth == 0) {
+                if (!first) try out.appendSlice(allocator, ", ");
+                first = false;
+                const arg = std.mem.trim(u8, inner[start..index], " \t\r\n");
+                var substituted = false;
+                for (parameters, 0..) |parameter, parameter_index| {
+                    if (parameter_index < args.len and typeNameEqualsCanonical(arg, parameter)) {
+                        const arg_name = try schemaTypeNameAlloc(allocator, args[parameter_index]);
+                        defer allocator.free(arg_name);
+                        try out.appendSlice(allocator, arg_name);
+                        substituted = true;
+                        break;
+                    }
+                }
+                if (!substituted) {
+                    if (try substituteGenericNameAlloc(allocator, arg, parameters, args)) |nested| {
+                        defer allocator.free(nested);
+                        try out.appendSlice(allocator, nested);
+                    } else {
+                        try out.appendSlice(allocator, arg);
+                    }
+                }
+                start = index + 1;
+            },
+            else => {},
+        }
+        index += 1;
+    }
+    if (!first) try out.appendSlice(allocator, ", ");
+    const arg = std.mem.trim(u8, inner[start..], " \t\r\n");
+    var substituted = false;
+    for (parameters, 0..) |parameter, parameter_index| {
+        if (parameter_index < args.len and typeNameEqualsCanonical(arg, parameter)) {
+            const arg_name = try schemaTypeNameAlloc(allocator, args[parameter_index]);
+            defer allocator.free(arg_name);
+            try out.appendSlice(allocator, arg_name);
+            substituted = true;
+            break;
+        }
+    }
+    if (!substituted) {
+        if (try substituteGenericNameAlloc(allocator, arg, parameters, args)) |nested| {
+            defer allocator.free(nested);
+            try out.appendSlice(allocator, nested);
+        } else {
+            try out.appendSlice(allocator, arg);
+        }
+    }
+    try out.append(allocator, ')');
+    try out.appendSlice(allocator, raw[close + 1 ..]);
+    return try out.toOwnedSlice(allocator);
+}
+
+pub fn resolveConstReferenceLiteralDepth(file: *const File, scope: ?*const Struct, literal: []const u8, depth: usize) []const u8 {
+    if (depth >= 32) return literal;
+    const decl = findConstReference(file, scope, literal) orelse return literal;
+    if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), std.mem.trim(u8, literal, " \t\r\n"))) return decl.literal;
+    if (constDeclOwnerName(file, decl)) |owner_name| {
+        return resolveConstReferenceLiteralInOwnerDepth(file, scope, owner_name, decl.literal, depth + 1);
+    }
+    return resolveConstReferenceLiteralDepth(file, scope, decl.literal, depth + 1);
+}
+
+pub fn resolveConstReferenceLiteralInOwnerDepth(file: *const File, scope: ?*const Struct, owner_name: []const u8, literal: []const u8, depth: usize) []const u8 {
+    if (depth >= 32) return literal;
+    const raw = std.mem.trim(u8, literal, " \t\r\n");
+    if (lastTopLevelDot(raw) == null) {
+        if (findConstInOwner(file, scope, owner_name, raw)) |decl| {
+            if (std.mem.eql(u8, std.mem.trim(u8, decl.literal, " \t\r\n"), raw)) return decl.literal;
+            return resolveConstReferenceLiteralInOwnerDepth(file, scope, constDeclOwnerName(file, decl) orelse owner_name, decl.literal, depth + 1);
+        }
+    }
+    return resolveConstReferenceLiteralDepth(file, scope, literal, depth);
+}
+
+pub fn findConstInOwnerScope(file: *const File, scope: ?*const Struct, owner_name: []const u8, const_name: []const u8) ?*const ConstDecl {
+    var current: ?[]const u8 = owner_name;
+    while (current) |owner| {
+        if (findConstInOwner(file, scope, owner, const_name)) |decl| return decl;
+        current = if (lastTopLevelDot(owner)) |dot| owner[0..dot] else null;
+    }
+    return null;
+}
+
+pub fn findConstInOwner(file: *const File, scope: ?*const Struct, owner_name: []const u8, const_name: []const u8) ?*const ConstDecl {
+    if (findStructDirect(file, owner_name)) |decl| {
+        for (decl.consts) |*const_decl| {
+            if (std.mem.eql(u8, const_decl.name, const_name)) return const_decl;
+        }
+    }
+    if (findInterfaceDirect(file, owner_name)) |decl| {
+        for (decl.consts) |*const_decl| {
+            if (std.mem.eql(u8, const_decl.name, const_name)) return const_decl;
+        }
+    }
+    // Qualified references may use a public alias as the owner
+    // (`Alias.localConst`). Resolve that owner alias before looking for consts
+    // on the underlying struct/interface declaration.
+    const resolved_owner = resolveNamedAlias(file, scope, owner_name, 0) orelse return null;
+    return switch (resolved_owner) {
+        .named => |resolved_name| if (std.mem.eql(u8, resolved_name, owner_name))
+            null
+        else
+            findConstInOwner(file, scope, resolved_name, const_name),
+        else => null,
+    };
+}
+
+pub fn resolveNamedAliasInList(aliases: []const AliasDecl, file: *const File, owner_name: ?[]const u8, name: []const u8, depth: usize) ?Type {
+    for (aliases) |alias| {
+        if (!std.mem.eql(u8, alias.name, name)) continue;
+        return switch (alias.target) {
+            .named => |target_name| resolveNamedAliasInOwnerScope(file, owner_name, target_name, depth + 1) orelse alias.target,
+            else => alias.target,
+        };
+    }
+    return null;
+}
+
+pub fn hexValue(c: u8) ?u8 {
+    return switch (c) {
+        '0'...'9' => c - '0',
+        'a'...'f' => c - 'a' + 10,
+        'A'...'F' => c - 'A' + 10,
+        else => null,
     };
 }
