@@ -993,6 +993,40 @@ test "ListBuilder.setAll copies primitive slices" {
     try testing.expect(try bits.getBool(3));
 }
 
+test "ListBuilder.setSlice and ListReader.getSlice copy ranges" {
+    const testing = std.testing;
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });
+    defer builder.deinit();
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 2 });
+
+    const u32s = try (try root.getPointerField(0)).initList(.four_bytes, 5);
+    try u32s.setSlice(1, u32, &[_]u32{ 10, 20, 30 });
+    try testing.expectEqual(@as(u32, 0), try u32s.getUInt32(0));
+    try testing.expectEqual(@as(u32, 10), try u32s.getUInt32(1));
+    try testing.expectEqual(@as(u32, 30), try u32s.getUInt32(3));
+    try testing.expectEqual(@as(u32, 0), try u32s.getUInt32(4));
+    try testing.expectError(error.PointerOutOfBounds, u32s.setSlice(4, u32, &[_]u32{ 1, 2 }));
+    try testing.expectError(error.PointerOutOfBounds, u32s.setSlice(6, u32, &[_]u32{1}));
+
+    const bits = try (try root.getPointerField(1)).initList(.bit, 6);
+    try bits.setSlice(2, bool, &[_]bool{ true, false, true });
+    try testing.expect(!try bits.getBool(1));
+    try testing.expect(try bits.getBool(2));
+    try testing.expect(!try bits.getBool(3));
+    try testing.expect(try bits.getBool(4));
+
+    var reader = MessageReader.init(try builder.segmentsConst(), .{});
+    const read_root = try reader.getRoot();
+    var out: [2]u32 = undefined;
+    try (try read_root.getPointerField(0).getList(.four_bytes)).getSlice(2, u32, &out);
+    try testing.expectEqualSlices(u32, &[_]u32{ 20, 30 }, &out);
+    try testing.expectError(error.PointerOutOfBounds, (try read_root.getPointerField(0).getList(.four_bytes)).getSlice(4, u32, &out));
+
+    var bool_out: [2]bool = undefined;
+    try (try read_root.getPointerField(1).getList(.bit)).getSlice(2, bool, &bool_out);
+    try testing.expectEqualSlices(bool, &[_]bool{ true, false }, &bool_out);
+}
+
 test "ListReader.getAll copies primitive slices" {
     const testing = std.testing;
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 16 });

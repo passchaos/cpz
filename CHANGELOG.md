@@ -36,6 +36,9 @@ All notable changes to `cpz` are documented here.
 - `ListReader.getAll(T, out)` copies a whole primitive list into a caller slice
   in one pass; the fixed-buffer microbenchmark is roughly 20-30x faster than a
   per-element loop and close to `memcpy` speed.
+- `ListBuilder.setSlice(start, T, values)` and
+  `ListReader.getSlice(start, T, out)` copy primitive subranges; a 256-element
+  UInt32 slice takes about 15 ns versus 340 ns for a per-element loop.
 - Configurable upstream fixture paths via `CPZ_CAPNP_SRC`,
   `CPZ_CAPNP_TESTDATA`, and `CPZ_RPC_SCHEMA`.
 - `cpzc --output-dir <dir>` writes `<schema-stem>.zig`, making it easier to

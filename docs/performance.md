@@ -50,12 +50,14 @@ unpack: 50000 iterations, 74428164 ns total, 1488.6 ns/op
 These numbers are a local smoke baseline, not a cross-engine claim; absolute
 values vary with host load.
 `ListReader.getAll` copies a primitive list in one pass, and `ListBuilder.setAll`
-does the same for writes. A fixed-buffer microbenchmark of the 1,024-element
-UInt32 list measures roughly 55 ns for `getAll` versus 1,200-1,800 ns for a
-per-element loop, essentially `memcpy` speed. The segment builder zeroes
-capacity lazily when words are allocated instead of zeroing the whole first
-segment up front. Together with `setAll` this cut message build time from
-roughly 8.2 us to 0.9 us in ReleaseFast. `messageToPackedBytesInto` no longer
+does the same for writes. `getSlice`/`setSlice` provide the same fast path for
+subranges. A fixed-buffer microbenchmark of the 1,024-element UInt32 list
+measures roughly 55 ns for `getAll` versus 1,200-1,800 ns for a per-element
+loop, essentially `memcpy` speed; a 256-element `getSlice` takes about 15 ns
+versus 340 ns per-element. The segment builder zeroes capacity lazily when
+words are allocated instead of zeroing the whole first segment up front.
+Together with `setAll` this cut message build time from roughly 8.2 us to 0.9 us
+in ReleaseFast. `messageToPackedBytesInto` no longer
 performs a redundant packed-size pre-pass; it relies on `packInto` bounds checks
 and may leave a partial prefix when the destination is too small. This cut
 packed serialization time by roughly 40% in both Debug and ReleaseFast. The

@@ -329,14 +329,20 @@ pub const ListBuilder = struct {
     /// `T`, and `values.len` must equal the list length.
     pub fn setAll(self: ListBuilder, comptime T: type, values: []const T) Error!void {
         if (values.len != self.element_count) return error.PointerOutOfBounds;
+        return self.setSlice(0, T, values);
+    }
+
+    /// Copy a primitive slice into the list range starting at `start`.
+    pub fn setSlice(self: ListBuilder, start: usize, comptime T: type, values: []const T) Error!void {
+        if (start > self.element_count or values.len > self.element_count - start) return error.PointerOutOfBounds;
         switch (@typeInfo(T)) {
             .bool => {
                 if (self.element_size != .bit) return error.IncompatibleListShape;
-                for (values, 0..) |value, index| try self.setBool(index, value);
+                for (values, 0..) |value, index| try self.setBool(start + index, value);
                 return;
             },
             .int, .float => {},
-            else => @compileError("ListBuilder.setAll supports int, float, and bool elements"),
+            else => @compileError("ListBuilder.setSlice supports int, float, and bool elements"),
         }
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
         if (self.limit_element_data_bits and @bitSizeOf(T) > self.element_data_bits) return error.PointerOutOfBounds;
@@ -345,17 +351,18 @@ pub const ListBuilder = struct {
             self.element_size != .pointer and self.element_size != .composite and
             self.step_bits == wire.bitsPerElement(self.element_size);
         if (!compact) {
-            for (values, 0..) |value, index| try self.setPrimitive(U, index, @bitCast(value));
+            for (values, 0..) |value, index| try self.setPrimitive(U, start + index, @bitCast(value));
             return;
         }
         const dest = try self.bytesChecked();
+        const byte_offset = std.math.mul(usize, start, @sizeOf(T)) catch return error.MessageTooLarge;
         const byte_len = std.math.mul(usize, values.len, @sizeOf(T)) catch return error.MessageTooLarge;
-        if (dest.len < byte_len) return error.PointerOutOfBounds;
+        if (byte_offset > dest.len or dest.len - byte_offset < byte_len) return error.PointerOutOfBounds;
         if (@import("builtin").cpu.arch.endian() == .little) {
-            @memcpy(dest[0..byte_len], std.mem.sliceAsBytes(values));
+            @memcpy(dest[byte_offset..][0..byte_len], std.mem.sliceAsBytes(values));
         } else {
             for (values, 0..) |value, index| {
-                std.mem.writeInt(U, dest[index * @sizeOf(T) ..][0..@sizeOf(T)], @bitCast(value), .little);
+                std.mem.writeInt(U, dest[byte_offset + index * @sizeOf(T) ..][0..@sizeOf(T)], @bitCast(value), .little);
             }
         }
     }
@@ -893,14 +900,20 @@ pub const ListReader = struct {
     /// length, and the list shape must match `T`.
     pub fn getAll(self: ListReader, comptime T: type, out: []T) Error!void {
         if (out.len != self.element_count) return error.PointerOutOfBounds;
+        return self.getSlice(0, T, out);
+    }
+
+    /// Copy a list range starting at `start` into `out`.
+    pub fn getSlice(self: ListReader, start: usize, comptime T: type, out: []T) Error!void {
+        if (start > self.element_count or out.len > self.element_count - start) return error.PointerOutOfBounds;
         switch (@typeInfo(T)) {
             .bool => {
                 if (self.element_size != .bit) return error.IncompatibleListShape;
-                for (out, 0..) |*value, index| value.* = self.getBool(index);
+                for (out, 0..) |*value, index| value.* = self.getBool(start + index);
                 return;
             },
             .int, .float => {},
-            else => @compileError("ListReader.getAll supports int, float, and bool elements"),
+            else => @compileError("ListReader.getSlice supports int, float, and bool elements"),
         }
         if (wire.bitsPerElement(self.element_size) != @bitSizeOf(T)) return error.IncompatibleListShape;
         if (self.limit_element_data_bits and @bitSizeOf(T) > self.element_data_bits) return error.PointerOutOfBounds;
@@ -909,17 +922,18 @@ pub const ListReader = struct {
             self.element_size != .pointer and self.element_size != .composite and
             self.step_bits == wire.bitsPerElement(self.element_size);
         if (!compact) {
-            for (out, 0..) |*value, index| value.* = @bitCast(try self.getPrimitive(U, index));
+            for (out, 0..) |*value, index| value.* = @bitCast(try self.getPrimitive(U, start + index));
             return;
         }
         const src = try self.rawPrimitiveBytes();
+        const byte_offset = std.math.mul(usize, start, @sizeOf(T)) catch return error.MessageTooLarge;
         const byte_len = std.math.mul(usize, out.len, @sizeOf(T)) catch return error.MessageTooLarge;
-        if (src.len < byte_len) return error.PointerOutOfBounds;
+        if (byte_offset > src.len or src.len - byte_offset < byte_len) return error.PointerOutOfBounds;
         if (@import("builtin").cpu.arch.endian() == .little) {
-            @memcpy(std.mem.sliceAsBytes(out), src[0..byte_len]);
+            @memcpy(std.mem.sliceAsBytes(out), src[byte_offset..][0..byte_len]);
         } else {
             for (out, 0..) |*value, index| {
-                const bits = std.mem.readInt(U, src[index * @sizeOf(T) ..][0..@sizeOf(T)], .little);
+                const bits = std.mem.readInt(U, src[byte_offset + index * @sizeOf(T) ..][0..@sizeOf(T)], .little);
                 value.* = @bitCast(bits);
             }
         }
