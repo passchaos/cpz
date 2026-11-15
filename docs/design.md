@@ -1,27 +1,32 @@
-# cpz design notes
+# Design principles
 
-The implementation follows Cap'n Proto's published encoding and the C++ runtime shape in `~/Work/capnproto/c++/src/capnp`, but uses Zig-native APIs.
+See [architecture.md](architecture.md) for the module map, ownership model,
+validation limits, and compiler pipeline.
 
-## Milestone 1 runtime
+## Principles
 
-- `wire.zig` encodes/decodes the four pointer families: struct, list, far, and capability; `message.zig` exposes low-level capability pointer accessors plus lightweight `CapabilityTable(T)` / `CapabilityRegistry(T)` views for mapping wire capability indexes to application-owned handles and assigning outgoing indexes.
-- `serialize.zig` implements the standard stream segment table (`segment count - 1`, segment word sizes, padding, segment bytes) with bounded segment-count parsing and packed stream framing helpers layered on `packing.zig`, with direct `std.Io.Reader`/`std.Io.Writer` streaming for flat and packed messages (including single-message packed reader semantics) and matching `MessageBuilder` byte and writer convenience methods.
-- `message.toSingleSegmentFlatBytes()` validates and recursively copies a message into one segment, removing far pointers while preserving data; `toCanonicalSegmentBytes()` additionally omits the stream table and truncates trailing zero struct and struct-list sections.
-- `packing.zig` implements Cap'n Proto packing/unpacking with the `0x00` zero-run and `0xff` raw-run special cases, including caller-buffer `packInto`/`unpackInto` paths.
-- `message.zig` provides arena-backed builders with scalar readback and lazy-validating readers with traversal/nesting/capability limits and total-size accounting for structs, scalar fields/lists, pointer lists, composite lists, Cap'n Proto-compatible schema-evolution list views (non-bit primitive list narrowing, primitive/pointer list-to-struct-list views, and struct-list-to-primitive/pointer views) with matching builder-side stride/bit-offset handling, UTF-8 text/data with caller-provided defaults, far pointers, recursive copy-from-reader operations with self-copy protection, whole-list copy helpers, and explicit pointer clear APIs.
-- `schema.zig` and `cpzc` are the start of the compiler layer: they parse a practical subset of `.capnp` declarations (including common using/const/annotation/interface top-level declarations, simple using aliases, imported type aliases/re-exports, annotations, dotted names, Zig identifier sanitization/collision checks for declarations and references, nested/interface declarations, named group/union tolerance, list/struct/block-text/hex-data default syntax tolerance, and anonymous unions) into a small AST, plan ordinal-aware compact field data/pointer slots with padding-hole reuse and anonymous-union discriminant/overlapping storage, and emit configurable-import/namespace typed Zig reader/builder root/asReader/totalSize helpers plus scalar/blob readback/nested-struct builder readback/copy/list-reader/pointer-list-builder scalar/blob/asReader/totalSize readback/list-builder copy/clear-element/slice-set/whole-list-copy/reader-builder presence and union `which()` accessor skeletons for supported fields, including enums with ordinal/name collision checks and fields and top-level declarations with name collision checks, typed scalar/float/enum/struct/text/data/bool/void/nested/imported-schema lists and built-in AnyPointer/AnyStruct/AnyList/Capability and named-interface capability pointer fields and lists, TypeList shorthand and optional pointer syntax, and scalar (including plus-prefixed/scientific/special-float) and escaped text/data default values plus raw enum get/set accessors, and optional raw schema comments for auditability.
+1. **Wire compatibility first.** Pointer layouts, stream framing, packing, text
+   terminators, bool packing, and composite-list tags follow the Cap'n Proto
+   specification and the C++ reference implementation.
+2. **Zero-copy readers.** Readers are views over caller-owned bytes. Eager
+   validation is opt-in through `MessageReader.validate()`.
+3. **Allocation-explicit builders.** Builders own append-only word arenas and
+   write wire words directly. Caller-buffer serialization paths are preferred in
+   hot paths.
+4. **Small runtime core.** `wire`, `packing`, `serialize`, and `message` should
+   remain independent of generated code.
+5. **Schema compiler as a pipeline.** Lexer → parser/AST → validation → layout →
+   code generation. Each stage should be testable in isolation.
+6. **Lean generated code when introspection is not needed.** Use
+   `--no-metadata` for wire-access-only APIs.
+7. **Transport-independent RPC.** `rpc.zig` models protocol state and dispatch
+   helpers without assuming a transport. Network/vat semantics are a later
+   layer.
+8. **Untrusted input is hostile.** Keep traversal/nesting/capability limits,
+   fuzz the decoders, and never trust segment tables or pointer offsets.
 
-See `rpc.md` for the current RPC foundation boundary: capability pointers,
-tables, and lightweight state tracking are present, while full RPC
-transport/protocol work remains future scope.
+## Non-goals
 
-## Performance direction
-
-- Readers are zero-copy over caller-provided byte slices; `readFlatMessageView()` also parses the standard stream framing without copying segment bytes.
-- Validation is lazy and charged against traversal/nesting limits to preserve O(1) initial parse; callers that need eager checks can use `MessageReader.validate()` for schema-agnostic pointer traversal and layout stats.
-- Builders allocate append-only word arenas and write wire-format words directly.
-- APIs keep schemas out of the hot path; generated accessors can become thin wrappers around offset-based primitives.
-
-## Compatibility
-
-The stream framing, pointer bit layout, text NUL terminator, bool bit packing, composite-list tag, and packing codec are wire-compatible with the reference C++ implementation.
+- Replacing the C++ Cap'n Proto implementation feature-for-feature in one step.
+- Hiding allocation or ownership behind implicit copies.
+- Declaring RPC complete before a minimal end-to-end transport loop exists.
