@@ -46,6 +46,9 @@ All notable changes to `cpz` are documented here.
 - The dynamic message runtime now lives in cohesive modules under
   `src/message/` (options, capability, reader, builder, pointer, struct, list,
   validate), with `src/message.zig` keeping the public facade and tests.
+- The schema integration test suite moved from `src/schema.zig` into focused
+  files under `src/schema/tests/` (parser, layout, resolve, codegen,
+  integration), leaving `src/schema.zig` as a pure facade.
 - Documentation was restructured into architecture, codegen, compatibility,
   performance, RPC, design, contributing, and security documents.
 - README was rewritten as a concise entry point with quick starts and status
