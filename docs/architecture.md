@@ -13,7 +13,9 @@ src/
   serialize.zig  stream segment tables, flat/packed framing, Io.Reader/Writer
   message.zig    dynamic readers/builders, orphans, capability views, validation
   schema.zig     lexer, parser, AST, layout planner, Zig code generator
-  rpc.zig        RPC message vocabulary, state, dispatch, output routing
+  rpc.zig        RPC facade, dispatch helpers, wire apply/init helpers
+  rpc/types.zig  RPC vocabulary, call/capability/payload types, output plans
+  rpc/state.zig  RPC question/answer/capability state machine
 tools/
   cpzc.zig       schema-to-Zig command-line compiler
 bench/
@@ -124,6 +126,10 @@ oversized. The intended direction is:
 src/schema/{ast,lexer,parser,layout,validate,codegen/}
 src/rpc/{types,state,wire,dispatch,handoff,output}
 src/message/{reader,builder,capability,validate,canonical}
+
+`src/rpc/types.zig` and `src/rpc/state.zig` are the first completed RPC
+extractions. Dispatch and wire helper grouping remains in `src/rpc.zig` and is
+the next split target.
 ```
 
 The runtime should remain low-level and allocation-explicit; convenience layers
