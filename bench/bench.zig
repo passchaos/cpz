@@ -50,10 +50,13 @@ pub fn main() !void {
     var flat_ns: u64 = std.math.maxInt(u64);
     var packed_ns: u64 = std.math.maxInt(u64);
     var unpack_ns: u64 = std.math.maxInt(u64);
+    var packed_alloc_ns: u64 = std.math.maxInt(u64);
     var flat_buffer: [128 * 1024]u8 = undefined;
     var packed_buffer: [128 * 1024]u8 = undefined;
     var unpacked_buffer: [128 * 1024]u8 = undefined;
     var table_buffer: [128]u8 = undefined;
+    var packed_alloc_buffer: [128 * 1024]u8 = undefined;
+    var packed_alloc_allocator = std.heap.FixedBufferAllocator.init(&packed_alloc_buffer);
     for (0..rounds) |_| {
         const flat_start = std.Io.Clock.awake.now(io);
         var flat_checksum: usize = 0;
@@ -78,11 +81,21 @@ pub fn main() !void {
         }
         unpack_ns = @min(unpack_ns, @as(u64, @intCast(unpack_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
         std.mem.doNotOptimizeAway(unpack_checksum);
+
+        const packed_alloc_start = std.Io.Clock.awake.now(io);
+        var packed_alloc_checksum: usize = 0;
+        for (0..serialize_iterations) |_| {
+            packed_alloc_allocator.reset();
+            packed_alloc_checksum +%= (try cpz.messageToPackedBytes(packed_alloc_allocator.allocator(), segments)).len;
+        }
+        packed_alloc_ns = @min(packed_alloc_ns, @as(u64, @intCast(packed_alloc_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
+        std.mem.doNotOptimizeAway(packed_alloc_checksum);
     }
 
     printResult("dynamic reader", reader_ns, reader_iterations);
     printResult("flat serialize", flat_ns, serialize_iterations);
     printResult("packed serialize", packed_ns, serialize_iterations);
+    printResult("packed serialize (allocating)", packed_alloc_ns, serialize_iterations);
     printResult("unpack", unpack_ns, serialize_iterations);
 }
 

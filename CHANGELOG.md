@@ -42,7 +42,11 @@ All notable changes to `cpz` are documented here.
 - Allocating `unpack` now allocates the exact decoded size and reuses
   `unpackInto` instead of appending to an `ArrayList` per word; the fixed-buffer
   microbenchmark is about 17% faster.
-- The benchmark now also measures unpacking into a caller-provided buffer.
+- Allocating `messageToPackedBytes` now allocates `maxPackedMessageSize` and
+  shrinks to the written length, avoiding the packed-size pre-pass; it is about
+  40% faster in the fixed-buffer microbenchmark.
+- The benchmark now also measures allocating packed serialization and unpacking
+  into a caller-provided buffer.
 - `messageToPackedBytesInto` no longer performs a redundant packed-size
   pre-pass; packed serialization is roughly 40% faster in the benchmark
   (ReleaseFast 5.2 us -> 3.1 us per 4 KB message). A too-small destination may

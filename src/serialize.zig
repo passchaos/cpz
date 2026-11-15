@@ -227,12 +227,12 @@ pub fn messageToPackedBytes(allocator: std.mem.Allocator, segments: []const Cons
     const table_len = try segmentTableByteLen(segments.len);
     const table = try allocator.alloc(u8, table_len);
     defer allocator.free(table);
-    const packed_len = try packedMessageSizeWithTableBuffer(table, segments);
-    const out = try allocator.alloc(u8, packed_len);
+    const max_len = try maxPackedMessageSize(segments);
+    const out = try allocator.alloc(u8, max_len);
     errdefer allocator.free(out);
     const written = try messageToPackedBytesInto(table, out, segments);
-    if (written != packed_len) return error.PackedOutputLengthMismatch;
-    return out;
+    if (written == max_len) return out;
+    return allocator.realloc(out, written);
 }
 
 pub fn maxPackedMessageSize(segments: []const ConstSegment) Error!usize {
