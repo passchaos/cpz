@@ -52,6 +52,10 @@ All notable changes to `cpz` are documented here.
 
 ### Changed
 
+- Allocating `pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks
+  to the written length, avoiding the packed-size pre-pass and per-word
+  `ArrayList` appends; it is roughly 4x faster in a fixed-buffer microbenchmark,
+  and the benchmark now measures it.
 - `packInto` writes tag and payload bytes directly into the destination when at
   least one word of headroom is available, avoiding a stack payload buffer and
   per-slice bounds checks. Packed serialization is roughly 50% faster in

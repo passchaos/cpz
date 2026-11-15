@@ -88,48 +88,12 @@ pub fn unpackedSize(packed_bytes: []const u8) Error!usize {
 /// non-zero payload bytes for one word, then handle only the two special tags
 /// (0x00 and 0xff). This mirrors the C++ format while exposing Zig slices.
 pub fn pack(allocator: std.mem.Allocator, unpacked_bytes: []const u8) Error![]u8 {
-    if (unpacked_bytes.len % wire.bytes_per_word != 0) return error.UnpackedInputNotWordAligned;
-
-    var out = try std.ArrayList(u8).initCapacity(allocator, try packedSize(unpacked_bytes));
-    errdefer out.deinit(allocator);
-
-    var i: usize = 0;
-    while (i < unpacked_bytes.len) {
-        var tag: u8 = 0;
-        var payload: [wire.bytes_per_word]u8 = undefined;
-        var payload_len: usize = 0;
-        inline for (0..wire.bytes_per_word) |j| {
-            const b = unpacked_bytes[i + j];
-            if (b != 0) {
-                tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                payload[payload_len] = b;
-                payload_len += 1;
-            }
-        }
-        try out.append(allocator, tag);
-        try out.appendSlice(allocator, payload[0..payload_len]);
-        i += wire.bytes_per_word;
-
-        if (tag == 0x00) {
-            var run_words: usize = 0;
-            while (i < unpacked_bytes.len and run_words < 255 and isZeroWord(unpacked_bytes[i..][0..wire.bytes_per_word])) {
-                i += wire.bytes_per_word;
-                run_words += 1;
-            }
-            try out.append(allocator, @intCast(run_words));
-        } else if (tag == 0xff) {
-            const run_start = i;
-            var run_words: usize = 0;
-            while (i < unpacked_bytes.len and run_words < 255 and shouldCopyRaw(unpacked_bytes[i..][0..wire.bytes_per_word])) {
-                i += wire.bytes_per_word;
-                run_words += 1;
-            }
-            try out.append(allocator, @intCast(run_words));
-            try out.appendSlice(allocator, unpacked_bytes[run_start..i]);
-        }
-    }
-
-    return out.toOwnedSlice(allocator);
+    const max_len = try maxPackedSize(unpacked_bytes.len);
+    const out = try allocator.alloc(u8, max_len);
+    errdefer allocator.free(out);
+    const written = try packInto(out, unpacked_bytes);
+    if (written == max_len) return out;
+    return allocator.realloc(out, written);
 }
 
 /// Encode into a caller-provided buffer. Returns bytes written. This avoids

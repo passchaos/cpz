@@ -66,6 +66,7 @@ pub fn main() !void {
     var packed_ns: u64 = std.math.maxInt(u64);
     var unpack_ns: u64 = std.math.maxInt(u64);
     var packed_alloc_ns: u64 = std.math.maxInt(u64);
+    var pack_alloc_ns: u64 = std.math.maxInt(u64);
     var build_ns: u64 = std.math.maxInt(u64);
     var flat_buffer: [128 * 1024]u8 = undefined;
     var packed_buffer: [128 * 1024]u8 = undefined;
@@ -73,6 +74,8 @@ pub fn main() !void {
     var table_buffer: [128]u8 = undefined;
     var packed_alloc_buffer: [128 * 1024]u8 = undefined;
     var packed_alloc_allocator = std.heap.FixedBufferAllocator.init(&packed_alloc_buffer);
+    var pack_alloc_buffer: [128 * 1024]u8 = undefined;
+    var pack_alloc_allocator = std.heap.FixedBufferAllocator.init(&pack_alloc_buffer);
     var build_buffer: [128 * 1024]u8 = undefined;
     var build_allocator = std.heap.FixedBufferAllocator.init(&build_buffer);
     for (0..rounds) |_| {
@@ -119,6 +122,15 @@ pub fn main() !void {
         }
         packed_alloc_ns = @min(packed_alloc_ns, @as(u64, @intCast(packed_alloc_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
         std.mem.doNotOptimizeAway(packed_alloc_checksum);
+
+        const pack_alloc_start = std.Io.Clock.awake.now(io);
+        var pack_alloc_checksum: usize = 0;
+        for (0..serialize_iterations) |_| {
+            pack_alloc_allocator.reset();
+            pack_alloc_checksum +%= (try cpz.pack(pack_alloc_allocator.allocator(), flat_bytes)).len;
+        }
+        pack_alloc_ns = @min(pack_alloc_ns, @as(u64, @intCast(pack_alloc_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
+        std.mem.doNotOptimizeAway(pack_alloc_checksum);
     }
 
     printResult("dynamic reader", reader_ns, reader_iterations);
@@ -127,6 +139,7 @@ pub fn main() !void {
     printResult("flat serialize", flat_ns, serialize_iterations);
     printResult("packed serialize", packed_ns, serialize_iterations);
     printResult("packed serialize (allocating)", packed_alloc_ns, serialize_iterations);
+    printResult("pack (allocating)", pack_alloc_ns, serialize_iterations);
     printResult("unpack", unpack_ns, serialize_iterations);
 }
 
