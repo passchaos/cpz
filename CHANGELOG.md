@@ -22,7 +22,8 @@ All notable changes to `cpz` are documented here.
   for values that are emitted directly, while retaining metadata required by
   aggregate const values.
 - `--no-introspection` also omits scalar/blob/enum default-value flat
-  containers; pointer/list default containers remain because builders use them.
+  containers and struct-level actual-size/section diagnostics; pointer/list
+  default containers remain because builders use them.
 - `cpzc --minimal` enables both lean modes for production accessors and roughly
   halves generated-code compile time on the smoke schema.
 - `CodegenOptions.emit_orphan_helpers` and `cpzc --no-orphans` omit generated

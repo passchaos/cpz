@@ -8,6 +8,11 @@ test "minimal generated accessors round-trip without introspection helpers" {
     try std.testing.expect(!@hasDecl(generated.Lean, "textPointerKind"));
     try std.testing.expect(!@hasDecl(generated.Lean.Builder, "get_textPointerKind"));
     try std.testing.expect(!@hasDecl(generated.Lean.Builder, "get_textListLen"));
+    try std.testing.expect(!@hasDecl(generated.Lean, "actualSize"));
+    try std.testing.expect(!@hasDecl(generated.Lean, "dataSection"));
+    try std.testing.expect(!@hasDecl(generated.Lean.Builder, "actualSize"));
+    try std.testing.expect(@hasDecl(generated.Lean, "validate"));
+    try std.testing.expect(@hasDecl(generated.Lean, "totalSize"));
 
     var builder = try cpz.MessageBuilder.init(std.testing.allocator, .{ .first_segment_words = 8 });
     defer builder.deinit();

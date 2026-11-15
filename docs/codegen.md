@@ -19,7 +19,7 @@ set, parse/layout/codegen are validated and no file is written.
 | `--check` | Validate parsing, layout, and code generation without writing output. |
 | `--no-metadata`, `--lean` | Omit schema introspection tables and `@"cpz.*"` lookup helpers. |
 | `--emit-metadata` | Re-enable metadata after a previous lean flag. |
-| `--no-introspection` | Omit per-pointer-field introspection helpers (kind, location, struct/list shape, stats, match predicates). |
+| `--no-introspection` | Omit per-pointer-field and struct-level introspection helpers (kind, location, struct/list shape, stats, actual sizes, sections, match predicates). |
 | `--emit-introspection` | Re-enable introspection helpers after `--no-introspection`. |
 | `--minimal` | Enable both lean modes (`--no-metadata --no-introspection`) for production accessors only. |
 | `--no-orphans` | Omit generated Orphan wrapper types and typed orphan/copy helpers. |

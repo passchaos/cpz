@@ -2162,72 +2162,77 @@ pub fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         \\        return self.reader.totalSizeWithOptions(@"cpz.options");
         \\    }}
         \\
-        \\    pub fn actualSize(self: @This()) cpz.StructSize {{
-        \\        return self.reader.size();
-        \\    }}
-        \\
-        \\    pub fn actualDataWordCount(self: @This()) u16 {{
-        \\        return self.actualSize().dataWordCount();
-        \\    }}
-        \\
-        \\    pub fn actualPointerCount(self: @This()) u16 {{
-        \\        return self.actualSize().pointerCount();
-        \\    }}
-        \\
-        \\    pub fn actualTotalWords(self: @This()) usize {{
-        \\        return self.actualSize().totalWords();
-        \\    }}
-        \\
-        \\    pub fn actualDataByteCount(self: @This()) usize {{
-        \\        return self.actualSize().dataByteCount();
-        \\    }}
-        \\
-        \\    pub fn actualPointerByteCount(self: @This()) usize {{
-        \\        return self.actualSize().pointerByteCount();
-        \\    }}
-        \\
-        \\    pub fn actualTotalByteCount(self: @This()) usize {{
-        \\        return self.actualSize().totalByteCount();
-        \\    }}
-        \\
-        \\    pub fn matchesActualSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
-        \\        const actual = self.actualSize();
-        \\        return actual.data_words == @"cpz.expected".data_words and actual.pointer_count == @"cpz.expected".pointer_count;
-        \\    }}
-        \\
-        \\    pub fn matchesActualDataWords(self: @This(), @"cpz.count": u16) bool {{
-        \\        return self.actualSize().matchesDataWords(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn matchesActualPointerCount(self: @This(), @"cpz.count": u16) bool {{
-        \\        return self.actualSize().matchesPointerCount(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn matchesActualTotalWords(self: @This(), @"cpz.count": usize) bool {{
-        \\        return self.actualSize().matchesTotalWords(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn matchesActualDataBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\        return self.actualSize().matchesDataBytes(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn matchesActualPointerBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\        return self.actualSize().matchesPointerBytes(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn matchesActualTotalBytes(self: @This(), @"cpz.count": usize) bool {{
-        \\        return self.actualSize().matchesTotalBytes(@"cpz.count");
-        \\    }}
-        \\
-        \\    pub fn dataSection(self: @This()) []const u8 {{
-        \\        return self.reader.dataSectionBytes();
-        \\    }}
-        \\
-        \\    pub fn pointerSection(self: @This()) cpz.ListReader {{
-        \\        return self.reader.pointerSectionAsList();
-        \\    }}
-        \\
     , .{ struct_name, struct_name });
+    if (state.emit_introspection_enabled) {
+        try appendFmt(allocator, out,
+            \\
+            \\    pub fn actualSize(self: @This()) cpz.StructSize {{
+            \\        return self.reader.size();
+            \\    }}
+            \\
+            \\    pub fn actualDataWordCount(self: @This()) u16 {{
+            \\        return self.actualSize().dataWordCount();
+            \\    }}
+            \\
+            \\    pub fn actualPointerCount(self: @This()) u16 {{
+            \\        return self.actualSize().pointerCount();
+            \\    }}
+            \\
+            \\    pub fn actualTotalWords(self: @This()) usize {{
+            \\        return self.actualSize().totalWords();
+            \\    }}
+            \\
+            \\    pub fn actualDataByteCount(self: @This()) usize {{
+            \\        return self.actualSize().dataByteCount();
+            \\    }}
+            \\
+            \\    pub fn actualPointerByteCount(self: @This()) usize {{
+            \\        return self.actualSize().pointerByteCount();
+            \\    }}
+            \\
+            \\    pub fn actualTotalByteCount(self: @This()) usize {{
+            \\        return self.actualSize().totalByteCount();
+            \\    }}
+            \\
+            \\    pub fn matchesActualSize(self: @This(), @"cpz.expected": cpz.StructSize) bool {{
+            \\        const actual = self.actualSize();
+            \\        return actual.data_words == @"cpz.expected".data_words and actual.pointer_count == @"cpz.expected".pointer_count;
+            \\    }}
+            \\
+            \\    pub fn matchesActualDataWords(self: @This(), @"cpz.count": u16) bool {{
+            \\        return self.actualSize().matchesDataWords(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn matchesActualPointerCount(self: @This(), @"cpz.count": u16) bool {{
+            \\        return self.actualSize().matchesPointerCount(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn matchesActualTotalWords(self: @This(), @"cpz.count": usize) bool {{
+            \\        return self.actualSize().matchesTotalWords(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn matchesActualDataBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\        return self.actualSize().matchesDataBytes(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn matchesActualPointerBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\        return self.actualSize().matchesPointerBytes(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn matchesActualTotalBytes(self: @This(), @"cpz.count": usize) bool {{
+            \\        return self.actualSize().matchesTotalBytes(@"cpz.count");
+            \\    }}
+            \\
+            \\    pub fn dataSection(self: @This()) []const u8 {{
+            \\        return self.reader.dataSectionBytes();
+            \\    }}
+            \\
+            \\    pub fn pointerSection(self: @This()) cpz.ListReader {{
+            \\        return self.reader.pointerSectionAsList();
+            \\    }}
+            \\
+        , .{});
+    }
 
     try emitUnionDeclarations(allocator, out, layout);
 
@@ -2279,70 +2284,78 @@ pub fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         \\            return self.builder.totalSizeWithOptions(@"cpz.options");
         \\        }}
         \\
-        \\        pub fn actualSize(self: Builder) cpz.StructSize {{
-        \\            return self.builder.size();
-        \\        }}
-        \\
-        \\        pub fn actualDataWordCount(self: Builder) u16 {{
-        \\            return self.actualSize().dataWordCount();
-        \\        }}
-        \\
-        \\        pub fn actualPointerCount(self: Builder) u16 {{
-        \\            return self.actualSize().pointerCount();
-        \\        }}
-        \\
-        \\        pub fn actualTotalWords(self: Builder) usize {{
-        \\            return self.actualSize().totalWords();
-        \\        }}
-        \\
-        \\        pub fn actualDataByteCount(self: Builder) usize {{
-        \\            return self.actualSize().dataByteCount();
-        \\        }}
-        \\
-        \\        pub fn actualPointerByteCount(self: Builder) usize {{
-        \\            return self.actualSize().pointerByteCount();
-        \\        }}
-        \\
-        \\        pub fn actualTotalByteCount(self: Builder) usize {{
-        \\            return self.actualSize().totalByteCount();
-        \\        }}
-        \\
-        \\        pub fn matchesActualSize(self: Builder, @"cpz.expected": cpz.StructSize) bool {{
-        \\            const actual = self.actualSize();
-        \\            return actual.data_words == @"cpz.expected".data_words and actual.pointer_count == @"cpz.expected".pointer_count;
-        \\        }}
-        \\
-        \\        pub fn matchesActualDataWords(self: Builder, @"cpz.count": u16) bool {{
-        \\            return self.actualSize().matchesDataWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesActualPointerCount(self: Builder, @"cpz.count": u16) bool {{
-        \\            return self.actualSize().matchesPointerCount(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesActualTotalWords(self: Builder, @"cpz.count": usize) bool {{
-        \\            return self.actualSize().matchesTotalWords(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesActualDataBytes(self: Builder, @"cpz.count": usize) bool {{
-        \\            return self.actualSize().matchesDataBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesActualPointerBytes(self: Builder, @"cpz.count": usize) bool {{
-        \\            return self.actualSize().matchesPointerBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn matchesActualTotalBytes(self: Builder, @"cpz.count": usize) bool {{
-        \\            return self.actualSize().matchesTotalBytes(@"cpz.count");
-        \\        }}
-        \\
-        \\        pub fn dataSection(self: Builder) []u8 {{
-        \\            return self.builder.dataSectionBytes();
-        \\        }}
-        \\
-        \\        pub fn pointerSection(self: Builder) cpz.ListBuilder {{
-        \\            return self.builder.pointerSectionAsList();
-        \\        }}
+    , .{ struct_name, struct_name });
+    if (state.emit_introspection_enabled) {
+        try appendFmt(allocator, out,
+            \\
+            \\        pub fn actualSize(self: Builder) cpz.StructSize {{
+            \\            return self.builder.size();
+            \\        }}
+            \\
+            \\        pub fn actualDataWordCount(self: Builder) u16 {{
+            \\            return self.actualSize().dataWordCount();
+            \\        }}
+            \\
+            \\        pub fn actualPointerCount(self: Builder) u16 {{
+            \\            return self.actualSize().pointerCount();
+            \\        }}
+            \\
+            \\        pub fn actualTotalWords(self: Builder) usize {{
+            \\            return self.actualSize().totalWords();
+            \\        }}
+            \\
+            \\        pub fn actualDataByteCount(self: Builder) usize {{
+            \\            return self.actualSize().dataByteCount();
+            \\        }}
+            \\
+            \\        pub fn actualPointerByteCount(self: Builder) usize {{
+            \\            return self.actualSize().pointerByteCount();
+            \\        }}
+            \\
+            \\        pub fn actualTotalByteCount(self: Builder) usize {{
+            \\            return self.actualSize().totalByteCount();
+            \\        }}
+            \\
+            \\        pub fn matchesActualSize(self: Builder, @"cpz.expected": cpz.StructSize) bool {{
+            \\            const actual = self.actualSize();
+            \\            return actual.data_words == @"cpz.expected".data_words and actual.pointer_count == @"cpz.expected".pointer_count;
+            \\        }}
+            \\
+            \\        pub fn matchesActualDataWords(self: Builder, @"cpz.count": u16) bool {{
+            \\            return self.actualSize().matchesDataWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesActualPointerCount(self: Builder, @"cpz.count": u16) bool {{
+            \\            return self.actualSize().matchesPointerCount(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesActualTotalWords(self: Builder, @"cpz.count": usize) bool {{
+            \\            return self.actualSize().matchesTotalWords(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesActualDataBytes(self: Builder, @"cpz.count": usize) bool {{
+            \\            return self.actualSize().matchesDataBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesActualPointerBytes(self: Builder, @"cpz.count": usize) bool {{
+            \\            return self.actualSize().matchesPointerBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn matchesActualTotalBytes(self: Builder, @"cpz.count": usize) bool {{
+            \\            return self.actualSize().matchesTotalBytes(@"cpz.count");
+            \\        }}
+            \\
+            \\        pub fn dataSection(self: Builder) []u8 {{
+            \\            return self.builder.dataSectionBytes();
+            \\        }}
+            \\
+            \\        pub fn pointerSection(self: Builder) cpz.ListBuilder {{
+            \\            return self.builder.pointerSectionAsList();
+            \\        }}
+            \\
+        , .{});
+    }
+    try appendFmt(allocator, out,
         \\
         \\        pub fn clear(self: Builder) !void {{
         \\            return self.builder.clear();
@@ -2360,7 +2373,7 @@ pub fn emitStruct(allocator: std.mem.Allocator, out: *std.ArrayList(u8), file: *
         \\            return self.builder.orphanage();
         \\        }}
         \\
-    , .{ struct_name, struct_name, struct_name });
+    , .{struct_name});
 
     try emitBuilderUnionHelpers(allocator, out, struct_name, layout);
 
