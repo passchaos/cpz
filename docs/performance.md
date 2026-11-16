@@ -30,33 +30,33 @@ Example output on the current aarch64 development host:
 ```text
 # Debug
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 162146957 ns total, 810.7 ns/op
-bulk read list: 50000 iterations, 13011065 ns total, 260.2 ns/op
-build message: 50000 iterations, 851482087 ns total, 17029.6 ns/op
-flat serialize: 50000 iterations, 18268631 ns total, 365.4 ns/op
-packed serialize: 50000 iterations, 996498990 ns total, 19930.0 ns/op
-packed serialize (allocating): 50000 iterations, 1088522670 ns total, 21770.5 ns/op
-pack (allocating): 50000 iterations, 1021934953 ns total, 20438.7 ns/op
-pack to writer: 50000 iterations, 1015367421 ns total, 20307.3 ns/op
-pack reader to writer: 50000 iterations, 1086614226 ns total, 21732.3 ns/op
-unpack: 50000 iterations, 642387692 ns total, 12847.8 ns/op
-unpack to writer: 50000 iterations, 603229681 ns total, 12064.6 ns/op
-unpack reader to writer: 50000 iterations, 627330566 ns total, 12546.6 ns/op
+dynamic reader: 200000 iterations, 161186549 ns total, 805.9 ns/op
+bulk read list: 50000 iterations, 12760659 ns total, 255.2 ns/op
+build message: 50000 iterations, 853859321 ns total, 17077.2 ns/op
+flat serialize: 50000 iterations, 18370825 ns total, 367.4 ns/op
+packed serialize: 50000 iterations, 1022904469 ns total, 20458.1 ns/op
+packed serialize (allocating): 50000 iterations, 1101237363 ns total, 22024.7 ns/op
+pack (allocating): 50000 iterations, 1045403910 ns total, 20908.1 ns/op
+pack to writer: 50000 iterations, 1022848897 ns total, 20457.0 ns/op
+pack reader to writer: 50000 iterations, 1073701248 ns total, 21474.0 ns/op
+unpack: 50000 iterations, 641219908 ns total, 12824.4 ns/op
+unpack to writer: 50000 iterations, 603330231 ns total, 12066.6 ns/op
+unpack reader to writer: 50000 iterations, 628619152 ns total, 12572.4 ns/op
 
 # ReleaseFast
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 6338639 ns total, 31.7 ns/op
-bulk read list: 50000 iterations, 2759876 ns total, 55.2 ns/op
-build message: 50000 iterations, 10448109 ns total, 209.0 ns/op
-flat serialize: 50000 iterations, 3028498 ns total, 60.6 ns/op
-packed serialize: 50000 iterations, 50084877 ns total, 1001.7 ns/op
-packed serialize (allocating): 50000 iterations, 50699847 ns total, 1014.0 ns/op
-pack (allocating): 50000 iterations, 49698455 ns total, 994.0 ns/op
-pack to writer: 50000 iterations, 50561890 ns total, 1011.2 ns/op
-pack reader to writer: 50000 iterations, 51552879 ns total, 1031.1 ns/op
-unpack: 50000 iterations, 59719137 ns total, 1194.4 ns/op
-unpack to writer: 50000 iterations, 74092035 ns total, 1481.8 ns/op
-unpack reader to writer: 50000 iterations, 84209802 ns total, 1684.2 ns/op
+dynamic reader: 200000 iterations, 6244365 ns total, 31.2 ns/op
+bulk read list: 50000 iterations, 2701272 ns total, 54.0 ns/op
+build message: 50000 iterations, 10445881 ns total, 208.9 ns/op
+flat serialize: 50000 iterations, 3032127 ns total, 60.6 ns/op
+packed serialize: 50000 iterations, 49178036 ns total, 983.6 ns/op
+packed serialize (allocating): 50000 iterations, 49722329 ns total, 994.4 ns/op
+pack (allocating): 50000 iterations, 49204673 ns total, 984.1 ns/op
+pack to writer: 50000 iterations, 48664182 ns total, 973.3 ns/op
+pack reader to writer: 50000 iterations, 53384287 ns total, 1067.7 ns/op
+unpack: 50000 iterations, 59620874 ns total, 1192.4 ns/op
+unpack to writer: 50000 iterations, 73894052 ns total, 1477.9 ns/op
+unpack reader to writer: 50000 iterations, 84035374 ns total, 1680.7 ns/op
 ```
 
 These numbers are a local smoke baseline, not a cross-engine claim; absolute
@@ -97,7 +97,8 @@ fixed-buffer microbenchmark of the 1,024-element UInt32 list measures roughly
 `memcpy` speed; a 256-element `getSlice` takes about 15 ns versus 340 ns
 per-element. The segment builder zeroes capacity lazily when words are allocated
 instead of zeroing the whole first segment up front. Together with `setAll` this
-cut message build time from roughly 8.2 us to 0.9 us in ReleaseFast.
+cut message build time from roughly 8.2 us to 0.9 us in ReleaseFast, and the
+plain-store zeroing described above brings it to about 0.2 us.
 `messageToPackedBytesInto` no longer
 performs a redundant packed-size pre-pass; it relies on `packInto` bounds checks
 and may leave a partial prefix when the destination is too small. This cut
@@ -108,8 +109,8 @@ shrinks to the written length, avoiding a full size pre-pass; it is also about
 computes the exact decoded size and reuses `unpackInto` instead of appending to
 an `ArrayList` per word, which is about 17% faster in a fixed-buffer
 microbenchmark. Packed output is still slower than flat output because it must
-scan tags and compress payload bytes; further word-level optimizations are
-tracked as follow-up work.
+scan tags and compress payload bytes, but tag computation and payload
+compaction now run without per-byte branches on aarch64.
 
 ## Codegen size
 

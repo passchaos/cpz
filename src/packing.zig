@@ -557,14 +557,29 @@ inline fn isZeroWord(word: *const [wire.bytes_per_word]u8) bool {
 }
 
 inline fn shouldCopyRaw(word: *const [wire.bytes_per_word]u8) bool {
-    var zeros: usize = 0;
-    inline for (0..wire.bytes_per_word) |j| {
-        zeros += @intFromBool(word[j] == 0);
-    }
     // Copy raw runs while words are dense enough that tag+payload packing is
     // not materially better. The decoder accepts any raw run length; this is
-    // only an encoder heuristic.
-    return zeros <= 1;
+    // only an encoder heuristic. Each zero byte contributes one bit to the
+    // mask, so clearing the lowest set bit proves at most one zero byte.
+    const w = wire.readWordAt(word);
+    const zero_mask = ~(((w & 0x7f7f7f7f7f7f7f7f) +% 0x7f7f7f7f7f7f7f7f) | w | 0x7f7f7f7f7f7f7f7f) & 0x8080808080808080;
+    return (zero_mask & (zero_mask -% 1)) == 0;
+}
+
+test "shouldCopyRaw matches the per-byte zero count" {
+    const testing = std.testing;
+    var prng = std.Random.DefaultPrng.init(0x1234_5678);
+    const random = prng.random();
+    var word: [wire.bytes_per_word]u8 = undefined;
+    for (0..10_000) |_| {
+        random.bytes(&word);
+        for (0..wire.bytes_per_word) |j| {
+            if (random.boolean() and random.boolean()) word[j] = 0;
+        }
+        var zeros: usize = 0;
+        for (word) |b| zeros += @intFromBool(b == 0);
+        try testing.expectEqual(zeros <= 1, shouldCopyRaw(&word));
+    }
 }
 
 test "packing spec examples" {
