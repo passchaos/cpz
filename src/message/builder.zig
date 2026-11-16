@@ -31,6 +31,11 @@ const segmentIdFromIndex = mod_validate.segmentIdFromIndex;
 const tag_forFarWithZeroOffset = mod_validate.tag_forFarWithZeroOffset;
 
 /// Initial segment sizing options for `MessageBuilder`.
+/// Upper bound on the capacity of a newly allocated segment. Growth doubles up
+/// to this many words (8 MiB) so large messages need few segments without
+/// over-allocating unboundedly.
+const max_segment_words: usize = 1024 * 1024;
+
 pub const BuilderOptions = struct {
     first_segment_words: usize = 1024,
     next_segment_min_words: usize = 1024,
@@ -577,6 +582,9 @@ pub const MessageBuilder = struct {
     /// Segment that most recently satisfied an allocation, used to find free
     /// space in existing segments before growing the segment list.
     allocation_hint: usize = 0,
+    /// Capacity for the next new segment; doubles after each segment so large
+    /// messages need few segments.
+    next_segment_words: usize = 1024,
 
     pub fn init(allocator: std.mem.Allocator, options: BuilderOptions) !MessageBuilder {
         var segments = std.ArrayList(SegmentBuilder).empty;
@@ -592,6 +600,7 @@ pub const MessageBuilder = struct {
             .segments = segments,
             .const_segments_cache = .empty,
             .options = options,
+            .next_segment_words = @max(options.first_segment_words, options.next_segment_min_words),
         };
     }
 
@@ -1284,13 +1293,14 @@ pub const MessageBuilder = struct {
                 return .{ .id = @intCast(id), .start = start };
             }
         }
-        const min_words = @max(self.options.next_segment_min_words, word_count);
+        const min_words = @max(self.next_segment_words, word_count);
         var segment = try SegmentBuilder.init(self.allocator, min_words);
         errdefer segment.deinit(self.allocator);
         const start = segment.alloc(word_count).?;
         const segment_id = try segmentIdFromIndex(self.segments.items.len);
         try self.segments.append(self.allocator, segment);
         self.allocation_hint = self.segments.items.len - 1;
+        self.next_segment_words = @min(std.math.mul(usize, min_words, 2) catch std.math.maxInt(usize), max_segment_words);
         return .{ .id = segment_id, .start = start };
     }
 

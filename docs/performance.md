@@ -85,8 +85,10 @@ and packed zero runs uses plain 16-byte stores instead of `@memset`, because the
 C library `memset` `dc zva` path is very slow on some aarch64 virtual machines;
 this cut ReleaseFast message building from about 0.9 us to 0.2 us. Packed
 Building many small children of a full parent now reuses free space in
-existing segments instead of allocating a new segment per child: a struct list
-with 512 text fields drops from 463 segments to 6 and builds about 12% faster.
+existing segments instead of allocating a new segment per child, and new
+segments double in capacity up to 8 MiB. A struct list with 512 text fields
+drops from 463 segments to 4; 64 lists of 4 KB drop from 64 segments to 7 and
+build about 34% faster.
 Packed serialization computes the tag with a branch-free SWAR expression and compacts
 payload bytes with a NEON `tbl` byte shuffle on aarch64 (a 256-entry shuffle
 table); other targets and Debug builds keep the scalar loop. ReleaseFast
@@ -157,8 +159,10 @@ remain available because they are part of the core builder API.
   capacity is zeroed lazily as words are allocated.
 - `MessageBuilder` reuses free space in any existing segment before growing the
   segment list, using a rotating allocation hint so the search stays amortized
-  O(1). A struct list with 512 text children drops from 463 segments to 6,
-  which also shrinks the serialized segment table and far-pointer traffic.
+  O(1), and new segments double in capacity up to 8 MiB. A struct list with 512
+  text children drops from 463 segments to 4; 64 lists of 4 KB drop from 64
+  segments to 7 and build about 34% faster. Fewer segments also shrink the
+  serialized segment table and far-pointer traffic.
 - `toSingleSegmentFlatBytes` and `toCanonicalSegmentBytes` copy the reachable
   message into a fresh builder.
 
