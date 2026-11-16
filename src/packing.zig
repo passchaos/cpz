@@ -158,7 +158,7 @@ pub fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
 
 /// Encode whole words and stream packed bytes directly to a writer using a
 /// small stack buffer.
-pub fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8) (Error || std.Io.Writer.Error)!void {
+pub noinline fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8) (Error || std.Io.Writer.Error)!void {
     if (unpacked_bytes.len % wire.bytes_per_word != 0) return error.UnpackedInputNotWordAligned;
 
     var out_buf: [4096]u8 = undefined;
@@ -402,7 +402,7 @@ pub fn unpackInto(dest: []u8, packed_bytes: []const u8) Error!usize {
 
 /// Decode a packed Cap'n Proto byte slice directly to an Io writer without
 /// allocating the complete unpacked output.
-pub fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8) (Error || std.Io.Writer.Error)!void {
+pub noinline fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8) (Error || std.Io.Writer.Error)!void {
     var out_buf: [4096]u8 = undefined;
     var out_i: usize = 0;
     var i: usize = 0;
@@ -417,11 +417,20 @@ pub fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8) (Error |
             }
         }
         @memset(out_buf[out_i..][0..wire.bytes_per_word], 0);
-        inline for (0..wire.bytes_per_word) |j| {
-            if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
-                if (i >= packed_bytes.len) return error.PackedInputTruncated;
-                out_buf[out_i + j] = packed_bytes[i];
-                i += 1;
+        if (packed_bytes.len - i >= wire.bytes_per_word) {
+            inline for (0..wire.bytes_per_word) |j| {
+                if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                    out_buf[out_i + j] = packed_bytes[i];
+                    i += 1;
+                }
+            }
+        } else {
+            inline for (0..wire.bytes_per_word) |j| {
+                if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
+                    if (i >= packed_bytes.len) return error.PackedInputTruncated;
+                    out_buf[out_i + j] = packed_bytes[i];
+                    i += 1;
+                }
             }
         }
         out_i += wire.bytes_per_word;
@@ -462,19 +471,9 @@ pub fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8) (Error |
     if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
 }
 
-fn writeZeroesToWriter(writer: *std.Io.Writer, byte_count: usize) std.Io.Writer.Error!void {
-    const zeroes = [_]u8{0} ** 4096;
-    var remaining = byte_count;
-    while (remaining != 0) {
-        const chunk = @min(remaining, zeroes.len);
-        try writer.writeAll(zeroes[0..chunk]);
-        remaining -= chunk;
-    }
-}
-
 /// Decode a packed Cap'n Proto stream from an Io reader directly to an Io
 /// writer without allocating the complete packed or unpacked byte sequence.
-pub fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
+pub noinline fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
     var in = ReaderBuffer{ .reader = reader };
     var out_buf: [4096]u8 = undefined;
     var out_i: usize = 0;

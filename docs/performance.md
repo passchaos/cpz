@@ -30,33 +30,33 @@ Example output on the current aarch64 development host:
 ```text
 # Debug
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 163281743 ns total, 816.4 ns/op
-bulk read list: 50000 iterations, 13100152 ns total, 262.0 ns/op
-build message: 50000 iterations, 820873511 ns total, 16417.5 ns/op
-flat serialize: 50000 iterations, 17624568 ns total, 352.5 ns/op
-packed serialize: 50000 iterations, 863161200 ns total, 17263.2 ns/op
-packed serialize (allocating): 50000 iterations, 935812750 ns total, 18716.3 ns/op
-pack (allocating): 50000 iterations, 911944664 ns total, 18238.9 ns/op
-pack to writer: 50000 iterations, 778003789 ns total, 15560.1 ns/op
-pack reader to writer: 50000 iterations, 1472725453 ns total, 29454.5 ns/op
-unpack: 50000 iterations, 645388432 ns total, 12907.8 ns/op
-unpack to writer: 50000 iterations, 611924074 ns total, 12238.5 ns/op
-unpack reader to writer: 50000 iterations, 630148806 ns total, 12603.0 ns/op
+dynamic reader: 200000 iterations, 161853533 ns total, 809.3 ns/op
+bulk read list: 50000 iterations, 13081634 ns total, 261.6 ns/op
+build message: 50000 iterations, 821200187 ns total, 16424.0 ns/op
+flat serialize: 50000 iterations, 17538872 ns total, 350.8 ns/op
+packed serialize: 50000 iterations, 850967873 ns total, 17019.4 ns/op
+packed serialize (allocating): 50000 iterations, 948248392 ns total, 18965.0 ns/op
+pack (allocating): 50000 iterations, 901432915 ns total, 18028.7 ns/op
+pack to writer: 50000 iterations, 856490468 ns total, 17129.8 ns/op
+pack reader to writer: 50000 iterations, 1551219462 ns total, 31024.4 ns/op
+unpack: 50000 iterations, 639768659 ns total, 12795.4 ns/op
+unpack to writer: 50000 iterations, 602749460 ns total, 12055.0 ns/op
+unpack reader to writer: 50000 iterations, 627774074 ns total, 12555.5 ns/op
 
 # ReleaseFast
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 6491904 ns total, 32.5 ns/op
-bulk read list: 50000 iterations, 2557493 ns total, 51.1 ns/op
-build message: 50000 iterations, 46251667 ns total, 925.0 ns/op
-flat serialize: 50000 iterations, 3001487 ns total, 60.0 ns/op
-packed serialize: 50000 iterations, 72481740 ns total, 1449.6 ns/op
-packed serialize (allocating): 50000 iterations, 73158363 ns total, 1463.2 ns/op
-pack (allocating): 50000 iterations, 72536685 ns total, 1450.7 ns/op
-pack to writer: 50000 iterations, 124340173 ns total, 2486.8 ns/op
-pack reader to writer: 50000 iterations, 131666586 ns total, 2633.3 ns/op
-unpack: 50000 iterations, 67449820 ns total, 1349.0 ns/op
-unpack to writer: 50000 iterations, 241652330 ns total, 4833.0 ns/op
-unpack reader to writer: 50000 iterations, 157181690 ns total, 3143.6 ns/op
+dynamic reader: 200000 iterations, 6620446 ns total, 33.1 ns/op
+bulk read list: 50000 iterations, 2605295 ns total, 52.1 ns/op
+build message: 50000 iterations, 46139269 ns total, 922.8 ns/op
+flat serialize: 50000 iterations, 3004305 ns total, 60.1 ns/op
+packed serialize: 50000 iterations, 75198654 ns total, 1504.0 ns/op
+packed serialize (allocating): 50000 iterations, 75819183 ns total, 1516.4 ns/op
+pack (allocating): 50000 iterations, 75024531 ns total, 1500.5 ns/op
+pack to writer: 50000 iterations, 77875003 ns total, 1557.5 ns/op
+pack reader to writer: 50000 iterations, 123877304 ns total, 2477.5 ns/op
+unpack: 50000 iterations, 67233178 ns total, 1344.7 ns/op
+unpack to writer: 50000 iterations, 73926446 ns total, 1478.5 ns/op
+unpack reader to writer: 50000 iterations, 91750178 ns total, 1835.0 ns/op
 ```
 
 These numbers are a local smoke baseline, not a cross-engine claim; absolute
@@ -70,7 +70,11 @@ directly into it), roughly halving streaming time versus per-slice writer
 calls. `packReaderToWriter` and `unpackReaderToWriter` now read through a 4 KB
 buffer as well, and unpack decodes words directly from that buffer when enough
 bytes are available; fixed-buffer microbenchmarks show roughly 6.6 us -> 2.3 us
-for reader packing and 13.7 us -> 3.2 us for reader unpacking. The allocating
+for reader packing and 13.7 us -> 3.2 us for reader unpacking. `packToWriter`,
+`unpackToWriter`, and `unpackReaderToWriter` are marked `noinline`: inlining
+them into a large caller made LLVM produce substantially worse code and
+overstated streaming costs by up to 3x (unpack-to-writer measured about 4.8 us
+inlined versus 1.5 us out of line). The allocating
 `pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks to the written
 length, avoiding the packed-size pre-pass and per-word `ArrayList` appends; it is
 roughly 4x faster in a fixed-buffer microbenchmark. `ListReader.getAll`
