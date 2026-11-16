@@ -60,10 +60,15 @@ All notable changes to `cpz` are documented here.
   buffered; fixed-buffer microbenchmarks show roughly 6.6 us -> 2.3 us for
   reader packing and 13.7 us -> 3.2 us for reader unpacking. The benchmark now
   measures both reader-to-writer paths.
-- `packToWriter`, `unpackToWriter`, and `unpackReaderToWriter` are now
-  `noinline`; inlining them into a large caller produced substantially worse
-  codegen. The benchmark overstated streaming time by up to 3x (for example
-  unpack-to-writer measured 4.8 us inlined versus 1.5 us out of line).
+- `packInto`, `unpackInto`, `packToWriter`, `unpackToWriter`, and
+  `unpackReaderToWriter` are now `noinline`; inlining them into a large caller
+  produced substantially worse codegen. The benchmark overstated streaming time
+  by up to 3x (for example unpack-to-writer measured 4.8 us inlined versus
+  1.5 us out of line).
+- `packReaderToWriter` now packs whole words directly from each 4 KB input
+  chunk instead of copying one word at a time through a temporary. It is about
+  2x faster in the benchmark and now matches `packToWriter` within a few
+  percent.
 - Zeroing of segment allocations and packed zero runs now uses plain 16-byte
   stores instead of `@memset`. The C library `memset` `dc zva` path is
   pathologically slow on some aarch64 virtual machines (about 5 GB/s versus

@@ -127,7 +127,7 @@ pub fn pack(allocator: std.mem.Allocator, unpacked_bytes: []const u8) Error![]u8
 
 /// Encode into a caller-provided buffer. Returns bytes written. This avoids
 /// allocator traffic for latency-sensitive packed streams.
-pub fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
+pub noinline fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
     if (unpacked_bytes.len % wire.bytes_per_word != 0) return error.UnpackedInputNotWordAligned;
 
     var out_i: usize = 0;
@@ -233,69 +233,71 @@ pub noinline fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8)
 /// same zero-run/raw-run encoding heuristic as pack() without requiring the
 /// caller to materialize the whole unpacked byte sequence.
 pub fn packReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
-    var in = ReaderBuffer{ .reader = reader };
+    var in_buf: [4096]u8 = undefined;
+    var in_len: usize = 0;
+    var in_pos: usize = 0;
     var out_buf: [4096]u8 = undefined;
     var out_i: usize = 0;
-    var maybe_current = try in.readWord();
-    while (maybe_current) |current| {
-        var tag: u8 = 0;
-        var payload_len: usize = 0;
-        if (out_buf.len - out_i >= wire.bytes_per_word + 1) {
-            out_buf[out_i] = 0;
-            inline for (0..wire.bytes_per_word) |j| {
-                const b = current[j];
-                if (b != 0) {
-                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                    out_buf[out_i + 1 + payload_len] = b;
-                    payload_len += 1;
-                }
-            }
-            out_buf[out_i] = tag;
-            out_i += 1 + payload_len;
-        } else {
-            var payload: [wire.bytes_per_word]u8 = undefined;
-            inline for (0..wire.bytes_per_word) |j| {
-                const b = current[j];
-                if (b != 0) {
-                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                    payload[payload_len] = b;
-                    payload_len += 1;
-                }
-            }
-            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{tag});
-            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, payload[0..payload_len]);
-        }
-        maybe_current = null;
 
-        if (tag == 0x00) {
-            var run_words: usize = 0;
-            while (run_words < 255) {
-                const next = try in.readWord() orelse break;
-                if (!isZeroWord(&next)) {
-                    maybe_current = next;
-                    break;
+    while (true) {
+        if (in_pos == in_len) {
+            in_len = try reader.readSliceShort(&in_buf);
+            in_pos = 0;
+            if (in_len == 0) break;
+        }
+        var i = in_pos;
+        while (in_len - i >= wire.bytes_per_word) {
+            var tag: u8 = 0;
+            if (out_buf.len - out_i >= wire.bytes_per_word + 1) {
+                const packed_word = packWordFast(out_buf[0..], out_i, in_buf[0..in_len], i);
+                tag = @truncate(packed_word >> 8);
+                out_i += 1 + @as(usize, @as(u8, @truncate(packed_word)));
+            } else {
+                var payload_len: usize = 0;
+                var payload: [wire.bytes_per_word]u8 = undefined;
+                inline for (0..wire.bytes_per_word) |j| {
+                    const b = in_buf[i + j];
+                    if (b != 0) {
+                        tag |= @as(u8, 1) << @as(u3, @intCast(j));
+                        payload[payload_len] = b;
+                        payload_len += 1;
+                    }
                 }
-                run_words += 1;
+                out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{tag});
+                out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, payload[0..payload_len]);
             }
-            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
-            if (maybe_current == null and run_words == 255) maybe_current = try in.readWord();
-        } else if (tag == 0xff) {
-            var raw_words: [255 * wire.bytes_per_word]u8 = undefined;
-            var run_words: usize = 0;
-            while (run_words < 255) {
-                const next = try in.readWord() orelse break;
-                if (!shouldCopyRaw(&next)) {
-                    maybe_current = next;
-                    break;
+            i += wire.bytes_per_word;
+
+            if (tag == 0x00) {
+                var run_words: usize = 0;
+                while (in_len - i >= wire.bytes_per_word and run_words < 255 and isZeroWord(in_buf[i..][0..wire.bytes_per_word])) {
+                    i += wire.bytes_per_word;
+                    run_words += 1;
                 }
-                @memcpy(raw_words[run_words * wire.bytes_per_word ..][0..wire.bytes_per_word], &next);
-                run_words += 1;
+                out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
+            } else if (tag == 0xff) {
+                const run_start = i;
+                var run_words: usize = 0;
+                while (in_len - i >= wire.bytes_per_word and run_words < 255 and shouldCopyRaw(in_buf[i..][0..wire.bytes_per_word])) {
+                    i += wire.bytes_per_word;
+                    run_words += 1;
+                }
+                out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
+                out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, in_buf[run_start..i]);
             }
-            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
-            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, raw_words[0 .. run_words * wire.bytes_per_word]);
-            if (maybe_current == null and run_words == 255) maybe_current = try in.readWord();
-        } else {
-            maybe_current = try in.readWord();
+        }
+        in_pos = i;
+        if (in_pos != in_len) {
+            const remaining = in_len - in_pos;
+            std.mem.copyForwards(u8, in_buf[0..remaining], in_buf[in_pos..in_len]);
+            in_len = remaining;
+            in_pos = 0;
+            const n = try reader.readSliceShort(in_buf[in_len..]);
+            if (n == 0) {
+                if (in_len != 0) return error.UnpackedInputNotWordAligned;
+                break;
+            }
+            in_len += n;
         }
     }
     if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
@@ -322,24 +324,6 @@ const ReaderBuffer = struct {
 
     fn take(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!u8 {
         return (try self.next()) orelse error.PackedInputTruncated;
-    }
-
-    fn readWord(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!?[wire.bytes_per_word]u8 {
-        if (self.pos == self.len and !try self.refill()) return null;
-        var word: [wire.bytes_per_word]u8 = undefined;
-        if (self.len - self.pos >= wire.bytes_per_word) {
-            @memcpy(&word, self.buf[self.pos..][0..wire.bytes_per_word]);
-            self.pos += wire.bytes_per_word;
-            return word;
-        }
-        const first = self.len - self.pos;
-        @memcpy(word[0..first], self.buf[self.pos..self.len]);
-        self.pos = self.len;
-        self.reader.readSliceAll(word[first..]) catch |err| switch (err) {
-            error.EndOfStream => return error.UnpackedInputNotWordAligned,
-            else => |e| return e,
-        };
-        return word;
     }
 
     fn copyExact(self: *ReaderBuffer, dest: []u8) (Error || std.Io.Reader.Error)!void {
@@ -373,7 +357,7 @@ pub fn unpack(allocator: std.mem.Allocator, packed_bytes: []const u8) Error![]u8
 }
 
 /// Decode into a caller-provided buffer. Returns bytes written.
-pub fn unpackInto(dest: []u8, packed_bytes: []const u8) Error!usize {
+pub noinline fn unpackInto(dest: []u8, packed_bytes: []const u8) Error!usize {
     var out_i: usize = 0;
     var i: usize = 0;
     while (i < packed_bytes.len) {
