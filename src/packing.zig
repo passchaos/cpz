@@ -303,48 +303,6 @@ pub fn packReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error
     if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
 }
 
-const ReaderBuffer = struct {
-    reader: *std.Io.Reader,
-    buf: [4096]u8 = undefined,
-    pos: usize = 0,
-    len: usize = 0,
-
-    fn refill(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!bool {
-        self.len = try self.reader.readSliceShort(&self.buf);
-        self.pos = 0;
-        return self.len != 0;
-    }
-
-    fn next(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!?u8 {
-        if (self.pos == self.len and !try self.refill()) return null;
-        const b = self.buf[self.pos];
-        self.pos += 1;
-        return b;
-    }
-
-    fn take(self: *ReaderBuffer) (Error || std.Io.Reader.Error)!u8 {
-        return (try self.next()) orelse error.PackedInputTruncated;
-    }
-
-    fn copyExact(self: *ReaderBuffer, dest: []u8) (Error || std.Io.Reader.Error)!void {
-        var off: usize = 0;
-        if (self.pos != self.len) {
-            const chunk = @min(dest.len, self.len - self.pos);
-            @memcpy(dest[0..chunk], self.buf[self.pos..][0..chunk]);
-            self.pos += chunk;
-            off = chunk;
-        }
-        if (off < dest.len) {
-            self.reader.readSliceAll(dest[off..]) catch |err| switch (err) {
-                error.EndOfStream => return error.PackedInputTruncated,
-                else => |e| return e,
-            };
-            self.pos = 0;
-            self.len = 0;
-        }
-    }
-};
-
 /// Decode a packed Cap'n Proto stream into a newly-allocated word-aligned byte
 /// sequence. The returned slice length is always a multiple of 8.
 pub fn unpack(allocator: std.mem.Allocator, packed_bytes: []const u8) Error![]u8 {
@@ -469,13 +427,17 @@ pub noinline fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8)
 /// Decode a packed Cap'n Proto stream from an Io reader directly to an Io
 /// writer without allocating the complete packed or unpacked byte sequence.
 pub noinline fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error || std.Io.Reader.Error || std.Io.Writer.Error)!void {
-    var in = ReaderBuffer{ .reader = reader };
     var out_buf: [4096]u8 = undefined;
     var out_i: usize = 0;
     while (true) {
-        if (in.pos == in.len and !try in.refill()) break;
-        const tag = in.buf[in.pos];
-        in.pos += 1;
+        if (reader.seek == reader.end) {
+            reader.fill(1) catch |err| switch (err) {
+                error.EndOfStream => break,
+                else => |e| return e,
+            };
+        }
+        const tag = reader.buffer[reader.seek];
+        reader.seek += 1;
 
         if (out_buf.len - out_i < wire.bytes_per_word) {
             if (out_i != 0) {
@@ -484,24 +446,27 @@ pub noinline fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Wri
             }
         }
         @memset(out_buf[out_i..][0..wire.bytes_per_word], 0);
-        if (in.len - in.pos >= wire.bytes_per_word) {
+        const buffered = reader.buffer[reader.seek..reader.end];
+        if (buffered.len >= wire.bytes_per_word) {
+            var consumed: usize = 0;
             inline for (0..wire.bytes_per_word) |j| {
                 if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
-                    out_buf[out_i + j] = in.buf[in.pos];
-                    in.pos += 1;
+                    out_buf[out_i + j] = buffered[consumed];
+                    consumed += 1;
                 }
             }
+            reader.seek += consumed;
         } else {
             inline for (0..wire.bytes_per_word) |j| {
                 if ((tag & (@as(u8, 1) << @as(u3, @intCast(j)))) != 0) {
-                    out_buf[out_i + j] = try in.take();
+                    out_buf[out_i + j] = try takePackedByte(reader);
                 }
             }
         }
         out_i += wire.bytes_per_word;
 
         if (tag == 0x00) {
-            var remaining = @as(usize, try in.take()) * wire.bytes_per_word;
+            var remaining = @as(usize, try takePackedByte(reader)) * wire.bytes_per_word;
             while (remaining != 0) {
                 if (out_i == out_buf.len) {
                     try writer.writeAll(out_buf[0..out_i]);
@@ -513,20 +478,30 @@ pub noinline fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Wri
                 remaining -= chunk;
             }
         } else if (tag == 0xff) {
-            var remaining = @as(usize, try in.take()) * wire.bytes_per_word;
+            var remaining = @as(usize, try takePackedByte(reader)) * wire.bytes_per_word;
             while (remaining != 0) {
                 if (out_i == out_buf.len) {
                     try writer.writeAll(out_buf[0..out_i]);
                     out_i = 0;
                 }
                 const chunk = @min(remaining, out_buf.len - out_i);
-                try in.copyExact(out_buf[out_i..][0..chunk]);
+                reader.readSliceAll(out_buf[out_i..][0..chunk]) catch |err| switch (err) {
+                    error.EndOfStream => return error.PackedInputTruncated,
+                    else => |e| return e,
+                };
                 out_i += chunk;
                 remaining -= chunk;
             }
         }
     }
     if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
+}
+
+inline fn takePackedByte(reader: *std.Io.Reader) (Error || std.Io.Reader.Error)!u8 {
+    return reader.takeByte() catch |err| switch (err) {
+        error.EndOfStream => error.PackedInputTruncated,
+        else => |e| e,
+    };
 }
 
 fn writePackedSlice(dest: []u8, out_i: usize, bytes: []const u8) Error!usize {

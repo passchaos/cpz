@@ -188,7 +188,7 @@ pub fn messageToFlatBytes(allocator: std.mem.Allocator, segments: []const ConstS
 /// Serialize segments into a caller-provided buffer using Cap'n Proto's
 /// standard stream framing. Returns the number of bytes written. This avoids
 /// allocating a complete flat message buffer on hot paths.
-pub fn messageToFlatBytesInto(dest: []u8, segments: []const ConstSegment) Error!usize {
+pub noinline fn messageToFlatBytesInto(dest: []u8, segments: []const ConstSegment) Error!usize {
     const total_len = try computeSerializedSize(segments);
     if (dest.len < total_len) return error.SerializedOutputTooSmall;
 
@@ -264,7 +264,7 @@ fn packedMessageSizeFromTable(table: []const u8, segments: []const ConstSegment)
 /// receives the packed stream bytes. Returns bytes written to `dest`.
 /// If `dest` is too small, returns `error.PackedOutputTooSmall`; `dest` may
 /// contain a partial prefix in that case.
-pub fn messageToPackedBytesInto(table_buffer: []u8, dest: []u8, segments: []const ConstSegment) Error!usize {
+pub noinline fn messageToPackedBytesInto(table_buffer: []u8, dest: []u8, segments: []const ConstSegment) Error!usize {
     _ = try computeSerializedSize(segments);
     const table_len = try writeSegmentTable(table_buffer, segments);
     var out_i: usize = 0;
