@@ -69,6 +69,9 @@ All notable changes to `cpz` are documented here.
   pathologically slow on some aarch64 virtual machines (about 5 GB/s versus
   80 GB/s for `memcpy`), so building the 4 KB benchmark message drops from
   roughly 0.9 us to 0.2 us in ReleaseFast.
+- The benchmark now runs every measured loop in its own non-inlined function;
+  inlining them into one large `main` had distorted codegen and overstated
+  streaming costs by up to 3x.
 - Allocating `pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks
   to the written length, avoiding the packed-size pre-pass and per-word
   `ArrayList` appends; it is roughly 4x faster in a fixed-buffer microbenchmark,

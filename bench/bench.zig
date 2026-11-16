@@ -5,6 +5,9 @@ const reader_iterations = 200_000;
 const serialize_iterations = 50_000;
 const rounds = 5;
 
+// Each benchmark runs in its own non-inlined function so that the surrounding
+// harness cannot change how LLVM compiles the measured loop. Inlining these
+// loops into one large `main` previously distorted results by up to 3x.
 pub fn main() !void {
     var gpa_state = std.heap.DebugAllocator(.{}){};
     defer std.debug.assert(gpa_state.deinit() == .ok);
@@ -34,7 +37,34 @@ pub fn main() !void {
         packed_message.bytes.len,
     });
 
-    var reader_ns: u64 = std.math.maxInt(u64);
+    var flat_buffer: [128 * 1024]u8 = undefined;
+    var packed_buffer: [128 * 1024]u8 = undefined;
+    var unpacked_buffer: [128 * 1024]u8 = undefined;
+    var stream_buffer: [128 * 1024]u8 = undefined;
+    var table_buffer: [128]u8 = undefined;
+    var packed_alloc_buffer: [128 * 1024]u8 = undefined;
+    var packed_alloc_allocator = std.heap.FixedBufferAllocator.init(&packed_alloc_buffer);
+    var pack_alloc_buffer: [128 * 1024]u8 = undefined;
+    var pack_alloc_allocator = std.heap.FixedBufferAllocator.init(&pack_alloc_buffer);
+    var build_buffer: [128 * 1024]u8 = undefined;
+    var build_allocator = std.heap.FixedBufferAllocator.init(&build_buffer);
+
+    printResult("dynamic reader", try readerRound(io, flat), reader_iterations);
+    printResult("bulk read list", try bulkReadRound(io, flat), serialize_iterations);
+    printResult("build message", try buildRound(io, &build_allocator, &values), serialize_iterations);
+    printResult("flat serialize", try flatRound(io, segments, &flat_buffer), serialize_iterations);
+    printResult("packed serialize", try packedRound(io, segments, &table_buffer, &packed_buffer), serialize_iterations);
+    printResult("packed serialize (allocating)", try packedAllocRound(io, &packed_alloc_allocator, segments), serialize_iterations);
+    printResult("pack (allocating)", try packAllocRound(io, &pack_alloc_allocator, flat_bytes), serialize_iterations);
+    printResult("pack to writer", try packToWriterRound(io, flat_bytes, &stream_buffer), serialize_iterations);
+    printResult("pack reader to writer", try packReaderToWriterRound(io, flat_bytes, &stream_buffer), serialize_iterations);
+    printResult("unpack", try unpackRound(io, packed_bytes, &unpacked_buffer), serialize_iterations);
+    printResult("unpack to writer", try unpackToWriterRound(io, packed_bytes, &stream_buffer), serialize_iterations);
+    printResult("unpack reader to writer", try unpackReaderToWriterRound(io, packed_bytes, &stream_buffer), serialize_iterations);
+}
+
+noinline fn readerRound(io: std.Io, flat: cpz.FlatMessage) !u64 {
+    var best: u64 = std.math.maxInt(u64);
     for (0..rounds) |_| {
         var warmup = cpz.MessageReader.init(flat.segments, .{ .traversal_limit_words = std.math.maxInt(usize) });
         var warm_checksum: u64 = 0;
@@ -57,141 +87,193 @@ pub fn main() !void {
         }
         const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
         std.mem.doNotOptimizeAway(checksum);
-        reader_ns = @min(reader_ns, elapsed);
+        best = @min(best, elapsed);
     }
+    return best;
+}
 
-    const bulk_read_ns = try bulkReadRound(io, flat, serialize_iterations);
-
-    var flat_ns: u64 = std.math.maxInt(u64);
-    var packed_ns: u64 = std.math.maxInt(u64);
-    var unpack_ns: u64 = std.math.maxInt(u64);
-    var packed_alloc_ns: u64 = std.math.maxInt(u64);
-    var pack_alloc_ns: u64 = std.math.maxInt(u64);
-    var stream_pack_ns: u64 = std.math.maxInt(u64);
-    var stream_unpack_ns: u64 = std.math.maxInt(u64);
-    var stream_pack_reader_ns: u64 = std.math.maxInt(u64);
-    var stream_unpack_reader_ns: u64 = std.math.maxInt(u64);
-    var build_ns: u64 = std.math.maxInt(u64);
-    var flat_buffer: [128 * 1024]u8 = undefined;
-    var packed_buffer: [128 * 1024]u8 = undefined;
-    var unpacked_buffer: [128 * 1024]u8 = undefined;
-    var stream_buffer: [128 * 1024]u8 = undefined;
-    var table_buffer: [128]u8 = undefined;
-    var packed_alloc_buffer: [128 * 1024]u8 = undefined;
-    var packed_alloc_allocator = std.heap.FixedBufferAllocator.init(&packed_alloc_buffer);
-    var pack_alloc_buffer: [128 * 1024]u8 = undefined;
-    var pack_alloc_allocator = std.heap.FixedBufferAllocator.init(&pack_alloc_buffer);
-    var build_buffer: [128 * 1024]u8 = undefined;
-    var build_allocator = std.heap.FixedBufferAllocator.init(&build_buffer);
+noinline fn bulkReadRound(io: std.Io, flat: cpz.FlatMessage) !u64 {
+    var values: [1024]u32 = undefined;
+    var best: u64 = std.math.maxInt(u64);
     for (0..rounds) |_| {
-        const build_start = std.Io.Clock.awake.now(io);
-        var build_checksum: usize = 0;
+        var reader = cpz.MessageReader.init(flat.segments, .{ .traversal_limit_words = std.math.maxInt(usize) });
+        const list = try (try reader.getRoot()).getPointerField(1).getList(.four_bytes);
+        const start = std.Io.Clock.awake.now(io);
+        var checksum: u32 = 0;
         for (0..serialize_iterations) |_| {
-            build_allocator.reset();
-            var built = try buildBenchMessage(build_allocator.allocator(), &values);
+            try list.getAll(u32, &values);
+            checksum +%= values[17];
+        }
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
+
+noinline fn buildRound(io: std.Io, allocator: *std.heap.FixedBufferAllocator, values: []const u32) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
+        for (0..serialize_iterations) |_| {
+            allocator.reset();
+            var built = try buildBenchMessage(allocator.allocator(), values);
             defer built.deinit();
-            build_checksum +%= (try built.segmentsConst())[0].len;
+            checksum +%= (try built.segmentsConst())[0].len;
         }
-        build_ns = @min(build_ns, @as(u64, @intCast(build_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(build_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const flat_start = std.Io.Clock.awake.now(io);
-        var flat_checksum: usize = 0;
+noinline fn flatRound(io: std.Io, segments: []const cpz.serialize.ConstSegment, buffer: []u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
-            flat_checksum +%= try cpz.messageToFlatBytesInto(&flat_buffer, segments);
+            checksum +%= try cpz.messageToFlatBytesInto(buffer, segments);
         }
-        flat_ns = @min(flat_ns, @as(u64, @intCast(flat_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(flat_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const packed_start = std.Io.Clock.awake.now(io);
-        var packed_checksum: usize = 0;
+noinline fn packedRound(io: std.Io, segments: []const cpz.serialize.ConstSegment, table_buffer: []u8, packed_buffer: []u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
-            packed_checksum +%= try cpz.messageToPackedBytesInto(&table_buffer, &packed_buffer, segments);
+            checksum +%= try cpz.messageToPackedBytesInto(table_buffer, packed_buffer, segments);
         }
-        packed_ns = @min(packed_ns, @as(u64, @intCast(packed_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(packed_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const unpack_start = std.Io.Clock.awake.now(io);
-        var unpack_checksum: usize = 0;
+noinline fn unpackRound(io: std.Io, packed_bytes: []const u8, dest: []u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
-            unpack_checksum +%= try cpz.unpackInto(&unpacked_buffer, packed_bytes);
+            checksum +%= try cpz.unpackInto(dest, packed_bytes);
         }
-        unpack_ns = @min(unpack_ns, @as(u64, @intCast(unpack_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(unpack_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const packed_alloc_start = std.Io.Clock.awake.now(io);
-        var packed_alloc_checksum: usize = 0;
+noinline fn packedAllocRound(io: std.Io, allocator: *std.heap.FixedBufferAllocator, segments: []const cpz.serialize.ConstSegment) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
-            packed_alloc_allocator.reset();
-            packed_alloc_checksum +%= (try cpz.messageToPackedBytes(packed_alloc_allocator.allocator(), segments)).len;
+            allocator.reset();
+            checksum +%= (try cpz.messageToPackedBytes(allocator.allocator(), segments)).len;
         }
-        packed_alloc_ns = @min(packed_alloc_ns, @as(u64, @intCast(packed_alloc_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(packed_alloc_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const pack_alloc_start = std.Io.Clock.awake.now(io);
-        var pack_alloc_checksum: usize = 0;
+noinline fn packAllocRound(io: std.Io, allocator: *std.heap.FixedBufferAllocator, flat_bytes: []const u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
-            pack_alloc_allocator.reset();
-            pack_alloc_checksum +%= (try cpz.pack(pack_alloc_allocator.allocator(), flat_bytes)).len;
+            allocator.reset();
+            checksum +%= (try cpz.pack(allocator.allocator(), flat_bytes)).len;
         }
-        pack_alloc_ns = @min(pack_alloc_ns, @as(u64, @intCast(pack_alloc_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(pack_alloc_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const stream_pack_start = std.Io.Clock.awake.now(io);
-        var stream_pack_checksum: usize = 0;
+noinline fn packToWriterRound(io: std.Io, flat_bytes: []const u8, dest: []u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
-            var writer = std.Io.Writer.fixed(&stream_buffer);
+            var writer = std.Io.Writer.fixed(dest);
             try cpz.packToWriter(&writer, flat_bytes);
-            stream_pack_checksum +%= writer.end;
+            checksum +%= writer.end;
         }
-        stream_pack_ns = @min(stream_pack_ns, @as(u64, @intCast(stream_pack_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(stream_pack_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const stream_unpack_start = std.Io.Clock.awake.now(io);
-        var stream_unpack_checksum: usize = 0;
-        for (0..serialize_iterations) |_| {
-            var writer = std.Io.Writer.fixed(&stream_buffer);
-            try cpz.unpackToWriter(&writer, packed_bytes);
-            stream_unpack_checksum +%= writer.end;
-        }
-        stream_unpack_ns = @min(stream_unpack_ns, @as(u64, @intCast(stream_unpack_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(stream_unpack_checksum);
-
-        const stream_pack_reader_start = std.Io.Clock.awake.now(io);
-        var stream_pack_reader_checksum: usize = 0;
+noinline fn packReaderToWriterRound(io: std.Io, flat_bytes: []const u8, dest: []u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
             var reader = std.Io.Reader.fixed(flat_bytes);
-            var writer = std.Io.Writer.fixed(&stream_buffer);
+            var writer = std.Io.Writer.fixed(dest);
             try cpz.packReaderToWriter(&reader, &writer);
-            stream_pack_reader_checksum +%= writer.end;
+            checksum +%= writer.end;
         }
-        stream_pack_reader_ns = @min(stream_pack_reader_ns, @as(u64, @intCast(stream_pack_reader_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(stream_pack_reader_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
 
-        const stream_unpack_reader_start = std.Io.Clock.awake.now(io);
-        var stream_unpack_reader_checksum: usize = 0;
+noinline fn unpackToWriterRound(io: std.Io, packed_bytes: []const u8, dest: []u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
+        for (0..serialize_iterations) |_| {
+            var writer = std.Io.Writer.fixed(dest);
+            try cpz.unpackToWriter(&writer, packed_bytes);
+            checksum +%= writer.end;
+        }
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
+    }
+    return best;
+}
+
+noinline fn unpackReaderToWriterRound(io: std.Io, packed_bytes: []const u8, dest: []u8) !u64 {
+    var best: u64 = std.math.maxInt(u64);
+    for (0..rounds) |_| {
+        var checksum: usize = 0;
+        const start = std.Io.Clock.awake.now(io);
         for (0..serialize_iterations) |_| {
             var reader = std.Io.Reader.fixed(packed_bytes);
-            var writer = std.Io.Writer.fixed(&stream_buffer);
+            var writer = std.Io.Writer.fixed(dest);
             try cpz.unpackReaderToWriter(&reader, &writer);
-            stream_unpack_reader_checksum +%= writer.end;
+            checksum +%= writer.end;
         }
-        stream_unpack_reader_ns = @min(stream_unpack_reader_ns, @as(u64, @intCast(stream_unpack_reader_start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds)));
-        std.mem.doNotOptimizeAway(stream_unpack_reader_checksum);
+        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
+        best = @min(best, elapsed);
+        std.mem.doNotOptimizeAway(checksum);
     }
-
-    printResult("dynamic reader", reader_ns, reader_iterations);
-    printResult("bulk read list", bulk_read_ns, serialize_iterations);
-    printResult("build message", build_ns, serialize_iterations);
-    printResult("flat serialize", flat_ns, serialize_iterations);
-    printResult("packed serialize", packed_ns, serialize_iterations);
-    printResult("packed serialize (allocating)", packed_alloc_ns, serialize_iterations);
-    printResult("pack (allocating)", pack_alloc_ns, serialize_iterations);
-    printResult("pack to writer", stream_pack_ns, serialize_iterations);
-    printResult("pack reader to writer", stream_pack_reader_ns, serialize_iterations);
-    printResult("unpack", unpack_ns, serialize_iterations);
-    printResult("unpack to writer", stream_unpack_ns, serialize_iterations);
-    printResult("unpack reader to writer", stream_unpack_reader_ns, serialize_iterations);
+    return best;
 }
 
 fn buildBenchMessage(allocator: std.mem.Allocator, values: []const u32) !cpz.MessageBuilder {
@@ -203,25 +285,6 @@ fn buildBenchMessage(allocator: std.mem.Allocator, values: []const u32) !cpz.Mes
     const nums = try (try root.getPointerField(1)).initList(.four_bytes, values.len);
     try nums.setAll(u32, values);
     return builder;
-}
-
-fn bulkReadRound(io: std.Io, flat: cpz.FlatMessage, iterations: usize) !u64 {
-    var values: [1024]u32 = undefined;
-    var best: u64 = std.math.maxInt(u64);
-    for (0..rounds) |_| {
-        var reader = cpz.MessageReader.init(flat.segments, .{ .traversal_limit_words = std.math.maxInt(usize) });
-        const list = try (try reader.getRoot()).getPointerField(1).getList(.four_bytes);
-        const start = std.Io.Clock.awake.now(io);
-        var checksum: u32 = 0;
-        for (0..iterations) |_| {
-            try list.getAll(u32, &values);
-            checksum +%= values[17];
-        }
-        const elapsed: u64 = @intCast(start.durationTo(std.Io.Clock.awake.now(io)).nanoseconds);
-        best = @min(best, elapsed);
-        std.mem.doNotOptimizeAway(checksum);
-    }
-    return best;
 }
 
 fn printResult(name: []const u8, elapsed_ns: u64, iterations: usize) void {
