@@ -1,5 +1,6 @@
 const std = @import("std");
 const wire = @import("wire.zig");
+const zero = @import("zero.zig");
 
 pub const Error = error{
     PackedInputTruncated,
@@ -384,7 +385,7 @@ pub fn unpackInto(dest: []u8, packed_bytes: []const u8) Error!usize {
             const additional_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
             i += 1;
             if (dest.len - out_i < additional_bytes) return error.PackedOutputTooSmall;
-            @memset(dest[out_i .. out_i + additional_bytes], 0);
+            zero.bytes(dest[out_i .. out_i + additional_bytes]);
             out_i += additional_bytes;
         } else if (tag == 0xff) {
             if (i >= packed_bytes.len) return error.PackedInputTruncated;
@@ -445,7 +446,7 @@ pub noinline fn unpackToWriter(writer: *std.Io.Writer, packed_bytes: []const u8)
                     out_i = 0;
                 }
                 const chunk = @min(remaining, out_buf.len - out_i);
-                @memset(out_buf[out_i..][0..chunk], 0);
+                zero.bytes(out_buf[out_i..][0..chunk]);
                 out_i += chunk;
                 remaining -= chunk;
             }
@@ -513,7 +514,7 @@ pub noinline fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Wri
                     out_i = 0;
                 }
                 const chunk = @min(remaining, out_buf.len - out_i);
-                @memset(out_buf[out_i..][0..chunk], 0);
+                zero.bytes(out_buf[out_i..][0..chunk]);
                 out_i += chunk;
                 remaining -= chunk;
             }

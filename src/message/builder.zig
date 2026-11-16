@@ -1,5 +1,6 @@
 const std = @import("std");
 const wire = @import("../wire.zig");
+const zero = @import("../zero.zig");
 const serialize = @import("../serialize.zig");
 
 const mod_list = @import("list.zig");
@@ -87,7 +88,7 @@ pub const SegmentBuilder = struct {
         if (self.words.items.len - self.used < word_count) return null;
         const start = self.used;
         self.used += word_count;
-        @memset(self.words.items[start..self.used], 0);
+        zero.bytes(std.mem.sliceAsBytes(self.words.items[start..self.used]));
         return start;
     }
 

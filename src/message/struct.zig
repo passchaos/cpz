@@ -1,5 +1,6 @@
 const std = @import("std");
 const wire = @import("../wire.zig");
+const zero = @import("../zero.zig");
 
 const mod_builder = @import("builder.zig");
 const mod_list = @import("list.zig");
@@ -287,11 +288,11 @@ pub const StructBuilder = struct {
 
     pub fn clearDataBytes(self: StructBuilder, byte_offset: usize, len: usize) Error!void {
         try self.checkDataBytes(byte_offset, len);
-        @memset(self.dataBytes()[byte_offset..][0..len], 0);
+        zero.bytes(self.dataBytes()[byte_offset..][0..len]);
     }
 
     pub fn clear(self: StructBuilder) Error!void {
-        @memset(try self.dataBytesChecked(), 0);
+        zero.bytes(try self.dataBytesChecked());
         for (0..self.pointer_count) |i| {
             try self.clearPointer(i);
         }

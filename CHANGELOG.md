@@ -64,6 +64,11 @@ All notable changes to `cpz` are documented here.
   `noinline`; inlining them into a large caller produced substantially worse
   codegen. The benchmark overstated streaming time by up to 3x (for example
   unpack-to-writer measured 4.8 us inlined versus 1.5 us out of line).
+- Zeroing of segment allocations and packed zero runs now uses plain 16-byte
+  stores instead of `@memset`. The C library `memset` `dc zva` path is
+  pathologically slow on some aarch64 virtual machines (about 5 GB/s versus
+  80 GB/s for `memcpy`), so building the 4 KB benchmark message drops from
+  roughly 0.9 us to 0.2 us in ReleaseFast.
 - Allocating `pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks
   to the written length, avoiding the packed-size pre-pass and per-word
   `ArrayList` appends; it is roughly 4x faster in a fixed-buffer microbenchmark,

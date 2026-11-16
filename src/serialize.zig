@@ -1,6 +1,7 @@
 const std = @import("std");
 const packing = @import("packing.zig");
 const wire = @import("wire.zig");
+const zero = @import("zero.zig");
 
 pub const Segment = []u8;
 pub const ConstSegment = []const u8;
@@ -152,7 +153,7 @@ pub fn writeSegmentTable(dest: []u8, segments: []const ConstSegment) Error!usize
     if (segments.len > maxSegmentCount) return error.TooManySegments;
     const table_len = try segmentTableByteLen(segments.len);
     if (dest.len < table_len) return error.SegmentTableTruncated;
-    @memset(dest[0..table_len], 0);
+    zero.bytes(dest[0..table_len]);
 
     writeU32(dest[0..4], @intCast(segments.len - 1));
     var off: usize = 4;
@@ -425,7 +426,7 @@ pub fn readPackedMessageViewInto(segment_table: []ConstSegment, flat_buffer: []u
             const additional_bytes = @as(usize, packed_bytes[i]) * wire.bytes_per_word;
             i += 1;
             if (flat_buffer.len - out_i < additional_bytes) return error.PackedOutputTooSmall;
-            @memset(flat_buffer[out_i .. out_i + additional_bytes], 0);
+            zero.bytes(flat_buffer[out_i .. out_i + additional_bytes]);
             out_i += additional_bytes;
         } else if (tag == 0xff) {
             if (i >= packed_bytes.len) return error.PackedInputTruncated;
@@ -512,7 +513,7 @@ pub fn readPackedMessageViewFromReaderInto(segment_table: []ConstSegment, flat_b
             const additional_words = @as(usize, try takePackedByteCount(reader, &source_consumed_len));
             const additional_bytes = additional_words * wire.bytes_per_word;
             if (flat_buffer.len - out_i < additional_bytes) return error.PackedOutputTooSmall;
-            @memset(flat_buffer[out_i .. out_i + additional_bytes], 0);
+            zero.bytes(flat_buffer[out_i .. out_i + additional_bytes]);
             out_i += additional_bytes;
         } else if (tag == 0xff) {
             const raw_words = @as(usize, try takePackedByteCount(reader, &source_consumed_len));
