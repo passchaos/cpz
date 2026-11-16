@@ -73,6 +73,11 @@ All notable changes to `cpz` are documented here.
 - `unpackReaderToWriter` now decodes directly from the reader's own buffer
   instead of copying the packed input into a private buffer first, removing the
   `ReaderBuffer` helper and improving the benchmark by about 6%.
+- `MessageBuilder` now reuses free space in existing segments before allocating
+  a new one, using a rotating allocation hint. Building many small children of
+  a full parent no longer allocates a segment per child: a struct list with 512
+  text fields drops from 463 segments to 6, builds about 12% faster, and
+  serializes a much smaller segment table.
 - Zeroing of segment allocations and packed zero runs now uses plain 16-byte
   stores instead of `@memset`. The C library `memset` `dc zva` path is
   pathologically slow on some aarch64 virtual machines (about 5 GB/s versus

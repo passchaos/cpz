@@ -574,6 +574,9 @@ pub const MessageBuilder = struct {
     segments: std.ArrayList(SegmentBuilder),
     const_segments_cache: std.ArrayList(serialize.ConstSegment),
     options: BuilderOptions,
+    /// Segment that most recently satisfied an allocation, used to find free
+    /// space in existing segments before growing the segment list.
+    allocation_hint: usize = 0,
 
     pub fn init(allocator: std.mem.Allocator, options: BuilderOptions) !MessageBuilder {
         var segments = std.ArrayList(SegmentBuilder).empty;
@@ -1269,12 +1272,25 @@ pub const MessageBuilder = struct {
                 return .{ .id = preferred_segment_id, .start = start };
             }
         }
+        // The preferred segment is full. Reuse free space in any other existing
+        // segment before growing the segment list; without this, building many
+        // small children of a full parent allocates a segment per child.
+        const segment_count = self.segments.items.len;
+        var attempt: usize = 0;
+        while (attempt < segment_count) : (attempt += 1) {
+            const id = (self.allocation_hint +% attempt) % segment_count;
+            if (self.segments.items[id].alloc(word_count)) |start| {
+                self.allocation_hint = id;
+                return .{ .id = @intCast(id), .start = start };
+            }
+        }
         const min_words = @max(self.options.next_segment_min_words, word_count);
         var segment = try SegmentBuilder.init(self.allocator, min_words);
         errdefer segment.deinit(self.allocator);
         const start = segment.alloc(word_count).?;
         const segment_id = try segmentIdFromIndex(self.segments.items.len);
         try self.segments.append(self.allocator, segment);
+        self.allocation_hint = self.segments.items.len - 1;
         return .{ .id = segment_id, .start = start };
     }
 

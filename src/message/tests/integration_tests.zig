@@ -295,6 +295,32 @@ test "builder and reader round-trip struct with text" {
     try testing.expectEqualSlices(u8, "hello", try read_root.getPointerField(0).getText());
 }
 
+test "builder reuses free space in existing segments" {
+    const testing = std.testing;
+    const text = "payload text that forces a separate allocation";
+
+    var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 64, .next_segment_min_words = 256 });
+    defer builder.deinit();
+
+    const root = try builder.initRoot(.{ .data_words = 0, .pointer_count = 1 });
+    const items = try (try root.getPointerField(0)).initStructList(256, .{ .data_words = 0, .pointer_count = 1 });
+    for (0..256) |i| {
+        const item = try items.getStructElement(i);
+        try item.setText(0, text);
+    }
+
+    const segments = try builder.segmentsConst();
+    try testing.expect(segments.len <= 16);
+
+    var reader = MessageReader.init(segments, .{});
+    const read_root = try reader.getRoot();
+    const list_reader = try read_root.getPointerField(0).getList(.composite);
+    for (0..256) |i| {
+        const item = try list_reader.getStructElement(i);
+        try testing.expectEqualSlices(u8, text, try item.getPointerField(0).getText());
+    }
+}
+
 test "message builder serializes flat, packed, and canonical bytes directly" {
     const testing = std.testing;
     var builder = try MessageBuilder.init(testing.allocator, .{ .first_segment_words = 8 });
