@@ -30,33 +30,33 @@ Example output on the current aarch64 development host:
 ```text
 # Debug
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 161593737 ns total, 808.0 ns/op
-bulk read list: 50000 iterations, 13092015 ns total, 261.8 ns/op
-build message: 50000 iterations, 852953052 ns total, 17059.1 ns/op
-flat serialize: 50000 iterations, 18232386 ns total, 364.6 ns/op
-packed serialize: 50000 iterations, 863385963 ns total, 17267.7 ns/op
-packed serialize (allocating): 50000 iterations, 948793840 ns total, 18975.9 ns/op
-pack (allocating): 50000 iterations, 900727983 ns total, 18014.6 ns/op
-pack to writer: 50000 iterations, 856289490 ns total, 17125.8 ns/op
-pack reader to writer: 50000 iterations, 1553162321 ns total, 31063.2 ns/op
-unpack: 50000 iterations, 638245422 ns total, 12764.9 ns/op
-unpack to writer: 50000 iterations, 602101579 ns total, 12042.0 ns/op
-unpack reader to writer: 50000 iterations, 629867021 ns total, 12597.3 ns/op
+dynamic reader: 200000 iterations, 162656814 ns total, 813.3 ns/op
+bulk read list: 50000 iterations, 12795543 ns total, 255.9 ns/op
+build message: 50000 iterations, 854811790 ns total, 17096.2 ns/op
+flat serialize: 50000 iterations, 18339698 ns total, 366.8 ns/op
+packed serialize: 50000 iterations, 977477089 ns total, 19549.5 ns/op
+packed serialize (allocating): 50000 iterations, 1061394140 ns total, 21227.9 ns/op
+pack (allocating): 50000 iterations, 1054728205 ns total, 21094.6 ns/op
+pack to writer: 50000 iterations, 1026162809 ns total, 20523.3 ns/op
+pack reader to writer: 50000 iterations, 1467461933 ns total, 29349.2 ns/op
+unpack: 50000 iterations, 640077802 ns total, 12801.6 ns/op
+unpack to writer: 50000 iterations, 604950100 ns total, 12099.0 ns/op
+unpack reader to writer: 50000 iterations, 631946748 ns total, 12638.9 ns/op
 
 # ReleaseFast
 message: 1 segments, 4160 bytes flat, 4160 bytes packed
-dynamic reader: 200000 iterations, 6212229 ns total, 31.1 ns/op
-bulk read list: 50000 iterations, 2756900 ns total, 55.1 ns/op
-build message: 50000 iterations, 10498212 ns total, 210.0 ns/op
-flat serialize: 50000 iterations, 3029262 ns total, 60.6 ns/op
-packed serialize: 50000 iterations, 72530984 ns total, 1450.6 ns/op
-packed serialize (allocating): 50000 iterations, 73116635 ns total, 1462.3 ns/op
-pack (allocating): 50000 iterations, 72374845 ns total, 1447.5 ns/op
-pack to writer: 50000 iterations, 77820707 ns total, 1556.4 ns/op
-pack reader to writer: 50000 iterations, 101876546 ns total, 2037.5 ns/op
-unpack: 50000 iterations, 64380096 ns total, 1287.6 ns/op
-unpack to writer: 50000 iterations, 74097910 ns total, 1482.0 ns/op
-unpack reader to writer: 50000 iterations, 84196465 ns total, 1683.9 ns/op
+dynamic reader: 200000 iterations, 6220393 ns total, 31.1 ns/op
+bulk read list: 50000 iterations, 2774277 ns total, 55.5 ns/op
+build message: 50000 iterations, 10382767 ns total, 207.7 ns/op
+flat serialize: 50000 iterations, 3053558 ns total, 61.1 ns/op
+packed serialize: 50000 iterations, 50114744 ns total, 1002.3 ns/op
+packed serialize (allocating): 50000 iterations, 50669117 ns total, 1013.4 ns/op
+pack (allocating): 50000 iterations, 49846297 ns total, 996.9 ns/op
+pack to writer: 50000 iterations, 51329634 ns total, 1026.6 ns/op
+pack reader to writer: 50000 iterations, 102238576 ns total, 2044.8 ns/op
+unpack: 50000 iterations, 64616800 ns total, 1292.3 ns/op
+unpack to writer: 50000 iterations, 74141781 ns total, 1482.8 ns/op
+unpack reader to writer: 50000 iterations, 84604789 ns total, 1692.1 ns/op
 ```
 
 These numbers are a local smoke baseline, not a cross-engine claim; absolute
@@ -77,7 +77,11 @@ paths into one large `main` previously made LLVM produce substantially worse
 code and overstated streaming costs by up to 3x. Zeroing of segment allocations
 and packed zero runs uses plain 16-byte stores instead of `@memset`, because the
 C library `memset` `dc zva` path is very slow on some aarch64 virtual machines;
-this cut ReleaseFast message building from about 0.9 us to 0.2 us. The
+this cut ReleaseFast message building from about 0.9 us to 0.2 us. Packed
+serialization computes the tag with a branch-free SWAR expression and compacts
+payload bytes with a NEON `tbl` byte shuffle on aarch64 (a 256-entry shuffle
+table); other targets and Debug builds keep the scalar loop. ReleaseFast
+packed serialization dropped from about 1.45 us to 1.0 us per 4 KB message. The
 allocating
 `pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks to the written
 length, avoiding the packed-size pre-pass and per-word `ArrayList` appends; it is

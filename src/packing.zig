@@ -1,6 +1,34 @@
 const std = @import("std");
 const wire = @import("wire.zig");
 const zero = @import("zero.zig");
+const packing_simd = @import("packing_simd.zig");
+
+/// Low byte: payload length. Next byte: tag.
+inline fn packWordFast(dest: []u8, out_i: usize, input: []const u8, i: usize) u16 {
+    if (comptime packing_simd.use_in_packing) {
+        if (input.len - i >= 16) {
+            const compressed = packing_simd.compressWord(input[i..][0..16]);
+            dest[out_i] = compressed.tag;
+            const payload: *align(1) packing_simd.Payload = @ptrCast(dest.ptr + out_i + 1);
+            payload.* = compressed.payload;
+            return (@as(u16, compressed.tag) << 8) | packing_simd.count_table[compressed.tag];
+        }
+    }
+    const word: [wire.bytes_per_word]u8 = input[i..][0..wire.bytes_per_word].*;
+    var tag: u8 = 0;
+    var payload_len: u8 = 0;
+    dest[out_i] = 0;
+    inline for (0..wire.bytes_per_word) |j| {
+        const b = word[j];
+        if (b != 0) {
+            tag |= @as(u8, 1) << @as(u3, @intCast(j));
+            dest[out_i + 1 + payload_len] = b;
+            payload_len += 1;
+        }
+    }
+    dest[out_i] = tag;
+    return (@as(u16, tag) << 8) | payload_len;
+}
 
 pub const Error = error{
     PackedInputTruncated,
@@ -106,21 +134,12 @@ pub fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
     var i: usize = 0;
     while (i < unpacked_bytes.len) {
         var tag: u8 = 0;
-        var payload_len: usize = 0;
         if (dest.len - out_i >= wire.bytes_per_word + 1) {
-            const word: [wire.bytes_per_word]u8 = unpacked_bytes[i..][0..wire.bytes_per_word].*;
-            dest[out_i] = 0;
-            inline for (0..wire.bytes_per_word) |j| {
-                const b = word[j];
-                if (b != 0) {
-                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                    dest[out_i + 1 + payload_len] = b;
-                    payload_len += 1;
-                }
-            }
-            dest[out_i] = tag;
-            out_i += 1 + payload_len;
+            const packed_word = packWordFast(dest, out_i, unpacked_bytes, i);
+            tag = @truncate(packed_word >> 8);
+            out_i += 1 + @as(usize, @as(u8, @truncate(packed_word)));
         } else {
+            var payload_len: usize = 0;
             var payload: [wire.bytes_per_word]u8 = undefined;
             inline for (0..wire.bytes_per_word) |j| {
                 const b = unpacked_bytes[i + j];
@@ -130,8 +149,8 @@ pub fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
                     payload_len += 1;
                 }
             }
-            try writePackedSlice(dest, &out_i, &[_]u8{tag});
-            try writePackedSlice(dest, &out_i, payload[0..payload_len]);
+            out_i = try writePackedSlice(dest, out_i, &[_]u8{tag});
+            out_i = try writePackedSlice(dest, out_i, payload[0..payload_len]);
         }
         i += wire.bytes_per_word;
 
@@ -141,7 +160,7 @@ pub fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
                 i += wire.bytes_per_word;
                 run_words += 1;
             }
-            try writePackedSlice(dest, &out_i, &[_]u8{@intCast(run_words)});
+            out_i = try writePackedSlice(dest, out_i, &[_]u8{@intCast(run_words)});
         } else if (tag == 0xff) {
             const run_start = i;
             var run_words: usize = 0;
@@ -149,8 +168,8 @@ pub fn packInto(dest: []u8, unpacked_bytes: []const u8) Error!usize {
                 i += wire.bytes_per_word;
                 run_words += 1;
             }
-            try writePackedSlice(dest, &out_i, &[_]u8{@intCast(run_words)});
-            try writePackedSlice(dest, &out_i, unpacked_bytes[run_start..i]);
+            out_i = try writePackedSlice(dest, out_i, &[_]u8{@intCast(run_words)});
+            out_i = try writePackedSlice(dest, out_i, unpacked_bytes[run_start..i]);
         }
     }
 
@@ -167,21 +186,12 @@ pub noinline fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8)
     var i: usize = 0;
     while (i < unpacked_bytes.len) {
         var tag: u8 = 0;
-        var payload_len: usize = 0;
         if (out_buf.len - out_i >= wire.bytes_per_word + 1) {
-            const word: [wire.bytes_per_word]u8 = unpacked_bytes[i..][0..wire.bytes_per_word].*;
-            out_buf[out_i] = 0;
-            inline for (0..wire.bytes_per_word) |j| {
-                const b = word[j];
-                if (b != 0) {
-                    tag |= @as(u8, 1) << @as(u3, @intCast(j));
-                    out_buf[out_i + 1 + payload_len] = b;
-                    payload_len += 1;
-                }
-            }
-            out_buf[out_i] = tag;
-            out_i += 1 + payload_len;
+            const packed_word = packWordFast(out_buf[0..], out_i, unpacked_bytes, i);
+            tag = @truncate(packed_word >> 8);
+            out_i += 1 + @as(usize, @as(u8, @truncate(packed_word)));
         } else {
+            var payload_len: usize = 0;
             var payload: [wire.bytes_per_word]u8 = undefined;
             inline for (0..wire.bytes_per_word) |j| {
                 const b = unpacked_bytes[i + j];
@@ -191,8 +201,8 @@ pub noinline fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8)
                     payload_len += 1;
                 }
             }
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{tag});
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, payload[0..payload_len]);
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{tag});
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, payload[0..payload_len]);
         }
         i += wire.bytes_per_word;
 
@@ -202,7 +212,7 @@ pub noinline fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8)
                 i += wire.bytes_per_word;
                 run_words += 1;
             }
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{@intCast(run_words)});
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
         } else if (tag == 0xff) {
             const run_start = i;
             var run_words: usize = 0;
@@ -210,8 +220,8 @@ pub noinline fn packToWriter(writer: *std.Io.Writer, unpacked_bytes: []const u8)
                 i += wire.bytes_per_word;
                 run_words += 1;
             }
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{@intCast(run_words)});
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, unpacked_bytes[run_start..i]);
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, unpacked_bytes[run_start..i]);
         }
     }
 
@@ -252,8 +262,8 @@ pub fn packReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error
                     payload_len += 1;
                 }
             }
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{tag});
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, payload[0..payload_len]);
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{tag});
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, payload[0..payload_len]);
         }
         maybe_current = null;
 
@@ -267,7 +277,7 @@ pub fn packReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error
                 }
                 run_words += 1;
             }
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{@intCast(run_words)});
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
             if (maybe_current == null and run_words == 255) maybe_current = try in.readWord();
         } else if (tag == 0xff) {
             var raw_words: [255 * wire.bytes_per_word]u8 = undefined;
@@ -281,8 +291,8 @@ pub fn packReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Writer) (Error
                 @memcpy(raw_words[run_words * wire.bytes_per_word ..][0..wire.bytes_per_word], &next);
                 run_words += 1;
             }
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, &[_]u8{@intCast(run_words)});
-            try writeStreamingPackedSlice(writer, &out_buf, &out_i, raw_words[0 .. run_words * wire.bytes_per_word]);
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, &[_]u8{@intCast(run_words)});
+            out_i = try writeStreamingPackedSlice(writer, out_buf[0..], out_i, raw_words[0 .. run_words * wire.bytes_per_word]);
             if (maybe_current == null and run_words == 255) maybe_current = try in.readWord();
         } else {
             maybe_current = try in.readWord();
@@ -535,27 +545,27 @@ pub noinline fn unpackReaderToWriter(reader: *std.Io.Reader, writer: *std.Io.Wri
     if (out_i != 0) try writer.writeAll(out_buf[0..out_i]);
 }
 
-fn writePackedSlice(dest: []u8, out_i: *usize, bytes: []const u8) Error!void {
-    if (dest.len - out_i.* < bytes.len) return error.PackedOutputTooSmall;
-    @memcpy(dest[out_i.* .. out_i.* + bytes.len], bytes);
-    out_i.* += bytes.len;
+fn writePackedSlice(dest: []u8, out_i: usize, bytes: []const u8) Error!usize {
+    if (dest.len - out_i < bytes.len) return error.PackedOutputTooSmall;
+    @memcpy(dest[out_i..][0..bytes.len], bytes);
+    return out_i + bytes.len;
 }
 
-fn writeStreamingPackedSlice(writer: *std.Io.Writer, out_buf: []u8, out_i: *usize, bytes: []const u8) (Error || std.Io.Writer.Error)!void {
+fn writeStreamingPackedSlice(writer: *std.Io.Writer, out_buf: []u8, out_i: usize, bytes: []const u8) (Error || std.Io.Writer.Error)!usize {
     if (bytes.len > out_buf.len) {
-        if (out_i.* != 0) {
-            try writer.writeAll(out_buf[0..out_i.*]);
-            out_i.* = 0;
+        if (out_i != 0) {
+            try writer.writeAll(out_buf[0..out_i]);
         }
         try writer.writeAll(bytes);
-        return;
+        return 0;
     }
-    if (out_buf.len - out_i.* < bytes.len) {
-        try writer.writeAll(out_buf[0..out_i.*]);
-        out_i.* = 0;
+    var next = out_i;
+    if (out_buf.len - next < bytes.len) {
+        try writer.writeAll(out_buf[0..next]);
+        next = 0;
     }
-    @memcpy(out_buf[out_i.* .. out_i.* + bytes.len], bytes);
-    out_i.* += bytes.len;
+    @memcpy(out_buf[next..][0..bytes.len], bytes);
+    return next + bytes.len;
 }
 
 inline fn isZeroWord(word: *const [wire.bytes_per_word]u8) bool {

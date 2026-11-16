@@ -72,6 +72,11 @@ All notable changes to `cpz` are documented here.
 - The benchmark now runs every measured loop in its own non-inlined function;
   inlining them into one large `main` had distorted codegen and overstated
   streaming costs by up to 3x.
+- Packed serialization now computes tags with a branch-free SWAR expression and
+  compacts payload bytes with a NEON `tbl` byte shuffle on aarch64, backed by a
+  256-entry shuffle table. Other targets and Debug builds keep the scalar loop.
+  ReleaseFast packed serialization drops from roughly 1.45 us to 1.0 us per
+  4 KB message.
 - Allocating `pack` now allocates `maxPackedSize`, uses `packInto`, and shrinks
   to the written length, avoiding the packed-size pre-pass and per-word
   `ArrayList` appends; it is roughly 4x faster in a fixed-buffer microbenchmark,
